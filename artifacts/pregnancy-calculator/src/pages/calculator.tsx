@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { DueDateForm } from "@/components/calculator/due-date-form";
 import { ConceptionForm } from "@/components/calculator/conception-form";
 import { UltrasoundForm } from "@/components/calculator/ultrasound-form";
+import { LmpForm } from "@/components/calculator/lmp-form";
 import { ResultsDisplay } from "@/components/calculator/results-display";
 import { PregnancyResults } from "@/lib/pregnancy-math";
 import { Baby } from "lucide-react";
@@ -35,10 +36,17 @@ export default function CalculatorPage() {
 
         {/* Main Calculator Card */}
         <Card className="p-1 sm:p-2 bg-card border-border/50 shadow-sm rounded-3xl overflow-hidden">
-          <Tabs defaultValue="duedate" className="w-full" onValueChange={handleTabChange}>
+          <Tabs defaultValue="lmp" className="w-full" onValueChange={handleTabChange}>
             
             <div className="p-2 sm:p-4 bg-muted/30 border-b border-border/40">
-              <TabsList className="grid w-full grid-cols-1 md:grid-cols-3 h-auto gap-2 bg-transparent p-0">
+              <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto gap-2 bg-transparent p-0">
+                <TabsTrigger 
+                  value="lmp" 
+                  className="data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-xl py-3 text-sm md:text-base transition-all"
+                  data-testid="tab-lmp"
+                >
+                  By LMP
+                </TabsTrigger>
                 <TabsTrigger 
                   value="duedate" 
                   className="data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-xl py-3 text-sm md:text-base transition-all"
@@ -64,6 +72,12 @@ export default function CalculatorPage() {
             </div>
 
             <div className="p-4 sm:p-6 md:p-8">
+              <TabsContent value="lmp" className="mt-0 outline-none">
+                <div className="max-w-2xl mx-auto">
+                  <LmpForm onCalculate={setResults} />
+                </div>
+              </TabsContent>
+
               <TabsContent value="duedate" className="mt-0 outline-none">
                 <div className="max-w-2xl mx-auto">
                   <DueDateForm onCalculate={setResults} />

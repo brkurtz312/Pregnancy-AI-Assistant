@@ -68,6 +68,13 @@ export function calculateByConceptionDate(conceptionDateStr: string): PregnancyR
   return calculateCommonResults(lmp);
 }
 
+export function calculateByLMP(lmpDateStr: string): PregnancyResults | null {
+  if (!lmpDateStr) return null;
+  const lmp = startOfDay(new Date(lmpDateStr));
+  if (isNaN(lmp.getTime())) return null;
+  return calculateCommonResults(lmp);
+}
+
 export function calculateByUltrasound(ultrasoundDateStr: string, weeks: number, days: number): PregnancyResults | null {
   if (!ultrasoundDateStr || isNaN(weeks) || isNaN(days)) return null;
   const usDate = startOfDay(new Date(ultrasoundDateStr));
