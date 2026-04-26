@@ -1,9 +1,10 @@
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { PregnancyResults, formatGestationalAge, getMilestones } from "@/lib/pregnancy-math";
+import { getWeeklyDevelopment, getUpcomingWeeks } from "@/lib/fetal-development";
 import { format, isPast, isToday } from "date-fns";
-import { Baby, Calendar, Heart, Clock, Activity } from "lucide-react";
+import { Baby, Calendar, Heart, Clock, Activity, Sparkles, ChevronRight } from "lucide-react";
 
 interface ResultsDisplayProps {
   results: PregnancyResults | null;
@@ -13,6 +14,8 @@ export function ResultsDisplay({ results }: ResultsDisplayProps) {
   if (!results) return null;
 
   const milestones = getMilestones(results);
+  const currentWeekData = getWeeklyDevelopment(results.currentGestationalAgeWeeks);
+  const upcomingWeeks = getUpcomingWeeks(results.currentGestationalAgeWeeks, 3);
   
   const getTrimesterText = (t: 1 | 2 | 3) => {
     if (t === 1) return "First Trimester";
@@ -109,7 +112,6 @@ export function ResultsDisplay({ results }: ResultsDisplayProps) {
           </CardHeader>
           <CardContent>
             <div className="relative space-y-0 before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-border before:to-transparent">
-              
               <MilestoneItem 
                 title="End of First Trimester (Week 14)" 
                 date={milestones.endFirstTrimester} 
@@ -125,12 +127,103 @@ export function ResultsDisplay({ results }: ResultsDisplayProps) {
                 date={milestones.due} 
                 isLast={true} 
               />
-              
             </div>
           </CardContent>
         </Card>
 
       </div>
+
+      {/* Fetal Development Section */}
+      {currentWeekData && (
+        <div className="space-y-4 mt-2" data-testid="fetal-development-section">
+          <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary" />
+            Fetal Development — Week {currentWeekData.week}
+          </h2>
+
+          {/* Current Week Card */}
+          <Card className="border-primary/20 shadow-md" data-testid="card-current-week">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <CardTitle className="text-lg">This Week: Week {currentWeekData.week}</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-primary/10 text-primary border-primary/20 font-medium">
+                    {currentWeekData.size}
+                  </Badge>
+                  <Badge variant="outline" className="text-muted-foreground border-border/60">
+                    About the size of {currentWeekData.sizeComparison}
+                  </Badge>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div>
+                <h4 className="text-sm font-semibold text-foreground/70 uppercase tracking-wider mb-3">Baby's Development</h4>
+                <ul className="space-y-2" data-testid="list-baby-development">
+                  {currentWeekData.development.map((item, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-foreground/80">
+                      <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-foreground/70 uppercase tracking-wider mb-3">What You May Experience</h4>
+                <ul className="space-y-2" data-testid="list-mother-changes">
+                  {currentWeekData.motherChanges.map((item, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-foreground/80">
+                      <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="bg-primary/5 border border-primary/15 rounded-xl p-4">
+                <p className="text-sm font-medium text-primary/80">
+                  <span className="font-semibold text-primary">Coming Up: </span>
+                  {currentWeekData.comingUp}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Upcoming Weeks */}
+          {upcomingWeeks.length > 0 && (
+            <div>
+              <h3 className="text-base font-semibold text-foreground/80 mb-3 flex items-center gap-1">
+                <ChevronRight className="w-4 h-4 text-primary" />
+                What to Expect Next
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3" data-testid="upcoming-weeks">
+                {upcomingWeeks.map((week) => (
+                  <Card key={week.week} className="shadow-sm border-border/50" data-testid={`card-week-${week.week}`}>
+                    <CardHeader className="pb-2 pt-4">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm font-semibold text-foreground">Week {week.week}</CardTitle>
+                        <Badge variant="outline" className="text-xs text-muted-foreground border-border/50">
+                          {week.sizeComparison}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pb-4">
+                      <ul className="space-y-1.5">
+                        {week.development.slice(0, 2).map((item, i) => (
+                          <li key={i} className="flex items-start gap-1.5 text-xs text-foreground/70">
+                            <span className="mt-1.5 w-1 h-1 rounded-full bg-primary/60 shrink-0" />
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
     </div>
   );
 }
