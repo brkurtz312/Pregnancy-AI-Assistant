@@ -6,6 +6,30 @@ import { getWeeklyDevelopment, getUpcomingWeeks } from "@/lib/fetal-development"
 import { format, isPast, isToday } from "date-fns";
 import { Baby, Calendar, Heart, Clock, Activity, Sparkles, ChevronRight } from "lucide-react";
 
+import fetalWeek04 from "@/assets/fetal-week-04.png";
+import fetalWeek08 from "@/assets/fetal-week-08.png";
+import fetalWeek12 from "@/assets/fetal-week-12.png";
+import fetalWeek16 from "@/assets/fetal-week-16.png";
+import fetalWeek20 from "@/assets/fetal-week-20.png";
+import fetalWeek24 from "@/assets/fetal-week-24.png";
+import fetalWeek28 from "@/assets/fetal-week-28.png";
+import fetalWeek32 from "@/assets/fetal-week-32.png";
+import fetalWeek36 from "@/assets/fetal-week-36.png";
+import fetalWeek40 from "@/assets/fetal-week-40.png";
+
+function getFetalImage(week: number): string {
+  if (week <= 5)  return fetalWeek04;
+  if (week <= 9)  return fetalWeek08;
+  if (week <= 13) return fetalWeek12;
+  if (week <= 17) return fetalWeek16;
+  if (week <= 21) return fetalWeek20;
+  if (week <= 25) return fetalWeek24;
+  if (week <= 29) return fetalWeek28;
+  if (week <= 33) return fetalWeek32;
+  if (week <= 37) return fetalWeek36;
+  return fetalWeek40;
+}
+
 interface ResultsDisplayProps {
   results: PregnancyResults | null;
 }
@@ -157,6 +181,17 @@ export function ResultsDisplay({ results }: ResultsDisplayProps) {
               </div>
             </CardHeader>
             <CardContent className="space-y-5">
+              {/* Illustration */}
+              <div className="flex justify-center">
+                <div className="relative w-48 h-48 rounded-2xl bg-primary/5 border border-primary/10 overflow-hidden flex items-center justify-center">
+                  <img
+                    src={getFetalImage(currentWeekData.week)}
+                    alt={`Fetal development illustration at week ${currentWeekData.week}`}
+                    className="w-full h-full object-contain p-3"
+                    data-testid="img-fetal-development"
+                  />
+                </div>
+              </div>
               <div>
                 <h4 className="text-sm font-semibold text-foreground/70 uppercase tracking-wider mb-3">Baby's Development</h4>
                 <ul className="space-y-2" data-testid="list-baby-development">

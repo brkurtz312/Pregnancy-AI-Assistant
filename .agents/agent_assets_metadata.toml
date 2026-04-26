@@ -1,0 +1,62 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "CbBv_vnUXHpxf5NXB9uOU"
+uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-04.png"
+type = "image"
+title = "fetal week 4"
+
+[[generated]]
+id = "ZKgPPFffDDF_BbPu-JKbq"
+uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-08.png"
+type = "image"
+title = "fetal week 8"
+
+[[generated]]
+id = "i4MkFxlP7NGdjPFNxjJ34"
+uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-12.png"
+type = "image"
+title = "fetal week 12"
+
+[[generated]]
+id = "qIlg5F8QEwSTSxCx9z1fq"
+uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-16.png"
+type = "image"
+title = "fetal week 16"
+
+[[generated]]
+id = "0x6CUsfUI2VDOegbL24eL"
+uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-20.png"
+type = "image"
+title = "fetal week 20"
+
+[[generated]]
+id = "7bgLjqPyqyNSmQm-yZpZN"
+uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-24.png"
+type = "image"
+title = "fetal week 24"
+
+[[generated]]
+id = "5ghoig1JiBK2Wzr_lwNPs"
+uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-28.png"
+type = "image"
+title = "fetal week 28"
+
+[[generated]]
+id = "fGem0gceoZilmNB-uop2P"
+uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-32.png"
+type = "image"
+title = "fetal week 32"
+
+[[generated]]
+id = "T7wrtGxeM8iJQcmaTKsz7"
+uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-36.png"
+type = "image"
+title = "fetal week 36"
+
+[[generated]]
+id = "AYXBxyVoToSptdTn4jisc"
+uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-40.png"
+type = "image"
+title = "fetal week 40"
