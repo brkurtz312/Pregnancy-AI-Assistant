@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "CbBv_vnUXHpxf5NXB9uOU"
@@ -60,3 +59,63 @@ id = "AYXBxyVoToSptdTn4jisc"
 uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-40.png"
 type = "image"
 title = "fetal week 40 realistic"
+
+[[outputs]]
+id = "2IqsmAfiahVgUCSFTEqY3"
+uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-04.png"
+type = "image"
+title = "Week 4 — Blastocyst"
+
+[[outputs]]
+id = "ghS2dMXZkWxCfPsRgXpFQ"
+uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-08.png"
+type = "image"
+title = "Week 8 — Early Embryo"
+
+[[outputs]]
+id = "8y84a1FHPIT5YieCP5Ryn"
+uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-12.png"
+type = "image"
+title = "Week 12 — First Trimester"
+
+[[outputs]]
+id = "oERgn8R-qtFIJIVsqZK2h"
+uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-16.png"
+type = "image"
+title = "Week 16 — Formed Limbs"
+
+[[outputs]]
+id = "pT9lxESeEmO9zb4ovPQsG"
+uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-20.png"
+type = "image"
+title = "Week 20 — Halfway"
+
+[[outputs]]
+id = "agpBCwTcAOOOoZuH74fWf"
+uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-24.png"
+type = "image"
+title = "Week 24 — Viable"
+
+[[outputs]]
+id = "-VWujASXcO-RxCwGYg5u0"
+uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-28.png"
+type = "image"
+title = "Week 28 — Third Trimester"
+
+[[outputs]]
+id = "ey0I51cUB_bj9RV12BiT8"
+uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-32.png"
+type = "image"
+title = "Week 32 — Chubby Cheeks"
+
+[[outputs]]
+id = "nrcI0n4AQT6ecmXl5NWzD"
+uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-36.png"
+type = "image"
+title = "Week 36 — Nearly Ready"
+
+[[outputs]]
+id = "wCkK3jFbfCNbdCEG1_oUq"
+uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-40.png"
+type = "image"
+title = "Week 40 — Full Term"
