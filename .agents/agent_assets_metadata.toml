@@ -60,6 +60,12 @@ uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-40.png"
 type = "image"
 title = "fetal week 40 fixed"
 
+[[generated]]
+id = "h4-HDBNtcoP4J0jy5dXSl"
+uri = "file://artifacts/pregnancy-calculator-mobile/assets/images/icon.png"
+type = "image"
+title = "pregnancy calculator app icon"
+
 [[outputs]]
 id = "2IqsmAfiahVgUCSFTEqY3"
 uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-04.png"
