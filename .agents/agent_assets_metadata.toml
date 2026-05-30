@@ -4,61 +4,61 @@ uploads = []
 id = "CbBv_vnUXHpxf5NXB9uOU"
 uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-04.png"
 type = "image"
-title = "fetal week 04 realistic"
+title = "fetal week 04 fixed"
 
 [[generated]]
 id = "ZKgPPFffDDF_BbPu-JKbq"
 uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-08.png"
 type = "image"
-title = "fetal week 08 realistic"
+title = "fetal week 08 fixed"
 
 [[generated]]
 id = "i4MkFxlP7NGdjPFNxjJ34"
 uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-12.png"
 type = "image"
-title = "fetal week 12 realistic"
+title = "fetal week 12 fixed"
 
 [[generated]]
 id = "qIlg5F8QEwSTSxCx9z1fq"
 uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-16.png"
 type = "image"
-title = "fetal week 16 realistic"
+title = "fetal week 16 fixed"
 
 [[generated]]
 id = "0x6CUsfUI2VDOegbL24eL"
 uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-20.png"
 type = "image"
-title = "fetal week 20 realistic"
+title = "fetal week 20 fixed"
 
 [[generated]]
 id = "7bgLjqPyqyNSmQm-yZpZN"
 uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-24.png"
 type = "image"
-title = "fetal week 24 realistic"
+title = "fetal week 24 fixed"
 
 [[generated]]
 id = "5ghoig1JiBK2Wzr_lwNPs"
 uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-28.png"
 type = "image"
-title = "fetal week 28 realistic"
+title = "fetal week 28 fixed"
 
 [[generated]]
 id = "fGem0gceoZilmNB-uop2P"
 uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-32.png"
 type = "image"
-title = "fetal week 32 realistic"
+title = "fetal week 32 fixed"
 
 [[generated]]
 id = "T7wrtGxeM8iJQcmaTKsz7"
 uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-36.png"
 type = "image"
-title = "fetal week 36 realistic"
+title = "fetal week 36 fixed"
 
 [[generated]]
 id = "AYXBxyVoToSptdTn4jisc"
 uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-40.png"
 type = "image"
-title = "fetal week 40 realistic"
+title = "fetal week 40 fixed"
 
 [[outputs]]
 id = "2IqsmAfiahVgUCSFTEqY3"
@@ -106,13 +106,13 @@ title = "Week 28 — Third Trimester"
 id = "ey0I51cUB_bj9RV12BiT8"
 uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-32.png"
 type = "image"
-title = "Week 32 — Chubby Cheeks"
+title = "Week 32 — Fixed Cheeks"
 
 [[outputs]]
 id = "nrcI0n4AQT6ecmXl5NWzD"
 uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-36.png"
 type = "image"
-title = "Week 36 — Nearly Ready"
+title = "Week 36 — Fixed Cheeks"
 
 [[outputs]]
 id = "wCkK3jFbfCNbdCEG1_oUq"
