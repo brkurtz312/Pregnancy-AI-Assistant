@@ -191,8 +191,24 @@ function Stepper({
   );
 }
 
+function FetalImageViewer({ source, visible, onClose }: { source: ReturnType<typeof require>; visible: boolean; onClose: () => void }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
+      <Pressable style={styles.imageViewerOverlay} onPress={onClose}>
+        <View style={[styles.imageViewerClose, { top: insets.top + 16 }]}>
+          <Ionicons name="close" size={22} color="#fff" />
+        </View>
+        <Image source={source} style={styles.imageViewerFull} resizeMode="contain" />
+        <Text style={[styles.imageViewerHint, { bottom: insets.bottom + 20 }]}>Tap anywhere to close</Text>
+      </Pressable>
+    </Modal>
+  );
+}
+
 function ResultsView({ results }: { results: PregnancyResults }) {
   const colors = useColors();
+  const [imageFullscreen, setImageFullscreen] = useState(false);
   const weekData = getWeeklyDevelopment(results.currentGestationalAgeWeeks);
   const milestones = getMilestones(results);
   const isOverdue = results.daysUntilDue < 0;
@@ -281,12 +297,29 @@ function ResultsView({ results }: { results: PregnancyResults }) {
               ~ {weekData.sizeComparison}
             </Text>
           </View>
-          <Image
-            source={getFetalImage(weekData.week)}
-            style={[styles.fetalImage, { backgroundColor: colors.muted }]}
-            resizeMode="contain"
-          />
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setImageFullscreen(true);
+            }}
+            activeOpacity={0.85}
+          >
+            <Image
+              source={getFetalImage(weekData.week)}
+              style={[styles.fetalImage, { backgroundColor: colors.muted }]}
+              resizeMode="contain"
+            />
+            <View style={[styles.fetalImageHint, { backgroundColor: colors.muted }]}>
+              <Ionicons name="expand-outline" size={12} color={colors.mutedForeground} />
+            </View>
+          </TouchableOpacity>
         </View>
+
+        <FetalImageViewer
+          source={getFetalImage(weekData.week)}
+          visible={imageFullscreen}
+          onClose={() => setImageFullscreen(false)}
+        />
 
         {/* Baby development */}
         <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Baby this week</Text>
@@ -794,5 +827,41 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_400Regular",
     lineHeight: 18,
+  },
+  fetalImageHint: {
+    position: "absolute",
+    bottom: 6,
+    right: 6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  imageViewerOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.93)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  imageViewerFull: {
+    width: "90%",
+    height: "70%",
+  },
+  imageViewerClose: {
+    position: "absolute",
+    right: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  imageViewerHint: {
+    position: "absolute",
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
   },
 });
