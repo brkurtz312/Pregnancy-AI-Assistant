@@ -161,3 +161,21 @@ id = "9JpoK5fEskE01mZx2X9Va"
 uri = "file://screenshots/app-store/03-development-1242x2688.jpg"
 type = "image"
 title = "App Store Screenshot 3 — Fetal Development (1242×2688)"
+
+[[outputs]]
+id = "LzQiNe2-8TiTqixb8oTX-"
+uri = "file://screenshots/app-store-5.5/01-calculator-1242x2208.jpg"
+type = "image"
+title = "5.5\" Screenshot 1 — Calculator (1242×2208)"
+
+[[outputs]]
+id = "8wgwoOeKM9ttsj4dKCo0i"
+uri = "file://screenshots/app-store-5.5/02-results-1242x2208.jpg"
+type = "image"
+title = "5.5\" Screenshot 2 — Due Date Results (1242×2208)"
+
+[[outputs]]
+id = "7_3EhZPA4ZUeoPwDYldRW"
+uri = "file://screenshots/app-store-5.5/03-development-1242x2208.jpg"
+type = "image"
+title = "5.5\" Screenshot 3 — Fetal Development (1242×2208)"
