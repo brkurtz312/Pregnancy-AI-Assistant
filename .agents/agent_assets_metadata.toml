@@ -125,3 +125,21 @@ id = "wCkK3jFbfCNbdCEG1_oUq"
 uri = "file://artifacts/pregnancy-calculator/src/assets/fetal-week-40.png"
 type = "image"
 title = "Week 40 — Full Term"
+
+[[outputs]]
+id = "gwEDCUOJDql9mtMQwPU21"
+uri = "file://screenshots/01-calculator.jpg"
+type = "image"
+title = "Screenshot 1 — Calculator & Input"
+
+[[outputs]]
+id = "z8Jj1sANQkF1v9iGatHbw"
+uri = "file://screenshots/02-results.jpg"
+type = "image"
+title = "Screenshot 2 — Due Date & Results"
+
+[[outputs]]
+id = "6rpz7R8AvZTTn_ADsGqdj"
+uri = "file://screenshots/03-development.jpg"
+type = "image"
+title = "Screenshot 3 — Full Results with Fetal Development"
