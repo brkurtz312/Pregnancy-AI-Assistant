@@ -1,0 +1,1 @@
+- [AI integration + mobile API base URL](ai-integration-and-mobile-api.md) — copied Anthropic client throws at import (crashes whole API) → make lazy; Expo native needs setBaseUrl(https://EXPO_PUBLIC_DOMAIN).

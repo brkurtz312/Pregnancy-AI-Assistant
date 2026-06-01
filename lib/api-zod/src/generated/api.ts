@@ -14,3 +14,47 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * Ask an evidence-based pregnancy and infant-health question. Answers are guided to align with ACOG and AAP guidance and always include a disclaimer to consult a healthcare provider.
+
+ * @summary Ask the pregnancy assistant
+ */
+export const askAssistantBodyQuestionMax = 2000;
+
+export const askAssistantBodyWeekMax = 42;
+
+export const AskAssistantBody = zod.object({
+  question: zod.string().min(1).max(askAssistantBodyQuestionMax),
+  week: zod.number().min(1).max(askAssistantBodyWeekMax).nullish(),
+  history: zod
+    .array(
+      zod.object({
+        role: zod.enum(["user", "assistant"]),
+        content: zod.string().min(1),
+      }),
+    )
+    .optional(),
+});
+
+export const AskAssistantResponse = zod.object({
+  answer: zod.string(),
+  disclaimer: zod.string(),
+});
+
+/**
+ * Returns an evidence-based insight for a given gestational week, guided to align with ACOG and AAP guidance, with a disclaimer.
+
+ * @summary Weekly pregnancy insight
+ */
+export const getWeeklyInsightBodyWeekMax = 42;
+
+export const GetWeeklyInsightBody = zod.object({
+  week: zod.number().min(1).max(getWeeklyInsightBodyWeekMax),
+});
+
+export const GetWeeklyInsightResponse = zod.object({
+  week: zod.number(),
+  insight: zod.string(),
+  disclaimer: zod.string(),
+});

@@ -3,6 +3,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { PregnancyResults, formatGestationalAge, getMilestones } from "@/lib/pregnancy-math";
 import { getWeeklyDevelopment, getUpcomingWeeks } from "@/lib/fetal-development";
+import { AiAssistant } from "@/components/calculator/ai-assistant";
 import { format, isPast, isToday } from "date-fns";
 import { Baby, Calendar, Heart, Clock, Activity, Sparkles, ChevronRight } from "lucide-react";
 
@@ -258,6 +259,9 @@ export function ResultsDisplay({ results }: ResultsDisplayProps) {
           )}
         </div>
       )}
+
+      {/* AI Assistant */}
+      <AiAssistant currentWeek={results.currentGestationalAgeWeeks} />
 
     </div>
   );

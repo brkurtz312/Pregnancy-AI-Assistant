@@ -6,6 +6,7 @@ import {
   useFonts,
 } from "@expo-google-fonts/inter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { setBaseUrl } from "@workspace/api-client-react";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
@@ -16,6 +17,13 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 SplashScreen.preventAutoHideAsync();
+
+// Native builds need an absolute API base URL (they don't share the web proxy
+// origin). EXPO_PUBLIC_DOMAIN is the deployment/dev domain without a protocol.
+const apiDomain = process.env.EXPO_PUBLIC_DOMAIN;
+if (apiDomain) {
+  setBaseUrl(`https://${apiDomain}`);
+}
 
 const queryClient = new QueryClient();
 

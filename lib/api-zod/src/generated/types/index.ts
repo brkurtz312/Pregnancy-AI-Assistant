@@ -6,4 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./apiError";
+export * from "./assistantQuery";
+export * from "./assistantReply";
+export * from "./chatMessage";
+export * from "./chatMessageRole";
 export * from "./healthStatus";
+export * from "./weeklyInsight";
+export * from "./weeklyInsightQuery";

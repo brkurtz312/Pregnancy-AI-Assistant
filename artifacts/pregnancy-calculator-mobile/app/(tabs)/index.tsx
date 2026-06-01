@@ -19,6 +19,7 @@ import {
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AiAssistant } from "@/components/AiAssistant";
 import { useColors } from "@/hooks/useColors";
 import { getWeeklyDevelopment } from "@/lib/fetal-development";
 import { getFetalImage } from "@/lib/fetal-images";
@@ -526,7 +527,12 @@ export default function CalculatorScreen() {
           </View>
 
           {/* Results */}
-          {results && <ResultsView results={results} />}
+          {results && (
+            <>
+              <ResultsView results={results} />
+              <AiAssistant currentWeek={results.currentGestationalAgeWeeks} />
+            </>
+          )}
         </View>
       </ScrollView>
     </View>

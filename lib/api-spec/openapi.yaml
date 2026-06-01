@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: ai
+    description: AI assistant operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,85 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /ai/ask:
+    post:
+      operationId: askAssistant
+      tags: [ai]
+      summary: Ask the pregnancy assistant
+      description: >
+        Ask an evidence-based pregnancy and infant-health question. Answers are
+        guided to align with ACOG and AAP guidance and always include a
+        disclaimer to consult a healthcare provider.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssistantQuery"
+      responses:
+        "200":
+          description: Assistant reply
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssistantReply"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: The AI provider failed to respond
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: The AI integration is not provisioned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /ai/weekly-insight:
+    post:
+      operationId: getWeeklyInsight
+      tags: [ai]
+      summary: Weekly pregnancy insight
+      description: >
+        Returns an evidence-based insight for a given gestational week, guided to
+        align with ACOG and AAP guidance, with a disclaimer.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WeeklyInsightQuery"
+      responses:
+        "200":
+          description: Weekly insight
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeeklyInsight"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: The AI provider failed to respond
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: The AI integration is not provisioned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +114,72 @@ components:
           type: string
       required:
         - status
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    ChatMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+          minLength: 1
+      required:
+        - role
+        - content
+    AssistantQuery:
+      type: object
+      properties:
+        question:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        week:
+          type: ["integer", "null"]
+          minimum: 1
+          maximum: 42
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+      required:
+        - question
+    AssistantReply:
+      type: object
+      properties:
+        answer:
+          type: string
+        disclaimer:
+          type: string
+      required:
+        - answer
+        - disclaimer
+    WeeklyInsightQuery:
+      type: object
+      properties:
+        week:
+          type: integer
+          minimum: 1
+          maximum: 42
+      required:
+        - week
+    WeeklyInsight:
+      type: object
+      properties:
+        week:
+          type: integer
+        insight:
+          type: string
+        disclaimer:
+          type: string
+      required:
+        - week
+        - insight
+        - disclaimer
 

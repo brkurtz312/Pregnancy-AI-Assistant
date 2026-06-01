@@ -5,18 +5,28 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type {
+  ApiError,
+  AssistantQuery,
+  AssistantReply,
+  HealthStatus,
+  WeeklyInsight,
+  WeeklyInsightQuery,
+} from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -99,3 +109,179 @@ export function useHealthCheck<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Ask an evidence-based pregnancy and infant-health question. Answers are guided to align with ACOG and AAP guidance and always include a disclaimer to consult a healthcare provider.
+
+ * @summary Ask the pregnancy assistant
+ */
+export const getAskAssistantUrl = () => {
+  return `/api/ai/ask`;
+};
+
+export const askAssistant = async (
+  assistantQuery: AssistantQuery,
+  options?: RequestInit,
+): Promise<AssistantReply> => {
+  return customFetch<AssistantReply>(getAskAssistantUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(assistantQuery),
+  });
+};
+
+export const getAskAssistantMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof askAssistant>>,
+    TError,
+    { data: BodyType<AssistantQuery> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof askAssistant>>,
+  TError,
+  { data: BodyType<AssistantQuery> },
+  TContext
+> => {
+  const mutationKey = ["askAssistant"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof askAssistant>>,
+    { data: BodyType<AssistantQuery> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return askAssistant(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AskAssistantMutationResult = NonNullable<
+  Awaited<ReturnType<typeof askAssistant>>
+>;
+export type AskAssistantMutationBody = BodyType<AssistantQuery>;
+export type AskAssistantMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Ask the pregnancy assistant
+ */
+export const useAskAssistant = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof askAssistant>>,
+    TError,
+    { data: BodyType<AssistantQuery> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof askAssistant>>,
+  TError,
+  { data: BodyType<AssistantQuery> },
+  TContext
+> => {
+  return useMutation(getAskAssistantMutationOptions(options));
+};
+
+/**
+ * Returns an evidence-based insight for a given gestational week, guided to align with ACOG and AAP guidance, with a disclaimer.
+
+ * @summary Weekly pregnancy insight
+ */
+export const getGetWeeklyInsightUrl = () => {
+  return `/api/ai/weekly-insight`;
+};
+
+export const getWeeklyInsight = async (
+  weeklyInsightQuery: WeeklyInsightQuery,
+  options?: RequestInit,
+): Promise<WeeklyInsight> => {
+  return customFetch<WeeklyInsight>(getGetWeeklyInsightUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(weeklyInsightQuery),
+  });
+};
+
+export const getGetWeeklyInsightMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof getWeeklyInsight>>,
+    TError,
+    { data: BodyType<WeeklyInsightQuery> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof getWeeklyInsight>>,
+  TError,
+  { data: BodyType<WeeklyInsightQuery> },
+  TContext
+> => {
+  const mutationKey = ["getWeeklyInsight"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof getWeeklyInsight>>,
+    { data: BodyType<WeeklyInsightQuery> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return getWeeklyInsight(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GetWeeklyInsightMutationResult = NonNullable<
+  Awaited<ReturnType<typeof getWeeklyInsight>>
+>;
+export type GetWeeklyInsightMutationBody = BodyType<WeeklyInsightQuery>;
+export type GetWeeklyInsightMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Weekly pregnancy insight
+ */
+export const useGetWeeklyInsight = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof getWeeklyInsight>>,
+    TError,
+    { data: BodyType<WeeklyInsightQuery> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof getWeeklyInsight>>,
+  TError,
+  { data: BodyType<WeeklyInsightQuery> },
+  TContext
+> => {
+  return useMutation(getGetWeeklyInsightMutationOptions(options));
+};

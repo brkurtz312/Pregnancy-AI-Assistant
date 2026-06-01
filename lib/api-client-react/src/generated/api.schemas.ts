@@ -8,3 +8,55 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface ApiError {
+  error: string;
+}
+
+export type ChatMessageRole =
+  (typeof ChatMessageRole)[keyof typeof ChatMessageRole];
+
+export const ChatMessageRole = {
+  user: "user",
+  assistant: "assistant",
+} as const;
+
+export interface ChatMessage {
+  role: ChatMessageRole;
+  /** @minLength 1 */
+  content: string;
+}
+
+export interface AssistantQuery {
+  /**
+   * @minLength 1
+   * @maxLength 2000
+   */
+  question: string;
+  /**
+   * @minimum 1
+   * @maximum 42
+   * @nullable
+   */
+  week?: number | null;
+  history?: ChatMessage[];
+}
+
+export interface AssistantReply {
+  answer: string;
+  disclaimer: string;
+}
+
+export interface WeeklyInsightQuery {
+  /**
+   * @minimum 1
+   * @maximum 42
+   */
+  week: number;
+}
+
+export interface WeeklyInsight {
+  week: number;
+  insight: string;
+  disclaimer: string;
+}
