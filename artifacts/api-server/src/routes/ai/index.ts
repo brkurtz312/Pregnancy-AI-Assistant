@@ -11,6 +11,7 @@ import {
   DISCLAIMER,
   buildWeeklyInsightPrompt,
 } from "../../lib/ai-prompts";
+import { aiBurstLimiter, aiDailyLimiter } from "../../lib/rate-limit";
 
 const MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS = 8192;
@@ -24,6 +25,10 @@ const UNAVAILABLE_MESSAGE =
   "The assistant is not available right now. Please try again later.";
 
 const router: IRouter = Router();
+
+// Per-IP rate limiting on the (paid) AI endpoints. Burst first, then daily, so
+// requests rejected by the burst limiter don't count against the daily budget.
+router.use("/ai", aiBurstLimiter, aiDailyLimiter);
 
 type AnthropicMessage = Awaited<
   ReturnType<ReturnType<typeof getAnthropic>["messages"]["create"]>

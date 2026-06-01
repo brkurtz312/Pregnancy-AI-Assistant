@@ -26,6 +26,30 @@ Clients are untrusted: the UI may cap chat history to N turns, but the server
 must independently cap history length and per-message content size (and rate
 limit) — never trust the client to bound prompt size/cost.
 
+# API server dev script builds once — no watch
+
+`@workspace/api-server`'s `dev` script runs `build` then `start` (esbuild one-shot
+bundle → `node dist`). It does **not** watch source files. Editing server source
+does **not** hot-reload — you must restart the workflow
+(`artifacts/api-server: API Server`) to rebuild before curl tests reflect changes.
+
+**Why:** silently testing against the stale build wastes a debug cycle (e.g. new
+middleware appears "not running"). If expected headers/behavior are missing after
+a server edit, restart the workflow first.
+
+# Per-IP rate limiting behind the Replit proxy
+
+Key per-IP limiters off the **leftmost** `X-Forwarded-For` entry (same convention
+as the Clerk proxy middleware), not `req.ip`. The Replit shared proxy supplies the
+authoritative client IP there, so this is independent of proxy hop count and needs
+no `trust proxy` tuning — but it is **only safe behind that trusted proxy boundary**
+(direct ingress would make XFF spoofable).
+
+**Decisions:** order burst limiter before daily limiter so rejected bursts don't
+consume the daily budget. In-memory store is fine for a single instance, but
+**Autoscale (multi-instance) needs a shared store (e.g. Redis)** or per-IP limits
+multiply per instance.
+
 # Expo native needs an absolute API base URL
 
 Web reaches the API via relative URLs through the shared proxy. **Expo native
