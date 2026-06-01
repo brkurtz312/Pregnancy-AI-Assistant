@@ -50,6 +50,21 @@ consume the daily budget. In-memory store is fine for a single instance, but
 **Autoscale (multi-instance) needs a shared store (e.g. Redis)** or per-IP limits
 multiply per instance.
 
+# Weekly insight is cacheable; the Q&A answer is not
+
+The weekly-insight output depends **only on the gestational week** (not on the
+user), so it's cached in-process keyed by week. The Q&A answer depends on the
+user's free-text question + history, so it is **not** cached.
+
+**Why:** the weekly insight fires automatically on every calculation, so it was
+the dominant AI cost; caching collapses repeated same-week calls to a single
+paid generation (verified: ~7.5s miss → ~1ms hit).
+**How to apply:** in-memory TTL cache is correct here because the value is
+identical for everyone — even under Autoscale each instance just warms its own
+copy. Don't cache empty/failed generations (retry instead). If the prompt or
+model changes, stale cached text persists until TTL expiry or a deploy/restart
+(which resets the in-memory cache) — bump/clear if you need it to propagate now.
+
 # Expo native needs an absolute API base URL
 
 Web reaches the API via relative URLs through the shared proxy. **Expo native

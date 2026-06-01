@@ -12,9 +12,16 @@ import {
   buildWeeklyInsightPrompt,
 } from "../../lib/ai-prompts";
 import { aiBurstLimiter, aiDailyLimiter } from "../../lib/rate-limit";
+import { TtlCache } from "../../lib/ttl-cache";
 
 const MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS = 8192;
+
+// Weekly insights depend only on the gestational week (not on the user), so the
+// same generated text is reused for everyone. Cache it in memory to avoid a paid
+// LLM call on every calculation. TTL bounds staleness; deploys also reset it.
+const WEEKLY_INSIGHT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const weeklyInsightCache = new TtlCache<number, string>(WEEKLY_INSIGHT_TTL_MS);
 
 // Server-side guardrails: clients are untrusted, so cap conversation history
 // regardless of what the UI sends.
@@ -104,18 +111,35 @@ router.post("/ai/weekly-insight", async (req, res): Promise<void> => {
   const { week } = parsed.data;
 
   try {
-    const message = await getAnthropic().messages.create({
-      model: MODEL,
-      max_tokens: MAX_TOKENS,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: buildWeeklyInsightPrompt(week) }],
-    });
+    const { value: insight, hit } = await weeklyInsightCache.getOrCompute(
+      week,
+      async () => {
+        req.log.info({ week }, "weekly-insight cache miss; generating");
+        const message = await getAnthropic().messages.create({
+          model: MODEL,
+          max_tokens: MAX_TOKENS,
+          system: SYSTEM_PROMPT,
+          messages: [{ role: "user", content: buildWeeklyInsightPrompt(week) }],
+        });
 
-    const insight = extractText(message);
+        const text = extractText(message);
+        // Don't cache an empty result — treat it as a transient failure so the
+        // next request retries instead of serving a placeholder forever.
+        if (!text) {
+          throw new Error("Empty insight from AI provider");
+        }
+        return text;
+      },
+    );
+
+    if (hit) {
+      req.log.info({ week }, "weekly-insight cache hit");
+    }
+
     res.json(
       GetWeeklyInsightResponse.parse({
         week,
-        insight: insight || "No insight is available for this week right now. Please try again.",
+        insight,
         disclaimer: DISCLAIMER,
       }),
     );
