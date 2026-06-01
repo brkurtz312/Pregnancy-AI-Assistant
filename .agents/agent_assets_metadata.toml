@@ -197,3 +197,9 @@ id = "3Fo6YXCVDb_J5oW-L2TGa"
 uri = "file://screenshots/app-store-png/03-development-1242x2688.png"
 type = "image"
 title = "Screenshot 3 — Fetal Development (PNG, 1242×2688)"
+
+[[outputs]]
+id = "6qsuniD1NJJTVcgw1qXr7"
+uri = "file://exports/pregnancy-calculator-source.tar.gz"
+type = "unspecified"
+title = "Pregnancy Calculator — Full Source Code"
