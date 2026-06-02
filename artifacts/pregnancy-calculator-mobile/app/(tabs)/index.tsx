@@ -6,6 +6,7 @@ import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
 import {
   Image,
+  type ImageSourcePropType,
   Modal,
   Platform,
   Pressable,
@@ -193,7 +194,7 @@ function Stepper({
   );
 }
 
-function FetalImageViewer({ source, visible, onClose }: { source: ReturnType<typeof require>; visible: boolean; onClose: () => void }) {
+function FetalImageViewer({ source, visible, onClose }: { source: ImageSourcePropType; visible: boolean; onClose: () => void }) {
   const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
