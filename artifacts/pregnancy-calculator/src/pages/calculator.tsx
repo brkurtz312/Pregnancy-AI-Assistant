@@ -8,6 +8,7 @@ import { LmpForm } from "@/components/calculator/lmp-form";
 import { ResultsDisplay } from "@/components/calculator/results-display";
 import { PregnancyResults } from "@/lib/pregnancy-math";
 import { Baby } from "lucide-react";
+import { AccountBar } from "@/components/auth/account-bar";
 
 export default function CalculatorPage() {
   const [results, setResults] = useState<PregnancyResults | null>(null);
@@ -19,7 +20,10 @@ export default function CalculatorPage() {
   return (
     <div className="min-h-screen bg-background text-foreground py-8 px-4 md:py-12 md:px-8 selection:bg-primary/20">
       <div className="max-w-4xl mx-auto space-y-8">
-        
+
+        {/* Account / auth controls */}
+        <AccountBar />
+
         {/* Header */}
         <div className="text-center space-y-3 mb-10">
           <div className="inline-flex items-center justify-center p-3 bg-primary/10 rounded-2xl mb-4">

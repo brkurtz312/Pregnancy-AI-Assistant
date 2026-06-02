@@ -6,7 +6,7 @@ import type { Request, Response, RequestHandler } from "express";
 // entry of X-Forwarded-For (see the Clerk proxy middleware for the same
 // convention). Deriving the key this way is independent of how many proxy
 // hops sit in front of us, so we don't rely on a specific `trust proxy` count.
-function getClientIp(req: Request): string {
+export function getClientIp(req: Request): string {
   const xff = req.headers["x-forwarded-for"];
   const first = (Array.isArray(xff) ? xff[0] : xff)?.split(",")[0]?.trim();
   return first || req.ip || req.socket.remoteAddress || "unknown";

@@ -1,0 +1,5 @@
+<svg width="180" height="40" viewBox="0 0 180 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="2" y="6" width="28" height="28" rx="9" fill="hsl(340 65% 55%)"/>
+  <path d="M16 13.5c-1.6-2.6-6.4-2.2-6.4 1.6 0 2.9 4.1 5.6 6.4 7.1 2.3-1.5 6.4-4.2 6.4-7.1 0-3.8-4.8-4.2-6.4-1.6z" fill="white"/>
+  <text x="38" y="26" font-family="Inter, sans-serif" font-size="17" font-weight="700" fill="hsl(340 15% 15%)">Pregnancy<tspan fill="hsl(340 65% 55%)">Pass</tspan></text>
+</svg>

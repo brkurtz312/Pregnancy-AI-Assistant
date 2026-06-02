@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: ai
     description: AI assistant operations
+  - name: billing
+    description: Pass purchase and entitlement operations
 paths:
   /healthz:
     get:
@@ -50,6 +52,12 @@ paths:
                 $ref: "#/components/schemas/AssistantReply"
         "400":
           description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Free question limit reached
           content:
             application/json:
               schema:
@@ -127,6 +135,93 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /billing/pass-status:
+    get:
+      operationId: getPassStatus
+      tags: [billing]
+      summary: Pass entitlement and free usage
+      description: >
+        Returns whether the signed-in user owns the Full Pregnancy Pass and
+        their weekly free question usage.
+      responses:
+        "200":
+          description: Pass status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PassStatus"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /billing/checkout:
+    post:
+      operationId: createCheckout
+      tags: [billing]
+      summary: Start a checkout session for the pass
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckoutRequest"
+      responses:
+        "200":
+          description: Checkout session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutSession"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Payments unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /billing/confirm:
+    post:
+      operationId: confirmCheckout
+      tags: [billing]
+      summary: Confirm a completed checkout and refresh entitlement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmRequest"
+      responses:
+        "200":
+          description: Updated pass status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PassStatus"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
   schemas:
     HealthStatus:
@@ -141,8 +236,43 @@ components:
       properties:
         error:
           type: string
+        code:
+          type: string
       required:
         - error
+    PassStatus:
+      type: object
+      properties:
+        hasPass:
+          type: boolean
+        freeUsed:
+          type: integer
+        freeLimit:
+          type: integer
+      required:
+        - hasPass
+        - freeUsed
+        - freeLimit
+    CheckoutRequest:
+      type: object
+      properties:
+        returnUrl:
+          type: string
+          minLength: 1
+      required:
+        - returnUrl
+    CheckoutSession:
+      type: object
+      properties:
+        url:
+          type: string
+      required:
+        - url
+    ConfirmRequest:
+      type: object
+      properties:
+        sessionId:
+          type: ["string", "null"]
     ChatMessage:
       type: object
       properties:

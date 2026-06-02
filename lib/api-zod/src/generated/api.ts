@@ -58,3 +58,39 @@ export const GetWeeklyInsightResponse = zod.object({
   insight: zod.string(),
   disclaimer: zod.string(),
 });
+
+/**
+ * Returns whether the signed-in user owns the Full Pregnancy Pass and their weekly free question usage.
+
+ * @summary Pass entitlement and free usage
+ */
+export const GetPassStatusResponse = zod.object({
+  hasPass: zod.boolean(),
+  freeUsed: zod.number(),
+  freeLimit: zod.number(),
+});
+
+/**
+ * @summary Start a checkout session for the pass
+ */
+
+export const CreateCheckoutBody = zod.object({
+  returnUrl: zod.string().min(1),
+});
+
+export const CreateCheckoutResponse = zod.object({
+  url: zod.string(),
+});
+
+/**
+ * @summary Confirm a completed checkout and refresh entitlement
+ */
+export const ConfirmCheckoutBody = zod.object({
+  sessionId: zod.string().nullish(),
+});
+
+export const ConfirmCheckoutResponse = zod.object({
+  hasPass: zod.boolean(),
+  freeUsed: zod.number(),
+  freeLimit: zod.number(),
+});

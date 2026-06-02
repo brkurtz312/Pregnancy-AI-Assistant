@@ -11,8 +11,12 @@ import {
   DISCLAIMER,
   buildWeeklyInsightPrompt,
 } from "../../lib/ai-prompts";
-import { aiBurstLimiter, aiDailyLimiter } from "../../lib/rate-limit";
+import { aiBurstLimiter, aiDailyLimiter, getClientIp } from "../../lib/rate-limit";
 import { TtlCache } from "../../lib/ttl-cache";
+import { getUserId } from "../../middlewares/auth";
+import { userHasPass } from "../../lib/entitlement";
+import { currentPeriodKey, getUsage, incrementUsage } from "../../lib/ai-usage";
+import { FREE_WEEKLY_LIMIT } from "../../lib/billing-config";
 
 const MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS = 8192;
@@ -64,6 +68,24 @@ router.post("/ai/ask", async (req, res): Promise<void> => {
 
   const { question, week, history } = parsed.data;
 
+  // Entitlement gating: pass holders are unlimited; everyone else gets a weekly
+  // free allowance keyed to their account when signed in, or their IP when
+  // anonymous. The per-IP burst/daily limiters above still apply on top.
+  const userId = getUserId(req);
+  const periodKey = currentPeriodKey();
+  let meteredIdentifier: string | null = null;
+  if (!(userId && (await userHasPass(userId)))) {
+    meteredIdentifier = userId ? `user:${userId}` : `ip:${getClientIp(req)}`;
+    const used = await getUsage(meteredIdentifier, periodKey);
+    if (used >= FREE_WEEKLY_LIMIT) {
+      res.status(403).json({
+        error: `You've used all ${FREE_WEEKLY_LIMIT} free questions this week. Unlock the Full Pregnancy Pass for unlimited questions.`,
+        code: "FREE_LIMIT_REACHED",
+      });
+      return;
+    }
+  }
+
   const systemPrompt = week
     ? `${SYSTEM_PROMPT}\n\nCONTEXT: The user is currently ${week} weeks pregnant. Tailor your answer to this stage when relevant.`
     : SYSTEM_PROMPT;
@@ -84,6 +106,16 @@ router.post("/ai/ask", async (req, res): Promise<void> => {
     });
 
     const answer = extractText(message);
+
+    // Only count successful answers against the free allowance.
+    if (meteredIdentifier) {
+      try {
+        await incrementUsage(meteredIdentifier, periodKey);
+      } catch (err) {
+        req.log.error({ err }, "Failed to record AI usage");
+      }
+    }
+
     res.json(
       AskAssistantResponse.parse({
         answer: answer || "I'm sorry, I couldn't generate a response. Please try again.",

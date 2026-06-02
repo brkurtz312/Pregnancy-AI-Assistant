@@ -20,7 +20,11 @@ import type {
   ApiError,
   AssistantQuery,
   AssistantReply,
+  CheckoutRequest,
+  CheckoutSession,
+  ConfirmRequest,
   HealthStatus,
+  PassStatus,
   WeeklyInsight,
   WeeklyInsightQuery,
 } from "./api.schemas";
@@ -284,4 +288,253 @@ export const useGetWeeklyInsight = <
   TContext
 > => {
   return useMutation(getGetWeeklyInsightMutationOptions(options));
+};
+
+/**
+ * Returns whether the signed-in user owns the Full Pregnancy Pass and their weekly free question usage.
+
+ * @summary Pass entitlement and free usage
+ */
+export const getGetPassStatusUrl = () => {
+  return `/api/billing/pass-status`;
+};
+
+export const getPassStatus = async (
+  options?: RequestInit,
+): Promise<PassStatus> => {
+  return customFetch<PassStatus>(getGetPassStatusUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPassStatusQueryKey = () => {
+  return [`/api/billing/pass-status`] as const;
+};
+
+export const getGetPassStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPassStatus>>,
+  TError = ErrorType<ApiError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPassStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetPassStatusQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPassStatus>>> = ({
+    signal,
+  }) => getPassStatus({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPassStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPassStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPassStatus>>
+>;
+export type GetPassStatusQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary Pass entitlement and free usage
+ */
+
+export function useGetPassStatus<
+  TData = Awaited<ReturnType<typeof getPassStatus>>,
+  TError = ErrorType<ApiError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPassStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPassStatusQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Start a checkout session for the pass
+ */
+export const getCreateCheckoutUrl = () => {
+  return `/api/billing/checkout`;
+};
+
+export const createCheckout = async (
+  checkoutRequest: CheckoutRequest,
+  options?: RequestInit,
+): Promise<CheckoutSession> => {
+  return customFetch<CheckoutSession>(getCreateCheckoutUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(checkoutRequest),
+  });
+};
+
+export const getCreateCheckoutMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCheckout>>,
+    TError,
+    { data: BodyType<CheckoutRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCheckout>>,
+  TError,
+  { data: BodyType<CheckoutRequest> },
+  TContext
+> => {
+  const mutationKey = ["createCheckout"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCheckout>>,
+    { data: BodyType<CheckoutRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCheckout(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCheckoutMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCheckout>>
+>;
+export type CreateCheckoutMutationBody = BodyType<CheckoutRequest>;
+export type CreateCheckoutMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Start a checkout session for the pass
+ */
+export const useCreateCheckout = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCheckout>>,
+    TError,
+    { data: BodyType<CheckoutRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCheckout>>,
+  TError,
+  { data: BodyType<CheckoutRequest> },
+  TContext
+> => {
+  return useMutation(getCreateCheckoutMutationOptions(options));
+};
+
+/**
+ * @summary Confirm a completed checkout and refresh entitlement
+ */
+export const getConfirmCheckoutUrl = () => {
+  return `/api/billing/confirm`;
+};
+
+export const confirmCheckout = async (
+  confirmRequest: ConfirmRequest,
+  options?: RequestInit,
+): Promise<PassStatus> => {
+  return customFetch<PassStatus>(getConfirmCheckoutUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(confirmRequest),
+  });
+};
+
+export const getConfirmCheckoutMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof confirmCheckout>>,
+    TError,
+    { data: BodyType<ConfirmRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof confirmCheckout>>,
+  TError,
+  { data: BodyType<ConfirmRequest> },
+  TContext
+> => {
+  const mutationKey = ["confirmCheckout"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof confirmCheckout>>,
+    { data: BodyType<ConfirmRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return confirmCheckout(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ConfirmCheckoutMutationResult = NonNullable<
+  Awaited<ReturnType<typeof confirmCheckout>>
+>;
+export type ConfirmCheckoutMutationBody = BodyType<ConfirmRequest>;
+export type ConfirmCheckoutMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Confirm a completed checkout and refresh entitlement
+ */
+export const useConfirmCheckout = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof confirmCheckout>>,
+    TError,
+    { data: BodyType<ConfirmRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof confirmCheckout>>,
+  TError,
+  { data: BodyType<ConfirmRequest> },
+  TContext
+> => {
+  return useMutation(getConfirmCheckoutMutationOptions(options));
 };

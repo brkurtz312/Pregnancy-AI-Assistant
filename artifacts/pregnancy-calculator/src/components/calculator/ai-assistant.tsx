@@ -3,7 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { useAskAssistant, useGetWeeklyInsight } from "@workspace/api-client-react";
+import {
+  useAskAssistant,
+  useGetWeeklyInsight,
+  ApiError,
+} from "@workspace/api-client-react";
+import { Show } from "@clerk/react";
+import { Link } from "wouter";
+import { usePass } from "@/hooks/use-pass";
 import {
   Sparkles,
   MessageCircle,
@@ -11,6 +18,7 @@ import {
   RefreshCw,
   Info,
   Loader2,
+  Crown,
 } from "lucide-react";
 
 interface AiAssistantProps {
@@ -34,10 +42,20 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
 
   const weekly = useGetWeeklyInsight();
   const ask = useAskAssistant();
+  const {
+    isSignedIn,
+    hasPass,
+    freeRemaining,
+    freeLimit,
+    startCheckout,
+    isStartingCheckout,
+    refresh,
+  } = usePass();
 
   const [messages, setMessages] = useState<ChatTurn[]>([]);
   const [input, setInput] = useState("");
   const [disclaimer, setDisclaimer] = useState<string | null>(null);
+  const [limitReached, setLimitReached] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-load the weekly insight whenever the current week changes.
@@ -65,8 +83,21 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
         onSuccess: (res) => {
           setMessages((prev) => [...prev, { role: "assistant", content: res.answer }]);
           setDisclaimer(res.disclaimer);
+          if (!hasPass) refresh();
         },
-        onError: () => {
+        onError: (err) => {
+          if (
+            err instanceof ApiError &&
+            err.status === 403 &&
+            (err.data as { code?: string } | null)?.code === "FREE_LIMIT_REACHED"
+          ) {
+            // Roll back the optimistic user turn and show the upgrade prompt.
+            setMessages((prev) => prev.slice(0, -1));
+            setInput(question);
+            setLimitReached(true);
+            refresh();
+            return;
+          }
           setMessages((prev) => [
             ...prev,
             {
@@ -197,31 +228,80 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
             )}
           </div>
 
-          <div className="flex items-end gap-2">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  send(input);
-                }
-              }}
-              placeholder="Type your question…"
-              className="resize-none min-h-[44px] max-h-32 rounded-xl"
-              rows={1}
-              data-testid="input-question"
-            />
-            <Button
-              onClick={() => send(input)}
-              disabled={!input.trim() || ask.isPending}
-              size="icon"
-              className="h-11 w-11 shrink-0 rounded-xl"
-              data-testid="button-send"
+          {limitReached ? (
+            <div
+              className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-3"
+              data-testid="limit-reached-prompt"
             >
-              <Send className="w-4 h-4" />
-            </Button>
-          </div>
+              <div className="flex items-center gap-2 text-foreground font-semibold">
+                <Crown className="w-5 h-5 text-primary" />
+                You've used your free questions this week
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Unlock the <span className="font-medium text-foreground">Full Pregnancy Pass</span>{" "}
+                for unlimited questions — a one-time $24.99, tied to your account and
+                available on every device.
+              </p>
+              <Show when="signed-in">
+                <Button
+                  onClick={startCheckout}
+                  disabled={isStartingCheckout}
+                  className="gap-1.5 rounded-full w-full sm:w-auto"
+                  data-testid="button-unlock-pass-inline"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Unlock Full Pass — $24.99
+                </Button>
+              </Show>
+              <Show when="signed-out">
+                <p className="text-sm text-muted-foreground">
+                  <Link
+                    href="/sign-in"
+                    className="text-primary font-medium underline underline-offset-2"
+                    data-testid="link-sign-in-limit"
+                  >
+                    Sign in
+                  </Link>{" "}
+                  to unlock the pass and keep your access across devices.
+                </p>
+              </Show>
+            </div>
+          ) : (
+            <div className="flex items-end gap-2">
+              <Textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    send(input);
+                  }
+                }}
+                placeholder="Type your question…"
+                className="resize-none min-h-[44px] max-h-32 rounded-xl"
+                rows={1}
+                data-testid="input-question"
+              />
+              <Button
+                onClick={() => send(input)}
+                disabled={!input.trim() || ask.isPending}
+                size="icon"
+                className="h-11 w-11 shrink-0 rounded-xl"
+                data-testid="button-send"
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+
+          {isSignedIn && !hasPass && !limitReached && (
+            <p
+              className="text-xs text-muted-foreground/80"
+              data-testid="text-free-remaining"
+            >
+              {freeRemaining} of {freeLimit} free questions left this week.
+            </p>
+          )}
 
           <p className="text-xs text-muted-foreground/80 leading-relaxed flex items-start gap-1.5">
             <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />

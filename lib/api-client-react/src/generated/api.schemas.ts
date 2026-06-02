@@ -11,6 +11,27 @@ export interface HealthStatus {
 
 export interface ApiError {
   error: string;
+  code?: string;
+}
+
+export interface PassStatus {
+  hasPass: boolean;
+  freeUsed: number;
+  freeLimit: number;
+}
+
+export interface CheckoutRequest {
+  /** @minLength 1 */
+  returnUrl: string;
+}
+
+export interface CheckoutSession {
+  url: string;
+}
+
+export interface ConfirmRequest {
+  /** @nullable */
+  sessionId?: string | null;
 }
 
 export type ChatMessageRole =
