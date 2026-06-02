@@ -19,6 +19,7 @@ import {
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AccountButton } from "@/components/AccountButton";
 import { AiAssistant } from "@/components/AiAssistant";
 import { useColors } from "@/hooks/useColors";
 import { getWeeklyDevelopment } from "@/lib/fetal-development";
@@ -404,6 +405,9 @@ export default function CalculatorScreen() {
       >
         {/* Header */}
         <View style={[styles.header, { backgroundColor: colors.primary, paddingTop: topPad + 16 }]}>
+          <View style={[styles.headerAccount, { top: topPad + 12 }]}>
+            <AccountButton />
+          </View>
           <View style={styles.headerIcon}>
             <Ionicons name="heart" size={28} color={colors.primary} />
           </View>
@@ -545,6 +549,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingBottom: 32,
     paddingHorizontal: 24,
+  },
+  headerAccount: {
+    position: "absolute",
+    right: 20,
+    zIndex: 10,
   },
   headerIcon: {
     width: 56,

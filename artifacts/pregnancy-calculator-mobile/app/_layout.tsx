@@ -1,3 +1,5 @@
+import { ClerkProvider, useAuth } from "@clerk/expo";
+import { tokenCache } from "@clerk/expo/token-cache";
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -6,7 +8,7 @@ import {
   useFonts,
 } from "@expo-google-fonts/inter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { setBaseUrl } from "@workspace/api-client-react";
+import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
@@ -25,12 +27,34 @@ if (apiDomain) {
   setBaseUrl(`https://${apiDomain}`);
 }
 
+const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
+// Production routes Clerk through a same-domain proxy; empty/undefined in dev,
+// where the SDK talks to the Frontend API encoded in the publishable key.
+const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
+
 const queryClient = new QueryClient();
+
+/**
+ * Bridges the Clerk session token into the generated API client. When signed
+ * in, requests carry `Authorization: Bearer <token>`; when signed out,
+ * getToken() resolves null and the server meters the request by IP.
+ */
+function AuthTokenBridge() {
+  const { getToken } = useAuth();
+  useEffect(() => {
+    setAuthTokenGetter(() => getToken());
+  }, [getToken]);
+  return null;
+}
 
 function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="(auth)"
+        options={{ headerShown: false, presentation: "modal" }}
+      />
     </Stack>
   );
 }
@@ -52,16 +76,23 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null;
 
   return (
-    <SafeAreaProvider>
-      <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <KeyboardProvider>
-              <RootLayoutNav />
-            </KeyboardProvider>
-          </GestureHandlerRootView>
-        </QueryClientProvider>
-      </ErrorBoundary>
-    </SafeAreaProvider>
+    <ClerkProvider
+      publishableKey={publishableKey}
+      tokenCache={tokenCache}
+      proxyUrl={clerkProxyUrl}
+    >
+      <SafeAreaProvider>
+        <ErrorBoundary>
+          <QueryClientProvider client={queryClient}>
+            <AuthTokenBridge />
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <KeyboardProvider>
+                <RootLayoutNav />
+              </KeyboardProvider>
+            </GestureHandlerRootView>
+          </QueryClientProvider>
+        </ErrorBoundary>
+      </SafeAreaProvider>
+    </ClerkProvider>
   );
 }

@@ -1,6 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useAskAssistant, useGetWeeklyInsight } from "@workspace/api-client-react";
+import {
+  ApiError,
+  useAskAssistant,
+  useGetWeeklyInsight,
+} from "@workspace/api-client-react";
 import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -14,6 +19,7 @@ import {
 import Animated, { FadeInDown } from "react-native-reanimated";
 
 import { useColors } from "@/hooks/useColors";
+import { usePass } from "@/hooks/usePass";
 
 interface AiAssistantProps {
   currentWeek: number;
@@ -38,12 +44,16 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
   const colors = useColors();
   const week = currentWeek > 0 ? Math.min(42, currentWeek) : null;
 
+  const router = useRouter();
+  const pass = usePass();
+
   const weekly = useGetWeeklyInsight();
   const ask = useAskAssistant();
 
   const [messages, setMessages] = useState<ChatTurn[]>([]);
   const [input, setInput] = useState("");
   const [disclaimer, setDisclaimer] = useState<string | null>(null);
+  const [limitReached, setLimitReached] = useState(false);
 
   useEffect(() => {
     if (week == null) return;
@@ -51,9 +61,26 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [week]);
 
+  // Re-enable the input whenever entitlement changes so a freshly purchased
+  // pass, a new weekly free quota, or an account switch lifts the limit gate
+  // immediately instead of leaving the user stuck on the upgrade banner.
+  useEffect(() => {
+    if (pass.hasPass || pass.freeRemaining > 0) {
+      setLimitReached(false);
+    }
+  }, [pass.hasPass, pass.freeRemaining]);
+
   const send = (text: string) => {
     const question = text.trim();
     if (!question || ask.isPending) return;
+
+    // Pre-empt the known weekly limit for signed-in free users so we don't
+    // spend a request just to get a 403 back. Anonymous users are metered by
+    // IP, so we let the server be the source of truth and handle 403 below.
+    if (pass.isSignedIn && !pass.hasPass && pass.freeRemaining <= 0) {
+      setLimitReached(true);
+      return;
+    }
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const history = messages.slice(-8);
@@ -66,8 +93,16 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
         onSuccess: (res) => {
           setMessages((prev) => [...prev, { role: "assistant", content: res.answer }]);
           setDisclaimer(res.disclaimer);
+          // Refresh remaining free count for signed-in users.
+          pass.refresh();
         },
-        onError: () => {
+        onError: (err) => {
+          // Server-enforced free limit: show the upgrade path, not an error.
+          if (err instanceof ApiError && err.status === 403) {
+            setLimitReached(true);
+            pass.refresh();
+            return;
+          }
           setMessages((prev) => [
             ...prev,
             {
@@ -132,9 +167,21 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
 
       {/* Q&A */}
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={styles.cardTitleRow}>
-          <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.primary} />
-          <Text style={[styles.cardTitle, { color: colors.foreground }]}>Ask a Question</Text>
+        <View style={styles.askHeaderRow}>
+          <View style={styles.cardTitleRow}>
+            <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.primary} />
+            <Text style={[styles.cardTitle, { color: colors.foreground }]}>Ask a Question</Text>
+          </View>
+          {pass.hasPass ? (
+            <View style={[styles.unlimitedPill, { backgroundColor: colors.muted }]}>
+              <Ionicons name="sparkles" size={12} color={colors.primary} />
+              <Text style={[styles.unlimitedText, { color: colors.primary }]}>Unlimited</Text>
+            </View>
+          ) : pass.isSignedIn ? (
+            <Text style={[styles.remainingText, { color: colors.mutedForeground }]}>
+              {pass.freeRemaining} free left
+            </Text>
+          ) : null}
         </View>
 
         {messages.length === 0 ? (
@@ -188,36 +235,72 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
           </View>
         )}
 
-        <View style={styles.inputRow}>
-          <TextInput
+        {limitReached ? (
+          <View
             style={[
-              styles.input,
-              { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background },
+              styles.upgradeBanner,
+              { borderColor: colors.primary, backgroundColor: colors.muted },
             ]}
-            value={input}
-            onChangeText={setInput}
-            placeholder="Type your question…"
-            placeholderTextColor={colors.mutedForeground}
-            multiline
-            onSubmitEditing={() => send(input)}
-            blurOnSubmit={Platform.OS === "ios"}
-            returnKeyType="send"
-          />
-          <TouchableOpacity
-            style={[
-              styles.sendBtn,
-              { backgroundColor: input.trim() && !ask.isPending ? colors.primary : colors.muted },
-            ]}
-            onPress={() => send(input)}
-            disabled={!input.trim() || ask.isPending}
           >
-            <Ionicons
-              name="send"
-              size={18}
-              color={input.trim() && !ask.isPending ? "#fff" : colors.mutedForeground}
+            <Text style={[styles.upgradeTitle, { color: colors.foreground }]}>
+              {pass.isSignedIn
+                ? "You've used your free questions this week"
+                : "Free question limit reached"}
+            </Text>
+            <Text style={[styles.upgradeBody, { color: colors.mutedForeground }]}>
+              {pass.isSignedIn
+                ? "Unlock the Full Pregnancy Pass for unlimited AI questions on every device."
+                : "Sign in, then unlock the Full Pregnancy Pass for unlimited AI questions."}
+            </Text>
+            <TouchableOpacity
+              style={[styles.upgradeBtn, { backgroundColor: colors.primary }]}
+              onPress={() => {
+                if (pass.isSignedIn) pass.startCheckout();
+                else router.push("/sign-in");
+              }}
+              disabled={pass.isStartingCheckout}
+            >
+              {pass.isStartingCheckout ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.upgradeBtnText}>
+                  {pass.isSignedIn ? "Get the Pass — $24.99" : "Sign In"}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.inputRow}>
+            <TextInput
+              style={[
+                styles.input,
+                { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background },
+              ]}
+              value={input}
+              onChangeText={setInput}
+              placeholder="Type your question…"
+              placeholderTextColor={colors.mutedForeground}
+              multiline
+              onSubmitEditing={() => send(input)}
+              blurOnSubmit={Platform.OS === "ios"}
+              returnKeyType="send"
             />
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              style={[
+                styles.sendBtn,
+                { backgroundColor: input.trim() && !ask.isPending ? colors.primary : colors.muted },
+              ]}
+              onPress={() => send(input)}
+              disabled={!input.trim() || ask.isPending}
+            >
+              <Ionicons
+                name="send"
+                size={18}
+                color={input.trim() && !ask.isPending ? "#fff" : colors.mutedForeground}
+              />
+            </TouchableOpacity>
+          </View>
+        )}
 
         <View style={styles.disclaimerRow}>
           <Ionicons name="information-circle-outline" size={13} color={colors.mutedForeground} />
@@ -245,6 +328,36 @@ const styles = StyleSheet.create({
   },
   cardTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   cardTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  askHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  remainingText: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  unlimitedPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  unlimitedText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  upgradeBanner: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    gap: 8,
+  },
+  upgradeTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  upgradeBody: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
+  upgradeBtn: {
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+    marginTop: 2,
+  },
+  upgradeBtnText: { color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold" },
   loadingRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   loadingText: { fontSize: 13, fontFamily: "Inter_400Regular" },
   errorText: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
