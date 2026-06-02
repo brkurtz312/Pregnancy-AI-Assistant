@@ -1,11 +1,6 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  ClerkProvider,
-  SignIn,
-  SignUp,
-  ClerkLoaded,
-} from "@clerk/react";
+import { ClerkProvider, SignIn, SignUp, ClerkLoaded } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
 import { Toaster } from "@/components/ui/toaster";
@@ -47,8 +42,7 @@ const clerkAppearance = {
       "w-[26rem] max-w-full rounded-2xl border border-[hsl(340_15%_88%)] shadow-xl overflow-hidden",
     formButtonPrimary:
       "bg-[hsl(340_65%_55%)] hover:bg-[hsl(340_65%_48%)] text-white",
-    footerActionLink:
-      "text-[hsl(340_65%_55%)] hover:text-[hsl(340_65%_45%)]",
+    footerActionLink: "text-[hsl(340_65%_55%)] hover:text-[hsl(340_65%_45%)]",
   },
 };
 

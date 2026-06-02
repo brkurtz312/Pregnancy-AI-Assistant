@@ -88,7 +88,9 @@ export default function SignInScreen() {
             your devices.
           </Text>
 
-          <Text style={[styles.label, { color: colors.foreground }]}>Email</Text>
+          <Text style={[styles.label, { color: colors.foreground }]}>
+            Email
+          </Text>
           <TextInput
             style={[
               styles.input,
@@ -155,10 +157,14 @@ export default function SignInScreen() {
           </TouchableOpacity>
 
           <View style={styles.footerRow}>
-            <Text style={[styles.footerText, { color: colors.mutedForeground }]}>
+            <Text
+              style={[styles.footerText, { color: colors.mutedForeground }]}
+            >
               New here?
             </Text>
-            <TouchableOpacity onPress={() => router.replace("/sign-up" as Href)}>
+            <TouchableOpacity
+              onPress={() => router.replace("/sign-up" as Href)}
+            >
               <Text style={[styles.footerLink, { color: colors.primary }]}>
                 Create an account
               </Text>
@@ -216,7 +222,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 18,
   },
-  primaryBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_600SemiBold" },
+  primaryBtnText: {
+    color: "#fff",
+    fontSize: 16,
+    fontFamily: "Inter_600SemiBold",
+  },
   footerRow: {
     flexDirection: "row",
     justifyContent: "center",

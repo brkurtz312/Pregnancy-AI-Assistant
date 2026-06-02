@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import express, { type Express, type Request, type Response, type NextFunction } from "express";
+import express, {
+  type Express,
+  type Request,
+  type Response,
+  type NextFunction,
+} from "express";
 import request from "supertest";
 
 // --- Mocks for the route's collaborators -----------------------------------

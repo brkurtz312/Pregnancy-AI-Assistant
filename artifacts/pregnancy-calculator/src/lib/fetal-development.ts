@@ -21,7 +21,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "No physical symptoms yet",
       "Hormone levels begin to shift",
     ],
-    comingUp: "The fertilized egg will implant into the uterine wall in the coming days.",
+    comingUp:
+      "The fertilized egg will implant into the uterine wall in the coming days.",
   },
   2: {
     week: 2,
@@ -36,7 +37,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Mild cramping or spotting may occur at implantation",
       "A home pregnancy test may now turn positive",
     ],
-    comingUp: "The embryo will begin forming its most basic structures next week.",
+    comingUp:
+      "The embryo will begin forming its most basic structures next week.",
   },
   3: {
     week: 3,
@@ -52,7 +54,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Breast tenderness is common",
       "hCG levels are rising rapidly",
     ],
-    comingUp: "The heartbeat may be detectable by ultrasound as early as next week.",
+    comingUp:
+      "The heartbeat may be detectable by ultrasound as early as next week.",
   },
   4: {
     week: 4,
@@ -69,7 +72,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Nausea may begin (morning sickness)",
       "Frequent urination may start",
     ],
-    comingUp: "All major organ systems will begin developing over the next several weeks.",
+    comingUp:
+      "All major organ systems will begin developing over the next several weeks.",
   },
   5: {
     week: 5,
@@ -86,7 +90,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Heightened sense of smell is common",
       "Mood swings due to hormone changes",
     ],
-    comingUp: "The embryo will be visible on ultrasound and may show a flickering heartbeat.",
+    comingUp:
+      "The embryo will be visible on ultrasound and may show a flickering heartbeat.",
   },
   6: {
     week: 6,
@@ -103,7 +108,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Food aversions and cravings may develop",
       "Breasts continue to grow and feel tender",
     ],
-    comingUp: "The embryo will more than double in size over the next two weeks.",
+    comingUp:
+      "The embryo will more than double in size over the next two weeks.",
   },
   7: {
     week: 7,
@@ -120,7 +126,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Vaginal discharge may increase",
       "Headaches may occur from hormonal shifts",
     ],
-    comingUp: "Webbed fingers and toes will separate into distinct digits over the coming weeks.",
+    comingUp:
+      "Webbed fingers and toes will separate into distinct digits over the coming weeks.",
   },
   8: {
     week: 8,
@@ -188,7 +195,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Nausea often begins to subside",
       "Round ligament pain may begin",
     ],
-    comingUp: "First trimester screening tests (nuchal translucency ultrasound) are typically offered now.",
+    comingUp:
+      "First trimester screening tests (nuchal translucency ultrasound) are typically offered now.",
   },
   12: {
     week: 12,
@@ -205,7 +213,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "A bump may become visible",
       "Many women share their news after the first trimester",
     ],
-    comingUp: "You are approaching the end of the first trimester — a major milestone.",
+    comingUp:
+      "You are approaching the end of the first trimester — a major milestone.",
   },
   13: {
     week: 13,
@@ -222,7 +231,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Energy typically begins to return",
       "Libido may increase as symptoms ease",
     ],
-    comingUp: "The second trimester begins — often considered the most comfortable phase.",
+    comingUp:
+      "The second trimester begins — often considered the most comfortable phase.",
   },
   14: {
     week: 14,
@@ -239,7 +249,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Energy returns for many women",
       "Appetite increases significantly",
     ],
-    comingUp: "Movement may soon be felt — often described as fluttering or bubbles.",
+    comingUp:
+      "Movement may soon be felt — often described as fluttering or bubbles.",
   },
   15: {
     week: 15,
@@ -256,7 +267,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Skin may glow or break out (hormonal changes)",
       "Nosebleeds or congestion may occur",
     ],
-    comingUp: "An anatomy ultrasound is typically scheduled around 18–20 weeks.",
+    comingUp:
+      "An anatomy ultrasound is typically scheduled around 18–20 weeks.",
   },
   16: {
     week: 16,
@@ -273,7 +285,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Maternity clothes may be needed",
       "Backache may begin as posture shifts",
     ],
-    comingUp: "Around week 18–20, you'll likely feel stronger, more definitive kicks.",
+    comingUp:
+      "Around week 18–20, you'll likely feel stronger, more definitive kicks.",
   },
   17: {
     week: 17,
@@ -290,7 +303,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Stretch marks may begin to appear",
       "Vivid dreams are common",
     ],
-    comingUp: "The anatomy scan ultrasound will give a detailed view of all organs and structures.",
+    comingUp:
+      "The anatomy scan ultrasound will give a detailed view of all organs and structures.",
   },
   18: {
     week: 18,
@@ -307,7 +321,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Round ligament pain may be noticeable",
       "Blood pressure may drop causing dizziness",
     ],
-    comingUp: "The anatomy scan (18–20 weeks) is one of the most detailed ultrasounds of pregnancy.",
+    comingUp:
+      "The anatomy scan (18–20 weeks) is one of the most detailed ultrasounds of pregnancy.",
   },
   19: {
     week: 19,
@@ -324,7 +339,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Skin changes such as darkening of areolas may intensify",
       "Hip and pelvic pain may occur",
     ],
-    comingUp: "Halfway point! The anatomy scan reveals the sex of the baby if you choose to know.",
+    comingUp:
+      "Halfway point! The anatomy scan reveals the sex of the baby if you choose to know.",
   },
   20: {
     week: 20,
@@ -358,7 +374,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Linea nigra may darken further",
       "Feet may begin to swell",
     ],
-    comingUp: "The fetus will respond to music and familiar voices over the next few weeks.",
+    comingUp:
+      "The fetus will respond to music and familiar voices over the next few weeks.",
   },
   22: {
     week: 22,
@@ -375,7 +392,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Varicose veins may appear on legs",
       "Braxton Hicks contractions may begin",
     ],
-    comingUp: "Viability milestone approaches — at 24 weeks, survival outside the womb becomes possible.",
+    comingUp:
+      "Viability milestone approaches — at 24 weeks, survival outside the womb becomes possible.",
   },
   23: {
     week: 23,
@@ -392,7 +410,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Sleep becomes more difficult",
       "Belly button may pop outward",
     ],
-    comingUp: "The viability milestone at week 24 is a significant moment in pregnancy.",
+    comingUp:
+      "The viability milestone at week 24 is a significant moment in pregnancy.",
   },
   24: {
     week: 24,
@@ -409,7 +428,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Carpal tunnel syndrome may develop from fluid retention",
       "Back pain may intensify",
     ],
-    comingUp: "Growth accelerates significantly — the fetus will gain roughly half a pound per week.",
+    comingUp:
+      "Growth accelerates significantly — the fetus will gain roughly half a pound per week.",
   },
   25: {
     week: 25,
@@ -477,7 +497,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Rh factor blood test may be administered",
       "Weight gain is now about a pound per week",
     ],
-    comingUp: "The baby will gain significant weight and size in these final weeks.",
+    comingUp:
+      "The baby will gain significant weight and size in these final weeks.",
   },
   29: {
     week: 29,
@@ -494,7 +515,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Pelvic pressure may make walking uncomfortable",
       "Sleep disruption is very common",
     ],
-    comingUp: "Some babies begin turning head-down (vertex position) over the next few weeks.",
+    comingUp:
+      "Some babies begin turning head-down (vertex position) over the next few weeks.",
   },
   30: {
     week: 30,
@@ -528,7 +550,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Ankle and foot swelling may worsen",
       "Colostrum may be expressed when breasts are squeezed",
     ],
-    comingUp: "Birthing classes and hospital tours are recommended around this time.",
+    comingUp:
+      "Birthing classes and hospital tours are recommended around this time.",
   },
   32: {
     week: 32,
@@ -562,7 +585,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Frequent urination may return as baby drops lower",
       "Weight gain should slow slightly",
     ],
-    comingUp: "The lungs and brain are the last organs to fully mature before birth.",
+    comingUp:
+      "The lungs and brain are the last organs to fully mature before birth.",
   },
   34: {
     week: 34,
@@ -579,7 +603,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Swelling in hands and face should be reported to your provider",
       "Nesting instinct often kicks in",
     ],
-    comingUp: "If born now, most babies thrive with minimal medical intervention.",
+    comingUp:
+      "If born now, most babies thrive with minimal medical intervention.",
   },
   35: {
     week: 35,
@@ -596,7 +621,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Cervical checks may begin",
       "Braxton Hicks are more frequent and noticeable",
     ],
-    comingUp: "Your provider will begin checking for signs of labor and baby's position at each visit.",
+    comingUp:
+      "Your provider will begin checking for signs of labor and baby's position at each visit.",
   },
   36: {
     week: 36,
@@ -647,7 +673,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Labor symptoms to watch for: regular contractions, water breaking, bloody show",
       "The baby may have dropped lower, making breathing easier",
     ],
-    comingUp: "The baby could arrive at any time — your body and baby are ready.",
+    comingUp:
+      "The baby could arrive at any time — your body and baby are ready.",
   },
   39: {
     week: 39,
@@ -681,7 +708,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Only 5% of babies are born on their exact due date",
       "Your provider will monitor closely if labor has not begun",
     ],
-    comingUp: "Labor is imminent. Contact your provider with any signs of labor or concerns.",
+    comingUp:
+      "Labor is imminent. Contact your provider with any signs of labor or concerns.",
   },
   41: {
     week: 41,
@@ -698,7 +726,8 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Induction is typically discussed and offered",
       "Cervical ripening may be recommended",
     ],
-    comingUp: "Induction is commonly recommended by 41–42 weeks for safety reasons.",
+    comingUp:
+      "Induction is commonly recommended by 41–42 weeks for safety reasons.",
   },
   42: {
     week: 42,
@@ -715,16 +744,22 @@ export const fetalDevelopmentData: Record<number, WeeklyDevelopment> = {
       "Post-dates pregnancy carries increased monitoring requirements",
       "Emotional support is important during this waiting period",
     ],
-    comingUp: "Delivery should occur very soon — your medical team will guide next steps.",
+    comingUp:
+      "Delivery should occur very soon — your medical team will guide next steps.",
   },
 };
 
-export function getWeeklyDevelopment(gestationalWeeks: number): WeeklyDevelopment | null {
+export function getWeeklyDevelopment(
+  gestationalWeeks: number,
+): WeeklyDevelopment | null {
   const week = Math.min(Math.max(1, gestationalWeeks), 42);
   return fetalDevelopmentData[week] ?? null;
 }
 
-export function getUpcomingWeeks(gestationalWeeks: number, count = 3): WeeklyDevelopment[] {
+export function getUpcomingWeeks(
+  gestationalWeeks: number,
+  count = 3,
+): WeeklyDevelopment[] {
   const upcoming: WeeklyDevelopment[] = [];
   for (let i = 1; i <= count; i++) {
     const week = gestationalWeeks + i;

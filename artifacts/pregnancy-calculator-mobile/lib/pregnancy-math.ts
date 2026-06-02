@@ -49,8 +49,21 @@ function calculateCommonResults(lmpDate: Date): PregnancyResults {
   const currentGestationalAgeRemainderDays = currentGestationalAgeDays % 7;
   const daysUntilDue = differenceInDays(edd, today);
   const trimester = calculateTrimester(currentGestationalAgeDays);
-  const progressPercentage = Math.min(100, Math.max(0, (currentGestationalAgeDays / PREGNANCY_DURATION_DAYS) * 100));
-  return { edd, lmp, conception, currentGestationalAgeDays, currentGestationalAgeWeeks, currentGestationalAgeRemainderDays, daysUntilDue, trimester, progressPercentage };
+  const progressPercentage = Math.min(
+    100,
+    Math.max(0, (currentGestationalAgeDays / PREGNANCY_DURATION_DAYS) * 100),
+  );
+  return {
+    edd,
+    lmp,
+    conception,
+    currentGestationalAgeDays,
+    currentGestationalAgeWeeks,
+    currentGestationalAgeRemainderDays,
+    daysUntilDue,
+    trimester,
+    progressPercentage,
+  };
 }
 
 export function calculateByLMP(lmp: Date): PregnancyResults {
@@ -67,7 +80,11 @@ export function calculateByConceptionDate(conception: Date): PregnancyResults {
   return calculateCommonResults(lmp);
 }
 
-export function calculateByUltrasound(usDate: Date, weeks: number, days: number): PregnancyResults {
+export function calculateByUltrasound(
+  usDate: Date,
+  weeks: number,
+  days: number,
+): PregnancyResults {
   const gaAtUltrasoundDays = weeks * 7 + days;
   const lmp = subDays(usDate, gaAtUltrasoundDays);
   return calculateCommonResults(lmp);
@@ -78,7 +95,11 @@ export function formatGestationalAge(weeks: number, days: number): string {
 }
 
 export function formatDate(date: Date): string {
-  return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  return date.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 export function getMilestones(results: PregnancyResults) {

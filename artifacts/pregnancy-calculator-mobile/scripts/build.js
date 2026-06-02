@@ -16,7 +16,9 @@ function findWorkspaceRoot(startDir) {
     }
     dir = path.dirname(dir);
   }
-  throw new Error("Could not find workspace root (no pnpm-workspace.yaml found)");
+  throw new Error(
+    "Could not find workspace root (no pnpm-workspace.yaml found)",
+  );
 }
 
 const workspaceRoot = findWorkspaceRoot(projectRoot);
@@ -155,14 +157,7 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
 
   metroProcess = spawn(
     "pnpm",
-    [
-      "exec",
-      "expo",
-      "start",
-      "--no-dev",
-      "--minify",
-      "--localhost",
-    ],
+    ["exec", "expo", "start", "--no-dev", "--minify", "--localhost"],
     {
       stdio: ["ignore", "pipe", "pipe"],
       detached: false,
@@ -235,7 +230,12 @@ async function downloadFile(url, outputPath) {
 }
 
 async function downloadBundle(platform, timestamp) {
-  const entryPath = path.resolve(projectRoot, "node_modules", "expo-router", "entry");
+  const entryPath = path.resolve(
+    projectRoot,
+    "node_modules",
+    "expo-router",
+    "entry",
+  );
   const bundlePath = path.relative(workspaceRoot, entryPath);
   const url = new URL(`http://localhost:8081/${bundlePath}.bundle`);
   url.searchParams.set("platform", platform);
@@ -315,11 +315,27 @@ function extractAssets(timestamp) {
   const staticBuild = path.join(projectRoot, "static-build");
   const bundles = {
     ios: fs.readFileSync(
-      path.join(staticBuild, timestamp, "_expo", "static", "js", "ios", "bundle.js"),
+      path.join(
+        staticBuild,
+        timestamp,
+        "_expo",
+        "static",
+        "js",
+        "ios",
+        "bundle.js",
+      ),
       "utf-8",
     ),
     android: fs.readFileSync(
-      path.join(staticBuild, timestamp, "_expo", "static", "js", "android", "bundle.js"),
+      path.join(
+        staticBuild,
+        timestamp,
+        "_expo",
+        "static",
+        "js",
+        "android",
+        "bundle.js",
+      ),
       "utf-8",
     ),
   };

@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import express, { type Express, type Request, type Response, type NextFunction } from "express";
+import express, {
+  type Express,
+  type Request,
+  type Response,
+  type NextFunction,
+} from "express";
 import request from "supertest";
 
 // --- Mocks for the route's collaborators -----------------------------------
@@ -8,7 +13,9 @@ import request from "supertest";
 // the tests exercise the purchase/confirm/status logic without real Stripe or
 // a database.
 
-const dbExecute = vi.fn(async () => ({ rows: [] as Array<{ price_id?: string }> }));
+const dbExecute = vi.fn(async () => ({
+  rows: [] as Array<{ price_id?: string }>,
+}));
 vi.mock("@workspace/db", () => ({
   db: { execute: (...args: unknown[]) => dbExecute(...(args as [])) },
 }));
@@ -104,7 +111,9 @@ describe("GET /api/billing/pass-status", () => {
 describe("POST /api/billing/checkout", () => {
   it("creates a Stripe customer and checkout session and returns the url", async () => {
     const customersCreate = vi.fn(async () => ({ id: "cus_new" }));
-    const sessionsCreate = vi.fn(async () => ({ url: "https://checkout.stripe.com/c/session_abc" }));
+    const sessionsCreate = vi.fn(async () => ({
+      url: "https://checkout.stripe.com/c/session_abc",
+    }));
     getUncachableStripeClient.mockResolvedValue({
       customers: { create: customersCreate },
       checkout: { sessions: { create: sessionsCreate } },
@@ -119,7 +128,9 @@ describe("POST /api/billing/checkout", () => {
     expect(customersCreate).toHaveBeenCalledTimes(1);
     expect(setStripeCustomerId).toHaveBeenCalledWith("user_1", "cus_new");
     // The created session must use the synced pass price.
-    expect(sessionsCreate.mock.calls[0][0].line_items[0].price).toBe("price_pass_123");
+    expect(sessionsCreate.mock.calls[0][0].line_items[0].price).toBe(
+      "price_pass_123",
+    );
   });
 
   it("reuses an existing Stripe customer instead of creating a new one", async () => {
@@ -130,7 +141,9 @@ describe("POST /api/billing/checkout", () => {
       hasPass: false,
     });
     const customersCreate = vi.fn();
-    const sessionsCreate = vi.fn(async () => ({ url: "https://checkout.stripe.com/c/s2" }));
+    const sessionsCreate = vi.fn(async () => ({
+      url: "https://checkout.stripe.com/c/s2",
+    }));
     getUncachableStripeClient.mockResolvedValue({
       customers: { create: customersCreate },
       checkout: { sessions: { create: sessionsCreate } },

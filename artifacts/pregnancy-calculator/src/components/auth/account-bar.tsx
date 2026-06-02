@@ -6,11 +6,19 @@ import { Badge } from "@/components/ui/badge";
 import { usePass } from "@/hooks/use-pass";
 
 export function AccountBar() {
-  const { hasPass, freeRemaining, freeLimit, startCheckout, isStartingCheckout } =
-    usePass();
+  const {
+    hasPass,
+    freeRemaining,
+    freeLimit,
+    startCheckout,
+    isStartingCheckout,
+  } = usePass();
 
   return (
-    <div className="flex items-center justify-end gap-2.5" data-testid="account-bar">
+    <div
+      className="flex items-center justify-end gap-2.5"
+      data-testid="account-bar"
+    >
       <Show when="signed-in">
         {hasPass ? (
           <Badge
@@ -49,7 +57,12 @@ export function AccountBar() {
         <Button asChild variant="ghost" size="sm" data-testid="button-sign-in">
           <Link href="/sign-in">Sign in</Link>
         </Button>
-        <Button asChild size="sm" className="rounded-full" data-testid="button-sign-up">
+        <Button
+          asChild
+          size="sm"
+          className="rounded-full"
+          data-testid="button-sign-up"
+        >
           <Link href="/sign-up">Get started</Link>
         </Button>
       </Show>

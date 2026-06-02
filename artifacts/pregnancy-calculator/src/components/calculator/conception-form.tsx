@@ -1,11 +1,21 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { calculateByConceptionDate, PregnancyResults } from "@/lib/pregnancy-math";
+import {
+  calculateByConceptionDate,
+  PregnancyResults,
+} from "@/lib/pregnancy-math";
 
 const formSchema = z.object({
   conceptionDate: z.string().min(1, "Conception date is required"),
@@ -45,33 +55,35 @@ export function ConceptionForm({ onCalculate }: ConceptionFormProps) {
               name="conceptionDate"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-base text-foreground/80">Date of Conception</FormLabel>
+                  <FormLabel className="text-base text-foreground/80">
+                    Date of Conception
+                  </FormLabel>
                   <FormControl>
-                    <Input 
-                      type="date" 
-                      className="h-12 text-lg bg-card border-border/50 focus-visible:ring-primary/30 rounded-xl" 
+                    <Input
+                      type="date"
+                      className="h-12 text-lg bg-card border-border/50 focus-visible:ring-primary/30 rounded-xl"
                       data-testid="input-conception-date"
-                      {...field} 
+                      {...field}
                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            
+
             <div className="flex flex-col sm:flex-row gap-3 pt-2">
-              <Button 
-                type="submit" 
-                size="lg" 
+              <Button
+                type="submit"
+                size="lg"
                 className="flex-1 rounded-xl font-medium text-base shadow-sm"
                 data-testid="button-calculate-conception"
               >
                 Calculate
               </Button>
-              <Button 
-                type="button" 
-                variant="outline" 
-                size="lg" 
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
                 onClick={handleReset}
                 className="rounded-xl border-border/50 text-muted-foreground hover:bg-muted/50"
                 data-testid="button-reset-conception"

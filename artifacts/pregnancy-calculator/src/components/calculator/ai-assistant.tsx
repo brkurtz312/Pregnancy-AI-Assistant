@@ -66,7 +66,10 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
   }, [week]);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: "smooth",
+    });
   }, [messages, ask.isPending]);
 
   const send = (text: string) => {
@@ -81,7 +84,10 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
       { data: { question, week: week ?? undefined, history } },
       {
         onSuccess: (res) => {
-          setMessages((prev) => [...prev, { role: "assistant", content: res.answer }]);
+          setMessages((prev) => [
+            ...prev,
+            { role: "assistant", content: res.answer },
+          ]);
           setDisclaimer(res.disclaimer);
           if (!hasPass) refresh();
         },
@@ -89,7 +95,8 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
           if (
             err instanceof ApiError &&
             err.status === 403 &&
-            (err.data as { code?: string } | null)?.code === "FREE_LIMIT_REACHED"
+            (err.data as { code?: string } | null)?.code ===
+              "FREE_LIMIT_REACHED"
           ) {
             // Roll back the optimistic user turn and show the upgrade prompt.
             setMessages((prev) => prev.slice(0, -1));
@@ -135,7 +142,9 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
                 disabled={weekly.isPending}
                 data-testid="button-refresh-insight"
               >
-                <RefreshCw className={`w-4 h-4 ${weekly.isPending ? "animate-spin" : ""}`} />
+                <RefreshCw
+                  className={`w-4 h-4 ${weekly.isPending ? "animate-spin" : ""}`}
+                />
               </Button>
             </div>
           </CardHeader>
@@ -181,8 +190,9 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
             {messages.length === 0 && (
               <div className="space-y-3 py-2">
                 <p className="text-sm text-muted-foreground">
-                  Ask anything about your pregnancy, your baby's development, or what to expect.
-                  Answers reflect evidence-based guidance from organizations like ACOG and the AAP.
+                  Ask anything about your pregnancy, your baby's development, or
+                  what to expect. Answers reflect evidence-based guidance from
+                  organizations like ACOG and the AAP.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {SUGGESTED_QUESTIONS.map((q) => (
@@ -238,9 +248,12 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
                 You've used your free questions this week
               </div>
               <p className="text-sm text-muted-foreground">
-                Unlock the <span className="font-medium text-foreground">Full Pregnancy Pass</span>{" "}
-                for unlimited questions — a one-time $24.99, tied to your account and
-                available on every device.
+                Unlock the{" "}
+                <span className="font-medium text-foreground">
+                  Full Pregnancy Pass
+                </span>{" "}
+                for unlimited questions — a one-time $24.99, tied to your
+                account and available on every device.
               </p>
               <Show when="signed-in">
                 <Button

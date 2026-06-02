@@ -91,7 +91,10 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
       { data: { question, week: week ?? undefined, history } },
       {
         onSuccess: (res) => {
-          setMessages((prev) => [...prev, { role: "assistant", content: res.answer }]);
+          setMessages((prev) => [
+            ...prev,
+            { role: "assistant", content: res.answer },
+          ]);
           setDisclaimer(res.disclaimer);
           // Refresh remaining free count for signed-in users.
           pass.refresh();
@@ -120,10 +123,19 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
     <Animated.View entering={FadeInDown.duration(400).springify()}>
       {/* Weekly insight */}
       {week != null && (
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
           <View style={styles.cardHeaderRow}>
             <View style={styles.cardTitleRow}>
-              <Ionicons name="sparkles-outline" size={18} color={colors.primary} />
+              <Ionicons
+                name="sparkles-outline"
+                size={18}
+                color={colors.primary}
+              />
               <Text style={[styles.cardTitle, { color: colors.foreground }]}>
                 Your Week {week} Insight
               </Text>
@@ -139,7 +151,9 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
               <Ionicons
                 name="refresh-outline"
                 size={18}
-                color={weekly.isPending ? colors.mutedForeground : colors.primary}
+                color={
+                  weekly.isPending ? colors.mutedForeground : colors.primary
+                }
               />
             </TouchableOpacity>
           </View>
@@ -147,13 +161,17 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
           {weekly.isPending ? (
             <View style={styles.loadingRow}>
               <ActivityIndicator size="small" color={colors.primary} />
-              <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
+              <Text
+                style={[styles.loadingText, { color: colors.mutedForeground }]}
+              >
                 Gathering guidance for week {week}…
               </Text>
             </View>
           ) : weekly.isError ? (
             <TouchableOpacity onPress={() => weekly.mutate({ data: { week } })}>
-              <Text style={[styles.errorText, { color: colors.mutedForeground }]}>
+              <Text
+                style={[styles.errorText, { color: colors.mutedForeground }]}
+              >
                 Couldn't load this week's insight. Tap to try again.
               </Text>
             </TouchableOpacity>
@@ -166,19 +184,36 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
       )}
 
       {/* Q&A */}
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
         <View style={styles.askHeaderRow}>
           <View style={styles.cardTitleRow}>
-            <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.primary} />
-            <Text style={[styles.cardTitle, { color: colors.foreground }]}>Ask a Question</Text>
+            <Ionicons
+              name="chatbubble-ellipses-outline"
+              size={18}
+              color={colors.primary}
+            />
+            <Text style={[styles.cardTitle, { color: colors.foreground }]}>
+              Ask a Question
+            </Text>
           </View>
           {pass.hasPass ? (
-            <View style={[styles.unlimitedPill, { backgroundColor: colors.muted }]}>
+            <View
+              style={[styles.unlimitedPill, { backgroundColor: colors.muted }]}
+            >
               <Ionicons name="sparkles" size={12} color={colors.primary} />
-              <Text style={[styles.unlimitedText, { color: colors.primary }]}>Unlimited</Text>
+              <Text style={[styles.unlimitedText, { color: colors.primary }]}>
+                Unlimited
+              </Text>
             </View>
           ) : pass.isSignedIn ? (
-            <Text style={[styles.remainingText, { color: colors.mutedForeground }]}>
+            <Text
+              style={[styles.remainingText, { color: colors.mutedForeground }]}
+            >
               {pass.freeRemaining} free left
             </Text>
           ) : null}
@@ -187,17 +222,28 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
         {messages.length === 0 ? (
           <>
             <Text style={[styles.introText, { color: colors.mutedForeground }]}>
-              Ask anything about your pregnancy or your baby's development. Answers reflect
-              evidence-based guidance from organizations like ACOG and the AAP.
+              Ask anything about your pregnancy or your baby's development.
+              Answers reflect evidence-based guidance from organizations like
+              ACOG and the AAP.
             </Text>
             <View style={styles.suggestionWrap}>
               {SUGGESTED_QUESTIONS.map((q) => (
                 <TouchableOpacity
                   key={q}
-                  style={[styles.suggestionPill, { borderColor: colors.border, backgroundColor: colors.muted }]}
+                  style={[
+                    styles.suggestionPill,
+                    {
+                      borderColor: colors.border,
+                      backgroundColor: colors.muted,
+                    },
+                  ]}
                   onPress={() => send(q)}
                 >
-                  <Text style={[styles.suggestionText, { color: colors.primary }]}>{q}</Text>
+                  <Text
+                    style={[styles.suggestionText, { color: colors.primary }]}
+                  >
+                    {q}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -211,7 +257,10 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
                   styles.bubble,
                   m.role === "user"
                     ? { alignSelf: "flex-end", backgroundColor: colors.primary }
-                    : { alignSelf: "flex-start", backgroundColor: colors.muted },
+                    : {
+                        alignSelf: "flex-start",
+                        backgroundColor: colors.muted,
+                      },
                 ]}
               >
                 <Text
@@ -225,10 +274,25 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
               </View>
             ))}
             {ask.isPending && (
-              <View style={[styles.bubble, { alignSelf: "flex-start", backgroundColor: colors.muted }]}>
+              <View
+                style={[
+                  styles.bubble,
+                  { alignSelf: "flex-start", backgroundColor: colors.muted },
+                ]}
+              >
                 <View style={styles.loadingRow}>
-                  <ActivityIndicator size="small" color={colors.mutedForeground} />
-                  <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Thinking…</Text>
+                  <ActivityIndicator
+                    size="small"
+                    color={colors.mutedForeground}
+                  />
+                  <Text
+                    style={[
+                      styles.loadingText,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    Thinking…
+                  </Text>
                 </View>
               </View>
             )}
@@ -247,7 +311,9 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
                 ? "You've used your free questions this week"
                 : "Free question limit reached"}
             </Text>
-            <Text style={[styles.upgradeBody, { color: colors.mutedForeground }]}>
+            <Text
+              style={[styles.upgradeBody, { color: colors.mutedForeground }]}
+            >
               {pass.isSignedIn
                 ? "Unlock the Full Pregnancy Pass for unlimited AI questions on every device."
                 : "Sign in, then unlock the Full Pregnancy Pass for unlimited AI questions."}
@@ -274,7 +340,11 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
             <TextInput
               style={[
                 styles.input,
-                { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background },
+                {
+                  borderColor: colors.border,
+                  color: colors.foreground,
+                  backgroundColor: colors.background,
+                },
               ]}
               value={input}
               onChangeText={setInput}
@@ -288,7 +358,12 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
             <TouchableOpacity
               style={[
                 styles.sendBtn,
-                { backgroundColor: input.trim() && !ask.isPending ? colors.primary : colors.muted },
+                {
+                  backgroundColor:
+                    input.trim() && !ask.isPending
+                      ? colors.primary
+                      : colors.muted,
+                },
               ]}
               onPress={() => send(input)}
               disabled={!input.trim() || ask.isPending}
@@ -296,15 +371,25 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
               <Ionicons
                 name="send"
                 size={18}
-                color={input.trim() && !ask.isPending ? "#fff" : colors.mutedForeground}
+                color={
+                  input.trim() && !ask.isPending
+                    ? "#fff"
+                    : colors.mutedForeground
+                }
               />
             </TouchableOpacity>
           </View>
         )}
 
         <View style={styles.disclaimerRow}>
-          <Ionicons name="information-circle-outline" size={13} color={colors.mutedForeground} />
-          <Text style={[styles.disclaimerText, { color: colors.mutedForeground }]}>
+          <Ionicons
+            name="information-circle-outline"
+            size={13}
+            color={colors.mutedForeground}
+          />
+          <Text
+            style={[styles.disclaimerText, { color: colors.mutedForeground }]}
+          >
             {disclaimer ?? DEFAULT_DISCLAIMER}
           </Text>
         </View>
@@ -357,7 +442,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 2,
   },
-  upgradeBtnText: { color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  upgradeBtnText: {
+    color: "#fff",
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
   loadingRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   loadingText: { fontSize: 13, fontFamily: "Inter_400Regular" },
   errorText: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
@@ -399,5 +488,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   disclaimerRow: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
-  disclaimerText: { flex: 1, fontSize: 11, fontFamily: "Inter_400Regular", lineHeight: 16 },
+  disclaimerText: {
+    flex: 1,
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 16,
+  },
 });

@@ -89,7 +89,9 @@ export default function SignUpScreen() {
               <Text style={[styles.title, { color: colors.foreground }]}>
                 Create your account
               </Text>
-              <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+              <Text
+                style={[styles.subtitle, { color: colors.mutedForeground }]}
+              >
                 Save your free questions and unlock the Full Pregnancy Pass on
                 every device.
               </Text>
@@ -185,7 +187,9 @@ export default function SignUpScreen() {
               <Text style={[styles.title, { color: colors.foreground }]}>
                 Verify your email
               </Text>
-              <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+              <Text
+                style={[styles.subtitle, { color: colors.mutedForeground }]}
+              >
                 We sent a 6-digit code to {emailAddress.trim()}. Enter it below
                 to finish.
               </Text>
@@ -300,7 +304,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 18,
   },
-  primaryBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_600SemiBold" },
+  primaryBtnText: {
+    color: "#fff",
+    fontSize: 16,
+    fontFamily: "Inter_600SemiBold",
+  },
   footerRow: {
     flexDirection: "row",
     justifyContent: "center",

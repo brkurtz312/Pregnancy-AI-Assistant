@@ -39,7 +39,11 @@ import {
 
 type Method = "lmp" | "due" | "conception" | "ultrasound";
 
-const METHODS: { id: Method; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+const METHODS: {
+  id: Method;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}[] = [
   { id: "lmp", label: "Last Period", icon: "calendar-outline" },
   { id: "due", label: "Due Date", icon: "checkmark-circle-outline" },
   { id: "conception", label: "Conception", icon: "heart-outline" },
@@ -70,22 +74,41 @@ function DatePickerField({
   const isAndroid = Platform.OS === "android";
 
   const displayText = value
-    ? value.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+    ? value.toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
     : placeholder;
 
   if (isWeb) {
     return (
       <View>
-        <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>{label}</Text>
+        <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
+          {label}
+        </Text>
         <TextInput
-          style={[styles.webDateInput, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.card }]}
+          style={[
+            styles.webDateInput,
+            {
+              borderColor: colors.border,
+              color: colors.foreground,
+              backgroundColor: colors.card,
+            },
+          ]}
           placeholder="MM/DD/YYYY"
           placeholderTextColor={colors.mutedForeground}
-          value={value ? `${value.getMonth() + 1}/${value.getDate()}/${value.getFullYear()}` : ""}
+          value={
+            value
+              ? `${value.getMonth() + 1}/${value.getDate()}/${value.getFullYear()}`
+              : ""
+          }
           onChangeText={(text) => {
             const parts = text.split("/");
             if (parts.length === 3) {
-              const d = new Date(`${parts[2]}-${parts[0]?.padStart(2, "0")}-${parts[1]?.padStart(2, "0")}`);
+              const d = new Date(
+                `${parts[2]}-${parts[0]?.padStart(2, "0")}-${parts[1]?.padStart(2, "0")}`,
+              );
               if (!isNaN(d.getTime())) onChange(d);
             }
           }}
@@ -96,20 +119,38 @@ function DatePickerField({
 
   return (
     <View>
-      <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>{label}</Text>
+      <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
+        {label}
+      </Text>
       <TouchableOpacity
-        style={[styles.dateButton, { borderColor: colors.border, backgroundColor: colors.card }]}
+        style={[
+          styles.dateButton,
+          { borderColor: colors.border, backgroundColor: colors.card },
+        ]}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           setShowPicker(true);
         }}
         testID="date-picker-button"
       >
-        <Ionicons name="calendar-outline" size={18} color={value ? colors.primary : colors.mutedForeground} />
-        <Text style={[styles.dateButtonText, { color: value ? colors.foreground : colors.mutedForeground }]}>
+        <Ionicons
+          name="calendar-outline"
+          size={18}
+          color={value ? colors.primary : colors.mutedForeground}
+        />
+        <Text
+          style={[
+            styles.dateButtonText,
+            { color: value ? colors.foreground : colors.mutedForeground },
+          ]}
+        >
           {displayText}
         </Text>
-        <Ionicons name="chevron-down" size={16} color={colors.mutedForeground} />
+        <Ionicons
+          name="chevron-down"
+          size={16}
+          color={colors.mutedForeground}
+        />
       </TouchableOpacity>
 
       {isAndroid && showPicker && (
@@ -126,12 +167,28 @@ function DatePickerField({
 
       {!isAndroid && (
         <Modal visible={showPicker} transparent animationType="slide">
-          <Pressable style={styles.modalOverlay} onPress={() => setShowPicker(false)}>
-            <Pressable style={[styles.pickerSheet, { backgroundColor: colors.card }]}>
-              <View style={[styles.pickerHeader, { borderBottomColor: colors.border }]}>
-                <Text style={[styles.pickerTitle, { color: colors.foreground }]}>{label}</Text>
+          <Pressable
+            style={styles.modalOverlay}
+            onPress={() => setShowPicker(false)}
+          >
+            <Pressable
+              style={[styles.pickerSheet, { backgroundColor: colors.card }]}
+            >
+              <View
+                style={[
+                  styles.pickerHeader,
+                  { borderBottomColor: colors.border },
+                ]}
+              >
+                <Text
+                  style={[styles.pickerTitle, { color: colors.foreground }]}
+                >
+                  {label}
+                </Text>
                 <TouchableOpacity onPress={() => setShowPicker(false)}>
-                  <Text style={[styles.pickerDone, { color: colors.primary }]}>Done</Text>
+                  <Text style={[styles.pickerDone, { color: colors.primary }]}>
+                    Done
+                  </Text>
                 </TouchableOpacity>
               </View>
               <DateTimePicker
@@ -167,8 +224,15 @@ function Stepper({
   const colors = useColors();
   return (
     <View style={styles.stepperContainer}>
-      <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>{label}</Text>
-      <View style={[styles.stepper, { borderColor: colors.border, backgroundColor: colors.card }]}>
+      <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
+        {label}
+      </Text>
+      <View
+        style={[
+          styles.stepper,
+          { borderColor: colors.border, backgroundColor: colors.card },
+        ]}
+      >
         <TouchableOpacity
           style={[styles.stepperBtn, { borderRightColor: colors.border }]}
           onPress={() => {
@@ -177,9 +241,15 @@ function Stepper({
           }}
           disabled={value <= min}
         >
-          <Ionicons name="remove" size={20} color={value <= min ? colors.mutedForeground : colors.foreground} />
+          <Ionicons
+            name="remove"
+            size={20}
+            color={value <= min ? colors.mutedForeground : colors.foreground}
+          />
         </TouchableOpacity>
-        <Text style={[styles.stepperValue, { color: colors.foreground }]}>{value}</Text>
+        <Text style={[styles.stepperValue, { color: colors.foreground }]}>
+          {value}
+        </Text>
         <TouchableOpacity
           style={[styles.stepperBtn, { borderLeftColor: colors.border }]}
           onPress={() => {
@@ -188,23 +258,47 @@ function Stepper({
           }}
           disabled={value >= max}
         >
-          <Ionicons name="add" size={20} color={value >= max ? colors.mutedForeground : colors.foreground} />
+          <Ionicons
+            name="add"
+            size={20}
+            color={value >= max ? colors.mutedForeground : colors.foreground}
+          />
         </TouchableOpacity>
       </View>
     </View>
   );
 }
 
-function FetalImageViewer({ source, visible, onClose }: { source: ImageSourcePropType; visible: boolean; onClose: () => void }) {
+function FetalImageViewer({
+  source,
+  visible,
+  onClose,
+}: {
+  source: ImageSourcePropType;
+  visible: boolean;
+  onClose: () => void;
+}) {
   const insets = useSafeAreaInsets();
   return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
       <Pressable style={styles.imageViewerOverlay} onPress={onClose}>
         <View style={[styles.imageViewerClose, { top: insets.top + 16 }]}>
           <Ionicons name="close" size={22} color="#fff" />
         </View>
-        <Image source={source} style={styles.imageViewerFull} resizeMode="contain" />
-        <Text style={[styles.imageViewerHint, { bottom: insets.bottom + 20 }]}>Tap anywhere to close</Text>
+        <Image
+          source={source}
+          style={styles.imageViewerFull}
+          resizeMode="contain"
+        />
+        <Text style={[styles.imageViewerHint, { bottom: insets.bottom + 20 }]}>
+          Tap anywhere to close
+        </Text>
       </Pressable>
     </Modal>
   );
@@ -217,7 +311,12 @@ function ResultsView({ results }: { results: PregnancyResults }) {
   const milestones = getMilestones(results);
   const isOverdue = results.daysUntilDue < 0;
 
-  const trimesterLabel = results.trimester === 1 ? "1st Trimester" : results.trimester === 2 ? "2nd Trimester" : "3rd Trimester";
+  const trimesterLabel =
+    results.trimester === 1
+      ? "1st Trimester"
+      : results.trimester === 2
+        ? "2nd Trimester"
+        : "3rd Trimester";
 
   return (
     <Animated.View entering={FadeInDown.duration(400).springify()}>
@@ -226,33 +325,52 @@ function ResultsView({ results }: { results: PregnancyResults }) {
         <Text style={styles.eddLabel}>Estimated Due Date</Text>
         <Text style={styles.eddDate}>{formatDate(results.edd)}</Text>
         <View style={styles.eddRow}>
-          <View style={[styles.eddBadge, { backgroundColor: "rgba(255,255,255,0.25)" }]}>
+          <View
+            style={[
+              styles.eddBadge,
+              { backgroundColor: "rgba(255,255,255,0.25)" },
+            ]}
+          >
             <Text style={styles.eddBadgeText}>{trimesterLabel}</Text>
           </View>
           <Text style={styles.eddDays}>
             {isOverdue
               ? `${Math.abs(results.daysUntilDue)} days overdue`
               : results.daysUntilDue === 0
-              ? "Today is your due date!"
-              : `${results.daysUntilDue} days to go`}
+                ? "Today is your due date!"
+                : `${results.daysUntilDue} days to go`}
           </Text>
         </View>
       </View>
 
       {/* Progress */}
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
         <View style={styles.cardRow}>
           <Ionicons name="time-outline" size={18} color={colors.primary} />
-          <Text style={[styles.cardTitle, { color: colors.foreground }]}>Gestational Age</Text>
+          <Text style={[styles.cardTitle, { color: colors.foreground }]}>
+            Gestational Age
+          </Text>
         </View>
         <Text style={[styles.gestAge, { color: colors.foreground }]}>
-          {formatGestationalAge(results.currentGestationalAgeWeeks, results.currentGestationalAgeRemainderDays)}
+          {formatGestationalAge(
+            results.currentGestationalAgeWeeks,
+            results.currentGestationalAgeRemainderDays,
+          )}
         </Text>
         <View style={[styles.progressTrack, { backgroundColor: colors.muted }]}>
           <View
             style={[
               styles.progressFill,
-              { backgroundColor: colors.primary, width: `${Math.min(100, results.progressPercentage)}%` as DimensionValue },
+              {
+                backgroundColor: colors.primary,
+                width:
+                  `${Math.min(100, results.progressPercentage)}%` as DimensionValue,
+              },
             ]}
           />
         </View>
@@ -262,27 +380,54 @@ function ResultsView({ results }: { results: PregnancyResults }) {
       </View>
 
       {/* Key Dates */}
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
         <View style={styles.cardRow}>
           <Ionicons name="calendar-outline" size={18} color={colors.primary} />
-          <Text style={[styles.cardTitle, { color: colors.foreground }]}>Key Dates</Text>
+          <Text style={[styles.cardTitle, { color: colors.foreground }]}>
+            Key Dates
+          </Text>
         </View>
         {[
           { label: "Last Menstrual Period", date: results.lmp },
           { label: "Estimated Conception", date: results.conception },
           { label: "End of 1st Trimester", date: milestones.endFirstTrimester },
-          { label: "End of 2nd Trimester", date: milestones.endSecondTrimester },
+          {
+            label: "End of 2nd Trimester",
+            date: milestones.endSecondTrimester,
+          },
           { label: "Due Date (EDD)", date: results.edd },
         ].map(({ label, date }, i) => (
-          <View key={label} style={[styles.dateRow, i > 0 && { borderTopWidth: 1, borderTopColor: colors.border }]}>
-            <Text style={[styles.dateRowLabel, { color: colors.mutedForeground }]}>{label}</Text>
-            <Text style={[styles.dateRowValue, { color: colors.foreground }]}>{formatDate(date)}</Text>
+          <View
+            key={label}
+            style={[
+              styles.dateRow,
+              i > 0 && { borderTopWidth: 1, borderTopColor: colors.border },
+            ]}
+          >
+            <Text
+              style={[styles.dateRowLabel, { color: colors.mutedForeground }]}
+            >
+              {label}
+            </Text>
+            <Text style={[styles.dateRowValue, { color: colors.foreground }]}>
+              {formatDate(date)}
+            </Text>
           </View>
         ))}
       </View>
 
       {/* Fetal Development */}
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
         <View style={styles.cardRow}>
           <Ionicons name="sparkles-outline" size={18} color={colors.primary} />
           <Text style={[styles.cardTitle, { color: colors.foreground }]}>
@@ -294,9 +439,13 @@ function ResultsView({ results }: { results: PregnancyResults }) {
         <View style={styles.weekHeader}>
           <View>
             <View style={[styles.sizeBadge, { backgroundColor: colors.muted }]}>
-              <Text style={[styles.sizeBadgeText, { color: colors.primary }]}>{weekData.size}</Text>
+              <Text style={[styles.sizeBadgeText, { color: colors.primary }]}>
+                {weekData.size}
+              </Text>
             </View>
-            <Text style={[styles.sizeComparison, { color: colors.mutedForeground }]}>
+            <Text
+              style={[styles.sizeComparison, { color: colors.mutedForeground }]}
+            >
               ~ {weekData.sizeComparison}
             </Text>
           </View>
@@ -312,8 +461,14 @@ function ResultsView({ results }: { results: PregnancyResults }) {
               style={[styles.fetalImage, { backgroundColor: colors.muted }]}
               resizeMode="contain"
             />
-            <View style={[styles.fetalImageHint, { backgroundColor: colors.muted }]}>
-              <Ionicons name="expand-outline" size={12} color={colors.mutedForeground} />
+            <View
+              style={[styles.fetalImageHint, { backgroundColor: colors.muted }]}
+            >
+              <Ionicons
+                name="expand-outline"
+                size={12}
+                color={colors.mutedForeground}
+              />
             </View>
           </TouchableOpacity>
         </View>
@@ -325,27 +480,50 @@ function ResultsView({ results }: { results: PregnancyResults }) {
         />
 
         {/* Baby development */}
-        <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Baby this week</Text>
+        <Text style={[styles.sectionLabel, { color: colors.foreground }]}>
+          Baby this week
+        </Text>
         {weekData.development.map((item, i) => (
           <View key={i} style={styles.bulletRow}>
-            <View style={[styles.bullet, { backgroundColor: colors.primary }]} />
-            <Text style={[styles.bulletText, { color: colors.foreground }]}>{item}</Text>
+            <View
+              style={[styles.bullet, { backgroundColor: colors.primary }]}
+            />
+            <Text style={[styles.bulletText, { color: colors.foreground }]}>
+              {item}
+            </Text>
           </View>
         ))}
 
         {/* Mother changes */}
-        <Text style={[styles.sectionLabel, { color: colors.foreground, marginTop: 12 }]}>How you may feel</Text>
+        <Text
+          style={[
+            styles.sectionLabel,
+            { color: colors.foreground, marginTop: 12 },
+          ]}
+        >
+          How you may feel
+        </Text>
         {weekData.motherChanges.map((item, i) => (
           <View key={i} style={styles.bulletRow}>
             <View style={[styles.bullet, { backgroundColor: colors.accent }]} />
-            <Text style={[styles.bulletText, { color: colors.foreground }]}>{item}</Text>
+            <Text style={[styles.bulletText, { color: colors.foreground }]}>
+              {item}
+            </Text>
           </View>
         ))}
 
         {/* Coming up */}
         <View style={[styles.comingUpBox, { backgroundColor: colors.muted }]}>
-          <Ionicons name="arrow-forward-circle-outline" size={16} color={colors.primary} />
-          <Text style={[styles.comingUpText, { color: colors.mutedForeground }]}>{weekData.comingUp}</Text>
+          <Ionicons
+            name="arrow-forward-circle-outline"
+            size={16}
+            color={colors.primary}
+          />
+          <Text
+            style={[styles.comingUpText, { color: colors.mutedForeground }]}
+          >
+            {weekData.comingUp}
+          </Text>
         </View>
       </View>
     </Animated.View>
@@ -405,7 +583,12 @@ export default function CalculatorScreen() {
         keyboardShouldPersistTaps="handled"
       >
         {/* Header */}
-        <View style={[styles.header, { backgroundColor: colors.primary, paddingTop: topPad + 16 }]}>
+        <View
+          style={[
+            styles.header,
+            { backgroundColor: colors.primary, paddingTop: topPad + 16 },
+          ]}
+        >
           <View style={[styles.headerAccount, { top: topPad + 12 }]}>
             <AccountButton />
           </View>
@@ -413,13 +596,23 @@ export default function CalculatorScreen() {
             <Ionicons name="heart" size={28} color={colors.primary} />
           </View>
           <Text style={styles.headerTitle}>Pregnancy Calculator</Text>
-          <Text style={styles.headerSubtitle}>Your gentle guide through every week</Text>
+          <Text style={styles.headerSubtitle}>
+            Your gentle guide through every week
+          </Text>
         </View>
 
         <View style={styles.content}>
           {/* Method Selector */}
-          <Text style={[styles.sectionHeading, { color: colors.mutedForeground }]}>CALCULATE BY</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.methodScroll}>
+          <Text
+            style={[styles.sectionHeading, { color: colors.mutedForeground }]}
+          >
+            CALCULATE BY
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.methodScroll}
+          >
             {METHODS.map((m) => {
               const active = method === m.id;
               return (
@@ -446,7 +639,12 @@ export default function CalculatorScreen() {
                     color={active ? "#fff" : colors.mutedForeground}
                     style={{ marginRight: 6 }}
                   />
-                  <Text style={[styles.methodPillText, { color: active ? "#fff" : colors.foreground }]}>
+                  <Text
+                    style={[
+                      styles.methodPillText,
+                      { color: active ? "#fff" : colors.foreground },
+                    ]}
+                  >
                     {m.label}
                   </Text>
                 </TouchableOpacity>
@@ -455,8 +653,18 @@ export default function CalculatorScreen() {
           </ScrollView>
 
           {/* Input Card */}
-          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.methodDescription, { color: colors.mutedForeground }]}>
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text
+              style={[
+                styles.methodDescription,
+                { color: colors.mutedForeground },
+              ]}
+            >
               {METHOD_DESCRIPTIONS[method]}
             </Text>
 
@@ -464,21 +672,30 @@ export default function CalculatorScreen() {
               <DatePickerField
                 label="First Day of Last Period"
                 value={date}
-                onChange={(d) => { setDate(d); setResults(null); }}
+                onChange={(d) => {
+                  setDate(d);
+                  setResults(null);
+                }}
               />
             )}
             {method === "due" && (
               <DatePickerField
                 label="Estimated Due Date"
                 value={date}
-                onChange={(d) => { setDate(d); setResults(null); }}
+                onChange={(d) => {
+                  setDate(d);
+                  setResults(null);
+                }}
               />
             )}
             {method === "conception" && (
               <DatePickerField
                 label="Date of Conception"
                 value={date}
-                onChange={(d) => { setDate(d); setResults(null); }}
+                onChange={(d) => {
+                  setDate(d);
+                  setResults(null);
+                }}
               />
             )}
             {method === "ultrasound" && (
@@ -486,7 +703,10 @@ export default function CalculatorScreen() {
                 <DatePickerField
                   label="Date of Ultrasound"
                   value={date}
-                  onChange={(d) => { setDate(d); setResults(null); }}
+                  onChange={(d) => {
+                    setDate(d);
+                    setResults(null);
+                  }}
                 />
                 <View style={styles.stepperRow}>
                   <Stepper
@@ -494,30 +714,46 @@ export default function CalculatorScreen() {
                     value={usWeeks}
                     min={4}
                     max={42}
-                    onChange={(v) => { setUsWeeks(v); setResults(null); }}
+                    onChange={(v) => {
+                      setUsWeeks(v);
+                      setResults(null);
+                    }}
                   />
                   <Stepper
                     label="Days"
                     value={usDays}
                     min={0}
                     max={6}
-                    onChange={(v) => { setUsDays(v); setResults(null); }}
+                    onChange={(v) => {
+                      setUsDays(v);
+                      setResults(null);
+                    }}
                   />
                 </View>
               </>
             )}
 
             {error && (
-              <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>
+              <Text style={[styles.errorText, { color: colors.destructive }]}>
+                {error}
+              </Text>
             )}
 
             <View style={styles.buttonRow}>
               <TouchableOpacity
-                style={[styles.calculateBtn, { backgroundColor: colors.primary }]}
+                style={[
+                  styles.calculateBtn,
+                  { backgroundColor: colors.primary },
+                ]}
                 onPress={handleCalculate}
                 testID="calculate-button"
               >
-                <Ionicons name="calculator-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
+                <Ionicons
+                  name="calculator-outline"
+                  size={18}
+                  color="#fff"
+                  style={{ marginRight: 8 }}
+                />
                 <Text style={styles.calculateBtnText}>Calculate</Text>
               </TouchableOpacity>
               {results && (
@@ -525,7 +761,11 @@ export default function CalculatorScreen() {
                   style={[styles.resetBtn, { borderColor: colors.border }]}
                   onPress={handleReset}
                 >
-                  <Ionicons name="refresh-outline" size={18} color={colors.mutedForeground} />
+                  <Ionicons
+                    name="refresh-outline"
+                    size={18}
+                    color={colors.mutedForeground}
+                  />
                 </TouchableOpacity>
               )}
             </View>
@@ -785,7 +1025,11 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   dateRowLabel: { fontSize: 13, fontFamily: "Inter_400Regular", flex: 1 },
-  dateRowValue: { fontSize: 13, fontFamily: "Inter_500Medium", textAlign: "right" },
+  dateRowValue: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    textAlign: "right",
+  },
   weekHeader: {
     flexDirection: "row",
     justifyContent: "space-between",

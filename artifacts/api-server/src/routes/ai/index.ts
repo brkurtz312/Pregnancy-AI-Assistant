@@ -1,5 +1,8 @@
 import { Router, type IRouter } from "express";
-import { getAnthropic, isAnthropicConfigured } from "@workspace/integrations-anthropic-ai";
+import {
+  getAnthropic,
+  isAnthropicConfigured,
+} from "@workspace/integrations-anthropic-ai";
 import {
   AskAssistantBody,
   GetWeeklyInsightBody,
@@ -11,7 +14,11 @@ import {
   DISCLAIMER,
   buildWeeklyInsightPrompt,
 } from "../../lib/ai-prompts";
-import { aiBurstLimiter, aiDailyLimiter, getClientIp } from "../../lib/rate-limit";
+import {
+  aiBurstLimiter,
+  aiDailyLimiter,
+  getClientIp,
+} from "../../lib/rate-limit";
 import { TtlCache } from "../../lib/ttl-cache";
 import { getUserId } from "../../middlewares/auth";
 import { userHasPass } from "../../lib/entitlement";
@@ -48,7 +55,10 @@ type AnthropicMessage = Awaited<
 function extractText(message: AnthropicMessage): string {
   if (!("content" in message)) return "";
   return message.content
-    .filter((block): block is Extract<typeof block, { type: "text" }> => block.type === "text")
+    .filter(
+      (block): block is Extract<typeof block, { type: "text" }> =>
+        block.type === "text",
+    )
     .map((block) => block.text)
     .join("\n")
     .trim();
@@ -91,9 +101,10 @@ router.post("/ai/ask", async (req, res): Promise<void> => {
     : SYSTEM_PROMPT;
 
   const messages = [
-    ...(history ?? [])
-      .slice(-MAX_HISTORY_TURNS)
-      .map((m) => ({ role: m.role, content: m.content.slice(0, MAX_CONTENT_CHARS) })),
+    ...(history ?? []).slice(-MAX_HISTORY_TURNS).map((m) => ({
+      role: m.role,
+      content: m.content.slice(0, MAX_CONTENT_CHARS),
+    })),
     { role: "user" as const, content: question.slice(0, MAX_CONTENT_CHARS) },
   ];
 
@@ -118,13 +129,17 @@ router.post("/ai/ask", async (req, res): Promise<void> => {
 
     res.json(
       AskAssistantResponse.parse({
-        answer: answer || "I'm sorry, I couldn't generate a response. Please try again.",
+        answer:
+          answer ||
+          "I'm sorry, I couldn't generate a response. Please try again.",
         disclaimer: DISCLAIMER,
       }),
     );
   } catch (err) {
     req.log.error({ err }, "AI ask request failed");
-    res.status(502).json({ error: "The assistant is unavailable right now. Please try again." });
+    res.status(502).json({
+      error: "The assistant is unavailable right now. Please try again.",
+    });
   }
 });
 
@@ -177,7 +192,9 @@ router.post("/ai/weekly-insight", async (req, res): Promise<void> => {
     );
   } catch (err) {
     req.log.error({ err }, "AI weekly-insight request failed");
-    res.status(502).json({ error: "The assistant is unavailable right now. Please try again." });
+    res.status(502).json({
+      error: "The assistant is unavailable right now. Please try again.",
+    });
   }
 });
 

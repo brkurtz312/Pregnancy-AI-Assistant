@@ -8,7 +8,9 @@
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
     "test": "pnpm -r --if-present run test",
-    "lint": "eslint . --max-warnings=0"
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --check .",
+    "format:fix": "prettier --write ."
   },
   "private": true,
   "devDependencies": {

@@ -3,7 +3,11 @@ import { sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { CreateCheckoutBody, ConfirmCheckoutBody } from "@workspace/api-zod";
 import { requireAuth, type AuthedRequest } from "../../middlewares/auth";
-import { getOrCreateUser, setStripeCustomerId, grantPass } from "../../lib/users";
+import {
+  getOrCreateUser,
+  setStripeCustomerId,
+  grantPass,
+} from "../../lib/users";
 import { userHasPass } from "../../lib/entitlement";
 import { getUncachableStripeClient } from "../../lib/stripeClient";
 import { currentPeriodKey, getUsage } from "../../lib/ai-usage";
@@ -75,14 +79,16 @@ router.post(
 
     const priceId = await findPassPriceId();
     if (!priceId) {
-      req.log.error("Full Pregnancy Pass price not found in synced Stripe data");
+      req.log.error(
+        "Full Pregnancy Pass price not found in synced Stripe data",
+      );
       res.status(503).json({ error: "The pass is not available right now." });
       return;
     }
 
     // Build the return URL on our own origin; only the path comes from the
     // client to avoid trusting a client-supplied origin (open-redirect).
-    const host = (req.get("x-forwarded-host") ?? req.get("host")) ?? "";
+    const host = req.get("x-forwarded-host") ?? req.get("host") ?? "";
     const proto = (
       (req.get("x-forwarded-proto") ?? req.protocol) ||
       "https"

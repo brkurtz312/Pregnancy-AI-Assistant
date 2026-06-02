@@ -34,7 +34,10 @@ async function main() {
   }
 
   // Ensure a matching one-time price exists.
-  const prices = await stripe.prices.list({ product: product.id, active: true });
+  const prices = await stripe.prices.list({
+    product: product.id,
+    active: true,
+  });
   const existingPrice = prices.data.find(
     (p) =>
       p.unit_amount === PASS_PRICE_CENTS &&

@@ -22,16 +22,16 @@ A beautifully simple pregnancy calculator available as both a **web app** and a 
 
 This is a **pnpm workspace monorepo** using TypeScript.
 
-| Area | Technology |
-|------|-----------|
-| Monorepo | pnpm workspaces |
-| Language | TypeScript 5.9, Node.js 24 |
-| Web app | React + Vite |
-| Mobile app | Expo (React Native) |
-| API | Express 5 |
-| Database | PostgreSQL + Drizzle ORM |
-| Validation | Zod |
-| API codegen | Orval (from OpenAPI spec) |
+| Area        | Technology                 |
+| ----------- | -------------------------- |
+| Monorepo    | pnpm workspaces            |
+| Language    | TypeScript 5.9, Node.js 24 |
+| Web app     | React + Vite               |
+| Mobile app  | Expo (React Native)        |
+| API         | Express 5                  |
+| Database    | PostgreSQL + Drizzle ORM   |
+| Validation  | Zod                        |
+| API codegen | Orval (from OpenAPI spec)  |
 
 ## Project Structure
 

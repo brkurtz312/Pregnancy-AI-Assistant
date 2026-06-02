@@ -1,4 +1,10 @@
-import { pgTable, text, integer, timestamp, primaryKey } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  integer,
+  timestamp,
+  primaryKey,
+} from "drizzle-orm/pg-core";
 
 /**
  * Per-period free AI question metering.

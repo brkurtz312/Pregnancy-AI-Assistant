@@ -9,7 +9,7 @@ let _client: Anthropic | null = null;
 export function isAnthropicConfigured(): boolean {
   return Boolean(
     process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL &&
-      process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
+    process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
   );
 }
 

@@ -91,7 +91,9 @@ export function AccountSheet({
               ]}
               onPress={() => goTo("/sign-up")}
             >
-              <Text style={[styles.secondaryBtnText, { color: colors.foreground }]}>
+              <Text
+                style={[styles.secondaryBtnText, { color: colors.foreground }]}
+              >
                 Create Account
               </Text>
             </TouchableOpacity>
@@ -113,7 +115,12 @@ export function AccountSheet({
             </View>
 
             {pass.isLoading ? (
-              <View style={[styles.statusCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View
+                style={[
+                  styles.statusCard,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
                 <ActivityIndicator color={colors.primary} />
               </View>
             ) : pass.hasPass ? (
@@ -125,11 +132,15 @@ export function AccountSheet({
               >
                 <View style={styles.statusTitleRow}>
                   <Ionicons name="sparkles" size={18} color={colors.primary} />
-                  <Text style={[styles.statusTitle, { color: colors.foreground }]}>
+                  <Text
+                    style={[styles.statusTitle, { color: colors.foreground }]}
+                  >
                     Full Pregnancy Pass active
                   </Text>
                 </View>
-                <Text style={[styles.statusBody, { color: colors.mutedForeground }]}>
+                <Text
+                  style={[styles.statusBody, { color: colors.mutedForeground }]}
+                >
                   You have unlimited AI questions on every device.
                 </Text>
               </View>
@@ -146,16 +157,23 @@ export function AccountSheet({
                     size={18}
                     color={colors.primary}
                   />
-                  <Text style={[styles.statusTitle, { color: colors.foreground }]}>
+                  <Text
+                    style={[styles.statusTitle, { color: colors.foreground }]}
+                  >
                     Free plan
                   </Text>
                 </View>
-                <Text style={[styles.statusBody, { color: colors.mutedForeground }]}>
-                  {pass.freeRemaining} of {pass.freeLimit} free AI questions left
-                  this week.
+                <Text
+                  style={[styles.statusBody, { color: colors.mutedForeground }]}
+                >
+                  {pass.freeRemaining} of {pass.freeLimit} free AI questions
+                  left this week.
                 </Text>
                 <TouchableOpacity
-                  style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
+                  style={[
+                    styles.primaryBtn,
+                    { backgroundColor: colors.primary },
+                  ]}
                   onPress={pass.startCheckout}
                   disabled={pass.isStartingCheckout}
                 >
@@ -167,7 +185,9 @@ export function AccountSheet({
                     </Text>
                   )}
                 </TouchableOpacity>
-                <Text style={[styles.fineprint, { color: colors.mutedForeground }]}>
+                <Text
+                  style={[styles.fineprint, { color: colors.mutedForeground }]}
+                >
                   Unlimited AI questions, forever. One-time purchase.
                 </Text>
               </View>
@@ -181,7 +201,11 @@ export function AccountSheet({
                 onClose();
               }}
             >
-              <Ionicons name="log-out-outline" size={18} color={colors.destructive} />
+              <Ionicons
+                name="log-out-outline"
+                size={18}
+                color={colors.destructive}
+              />
               <Text style={[styles.signOutText, { color: colors.destructive }]}>
                 Sign Out
               </Text>
@@ -242,7 +266,11 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: "center",
   },
-  primaryBtnText: { color: "#fff", fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  primaryBtnText: {
+    color: "#fff",
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+  },
   secondaryBtn: {
     borderRadius: 12,
     paddingVertical: 14,
@@ -250,7 +278,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   secondaryBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
-  fineprint: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center" },
+  fineprint: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+  },
   signOutBtn: {
     flexDirection: "row",
     alignItems: "center",

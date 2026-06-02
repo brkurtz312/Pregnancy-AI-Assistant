@@ -41,7 +41,7 @@ describe("POST /api/stripe/webhook", () => {
       .post("/api/stripe/webhook")
       .set("stripe-signature", "t=1,v1=deadbeef")
       .set("Content-Type", "text/plain")
-      .send("{\"type\":\"checkout.session.completed\"}");
+      .send('{"type":"checkout.session.completed"}');
 
     expect(res.status).toBe(500);
     expect(processWebhook).not.toHaveBeenCalled();

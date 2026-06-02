@@ -1,0 +1,28 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+out-tsc
+*.tsbuildinfo
+.expo
+.expo-shared
+
+# Generated code
+**/generated
+**/src/generated
+**/.generated
+expo-env.d.ts
+**/expo-env.d.ts
+
+# Lockfiles
+pnpm-lock.yaml
+
+# Replit / agent internals
+.local
+.agents
+.cache
+.config
+
+# Misc
+coverage

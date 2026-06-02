@@ -3,7 +3,10 @@ import { eq, sql } from "drizzle-orm";
 import { clerkClient } from "@clerk/express";
 
 export async function getUser(id: string): Promise<User | undefined> {
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, id));
   return user;
 }
 
