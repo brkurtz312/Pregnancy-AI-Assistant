@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
 import {
+  type DimensionValue,
   Image,
   type ImageSourcePropType,
   Modal,
@@ -217,7 +218,6 @@ function ResultsView({ results }: { results: PregnancyResults }) {
   const isOverdue = results.daysUntilDue < 0;
 
   const trimesterLabel = results.trimester === 1 ? "1st Trimester" : results.trimester === 2 ? "2nd Trimester" : "3rd Trimester";
-  const trimesterColor = results.trimester === 1 ? "#E07848" : results.trimester === 2 ? "#D44F79" : "#9B3D6A";
 
   return (
     <Animated.View entering={FadeInDown.duration(400).springify()}>
@@ -252,7 +252,7 @@ function ResultsView({ results }: { results: PregnancyResults }) {
           <View
             style={[
               styles.progressFill,
-              { backgroundColor: colors.primary, width: `${Math.min(100, results.progressPercentage)}%` as any },
+              { backgroundColor: colors.primary, width: `${Math.min(100, results.progressPercentage)}%` as DimensionValue },
             ]}
           />
         </View>

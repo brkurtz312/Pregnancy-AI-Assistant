@@ -140,17 +140,14 @@ export function ResultsDisplay({ results }: ResultsDisplayProps) {
               <MilestoneItem 
                 title="End of First Trimester (Week 14)" 
                 date={milestones.endFirstTrimester} 
-                isLast={false} 
               />
               <MilestoneItem 
                 title="End of Second Trimester (Week 28)" 
                 date={milestones.endSecondTrimester} 
-                isLast={false} 
               />
               <MilestoneItem 
                 title="Estimated Due Date (Week 40)" 
                 date={milestones.due} 
-                isLast={true} 
               />
             </div>
           </CardContent>
@@ -267,7 +264,7 @@ export function ResultsDisplay({ results }: ResultsDisplayProps) {
   );
 }
 
-function MilestoneItem({ title, date, isLast }: { title: string, date: Date, isLast: boolean }) {
+function MilestoneItem({ title, date }: { title: string, date: Date }) {
   const completed = isPast(date) && !isToday(date);
   
   return (
