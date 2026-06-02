@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { usePass } from "@/hooks/usePass";
 
-const PASS_PRICE = "$24.99";
+const PASS_PRICE = "$19.99";
 
 export function AccountSheet({
   visible,

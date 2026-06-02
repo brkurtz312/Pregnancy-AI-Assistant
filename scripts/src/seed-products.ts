@@ -1,8 +1,12 @@
 import { getUncachableStripeClient } from "./stripeClient";
 
 /**
- * Creates the one-time "Full Pregnancy Pass" product and its $24.99 price in
+ * Creates the one-time "Full Pregnancy Pass" product and its $19.99 price in
  * Stripe. Idempotent: safe to run multiple times.
+ *
+ * Stripe prices are immutable, so changing PASS_PRICE_CENTS creates a new price
+ * and archives (deactivates) any other active one-time prices on the product,
+ * leaving exactly one active price for checkout to pick up.
  *
  * Run with: pnpm --filter @workspace/scripts exec tsx src/seed-products.ts
  */
@@ -10,8 +14,12 @@ const PASS_KIND = "full_pregnancy_pass";
 const PASS_NAME = "Full Pregnancy Pass";
 const PASS_DESCRIPTION =
   "Unlimited AI pregnancy questions for your whole pregnancy, tied to your account and restorable across devices.";
-const PASS_PRICE_CENTS = 2499; // $24.99
+const PASS_PRICE_CENTS = 1999; // $19.99
 const PASS_CURRENCY = "usd";
+
+function formatUsd(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
 
 async function main() {
   const stripe = await getUncachableStripeClient();
@@ -45,8 +53,10 @@ async function main() {
       !p.recurring,
   );
 
+  let activePriceId: string;
   if (existingPrice) {
     console.log(`Price already exists: ${existingPrice.id}`);
+    activePriceId = existingPrice.id;
   } else {
     const price = await stripe.prices.create({
       product: product.id,
@@ -54,7 +64,21 @@ async function main() {
       currency: PASS_CURRENCY,
       metadata: { kind: PASS_KIND },
     });
-    console.log(`Created price: $24.99 one-time (${price.id})`);
+    console.log(
+      `Created price: ${formatUsd(PASS_PRICE_CENTS)} one-time (${price.id})`,
+    );
+    activePriceId = price.id;
+  }
+
+  // Archive any other active prices on the product so checkout always resolves
+  // to the current price (findPassPriceId picks the first active price).
+  for (const p of prices.data) {
+    if (p.id !== activePriceId && p.active) {
+      await stripe.prices.update(p.id, { active: false });
+      console.log(
+        `Archived stale price: ${formatUsd(p.unit_amount ?? 0)} (${p.id})`,
+      );
+    }
   }
 
   console.log("Done. Webhooks will sync this to the database automatically.");
