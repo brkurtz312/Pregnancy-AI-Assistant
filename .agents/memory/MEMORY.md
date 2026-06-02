@@ -1,3 +1,4 @@
 - [AI integration + mobile API base URL](ai-integration-and-mobile-api.md) — copied Anthropic client throws at import (crashes whole API) → make lazy; Expo native needs setBaseUrl(https://EXPO_PUBLIC_DOMAIN).
 - [Stripe connector credential fields](stripe-connector-fields.md) — connection settings use `secret`/`publishable`, NOT `secret_key`/`webhook_secret` (stripe SKILL template is wrong); deps go in artifact, not root.
 - [Replit XFF client IP convention](replit-xff-convention.md) — leftmost X-Forwarded-For is the real client IP behind Replit proxy; don't rewrite to rightmost.
+- [Pass purchase + AI free-limit e2e testing](pass-gating-e2e-testing.md) — gating 403 sits behind isAnthropicConfigured 503; seed ai_usage via DB to test limits cheaply; Stripe test card works.
