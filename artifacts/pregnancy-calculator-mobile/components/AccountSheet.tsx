@@ -8,15 +8,27 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ApiError } from "@workspace/api-client-react";
+
 import { useColors } from "@/hooks/useColors";
 import { usePass } from "@/hooks/usePass";
 
 const PASS_PRICE = "$19.99";
+
+function redeemErrorMessage(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.status === 429)
+      return "Too many attempts. Please wait a few minutes and try again.";
+    if (err.status === 503) return "Code redemption isn't available right now.";
+  }
+  return "That access code isn't valid.";
+}
 
 export function AccountSheet({
   visible,
@@ -32,9 +44,29 @@ export function AccountSheet({
   const { user } = useUser();
   const pass = usePass();
 
+  const [showRedeem, setShowRedeem] = React.useState(false);
+  const [code, setCode] = React.useState("");
+  const [redeemError, setRedeemError] = React.useState<string | null>(null);
+
   const goTo = (path: "/sign-in" | "/sign-up") => {
     onClose();
     router.push(path);
+  };
+
+  const handleRedeem = async () => {
+    const trimmed = code.trim();
+    if (!trimmed) {
+      setRedeemError("Enter an access code.");
+      return;
+    }
+    setRedeemError(null);
+    try {
+      await pass.redeemCode(trimmed);
+      setShowRedeem(false);
+      setCode("");
+    } catch (err) {
+      setRedeemError(redeemErrorMessage(err));
+    }
   };
 
   const email =
@@ -190,6 +222,75 @@ export function AccountSheet({
                 >
                   Unlimited AI questions, forever. One-time purchase.
                 </Text>
+
+                {showRedeem ? (
+                  <View style={styles.redeemBox}>
+                    <TextInput
+                      value={code}
+                      onChangeText={(text) => {
+                        setCode(text);
+                        if (redeemError) setRedeemError(null);
+                      }}
+                      placeholder="Enter access code"
+                      placeholderTextColor={colors.mutedForeground}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      style={[
+                        styles.redeemInput,
+                        {
+                          borderColor: colors.border,
+                          color: colors.foreground,
+                          backgroundColor: colors.background,
+                        },
+                      ]}
+                    />
+                    {redeemError ? (
+                      <Text
+                        style={[
+                          styles.redeemError,
+                          { color: colors.destructive },
+                        ]}
+                      >
+                        {redeemError}
+                      </Text>
+                    ) : null}
+                    <TouchableOpacity
+                      style={[
+                        styles.secondaryBtn,
+                        {
+                          borderColor: colors.primary,
+                          backgroundColor: colors.card,
+                        },
+                      ]}
+                      onPress={handleRedeem}
+                      disabled={pass.isRedeeming}
+                    >
+                      {pass.isRedeeming ? (
+                        <ActivityIndicator color={colors.primary} />
+                      ) : (
+                        <Text
+                          style={[
+                            styles.secondaryBtnText,
+                            { color: colors.primary },
+                          ]}
+                        >
+                          Unlock access
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => setShowRedeem(true)}
+                    hitSlop={8}
+                  >
+                    <Text
+                      style={[styles.redeemLink, { color: colors.primary }]}
+                    >
+                      Have a developer code?
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             )}
 
@@ -283,6 +384,22 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     textAlign: "center",
   },
+  redeemLink: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    textAlign: "center",
+    paddingTop: 4,
+  },
+  redeemBox: { gap: 8, paddingTop: 4 },
+  redeemInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+  },
+  redeemError: { fontSize: 12, fontFamily: "Inter_400Regular" },
   signOutBtn: {
     flexDirection: "row",
     alignItems: "center",

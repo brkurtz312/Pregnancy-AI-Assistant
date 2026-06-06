@@ -222,6 +222,51 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /billing/redeem-code:
+    post:
+      operationId: redeemCode
+      tags: [billing]
+      summary: Redeem a developer access code to unlock the pass
+      description: >
+        Grants the Full Pregnancy Pass to the signed-in user when the provided
+        code matches the server-configured developer access code.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RedeemCodeRequest"
+      responses:
+        "200":
+          description: Updated pass status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PassStatus"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Invalid access code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Code redemption is not available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
   schemas:
     HealthStatus:
@@ -273,6 +318,14 @@ components:
       properties:
         sessionId:
           type: ["string", "null"]
+    RedeemCodeRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+      required:
+        - code
     ChatMessage:
       type: object
       properties:

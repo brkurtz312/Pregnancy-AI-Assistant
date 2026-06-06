@@ -10,6 +10,7 @@ import {
   useGetPassStatus,
   useCreateCheckout,
   useConfirmCheckout,
+  useRedeemCode,
   getGetPassStatusQueryKey,
 } from "@workspace/api-client-react";
 
@@ -30,6 +31,13 @@ interface PassContextValue {
   startCheckout: () => void;
   /** True while a checkout session is being created. */
   isStartingCheckout: boolean;
+  /**
+   * Redeem a developer access code to unlock the pass. Resolves on success and
+   * rejects (with the request error) on an invalid code.
+   */
+  redeemCode: (code: string) => Promise<void>;
+  /** True while a code redemption is in flight. */
+  isRedeeming: boolean;
   /** Re-fetch pass status and usage from the server. */
   refresh: () => void;
 }
@@ -45,6 +53,7 @@ export function PassProvider({ children }: { children: ReactNode }) {
   });
   const checkout = useCreateCheckout();
   const confirm = useConfirmCheckout();
+  const redeem = useRedeemCode();
 
   // After returning from Stripe checkout (?checkout=success), confirm the
   // session for instant entitlement, then strip the params from the URL.
@@ -94,6 +103,11 @@ export function PassProvider({ children }: { children: ReactNode }) {
       );
     },
     isStartingCheckout: checkout.isPending,
+    redeemCode: async (code: string) => {
+      await redeem.mutateAsync({ data: { code } });
+      await passQuery.refetch();
+    },
+    isRedeeming: redeem.isPending,
     refresh: () => {
       passQuery.refetch();
     },

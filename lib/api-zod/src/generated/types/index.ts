@@ -16,5 +16,6 @@ export * from "./checkoutSession";
 export * from "./confirmRequest";
 export * from "./healthStatus";
 export * from "./passStatus";
+export * from "./redeemCodeRequest";
 export * from "./weeklyInsight";
 export * from "./weeklyInsightQuery";

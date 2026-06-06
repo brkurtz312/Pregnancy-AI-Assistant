@@ -1,9 +1,10 @@
 import { Show, UserButton } from "@clerk/react";
 import { Link } from "wouter";
-import { Crown, Sparkles } from "lucide-react";
+import { Crown, KeyRound, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { usePass } from "@/hooks/use-pass";
+import { RedeemCodeDialog } from "@/components/auth/redeem-code-dialog";
 
 export function AccountBar() {
   const {
@@ -38,6 +39,19 @@ export function AccountBar() {
             >
               {freeRemaining}/{freeLimit} free questions left
             </Badge>
+            <RedeemCodeDialog
+              trigger={
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="gap-1.5 rounded-full text-muted-foreground hover:text-foreground hidden sm:inline-flex"
+                  data-testid="button-redeem-code"
+                >
+                  <KeyRound className="w-4 h-4" />
+                  Have a code?
+                </Button>
+              }
+            />
             <Button
               size="sm"
               onClick={startCheckout}

@@ -25,6 +25,7 @@ import type {
   ConfirmRequest,
   HealthStatus,
   PassStatus,
+  RedeemCodeRequest,
   WeeklyInsight,
   WeeklyInsightQuery,
 } from "./api.schemas";
@@ -537,4 +538,92 @@ export const useConfirmCheckout = <
   TContext
 > => {
   return useMutation(getConfirmCheckoutMutationOptions(options));
+};
+
+/**
+ * Grants the Full Pregnancy Pass to the signed-in user when the provided code matches the server-configured developer access code.
+
+ * @summary Redeem a developer access code to unlock the pass
+ */
+export const getRedeemCodeUrl = () => {
+  return `/api/billing/redeem-code`;
+};
+
+export const redeemCode = async (
+  redeemCodeRequest: RedeemCodeRequest,
+  options?: RequestInit,
+): Promise<PassStatus> => {
+  return customFetch<PassStatus>(getRedeemCodeUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(redeemCodeRequest),
+  });
+};
+
+export const getRedeemCodeMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof redeemCode>>,
+    TError,
+    { data: BodyType<RedeemCodeRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof redeemCode>>,
+  TError,
+  { data: BodyType<RedeemCodeRequest> },
+  TContext
+> => {
+  const mutationKey = ["redeemCode"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof redeemCode>>,
+    { data: BodyType<RedeemCodeRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return redeemCode(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RedeemCodeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof redeemCode>>
+>;
+export type RedeemCodeMutationBody = BodyType<RedeemCodeRequest>;
+export type RedeemCodeMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Redeem a developer access code to unlock the pass
+ */
+export const useRedeemCode = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof redeemCode>>,
+    TError,
+    { data: BodyType<RedeemCodeRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof redeemCode>>,
+  TError,
+  { data: BodyType<RedeemCodeRequest> },
+  TContext
+> => {
+  return useMutation(getRedeemCodeMutationOptions(options));
 };

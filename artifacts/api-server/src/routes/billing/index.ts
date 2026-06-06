@@ -1,7 +1,12 @@
 import { Router, type IRouter } from "express";
+import { timingSafeEqual } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { CreateCheckoutBody, ConfirmCheckoutBody } from "@workspace/api-zod";
+import {
+  CreateCheckoutBody,
+  ConfirmCheckoutBody,
+  RedeemCodeBody,
+} from "@workspace/api-zod";
 import { requireAuth, type AuthedRequest } from "../../middlewares/auth";
 import {
   getOrCreateUser,
@@ -12,6 +17,7 @@ import { userHasPass } from "../../lib/entitlement";
 import { getUncachableStripeClient } from "../../lib/stripeClient";
 import { currentPeriodKey, getUsage } from "../../lib/ai-usage";
 import { FREE_WEEKLY_LIMIT, PASS_KIND } from "../../lib/billing-config";
+import { redeemCodeLimiter } from "../../lib/rate-limit";
 
 const router: IRouter = Router();
 
@@ -153,6 +159,52 @@ router.post(
       }
     }
 
+    res.json(await passStatusPayload(userId));
+  },
+);
+
+// Compares the submitted code against the secret in constant time for
+// equal-length inputs. A length mismatch returns early — the secret's length is
+// not itself sensitive, and the per-IP rate limiter is what blocks guessing.
+function codesMatch(provided: string, expected: string): boolean {
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
+router.post(
+  "/billing/redeem-code",
+  redeemCodeLimiter,
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const userId = (req as AuthedRequest).userId!;
+    const parsed = RedeemCodeBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+
+    const expected = process.env.DEV_ACCESS_CODE;
+    if (!expected) {
+      req.log.error("DEV_ACCESS_CODE is not configured");
+      res
+        .status(503)
+        .json({ error: "Code redemption is not available right now." });
+      return;
+    }
+
+    await getOrCreateUser(userId);
+
+    if (!codesMatch(parsed.data.code.trim(), expected)) {
+      res
+        .status(403)
+        .json({ error: "That access code isn't valid.", code: "INVALID_CODE" });
+      return;
+    }
+
+    await grantPass(userId);
+    req.log.info({ userId }, "Pass granted via developer access code");
     res.json(await passStatusPayload(userId));
   },
 );

@@ -94,3 +94,19 @@ export const ConfirmCheckoutResponse = zod.object({
   freeUsed: zod.number(),
   freeLimit: zod.number(),
 });
+
+/**
+ * Grants the Full Pregnancy Pass to the signed-in user when the provided code matches the server-configured developer access code.
+
+ * @summary Redeem a developer access code to unlock the pass
+ */
+
+export const RedeemCodeBody = zod.object({
+  code: zod.string().min(1),
+});
+
+export const RedeemCodeResponse = zod.object({
+  hasPass: zod.boolean(),
+  freeUsed: zod.number(),
+  freeLimit: zod.number(),
+});

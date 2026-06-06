@@ -34,6 +34,11 @@ export interface ConfirmRequest {
   sessionId?: string | null;
 }
 
+export interface RedeemCodeRequest {
+  /** @minLength 1 */
+  code: string;
+}
+
 export type ChatMessageRole =
   (typeof ChatMessageRole)[keyof typeof ChatMessageRole];
 

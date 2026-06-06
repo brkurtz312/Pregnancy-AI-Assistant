@@ -20,6 +20,7 @@ function makeLimiter(
   windowMs: number,
   limit: number,
   message: string,
+  logLabel = "AI",
 ): RequestHandler {
   return rateLimit({
     windowMs,
@@ -32,7 +33,7 @@ function makeLimiter(
     validate: { trustProxy: false, xForwardedForHeader: false },
     handler: (req: Request, res: Response): void => {
       res.setHeader("Retry-After", Math.ceil(windowMs / 1000).toString());
-      req.log.warn({ ip: getClientIp(req) }, "AI rate limit exceeded");
+      req.log.warn({ ip: getClientIp(req) }, `${logLabel} rate limit exceeded`);
       res.status(429).json({ error: message });
     },
   });
@@ -53,4 +54,14 @@ export const aiDailyLimiter: RequestHandler = makeLimiter(
   24 * 60 * 60 * 1000,
   120,
   "You've reached today's limit for the assistant. Please try again tomorrow.",
+);
+
+// Brute-force protection for the developer access code: redeeming grants paid
+// entitlement from a single shared secret, so cap attempts per IP to make
+// online guessing infeasible while leaving room for genuine typos.
+export const redeemCodeLimiter: RequestHandler = makeLimiter(
+  10 * 60 * 1000,
+  10,
+  "Too many code attempts. Please wait a few minutes and try again.",
+  "Redeem-code",
 );

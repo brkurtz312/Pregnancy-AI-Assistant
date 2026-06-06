@@ -4,6 +4,7 @@ import {
   getGetPassStatusQueryKey,
   useCreateCheckout,
   useGetPassStatus,
+  useRedeemCode,
 } from "@workspace/api-client-react";
 import * as WebBrowser from "expo-web-browser";
 
@@ -26,6 +27,7 @@ export function usePass() {
     query: { enabled: signedIn, queryKey: getGetPassStatusQueryKey() },
   });
   const checkout = useCreateCheckout();
+  const redeem = useRedeemCode();
 
   // Only trust entitlement data while signed in. When signed out, the query is
   // disabled but cached data from a previous session can linger — never surface
@@ -56,6 +58,16 @@ export function usePass() {
     );
   };
 
+  /**
+   * Redeem a developer access code to unlock the pass for the signed-in
+   * account. Resolves on success and rejects (with the request error) when the
+   * code is invalid. Entitlement is re-checked on success.
+   */
+  const redeemCode = async (code: string) => {
+    await redeem.mutateAsync({ data: { code } });
+    await refresh();
+  };
+
   return {
     isSignedIn: signedIn,
     hasPass,
@@ -65,6 +77,8 @@ export function usePass() {
     isLoading: signedIn && passQuery.isLoading,
     startCheckout,
     isStartingCheckout: checkout.isPending,
+    redeemCode,
+    isRedeeming: redeem.isPending,
     refresh,
   };
 }

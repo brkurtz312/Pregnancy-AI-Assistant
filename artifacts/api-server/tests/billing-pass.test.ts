@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterAll, vi } from "vitest";
 import express, {
   type Express,
   type Request,
@@ -242,5 +242,61 @@ describe("POST /api/billing/confirm", () => {
     expect(res.status).toBe(200);
     expect(grantPass).not.toHaveBeenCalled();
     expect(getUncachableStripeClient).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/billing/redeem-code", () => {
+  const ORIGINAL_CODE = process.env.DEV_ACCESS_CODE;
+
+  beforeEach(() => {
+    process.env.DEV_ACCESS_CODE = "let-me-in";
+  });
+
+  afterAll(() => {
+    if (ORIGINAL_CODE === undefined) delete process.env.DEV_ACCESS_CODE;
+    else process.env.DEV_ACCESS_CODE = ORIGINAL_CODE;
+  });
+
+  it("requires authentication", async () => {
+    authedUserId = null;
+    const res = await request(app)
+      .post("/api/billing/redeem-code")
+      .send({ code: "let-me-in" });
+    expect(res.status).toBe(401);
+    expect(grantPass).not.toHaveBeenCalled();
+  });
+
+  it("rejects a malformed body with 400", async () => {
+    const res = await request(app).post("/api/billing/redeem-code").send({});
+    expect(res.status).toBe(400);
+    expect(grantPass).not.toHaveBeenCalled();
+  });
+
+  it("returns 503 when no developer code is configured", async () => {
+    delete process.env.DEV_ACCESS_CODE;
+    const res = await request(app)
+      .post("/api/billing/redeem-code")
+      .send({ code: "let-me-in" });
+    expect(res.status).toBe(503);
+    expect(grantPass).not.toHaveBeenCalled();
+  });
+
+  it("rejects an incorrect code with 403 and does not grant the pass", async () => {
+    const res = await request(app)
+      .post("/api/billing/redeem-code")
+      .send({ code: "wrong-code" });
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("INVALID_CODE");
+    expect(grantPass).not.toHaveBeenCalled();
+  });
+
+  it("grants the pass and returns updated status for the correct code", async () => {
+    userHasPass.mockResolvedValue(true); // reflects the freshly granted pass
+    const res = await request(app)
+      .post("/api/billing/redeem-code")
+      .send({ code: "  let-me-in  " });
+    expect(res.status).toBe(200);
+    expect(grantPass).toHaveBeenCalledWith("user_1");
+    expect(res.body.hasPass).toBe(true);
   });
 });
