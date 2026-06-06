@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { PassProvider } from "@/hooks/use-pass";
 import NotFound from "@/pages/not-found";
 import CalculatorPage from "@/pages/calculator";
+import LandingPage from "@/pages/landing";
 
 const queryClient = new QueryClient();
 
@@ -56,7 +57,7 @@ function AuthPage({ mode }: { mode: "sign-in" | "sign-up" }) {
           path={`${basePath}/${mode}`}
           signInUrl={`${basePath}/sign-in`}
           signUpUrl={`${basePath}/sign-up`}
-          fallbackRedirectUrl={basePath || "/"}
+          fallbackRedirectUrl={`${basePath}/app`}
         />
       </ClerkLoaded>
     </div>
@@ -66,7 +67,8 @@ function AuthPage({ mode }: { mode: "sign-in" | "sign-up" }) {
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={CalculatorPage} />
+      <Route path="/" component={LandingPage} />
+      <Route path="/app" component={CalculatorPage} />
       <Route path="/sign-in/*?">{() => <AuthPage mode="sign-in" />}</Route>
       <Route path="/sign-up/*?">{() => <AuthPage mode="sign-up" />}</Route>
       <Route component={NotFound} />
