@@ -1,4 +1,4 @@
-# Pregnancy Calculator
+# Pregnancy Assistant
 
 A beautifully simple pregnancy calculator available as both a **web app** and a **native iOS/Android mobile app**. Calculate your estimated due date, track how far along you are, and follow your baby's development week by week with original illustrations.
 

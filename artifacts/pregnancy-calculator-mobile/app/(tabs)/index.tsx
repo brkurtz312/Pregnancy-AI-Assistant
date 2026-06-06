@@ -595,7 +595,7 @@ export default function CalculatorScreen() {
           <View style={styles.headerIcon}>
             <Ionicons name="heart" size={28} color={colors.primary} />
           </View>
-          <Text style={styles.headerTitle}>Pregnancy Calculator</Text>
+          <Text style={styles.headerTitle}>Pregnancy Assistant</Text>
           <Text style={styles.headerSubtitle}>
             Your gentle guide through every week
           </Text>

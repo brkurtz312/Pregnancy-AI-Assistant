@@ -64,7 +64,7 @@ export default function LandingPage() {
               <Baby className="w-5 h-5 text-primary" />
             </span>
             <span className="font-serif text-lg font-bold tracking-tight">
-              Pregnancy Calculator
+              Pregnancy Assistant
             </span>
           </Link>
           <div className="flex items-center gap-2">
@@ -300,7 +300,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-4 md:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
             <Baby className="w-4 h-4 text-primary" />
-            <span>Pregnancy Calculator</span>
+            <span>Pregnancy Assistant</span>
           </div>
           <div className="flex items-center gap-5">
             <Link

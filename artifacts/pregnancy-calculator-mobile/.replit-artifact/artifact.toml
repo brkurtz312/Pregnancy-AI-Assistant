@@ -1,6 +1,6 @@
 kind = "mobile"
 previewPath = "/mobile/"
-title = "Pregnancy Calculator Mobile"
+title = "Pregnancy Assistant Mobile"
 version = "1.0.0"
 id = "artifacts/pregnancy-calculator-mobile"
 router = "expo-domain"

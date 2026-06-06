@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "Pregnancy Calculator"
+title = "Pregnancy Assistant"
 version = "1.0.0"
 id = "artifacts/pregnancy-calculator"
 router = "path"

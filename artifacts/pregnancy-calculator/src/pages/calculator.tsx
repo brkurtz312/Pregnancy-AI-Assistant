@@ -39,7 +39,7 @@ export default function CalculatorPage() {
             <Baby className="w-8 h-8 text-primary" />
           </div>
           <h1 className="text-4xl md:text-5xl font-bold font-serif tracking-tight text-foreground">
-            Pregnancy Calculator
+            Pregnancy Assistant
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             A gentle and precise tool to calculate key pregnancy dates and
