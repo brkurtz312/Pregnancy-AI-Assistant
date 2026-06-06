@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { DueDateForm } from "@/components/calculator/due-date-form";
@@ -12,10 +12,20 @@ import { AccountBar } from "@/components/auth/account-bar";
 
 export default function CalculatorPage() {
   const [results, setResults] = useState<PregnancyResults | null>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   const handleTabChange = () => {
     setResults(null);
   };
+
+  useEffect(() => {
+    if (results && resultsRef.current) {
+      resultsRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  }, [results]);
 
   return (
     <div className="min-h-screen bg-background text-foreground py-8 px-4 md:py-12 md:px-8 selection:bg-primary/20">
@@ -107,7 +117,10 @@ export default function CalculatorPage() {
 
         {/* Results */}
         {results && (
-          <div className="animate-in fade-in duration-500">
+          <div
+            ref={resultsRef}
+            className="scroll-mt-8 animate-in fade-in duration-500"
+          >
             <ResultsDisplay results={results} />
           </div>
         )}
