@@ -38,12 +38,20 @@ const clerkAppearance = {
     borderRadius: "0.5rem",
   },
   elements: {
-    rootBox: "w-full flex justify-center",
-    cardBox:
-      "w-[26rem] max-w-full rounded-2xl border border-[hsl(340_15%_88%)] shadow-xl overflow-hidden",
     formButtonPrimary:
       "bg-[hsl(340_65%_55%)] hover:bg-[hsl(340_65%_48%)] text-white",
     footerActionLink: "text-[hsl(340_65%_55%)] hover:text-[hsl(340_65%_45%)]",
+  },
+};
+
+// Card sizing is scoped to the sign-in / sign-up pages only. Applying it
+// globally also cramps the "Manage account" (UserProfile) modal, which needs
+// its own wider, natural-height layout.
+const authCardAppearance = {
+  elements: {
+    rootBox: "w-full flex justify-center",
+    cardBox:
+      "w-[26rem] max-w-full rounded-2xl border border-[hsl(340_15%_88%)] shadow-xl overflow-hidden",
   },
 };
 
@@ -58,6 +66,7 @@ function AuthPage({ mode }: { mode: "sign-in" | "sign-up" }) {
           signInUrl={`${basePath}/sign-in`}
           signUpUrl={`${basePath}/sign-up`}
           fallbackRedirectUrl={`${basePath}/app`}
+          appearance={authCardAppearance}
         />
       </ClerkLoaded>
     </div>
