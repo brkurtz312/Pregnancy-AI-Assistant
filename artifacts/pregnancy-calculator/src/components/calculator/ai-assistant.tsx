@@ -57,6 +57,7 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
   const [disclaimer, setDisclaimer] = useState<string | null>(null);
   const [limitReached, setLimitReached] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lastUserMsgRef = useRef<HTMLDivElement>(null);
 
   // Auto-load the weekly insight whenever the current week changes.
   useEffect(() => {
@@ -65,12 +66,17 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [week]);
 
+  const lastUserIndex = messages.map((m) => m.role).lastIndexOf("user");
+
+  // Keep the latest question pinned to the top so each new answer reads from
+  // its beginning; the user can scroll down to see the rest.
   useEffect(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: "smooth",
-    });
-  }, [messages, ask.isPending]);
+    const el = lastUserMsgRef.current;
+    const container = scrollRef.current;
+    if (el && container) {
+      container.scrollTo({ top: el.offsetTop, behavior: "smooth" });
+    }
+  }, [messages]);
 
   const send = (text: string) => {
     const question = text.trim();
@@ -184,7 +190,7 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
         <CardContent className="space-y-4">
           <div
             ref={scrollRef}
-            className="max-h-80 overflow-y-auto space-y-3 pr-1"
+            className="relative max-h-80 overflow-y-auto space-y-3 pr-1"
             data-testid="chat-messages"
           >
             {messages.length === 0 && (
@@ -213,6 +219,11 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
             {messages.map((m, i) => (
               <div
                 key={i}
+                ref={
+                  m.role === "user" && i === lastUserIndex
+                    ? lastUserMsgRef
+                    : undefined
+                }
                 className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
