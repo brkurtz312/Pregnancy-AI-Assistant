@@ -15,10 +15,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.replit.pregnancycalculator"
+      "bundleIdentifier": "com.pregnancyassistant.app"
     },
     "android": {
-      "package": "com.replit.pregnancycalculator"
+      "package": "com.pregnancyassistant.app"
     },
     "web": {
       "favicon": "./assets/images/icon.png"
