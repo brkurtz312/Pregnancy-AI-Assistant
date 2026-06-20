@@ -38,12 +38,11 @@
 }
 
 :root {
-  /* Replace these with brand colors */
-  --slide-primary: #4f46e5;
-  --slide-accent: #06b6d4;
-  --slide-bg: #f8fafc;
-  --slide-text: #0f172a;
-  --slide-muted: #64748b;
+  --slide-primary: #1a1a2e;
+  --slide-accent: #2a7b7b;
+  --slide-bg: #fbfcfc;
+  --slide-text: #1a1a2e;
+  --slide-muted: #4a4a68;
   --font-display-family: "Inter", system-ui, sans-serif;
   --font-body-family: "Inter", system-ui, sans-serif;
   color-scheme: light;
