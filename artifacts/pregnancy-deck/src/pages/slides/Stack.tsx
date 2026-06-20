@@ -10,8 +10,17 @@ export default function Stack() {
       className="w-screen h-screen overflow-hidden relative"
       style={{ backgroundColor: "#fbfcfc", fontFamily: "'Inter', sans-serif" }}
     >
-      <div style={{ padding: "7vh 8vw", height: "90vh", boxSizing: "border-box" }}>
-        <div style={{ fontSize: "2.2vw", fontWeight: 700, color: "#2a7b7b", letterSpacing: "0.16em" }}>
+      <div
+        style={{ padding: "7vh 8vw", height: "90vh", boxSizing: "border-box" }}
+      >
+        <div
+          style={{
+            fontSize: "2.2vw",
+            fontWeight: 700,
+            color: "#2a7b7b",
+            letterSpacing: "0.16em",
+          }}
+        >
           06 · ARCHITECTURE
         </div>
         <h2
@@ -27,25 +36,53 @@ export default function Stack() {
           Under the hood
         </h2>
 
-        <div style={{ display: "flex", gap: "5vw", marginTop: "5vh", alignItems: "stretch" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: "5vw",
+            marginTop: "5vh",
+            alignItems: "stretch",
+          }}
+        >
           <div style={{ flex: 1.15 }}>
             {rows.map((r, i) => (
               <div
                 key={r.title}
                 style={{
-                  borderBottom: i < rows.length - 1 ? "0.12vw solid #e2e8f0" : "none",
+                  borderBottom:
+                    i < rows.length - 1 ? "0.12vw solid #e2e8f0" : "none",
                   padding: i === 0 ? "0 0 2.2vh 0" : "2.2vh 0",
                 }}
               >
-                <div style={{ fontSize: "3vw", fontWeight: 600, color: "#1a1a2e" }}>{r.title}</div>
-                <p style={{ fontSize: "3vw", fontWeight: 400, color: "#4a4a68", margin: "0.6vh 0 0 0", lineHeight: 1.3 }}>
+                <div
+                  style={{ fontSize: "3vw", fontWeight: 600, color: "#1a1a2e" }}
+                >
+                  {r.title}
+                </div>
+                <p
+                  style={{
+                    fontSize: "3vw",
+                    fontWeight: 400,
+                    color: "#4a4a68",
+                    margin: "0.6vh 0 0 0",
+                    lineHeight: 1.3,
+                  }}
+                >
                   {r.body}
                 </p>
               </div>
             ))}
           </div>
 
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "1.6vh", justifyContent: "center" }}>
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              gap: "1.6vh",
+              justifyContent: "center",
+            }}
+          >
             <div style={{ display: "flex", gap: "1.4vw" }}>
               <div
                 style={{
@@ -122,10 +159,26 @@ export default function Stack() {
           boxSizing: "border-box",
         }}
       >
-        <div style={{ fontSize: "2.2vw", fontWeight: 500, color: "#ffffff", letterSpacing: "0.05em" }}>
+        <div
+          style={{
+            fontSize: "2.2vw",
+            fontWeight: 500,
+            color: "#ffffff",
+            letterSpacing: "0.05em",
+          }}
+        >
           Pregnancy AI Assistant
         </div>
-        <div style={{ fontSize: "2.2vw", fontWeight: 500, color: "#ffffff", opacity: 0.8 }}>07</div>
+        <div
+          style={{
+            fontSize: "2.2vw",
+            fontWeight: 500,
+            color: "#ffffff",
+            opacity: 0.8,
+          }}
+        >
+          07
+        </div>
       </div>
     </div>
   );

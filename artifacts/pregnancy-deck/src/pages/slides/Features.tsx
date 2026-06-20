@@ -1,7 +1,11 @@
 export default function Features() {
   const cards = [
     { n: "01", title: "Tracking", body: "Week-by-week due-date tracking." },
-    { n: "02", title: "AI assistant", body: "Plain-language pregnancy answers." },
+    {
+      n: "02",
+      title: "AI assistant",
+      body: "Plain-language pregnancy answers.",
+    },
     { n: "03", title: "Safety first", body: "Always: consult your clinician." },
   ];
 
@@ -23,8 +27,17 @@ export default function Features() {
         }}
       />
 
-      <div style={{ padding: "7vh 8vw", height: "90vh", boxSizing: "border-box" }}>
-        <div style={{ fontSize: "2.2vw", fontWeight: 700, color: "#2a7b7b", letterSpacing: "0.16em" }}>
+      <div
+        style={{ padding: "7vh 8vw", height: "90vh", boxSizing: "border-box" }}
+      >
+        <div
+          style={{
+            fontSize: "2.2vw",
+            fontWeight: 700,
+            color: "#2a7b7b",
+            letterSpacing: "0.16em",
+          }}
+        >
           02 · FEATURES
         </div>
         <h2
@@ -68,10 +81,25 @@ export default function Features() {
               >
                 {c.n}
               </div>
-              <div style={{ fontSize: "3vw", fontWeight: 600, color: "#1a1a2e", marginTop: "2.4vh" }}>
+              <div
+                style={{
+                  fontSize: "3vw",
+                  fontWeight: 600,
+                  color: "#1a1a2e",
+                  marginTop: "2.4vh",
+                }}
+              >
                 {c.title}
               </div>
-              <p style={{ fontSize: "3vw", fontWeight: 400, color: "#4a4a68", margin: "1.4vh 0 0 0", lineHeight: 1.35 }}>
+              <p
+                style={{
+                  fontSize: "3vw",
+                  fontWeight: 400,
+                  color: "#4a4a68",
+                  margin: "1.4vh 0 0 0",
+                  lineHeight: 1.35,
+                }}
+              >
                 {c.body}
               </p>
             </div>
@@ -94,10 +122,26 @@ export default function Features() {
           boxSizing: "border-box",
         }}
       >
-        <div style={{ fontSize: "2.2vw", fontWeight: 500, color: "#ffffff", letterSpacing: "0.05em" }}>
+        <div
+          style={{
+            fontSize: "2.2vw",
+            fontWeight: 500,
+            color: "#ffffff",
+            letterSpacing: "0.05em",
+          }}
+        >
           Pregnancy AI Assistant
         </div>
-        <div style={{ fontSize: "2.2vw", fontWeight: 500, color: "#ffffff", opacity: 0.8 }}>03</div>
+        <div
+          style={{
+            fontSize: "2.2vw",
+            fontWeight: 500,
+            color: "#ffffff",
+            opacity: 0.8,
+          }}
+        >
+          03
+        </div>
       </div>
     </div>
   );

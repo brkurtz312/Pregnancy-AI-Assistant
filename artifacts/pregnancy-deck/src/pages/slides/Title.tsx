@@ -53,7 +53,13 @@ export default function Title() {
           >
             Pregnancy AI Assistant
           </h1>
-          <div style={{ display: "flex", alignItems: "flex-start", marginTop: "5vh" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              marginTop: "5vh",
+            }}
+          >
             <div
               style={{
                 width: "5vw",
@@ -96,10 +102,24 @@ export default function Title() {
           boxSizing: "border-box",
         }}
       >
-        <div style={{ fontSize: "2.2vw", fontWeight: 500, color: "#ffffff", letterSpacing: "0.05em" }}>
+        <div
+          style={{
+            fontSize: "2.2vw",
+            fontWeight: 500,
+            color: "#ffffff",
+            letterSpacing: "0.05em",
+          }}
+        >
           Pregnancy AI Assistant
         </div>
-        <div style={{ fontSize: "2.2vw", fontWeight: 500, color: "#ffffff", opacity: 0.8 }}>
+        <div
+          style={{
+            fontSize: "2.2vw",
+            fontWeight: 500,
+            color: "#ffffff",
+            opacity: 0.8,
+          }}
+        >
           Portfolio · 2026
         </div>
       </div>

@@ -31,8 +31,17 @@ export default function PurchaseFlow() {
       className="w-screen h-screen overflow-hidden relative"
       style={{ backgroundColor: "#fbfcfc", fontFamily: "'Inter', sans-serif" }}
     >
-      <div style={{ padding: "7vh 8vw", height: "90vh", boxSizing: "border-box" }}>
-        <div style={{ fontSize: "2.2vw", fontWeight: 700, color: "#2a7b7b", letterSpacing: "0.16em" }}>
+      <div
+        style={{ padding: "7vh 8vw", height: "90vh", boxSizing: "border-box" }}
+      >
+        <div
+          style={{
+            fontSize: "2.2vw",
+            fontWeight: 700,
+            color: "#2a7b7b",
+            letterSpacing: "0.16em",
+          }}
+        >
           05 · HOW IT WORKS
         </div>
         <h2
@@ -48,9 +57,19 @@ export default function PurchaseFlow() {
           From purchase to access
         </h2>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "2.4vh", marginTop: "4vh" }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "2.4vh",
+            marginTop: "4vh",
+          }}
+        >
           {steps.map((s) => (
-            <div key={s.n} style={{ display: "flex", alignItems: "center", gap: "2vw" }}>
+            <div
+              key={s.n}
+              style={{ display: "flex", alignItems: "center", gap: "2vw" }}
+            >
               <div
                 style={{
                   width: "4.6vw",
@@ -68,8 +87,20 @@ export default function PurchaseFlow() {
               >
                 {s.n}
               </div>
-              <div style={{ fontSize: "3vw", fontWeight: 400, color: "#4a4a68", lineHeight: 1.3 }}>
-                <span style={{ fontWeight: 700, color: s.accent ? "#2a7b7b" : "#1a1a2e" }}>
+              <div
+                style={{
+                  fontSize: "3vw",
+                  fontWeight: 400,
+                  color: "#4a4a68",
+                  lineHeight: 1.3,
+                }}
+              >
+                <span
+                  style={{
+                    fontWeight: 700,
+                    color: s.accent ? "#2a7b7b" : "#1a1a2e",
+                  }}
+                >
                   {s.title}
                 </span>
                 {" — "}
@@ -79,7 +110,15 @@ export default function PurchaseFlow() {
           ))}
         </div>
 
-        <p style={{ fontSize: "2.4vw", fontWeight: 500, color: "#4a4a68", marginTop: "4vh", lineHeight: 1.4 }}>
+        <p
+          style={{
+            fontSize: "2.4vw",
+            fontWeight: 500,
+            color: "#4a4a68",
+            marginTop: "4vh",
+            lineHeight: 1.4,
+          }}
+        >
           Access is granted server-side — never by the client.
         </p>
       </div>
@@ -99,10 +138,26 @@ export default function PurchaseFlow() {
           boxSizing: "border-box",
         }}
       >
-        <div style={{ fontSize: "2.2vw", fontWeight: 500, color: "#ffffff", letterSpacing: "0.05em" }}>
+        <div
+          style={{
+            fontSize: "2.2vw",
+            fontWeight: 500,
+            color: "#ffffff",
+            letterSpacing: "0.05em",
+          }}
+        >
           Pregnancy AI Assistant
         </div>
-        <div style={{ fontSize: "2.2vw", fontWeight: 500, color: "#ffffff", opacity: 0.8 }}>06</div>
+        <div
+          style={{
+            fontSize: "2.2vw",
+            fontWeight: 500,
+            color: "#ffffff",
+            opacity: 0.8,
+          }}
+        >
+          06
+        </div>
       </div>
     </div>
   );

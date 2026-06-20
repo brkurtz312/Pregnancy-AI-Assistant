@@ -38,7 +38,14 @@ export default function Status() {
           zIndex: 1,
         }}
       >
-        <div style={{ width: "5vw", height: "0.5vh", backgroundColor: "#2a7b7b", marginBottom: "3vh" }} />
+        <div
+          style={{
+            width: "5vw",
+            height: "0.5vh",
+            backgroundColor: "#2a7b7b",
+            marginBottom: "3vh",
+          }}
+        />
         <h2
           style={{
             fontSize: "5vw",
@@ -51,7 +58,16 @@ export default function Status() {
         >
           Where it stands
         </h2>
-        <p style={{ fontSize: "3vw", fontWeight: 400, color: "#4a4a68", margin: "2.4vh 0 0 0", lineHeight: 1.4, maxWidth: "62vw" }}>
+        <p
+          style={{
+            fontSize: "3vw",
+            fontWeight: 400,
+            color: "#4a4a68",
+            margin: "2.4vh 0 0 0",
+            lineHeight: 1.4,
+            maxWidth: "62vw",
+          }}
+        >
           Live in production and on its way to the App Store.
         </p>
 
@@ -84,7 +100,14 @@ export default function Status() {
               >
                 ✓
               </div>
-              <span style={{ fontSize: "3vw", fontWeight: 500, color: "#1a1a2e", lineHeight: 1.3 }}>
+              <span
+                style={{
+                  fontSize: "3vw",
+                  fontWeight: 500,
+                  color: "#1a1a2e",
+                  lineHeight: 1.3,
+                }}
+              >
                 {text}
               </span>
             </div>
@@ -107,10 +130,26 @@ export default function Status() {
           boxSizing: "border-box",
         }}
       >
-        <div style={{ fontSize: "2.2vw", fontWeight: 500, color: "#ffffff", letterSpacing: "0.05em" }}>
+        <div
+          style={{
+            fontSize: "2.2vw",
+            fontWeight: 500,
+            color: "#ffffff",
+            letterSpacing: "0.05em",
+          }}
+        >
           Pregnancy AI Assistant
         </div>
-        <div style={{ fontSize: "2.2vw", fontWeight: 500, color: "#ffffff", opacity: 0.8 }}>08</div>
+        <div
+          style={{
+            fontSize: "2.2vw",
+            fontWeight: 500,
+            color: "#ffffff",
+            opacity: 0.8,
+          }}
+        >
+          08
+        </div>
       </div>
     </div>
   );
