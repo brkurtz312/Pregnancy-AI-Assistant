@@ -4,3 +4,4 @@
 - [Stripe connector credential fields](stripe-connector-fields.md) — connection settings use `secret`/`publishable`, NOT `secret_key`/`webhook_secret` (stripe SKILL template is wrong); deps go in artifact, not root.
 - [Replit XFF client IP convention](replit-xff-convention.md) — leftmost X-Forwarded-For is the real client IP behind Replit proxy; don't rewrite to rightmost.
 - [Pass purchase + AI free-limit e2e testing](pass-gating-e2e-testing.md) — gating 403 sits behind isAnthropicConfigured 503; seed ai_usage via DB to test limits cheaply; Stripe test card works.
+- [RevenueCat ASC product sync](revenuecat-asc-sync.md) — verify live RC state (check-revenuecat script), not stale seed constants; generic "Failed to sync products" is the Replit→Apple layer, not our code.
