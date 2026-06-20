@@ -1,6 +1,7 @@
 import rateLimit from "express-rate-limit";
 import { ipKeyGenerator } from "express-rate-limit";
 import type { Request, Response, RequestHandler } from "express";
+import { PostgresRateLimitStore } from "./rate-limit-store";
 
 // The Replit shared proxy forwards the original client IP as the leftmost
 // entry of X-Forwarded-For (see the Clerk proxy middleware for the same
@@ -20,12 +21,18 @@ function makeLimiter(
   windowMs: number,
   limit: number,
   message: string,
+  storePrefix: string,
   logLabel = "AI",
 ): RequestHandler {
   return rateLimit({
     windowMs,
     limit,
     keyGenerator,
+    // Shared cross-instance store. The public deployment is autoscaled, so an
+    // in-memory store would give each Node process its own budget and let a
+    // client multiply the effective limit by the number of warm instances.
+    // Each limiter gets its own prefix so they don't share a counter.
+    store: new PostgresRateLimitStore(storePrefix),
     standardHeaders: true,
     legacyHeaders: false,
     // We derive the client IP ourselves from X-Forwarded-For, so the library's
@@ -45,6 +52,7 @@ export const aiBurstLimiter: RequestHandler = makeLimiter(
   60 * 1000,
   15,
   "You're sending requests too quickly. Please wait a moment and try again.",
+  "ai-burst",
 );
 
 // Daily cost ceiling: well above any genuine single-user need, but caps what a
@@ -54,6 +62,7 @@ export const aiDailyLimiter: RequestHandler = makeLimiter(
   24 * 60 * 60 * 1000,
   120,
   "You've reached today's limit for the assistant. Please try again tomorrow.",
+  "ai-daily",
 );
 
 // Brute-force protection for the developer access code: redeeming grants paid
@@ -63,5 +72,6 @@ export const redeemCodeLimiter: RequestHandler = makeLimiter(
   10 * 60 * 1000,
   10,
   "Too many code attempts. Please wait a few minutes and try again.",
+  "redeem-code",
   "Redeem-code",
 );

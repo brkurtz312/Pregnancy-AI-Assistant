@@ -31,12 +31,34 @@ vi.mock("../src/lib/entitlement", () => ({
   userHasPass: (userId: string) => userHasPass(userId),
 }));
 
-const getUsage = vi.fn(async (_id: string, _period: string) => 0);
-const incrementUsage = vi.fn(async (_id: string, _period: string) => 1);
+// The free allowance is reserved atomically up front and refunded if the paid
+// call fails. Mock both so we can drive "under limit", "at limit" and "provider
+// failure" cases without a database.
+const reserveUsage = vi.fn(
+  async (_id: string, _period: string, _limit: number) => ({
+    reserved: true,
+    count: 1,
+  }),
+);
+const refundUsage = vi.fn(async (_id: string, _period: string) => {});
 vi.mock("../src/lib/ai-usage", () => ({
   currentPeriodKey: () => "2026-W23",
-  getUsage: (id: string, period: string) => getUsage(id, period),
-  incrementUsage: (id: string, period: string) => incrementUsage(id, period),
+  reserveUsage: (id: string, period: string, limit: number) =>
+    reserveUsage(id, period, limit),
+  refundUsage: (id: string, period: string) => refundUsage(id, period),
+}));
+
+// The real burst/daily limiters are backed by a shared Postgres store; stub
+// them to no-op middlewares so this unit test stays hermetic. getClientIp keeps
+// its real behavior (leftmost X-Forwarded-For) so IP-keyed metering is tested.
+vi.mock("../src/lib/rate-limit", () => ({
+  aiBurstLimiter: (_req: Request, _res: Response, next: NextFunction) => next(),
+  aiDailyLimiter: (_req: Request, _res: Response, next: NextFunction) => next(),
+  getClientIp: (req: Request): string => {
+    const xff = req.headers["x-forwarded-for"];
+    const first = (Array.isArray(xff) ? xff[0] : xff)?.split(",")[0]?.trim();
+    return first || "unknown";
+  },
 }));
 
 import aiRouter from "../src/routes/ai/index";
@@ -79,8 +101,8 @@ beforeEach(() => {
   isAnthropicConfigured.mockReturnValue(true);
   getUserId.mockReturnValue(null);
   userHasPass.mockResolvedValue(false);
-  getUsage.mockResolvedValue(0);
-  incrementUsage.mockResolvedValue(1);
+  reserveUsage.mockResolvedValue({ reserved: true, count: 1 });
+  refundUsage.mockResolvedValue(undefined);
   anthropicCreate.mockResolvedValue(fakeAnswer("Stay hydrated and rest."));
 });
 
@@ -89,6 +111,7 @@ describe("POST /api/ai/ask free-question gating", () => {
     const res = await ask({ question: "" });
     expect(res.status).toBe(400);
     expect(anthropicCreate).not.toHaveBeenCalled();
+    expect(reserveUsage).not.toHaveBeenCalled();
   });
 
   it("returns 503 when the assistant is not configured", async () => {
@@ -96,58 +119,61 @@ describe("POST /api/ai/ask free-question gating", () => {
     const res = await ask({ question: "Is sushi safe?" });
     expect(res.status).toBe(503);
     expect(anthropicCreate).not.toHaveBeenCalled();
+    // No quota is reserved when the service is unavailable.
+    expect(reserveUsage).not.toHaveBeenCalled();
   });
 
   it("answers an anonymous user under the free limit and meters by IP", async () => {
-    getUsage.mockResolvedValue(0);
     const res = await ask({ question: "Is sushi safe?", week: 12 });
     expect(res.status).toBe(200);
     expect(res.body.answer).toContain("hydrated");
     expect(res.body.disclaimer).toBeTruthy();
     expect(anthropicCreate).toHaveBeenCalledTimes(1);
-    // Anonymous users are metered by their IP, and only successful answers
-    // count against the allowance.
-    expect(incrementUsage).toHaveBeenCalledTimes(1);
-    expect(incrementUsage.mock.calls[0][0]).toMatch(/^ip:/);
+    // Anonymous users are metered by their IP; quota is reserved up front and
+    // not refunded on success.
+    expect(reserveUsage).toHaveBeenCalledTimes(1);
+    expect(reserveUsage.mock.calls[0][0]).toMatch(/^ip:/);
+    expect(refundUsage).not.toHaveBeenCalled();
   });
 
   it("blocks an anonymous user at the free limit with 403 FREE_LIMIT_REACHED", async () => {
-    getUsage.mockResolvedValue(5); // FREE_WEEKLY_LIMIT
+    reserveUsage.mockResolvedValue({ reserved: false, count: 5 });
     const res = await ask({ question: "Is sushi safe?" });
     expect(res.status).toBe(403);
     expect(res.body.code).toBe("FREE_LIMIT_REACHED");
-    // No paid model call and no usage increment once the limit is hit.
+    // No paid model call once the reservation is denied, and nothing to refund.
     expect(anthropicCreate).not.toHaveBeenCalled();
-    expect(incrementUsage).not.toHaveBeenCalled();
+    expect(refundUsage).not.toHaveBeenCalled();
   });
 
   it("meters a signed-in user without a pass by their account id", async () => {
     getUserId.mockReturnValue("user_123");
     userHasPass.mockResolvedValue(false);
-    getUsage.mockResolvedValue(1);
     const res = await ask({ question: "Is sushi safe?" });
     expect(res.status).toBe(200);
-    expect(getUsage.mock.calls[0][0]).toBe("user:user_123");
-    expect(incrementUsage.mock.calls[0][0]).toBe("user:user_123");
+    expect(reserveUsage.mock.calls[0][0]).toBe("user:user_123");
   });
 
   it("lets a pass holder through even when over the free limit, without metering", async () => {
     getUserId.mockReturnValue("user_paid");
     userHasPass.mockResolvedValue(true);
-    getUsage.mockResolvedValue(999);
     const res = await ask({ question: "Is sushi safe?" });
     expect(res.status).toBe(200);
     expect(res.body.answer).toBeTruthy();
     expect(anthropicCreate).toHaveBeenCalledTimes(1);
     // Pass holders bypass metering entirely.
-    expect(getUsage).not.toHaveBeenCalled();
-    expect(incrementUsage).not.toHaveBeenCalled();
+    expect(reserveUsage).not.toHaveBeenCalled();
+    expect(refundUsage).not.toHaveBeenCalled();
   });
 
-  it("does not count a failed model call against the free allowance", async () => {
+  it("refunds the reserved question when the model call fails", async () => {
     anthropicCreate.mockRejectedValue(new Error("upstream down"));
     const res = await ask({ question: "Is sushi safe?" });
     expect(res.status).toBe(502);
-    expect(incrementUsage).not.toHaveBeenCalled();
+    // The up-front reservation is returned so a provider failure doesn't burn a
+    // free question.
+    expect(reserveUsage).toHaveBeenCalledTimes(1);
+    expect(refundUsage).toHaveBeenCalledTimes(1);
+    expect(refundUsage.mock.calls[0][0]).toMatch(/^ip:/);
   });
 });

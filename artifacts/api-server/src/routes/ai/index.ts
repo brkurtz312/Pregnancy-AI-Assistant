@@ -22,7 +22,11 @@ import {
 import { TtlCache } from "../../lib/ttl-cache";
 import { getUserId } from "../../middlewares/auth";
 import { userHasPass } from "../../lib/entitlement";
-import { currentPeriodKey, getUsage, incrementUsage } from "../../lib/ai-usage";
+import {
+  currentPeriodKey,
+  reserveUsage,
+  refundUsage,
+} from "../../lib/ai-usage";
 import { FREE_WEEKLY_LIMIT } from "../../lib/billing-config";
 
 const MODEL = "claude-sonnet-4-6";
@@ -86,8 +90,17 @@ router.post("/ai/ask", async (req, res): Promise<void> => {
   let meteredIdentifier: string | null = null;
   if (!(userId && (await userHasPass(userId)))) {
     meteredIdentifier = userId ? `user:${userId}` : `ip:${getClientIp(req)}`;
-    const used = await getUsage(meteredIdentifier, periodKey);
-    if (used >= FREE_WEEKLY_LIMIT) {
+    // Reserve a free question atomically *before* the paid model call. A plain
+    // read-then-check-then-increment lets parallel requests all observe the
+    // same pre-increment count and slip past the weekly cap, each triggering
+    // its own paid call. Reserving up front closes that race; we refund below
+    // if the provider call fails.
+    const { reserved } = await reserveUsage(
+      meteredIdentifier,
+      periodKey,
+      FREE_WEEKLY_LIMIT,
+    );
+    if (!reserved) {
       res.status(403).json({
         error: `You've used all ${FREE_WEEKLY_LIMIT} free questions this week. Unlock the Full Pregnancy Pass for unlimited questions.`,
         code: "FREE_LIMIT_REACHED",
@@ -118,15 +131,6 @@ router.post("/ai/ask", async (req, res): Promise<void> => {
 
     const answer = extractText(message);
 
-    // Only count successful answers against the free allowance.
-    if (meteredIdentifier) {
-      try {
-        await incrementUsage(meteredIdentifier, periodKey);
-      } catch (err) {
-        req.log.error({ err }, "Failed to record AI usage");
-      }
-    }
-
     res.json(
       AskAssistantResponse.parse({
         answer:
@@ -136,6 +140,19 @@ router.post("/ai/ask", async (req, res): Promise<void> => {
       }),
     );
   } catch (err) {
+    // The reservation above already consumed a free question, but the paid call
+    // never produced an answer — refund it so the user isn't charged a question
+    // for our upstream failure.
+    if (meteredIdentifier) {
+      try {
+        await refundUsage(meteredIdentifier, periodKey);
+      } catch (refundErr) {
+        req.log.error(
+          { err: refundErr },
+          "Failed to refund AI usage after provider error",
+        );
+      }
+    }
     req.log.error({ err }, "AI ask request failed");
     res.status(502).json({
       error: "The assistant is unavailable right now. Please try again.",

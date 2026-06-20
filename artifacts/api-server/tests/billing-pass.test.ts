@@ -71,6 +71,18 @@ vi.mock("../src/lib/ai-usage", () => ({
   getUsage: (id: string, period: string) => getUsage(id, period),
 }));
 
+// The redeem-code limiter is backed by a shared Postgres store; stub it to a
+// no-op so this unit test doesn't need a real DB-backed rate-limit table.
+vi.mock("../src/lib/rate-limit", () => ({
+  redeemCodeLimiter: (_req: Request, _res: Response, next: NextFunction) =>
+    next(),
+  getClientIp: (req: Request): string => {
+    const xff = req.headers["x-forwarded-for"];
+    const first = (Array.isArray(xff) ? xff[0] : xff)?.split(",")[0]?.trim();
+    return first || "unknown";
+  },
+}));
+
 import billingRouter from "../src/routes/billing/index";
 
 function buildApp(): Express {

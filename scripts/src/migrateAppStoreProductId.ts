@@ -57,12 +57,10 @@ async function migrate() {
   if (prodErr) throw new Error("Failed to list products");
 
   const oldProduct = products.items.find(
-    (p) =>
-      p.store_identifier === OLD_STORE_ID && p.app_id === appStoreApp.id,
+    (p) => p.store_identifier === OLD_STORE_ID && p.app_id === appStoreApp.id,
   );
   let newProduct = products.items.find(
-    (p) =>
-      p.store_identifier === NEW_STORE_ID && p.app_id === appStoreApp.id,
+    (p) => p.store_identifier === NEW_STORE_ID && p.app_id === appStoreApp.id,
   );
 
   if (newProduct) {
