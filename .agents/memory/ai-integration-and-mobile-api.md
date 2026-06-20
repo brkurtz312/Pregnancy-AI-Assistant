@@ -86,6 +86,35 @@ plumbing. Defensive hardening that IS allowed: keep ErrorBoundary outermost and
 guard an empty publishable key so a missing key degrades gracefully instead of
 hard-crashing on launch.
 
+# Replit Expo Launch is a MANAGED identity — app.json must not fight it
+
+Replit's Expo Launch (the Publish → App Store flow) injects its OWN managed
+identity at build time and submits to a Replit-managed App Store app. The
+"View logs" job spec shows the truth in the `launching expo:manifest "{...}"`
+step: it sets `owner` (`replit-private-<uuid>`), `slug`, `extra.eas.projectId`,
+and `ios.bundleIdentifier` (Replit assigns `app.replit.<name>`), plus the App
+Store numeric app id and the Apple ID it submits under.
+
+**Do NOT hand-add `owner`, `extra.eas.projectId`, or a custom
+`ios.bundleIdentifier` to `app.json`.** If app.json declares a bundle id that
+differs from the Replit-managed one, `expo:prebuild` generates the native
+project with app.json's id while signing/submission use the managed id → the
+provisioning profile can't sign the binary → "Failed to publish". A personal
+`owner`/`projectId` (the user's own Expo account) similarly conflicts with the
+managed Expo org the Launch is authenticated for.
+
+**Why:** a prior session "improved" app.json by adding owner/projectId and a
+custom bundle id (`com.pregnancyassistant.app`) — but the real App Store listing
+was already `app.replit.pregnancycalculator`. Those edits never took effect;
+they only broke every publish.
+
+**How to apply:** to fix a "Failed to publish" with no other clear error, read
+the `expo:manifest` line in the publish "View logs", then make app.json match
+the managed identity (set `ios.bundleIdentifier`/`android.package` to the
+`app.replit.*` value; remove `owner` and `extra.eas.projectId` so Launch's
+injection is authoritative). Keep it a static app.json. The app's real store
+identity is whatever the publish log shows, not whatever app.json claims.
+
 # Expo native needs an absolute API base URL
 
 Web reaches the API via relative URLs through the shared proxy. **Expo native

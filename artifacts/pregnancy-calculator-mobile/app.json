@@ -15,13 +15,13 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.pregnancyassistant.app",
+      "bundleIdentifier": "app.replit.pregnancycalculator",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "package": "com.pregnancyassistant.app"
+      "package": "app.replit.pregnancycalculator"
     },
     "web": {
       "favicon": "./assets/images/icon.png"
@@ -56,12 +56,6 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    },
-    "extra": {
-      "eas": {
-        "projectId": "8d9ddefc-b718-432f-9c1d-6bb44a7ea9d8"
-      }
-    },
-    "owner": "brkurtz"
+    }
   }
 }
