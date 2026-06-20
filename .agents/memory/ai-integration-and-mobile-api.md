@@ -65,6 +65,27 @@ copy. Don't cache empty/failed generations (retry instead). If the prompt or
 model changes, stale cached text persists until TTL expiry or a deploy/restart
 (which resets the in-memory cache) — bump/clear if you need it to propagate now.
 
+# Expo env injection: build.js is canonical; app.config.js is forbidden
+
+EXPO_PUBLIC_* values (Clerk publishable key, Clerk proxy URL, RevenueCat keys,
+EXPO_PUBLIC_DOMAIN, REPL_ID) reach the bundle ONLY via build-time forwarding:
+the mobile `dev` script (development) and `scripts/build.js` (the env block it
+passes to the spawned Metro export) — which is the canonical place clerk-auth's
+mobile setup forwards them. Replit's **Expo Launch native/TestFlight build runs
+build.js**, so build.js is the single source for production env forwarding.
+
+**Do NOT add `app.config.js` / `app.config.ts`** — the expo skill forbids it; a
+dynamic config **breaks the Expo Launch build**. Expo config must stay a static
+`app.json`. `setupClerkWhitelabelAuth()` deliberately does NOT create
+`EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` as a secret — it's derived at build time.
+
+**Why:** a TestFlight launch crash from an empty `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`
+(empty key → `<ClerkProvider>` throws) is almost always a **stale build** made
+before build.js forwarded it — the fix is to **re-publish**, not to add config
+plumbing. Defensive hardening that IS allowed: keep ErrorBoundary outermost and
+guard an empty publishable key so a missing key degrades gracefully instead of
+hard-crashing on launch.
+
 # Expo native needs an absolute API base URL
 
 Web reaches the API via relative URLs through the shared proxy. **Expo native
