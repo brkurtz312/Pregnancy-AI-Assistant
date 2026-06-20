@@ -4,6 +4,7 @@
 - [Stripe connector credential fields](stripe-connector-fields.md) — connection settings use `secret`/`publishable`, NOT `secret_key`/`webhook_secret` (stripe SKILL template is wrong); deps go in artifact, not root.
 - [Replit XFF client IP convention](replit-xff-convention.md) — leftmost X-Forwarded-For is the real client IP behind Replit proxy; don't rewrite to rightmost.
 - [AI rate limiting & free-quota on autoscale](ai-rate-limit-and-quota.md) — cost-control limits need a SHARED store (in-memory is per-instance/bypassable); free quota must reserve atomically before the paid call, refund on failure.
+- [@babel/generator pnpm isolation](babel-generator-pnpm-isolation.md) — react-native-worklets@0.5.1 requires @babel/generator without declaring it; fix: `pnpm add -w --save-dev @babel/generator@7` (NOT v8, NOT public-hoist-pattern).
 - [Pass purchase + AI free-limit e2e testing](pass-gating-e2e-testing.md) — gating 403 sits behind isAnthropicConfigured 503; seed ai_usage via DB to test limits cheaply; Stripe test card works.
 - [RevenueCat ASC product sync](revenuecat-asc-sync.md) — verify live RC state (check-revenuecat script), not stale seed constants; generic "Failed to sync products" is the Replit→Apple layer, not our code.
 - [Apple burns IAP product IDs](apple-iap-product-id-burned.md) — IDs reserved forever once used; need a new id + new RC product (store_identifier immutable), no app rebuild.
