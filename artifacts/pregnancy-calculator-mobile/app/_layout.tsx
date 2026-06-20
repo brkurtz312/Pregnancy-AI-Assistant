@@ -17,6 +17,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ErrorFallback } from "@/components/ErrorFallback";
 import { SubscriptionProvider } from "@/lib/revenuecat";
 
 SplashScreen.preventAutoHideAsync();
@@ -60,6 +61,27 @@ function RootLayoutNav() {
   );
 }
 
+/**
+ * Shown when the Clerk publishable key is missing from the build. Mounting
+ * <ClerkProvider> with an empty key throws synchronously, so without this guard
+ * the app would hard-crash on launch (e.g. a native build that didn't receive
+ * EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY). Rendering a clear screen instead keeps the
+ * app openable and makes the misconfiguration diagnosable.
+ */
+function ConfigErrorScreen() {
+  return (
+    <ErrorFallback
+      error={
+        new Error(
+          "Missing configuration: EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY was not " +
+            "included in this build, so authentication cannot start.",
+        )
+      }
+      resetError={() => {}}
+    />
+  );
+}
+
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
@@ -76,26 +98,33 @@ export default function RootLayout() {
 
   if (!fontsLoaded && !fontError) return null;
 
+  // ErrorBoundary + SafeAreaProvider are the outermost wrappers so that any
+  // throw from the provider tree below (including ClerkProvider) surfaces as a
+  // recoverable in-app screen rather than a launch crash.
   return (
-    <ClerkProvider
-      publishableKey={publishableKey}
-      tokenCache={tokenCache}
-      proxyUrl={clerkProxyUrl}
-    >
-      <SafeAreaProvider>
-        <ErrorBoundary>
-          <QueryClientProvider client={queryClient}>
-            <AuthTokenBridge />
-            <SubscriptionProvider>
-              <GestureHandlerRootView style={{ flex: 1 }}>
-                <KeyboardProvider>
-                  <RootLayoutNav />
-                </KeyboardProvider>
-              </GestureHandlerRootView>
-            </SubscriptionProvider>
-          </QueryClientProvider>
-        </ErrorBoundary>
-      </SafeAreaProvider>
-    </ClerkProvider>
+    <SafeAreaProvider>
+      <ErrorBoundary>
+        {publishableKey ? (
+          <ClerkProvider
+            publishableKey={publishableKey}
+            tokenCache={tokenCache}
+            proxyUrl={clerkProxyUrl}
+          >
+            <QueryClientProvider client={queryClient}>
+              <AuthTokenBridge />
+              <SubscriptionProvider>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                  <KeyboardProvider>
+                    <RootLayoutNav />
+                  </KeyboardProvider>
+                </GestureHandlerRootView>
+              </SubscriptionProvider>
+            </QueryClientProvider>
+          </ClerkProvider>
+        ) : (
+          <ConfigErrorScreen />
+        )}
+      </ErrorBoundary>
+    </SafeAreaProvider>
   );
 }
