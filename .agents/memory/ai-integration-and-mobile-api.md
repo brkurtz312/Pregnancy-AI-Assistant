@@ -115,6 +115,25 @@ the managed identity (set `ios.bundleIdentifier`/`android.package` to the
 injection is authoritative). Keep it a static app.json. The app's real store
 identity is whatever the publish log shows, not whatever app.json claims.
 
+# App Store resubmit needs a higher app.json `version`, not just build number
+
+Apple closes a "pre-release train" once a marketing version (e.g. 1.0.0) has
+been approved. A new TestFlight/App Store submit then fails at the `pilot`/
+`altool` upload step (NOT a build/identity error) with two 409s:
+"Invalid Pre-Release Train. The train version 'X' is closed for new build
+submissions" and "CFBundleShortVersionString [X] must contain a higher version
+than the previously approved version [X]".
+
+**Fix:** bump `expo.version` in `app.json` (1.0.0 → 1.0.1). That is the
+marketing version (CFBundleShortVersionString). The integer build number is
+auto-incremented by EAS (eas.json `appVersionSource: remote` +
+`production.autoIncrement: true`), so the build number is NOT the problem — the
+**marketing version** must increase on every new App Store train.
+
+**Why:** the submission reaching `pilot`/`altool` means build + signing +
+identity all succeeded — so a 409 here is purely a version-collision, not a
+config/identity bug. Don't chase bundle id / credentials when you see this.
+
 # Expo native needs an absolute API base URL
 
 Web reaches the API via relative URLs through the shared proxy. **Expo native
