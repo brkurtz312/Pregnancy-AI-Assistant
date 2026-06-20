@@ -8,6 +8,7 @@
     "seed-products": "tsx ./src/seed-products.ts",
     "seed-revenuecat": "tsx ./src/seedRevenueCat.ts",
     "check-revenuecat": "tsx ./src/checkRevenueCat.ts",
+    "migrate-appstore-product-id": "tsx ./src/migrateAppStoreProductId.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
