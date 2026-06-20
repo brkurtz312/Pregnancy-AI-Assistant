@@ -1,4 +1,5 @@
 - [AI integration + mobile API base URL](ai-integration-and-mobile-api.md) — copied Anthropic client throws at import (crashes whole API) → make lazy; Expo native needs setBaseUrl(https://EXPO_PUBLIC_DOMAIN).
+- [iOS pod install fails on Clerk reCAPTCHA pods](ios-cocoapods-modular-headers.md) — AppCheckCore/GoogleUtilities/RecaptchaInterop need modular_headers via expo-build-properties extraPods, not node-linker.
 - [RevenueCat entitlement_id vs lookup_key](revenuecat-entitlement-id.md) — customer active entitlement_id is opaque internal id, not your "pass" lookup_key; resolve via listEntitlements first or grants silently never fire.
 - [Stripe connector credential fields](stripe-connector-fields.md) — connection settings use `secret`/`publishable`, NOT `secret_key`/`webhook_secret` (stripe SKILL template is wrong); deps go in artifact, not root.
 - [Replit XFF client IP convention](replit-xff-convention.md) — leftmost X-Forwarded-For is the real client IP behind Replit proxy; don't rewrite to rightmost.
