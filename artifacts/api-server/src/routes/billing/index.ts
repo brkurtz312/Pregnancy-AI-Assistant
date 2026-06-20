@@ -15,6 +15,11 @@ import {
 } from "../../lib/users";
 import { userHasPass } from "../../lib/entitlement";
 import { getUncachableStripeClient } from "../../lib/stripeClient";
+import { getUncachableRevenueCatClient } from "../../lib/revenueCatClient";
+import {
+  listCustomerActiveEntitlements,
+  listEntitlements,
+} from "@replit/revenuecat-sdk";
 import { currentPeriodKey, getUsage } from "../../lib/ai-usage";
 import { FREE_WEEKLY_LIMIT, PASS_KIND } from "../../lib/billing-config";
 import { redeemCodeLimiter } from "../../lib/rate-limit";
@@ -157,6 +162,80 @@ router.post(
       } catch (err) {
         req.log.error({ err }, "Failed to confirm checkout session");
       }
+    }
+
+    res.json(await passStatusPayload(userId));
+  },
+);
+
+// RevenueCat entitlement lookup_key created during seeding. RevenueCat's
+// per-customer active-entitlement objects reference the entitlement by its
+// opaque internal id, not this lookup_key, so we resolve the id below.
+const REVENUECAT_ENTITLEMENT_LOOKUP_KEY = "pass";
+
+router.post(
+  "/billing/revenuecat/reconcile",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const userId = (req as AuthedRequest).userId!;
+    await getOrCreateUser(userId);
+
+    const projectId = process.env.REVENUECAT_PROJECT_ID;
+    if (!projectId) {
+      req.log.error("REVENUECAT_PROJECT_ID is not configured");
+      res.status(503).json({ error: "Purchases are not available right now." });
+      return;
+    }
+
+    // Verify the purchase server-side: the mobile app identifies the RevenueCat
+    // customer with the Clerk user id (Purchases.logIn), so the active
+    // entitlement for customer_id === userId is the source of truth. We never
+    // trust a client-reported entitlement to grant the pass.
+    try {
+      const client = await getUncachableRevenueCatClient();
+
+      // Resolve our lookup_key ("pass") to the entitlement's internal id, since
+      // the customer active-entitlement objects only carry the internal id.
+      const { data: entitlements, error: entitlementsError } =
+        await listEntitlements({
+          client,
+          path: { project_id: projectId },
+        });
+      if (entitlementsError) {
+        throw new Error("Failed to list project entitlements");
+      }
+      const passEntitlementId = entitlements?.items?.find(
+        (e) => e.lookup_key === REVENUECAT_ENTITLEMENT_LOOKUP_KEY,
+      )?.id;
+      if (!passEntitlementId) {
+        throw new Error(
+          `Entitlement with lookup_key "${REVENUECAT_ENTITLEMENT_LOOKUP_KEY}" not found`,
+        );
+      }
+
+      const { data, error } = await listCustomerActiveEntitlements({
+        client,
+        path: { project_id: projectId, customer_id: userId },
+      });
+      if (error) {
+        throw new Error("Failed to fetch active entitlements");
+      }
+      const hasActiveEntitlement =
+        data?.items?.some((e) => e.entitlement_id === passEntitlementId) ??
+        false;
+      if (hasActiveEntitlement) {
+        await grantPass(userId);
+        req.log.info({ userId }, "Pass granted via RevenueCat reconcile");
+      }
+    } catch (err) {
+      // Surface a retryable failure to the client so it can prompt the user to
+      // retry reconciliation after a successful purchase, rather than silently
+      // returning a stale (un-granted) status.
+      req.log.error({ err }, "Failed to reconcile RevenueCat entitlement");
+      res
+        .status(503)
+        .json({ error: "Could not verify your purchase. Please try again." });
+      return;
     }
 
     res.json(await passStatusPayload(userId));

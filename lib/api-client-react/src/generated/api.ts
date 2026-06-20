@@ -541,6 +541,89 @@ export const useConfirmCheckout = <
 };
 
 /**
+ * Verifies the signed-in user's active RevenueCat entitlement (the Clerk user id is used as the RevenueCat app user id) and grants the Full Pregnancy Pass when the entitlement is active. The pass is recorded on the same backend account, so it also unlocks unlimited AI on web.
+
+ * @summary Reconcile a RevenueCat in-app purchase and refresh entitlement
+ */
+export const getReconcileRevenuecatUrl = () => {
+  return `/api/billing/revenuecat/reconcile`;
+};
+
+export const reconcileRevenuecat = async (
+  options?: RequestInit,
+): Promise<PassStatus> => {
+  return customFetch<PassStatus>(getReconcileRevenuecatUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getReconcileRevenuecatMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reconcileRevenuecat>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reconcileRevenuecat>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["reconcileRevenuecat"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reconcileRevenuecat>>,
+    void
+  > = () => {
+    return reconcileRevenuecat(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReconcileRevenuecatMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reconcileRevenuecat>>
+>;
+
+export type ReconcileRevenuecatMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Reconcile a RevenueCat in-app purchase and refresh entitlement
+ */
+export const useReconcileRevenuecat = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reconcileRevenuecat>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reconcileRevenuecat>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getReconcileRevenuecatMutationOptions(options));
+};
+
+/**
  * Grants the Full Pregnancy Pass to the signed-in user when the provided code matches the server-configured developer access code.
 
  * @summary Redeem a developer access code to unlock the pass

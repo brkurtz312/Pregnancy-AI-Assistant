@@ -96,6 +96,17 @@ export const ConfirmCheckoutResponse = zod.object({
 });
 
 /**
+ * Verifies the signed-in user's active RevenueCat entitlement (the Clerk user id is used as the RevenueCat app user id) and grants the Full Pregnancy Pass when the entitlement is active. The pass is recorded on the same backend account, so it also unlocks unlimited AI on web.
+
+ * @summary Reconcile a RevenueCat in-app purchase and refresh entitlement
+ */
+export const ReconcileRevenuecatResponse = zod.object({
+  hasPass: zod.boolean(),
+  freeUsed: zod.number(),
+  freeLimit: zod.number(),
+});
+
+/**
  * Grants the Full Pregnancy Pass to the signed-in user when the provided code matches the server-configured developer access code.
 
  * @summary Redeem a developer access code to unlock the pass

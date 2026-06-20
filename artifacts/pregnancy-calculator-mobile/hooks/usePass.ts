@@ -4,6 +4,7 @@ import {
   getGetPassStatusQueryKey,
   useCreateCheckout,
   useGetPassStatus,
+  useReconcileRevenuecat,
   useRedeemCode,
 } from "@workspace/api-client-react";
 import * as WebBrowser from "expo-web-browser";
@@ -28,6 +29,7 @@ export function usePass() {
   });
   const checkout = useCreateCheckout();
   const redeem = useRedeemCode();
+  const reconcile = useReconcileRevenuecat();
 
   // Only trust entitlement data while signed in. When signed out, the query is
   // disabled but cached data from a previous session can linger — never surface
@@ -68,6 +70,17 @@ export function usePass() {
     await refresh();
   };
 
+  /**
+   * Verify a completed RevenueCat in-app purchase server-side and refresh
+   * entitlement. The server reads the active entitlement for this Clerk user
+   * (RevenueCat app_user_id == Clerk id) and grants the pass — so an iOS
+   * purchase unlocks the same account on web too.
+   */
+  const reconcileRevenueCat = async () => {
+    await reconcile.mutateAsync();
+    await refresh();
+  };
+
   return {
     isSignedIn: signedIn,
     hasPass,
@@ -79,6 +92,8 @@ export function usePass() {
     isStartingCheckout: checkout.isPending,
     redeemCode,
     isRedeeming: redeem.isPending,
+    reconcileRevenueCat,
+    isReconciling: reconcile.isPending,
     refresh,
   };
 }

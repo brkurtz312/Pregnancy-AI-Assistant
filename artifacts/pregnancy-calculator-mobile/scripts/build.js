@@ -149,6 +149,12 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
     EXPO_PUBLIC_REPL_ID: expoPublicReplId,
     EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.CLERK_PUBLISHABLE_KEY || "",
     EXPO_PUBLIC_CLERK_PROXY_URL: clerkProxyUrl,
+    EXPO_PUBLIC_REVENUECAT_TEST_API_KEY:
+      process.env.REVENUECAT_TEST_API_KEY || "",
+    EXPO_PUBLIC_REVENUECAT_IOS_API_KEY:
+      process.env.REVENUECAT_IOS_API_KEY || "",
+    EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY:
+      process.env.REVENUECAT_ANDROID_API_KEY || "",
   };
 
   if (expoPublicReplId) {

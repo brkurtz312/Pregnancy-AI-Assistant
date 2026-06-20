@@ -52,6 +52,19 @@ vi.mock("../src/lib/stripeClient", () => ({
   getUncachableStripeClient: () => getUncachableStripeClient(),
 }));
 
+const getUncachableRevenueCatClient = vi.fn(async () => ({}));
+vi.mock("../src/lib/revenueCatClient", () => ({
+  getUncachableRevenueCatClient: () => getUncachableRevenueCatClient(),
+}));
+
+const listEntitlements = vi.fn();
+const listCustomerActiveEntitlements = vi.fn();
+vi.mock("@replit/revenuecat-sdk", () => ({
+  listEntitlements: (...args: unknown[]) => listEntitlements(...args),
+  listCustomerActiveEntitlements: (...args: unknown[]) =>
+    listCustomerActiveEntitlements(...args),
+}));
+
 const getUsage = vi.fn(async (_id: string, _period: string) => 0);
 vi.mock("../src/lib/ai-usage", () => ({
   currentPeriodKey: () => "2026-W23",
@@ -298,5 +311,109 @@ describe("POST /api/billing/redeem-code", () => {
     expect(res.status).toBe(200);
     expect(grantPass).toHaveBeenCalledWith("user_1");
     expect(res.body.hasPass).toBe(true);
+  });
+});
+
+describe("POST /api/billing/revenuecat/reconcile", () => {
+  const ORIGINAL_PROJECT_ID = process.env.REVENUECAT_PROJECT_ID;
+
+  beforeEach(() => {
+    process.env.REVENUECAT_PROJECT_ID = "proj_test";
+    // By default, the project exposes the "pass" entitlement with internal id
+    // "entl_pass_1"; subclasses of each test override the customer entitlements.
+    listEntitlements.mockResolvedValue({
+      data: { items: [{ id: "entl_pass_1", lookup_key: "pass" }] },
+      error: null,
+    });
+    listCustomerActiveEntitlements.mockResolvedValue({
+      data: { items: [] },
+      error: null,
+    });
+  });
+
+  afterAll(() => {
+    if (ORIGINAL_PROJECT_ID === undefined)
+      delete process.env.REVENUECAT_PROJECT_ID;
+    else process.env.REVENUECAT_PROJECT_ID = ORIGINAL_PROJECT_ID;
+  });
+
+  it("requires authentication", async () => {
+    authedUserId = null;
+    const res = await request(app).post("/api/billing/revenuecat/reconcile");
+    expect(res.status).toBe(401);
+    expect(grantPass).not.toHaveBeenCalled();
+  });
+
+  it("returns 503 when REVENUECAT_PROJECT_ID is not configured", async () => {
+    delete process.env.REVENUECAT_PROJECT_ID;
+    const res = await request(app).post("/api/billing/revenuecat/reconcile");
+    expect(res.status).toBe(503);
+    expect(grantPass).not.toHaveBeenCalled();
+  });
+
+  it("grants the pass when the customer holds the active 'pass' entitlement", async () => {
+    listCustomerActiveEntitlements.mockResolvedValue({
+      data: { items: [{ entitlement_id: "entl_pass_1", expires_at: null }] },
+      error: null,
+    });
+    userHasPass.mockResolvedValue(true); // reflects the freshly granted pass
+    const res = await request(app).post("/api/billing/revenuecat/reconcile");
+    expect(res.status).toBe(200);
+    expect(grantPass).toHaveBeenCalledWith("user_1");
+    expect(res.body.hasPass).toBe(true);
+    // It matched by resolved internal id, not the lookup_key.
+    expect(listEntitlements).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not grant the pass when the customer has no active entitlements", async () => {
+    listCustomerActiveEntitlements.mockResolvedValue({
+      data: { items: [] },
+      error: null,
+    });
+    const res = await request(app).post("/api/billing/revenuecat/reconcile");
+    expect(res.status).toBe(200);
+    expect(grantPass).not.toHaveBeenCalled();
+    expect(res.body.hasPass).toBe(false);
+  });
+
+  it("does not grant the pass for an unrelated active entitlement", async () => {
+    listCustomerActiveEntitlements.mockResolvedValue({
+      data: { items: [{ entitlement_id: "entl_other", expires_at: null }] },
+      error: null,
+    });
+    const res = await request(app).post("/api/billing/revenuecat/reconcile");
+    expect(res.status).toBe(200);
+    expect(grantPass).not.toHaveBeenCalled();
+  });
+
+  it("returns 503 when listing the customer's entitlements fails", async () => {
+    listCustomerActiveEntitlements.mockResolvedValue({
+      data: null,
+      error: { message: "boom" },
+    });
+    const res = await request(app).post("/api/billing/revenuecat/reconcile");
+    expect(res.status).toBe(503);
+    expect(grantPass).not.toHaveBeenCalled();
+  });
+
+  it("returns 503 when the 'pass' entitlement cannot be resolved", async () => {
+    listEntitlements.mockResolvedValue({
+      data: { items: [{ id: "entl_other", lookup_key: "other" }] },
+      error: null,
+    });
+    const res = await request(app).post("/api/billing/revenuecat/reconcile");
+    expect(res.status).toBe(503);
+    expect(grantPass).not.toHaveBeenCalled();
+  });
+
+  it("returns 503 when listing the project entitlements fails", async () => {
+    listEntitlements.mockResolvedValue({
+      data: null,
+      error: { message: "boom" },
+    });
+    const res = await request(app).post("/api/billing/revenuecat/reconcile");
+    expect(res.status).toBe(503);
+    expect(grantPass).not.toHaveBeenCalled();
+    expect(listCustomerActiveEntitlements).not.toHaveBeenCalled();
   });
 });

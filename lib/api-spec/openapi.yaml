@@ -222,6 +222,35 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /billing/revenuecat/reconcile:
+    post:
+      operationId: reconcileRevenuecat
+      tags: [billing]
+      summary: Reconcile a RevenueCat in-app purchase and refresh entitlement
+      description: >
+        Verifies the signed-in user's active RevenueCat entitlement (the Clerk
+        user id is used as the RevenueCat app user id) and grants the Full
+        Pregnancy Pass when the entitlement is active. The pass is recorded on
+        the same backend account, so it also unlocks unlimited AI on web.
+      responses:
+        "200":
+          description: Updated pass status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PassStatus"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Purchases are not available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /billing/redeem-code:
     post:
       operationId: redeemCode

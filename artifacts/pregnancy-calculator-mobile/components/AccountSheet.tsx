@@ -5,6 +5,7 @@ import React from "react";
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -18,6 +19,11 @@ import { ApiError } from "@workspace/api-client-react";
 
 import { useColors } from "@/hooks/useColors";
 import { usePass } from "@/hooks/usePass";
+import {
+  isTestStore,
+  isUserCancelledError,
+  useSubscription,
+} from "@/lib/revenuecat";
 
 const PASS_PRICE = "$19.99";
 
@@ -43,10 +49,50 @@ export function AccountSheet({
   const { isSignedIn, signOut } = useAuth();
   const { user } = useUser();
   const pass = usePass();
+  const subscription = useSubscription();
 
   const [showRedeem, setShowRedeem] = React.useState(false);
   const [code, setCode] = React.useState("");
   const [redeemError, setRedeemError] = React.useState<string | null>(null);
+  const [confirmPurchase, setConfirmPurchase] = React.useState(false);
+  const [purchaseError, setPurchaseError] = React.useState<string | null>(null);
+
+  // iOS/Android must use the in-app purchase (App Store/Play rules); web keeps
+  // the existing Stripe checkout. Price is read from the live RevenueCat
+  // offering, never hardcoded, so store-localized pricing is always correct.
+  const isNative = Platform.OS !== "web";
+  const nativePrice = subscription.passPackage?.product.priceString ?? null;
+  const isPurchaseBusy = subscription.isPurchasing || pass.isReconciling;
+
+  const handleNativePurchase = async () => {
+    const pkg = subscription.passPackage;
+    if (!pkg) {
+      setPurchaseError("The pass isn't available right now. Please try again.");
+      return;
+    }
+    setPurchaseError(null);
+    try {
+      await subscription.purchase(pkg);
+      await pass.reconcileRevenueCat();
+      setConfirmPurchase(false);
+    } catch (err) {
+      if (isUserCancelledError(err)) {
+        setConfirmPurchase(false);
+        return;
+      }
+      setPurchaseError("Purchase couldn't be completed. Please try again.");
+    }
+  };
+
+  const handleRestore = async () => {
+    setPurchaseError(null);
+    try {
+      await subscription.restore();
+      await pass.reconcileRevenueCat();
+    } catch {
+      setPurchaseError("Couldn't restore purchases. Please try again.");
+    }
+  };
 
   const goTo = (path: "/sign-in" | "/sign-up") => {
     onClose();
@@ -201,27 +247,137 @@ export function AccountSheet({
                   {pass.freeRemaining} of {pass.freeLimit} free AI questions
                   left this week.
                 </Text>
-                <TouchableOpacity
-                  style={[
-                    styles.primaryBtn,
-                    { backgroundColor: colors.primary },
-                  ]}
-                  onPress={pass.startCheckout}
-                  disabled={pass.isStartingCheckout}
-                >
-                  {pass.isStartingCheckout ? (
-                    <ActivityIndicator color="#fff" />
+                {isNative ? (
+                  confirmPurchase ? (
+                    <View style={styles.redeemBox}>
+                      <Text
+                        style={[
+                          styles.statusTitle,
+                          { color: colors.foreground },
+                        ]}
+                      >
+                        Confirm your purchase
+                      </Text>
+                      <Text
+                        style={[
+                          styles.statusBody,
+                          { color: colors.mutedForeground },
+                        ]}
+                      >
+                        Full Pregnancy Pass
+                        {nativePrice ? ` — ${nativePrice}` : ""}, one-time
+                        purchase.
+                        {isTestStore()
+                          ? " This is a sandbox purchase — you won't be charged."
+                          : ""}
+                      </Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.primaryBtn,
+                          { backgroundColor: colors.primary },
+                        ]}
+                        onPress={handleNativePurchase}
+                        disabled={isPurchaseBusy}
+                      >
+                        {isPurchaseBusy ? (
+                          <ActivityIndicator color="#fff" />
+                        ) : (
+                          <Text style={styles.primaryBtnText}>
+                            Confirm{nativePrice ? ` — ${nativePrice}` : ""}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => setConfirmPurchase(false)}
+                        disabled={isPurchaseBusy}
+                        hitSlop={8}
+                      >
+                        <Text
+                          style={[
+                            styles.redeemLink,
+                            { color: colors.mutedForeground },
+                          ]}
+                        >
+                          Cancel
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
                   ) : (
-                    <Text style={styles.primaryBtnText}>
-                      Get the Pass — {PASS_PRICE}
-                    </Text>
-                  )}
-                </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.primaryBtn,
+                        { backgroundColor: colors.primary },
+                      ]}
+                      onPress={() => {
+                        setPurchaseError(null);
+                        setConfirmPurchase(true);
+                      }}
+                      disabled={
+                        subscription.isLoading ||
+                        !subscription.passPackage ||
+                        isPurchaseBusy
+                      }
+                    >
+                      {subscription.isLoading ? (
+                        <ActivityIndicator color="#fff" />
+                      ) : (
+                        <Text style={styles.primaryBtnText}>
+                          Get the Pass{nativePrice ? ` — ${nativePrice}` : ""}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  )
+                ) : (
+                  <TouchableOpacity
+                    style={[
+                      styles.primaryBtn,
+                      { backgroundColor: colors.primary },
+                    ]}
+                    onPress={pass.startCheckout}
+                    disabled={pass.isStartingCheckout}
+                  >
+                    {pass.isStartingCheckout ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.primaryBtnText}>
+                        Get the Pass — {PASS_PRICE}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+
+                {purchaseError ? (
+                  <Text
+                    style={[
+                      styles.redeemError,
+                      { color: colors.destructive, textAlign: "center" },
+                    ]}
+                  >
+                    {purchaseError}
+                  </Text>
+                ) : null}
+
                 <Text
                   style={[styles.fineprint, { color: colors.mutedForeground }]}
                 >
                   Unlimited AI questions, forever. One-time purchase.
                 </Text>
+
+                {isNative && !confirmPurchase ? (
+                  <TouchableOpacity
+                    onPress={handleRestore}
+                    disabled={subscription.isRestoring || pass.isReconciling}
+                    hitSlop={8}
+                  >
+                    <Text
+                      style={[styles.redeemLink, { color: colors.primary }]}
+                    >
+                      {subscription.isRestoring
+                        ? "Restoring…"
+                        : "Restore purchases"}
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
 
                 {showRedeem ? (
                   <View style={styles.redeemBox}>

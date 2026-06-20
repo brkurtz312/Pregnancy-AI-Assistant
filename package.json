@@ -22,5 +22,9 @@
     "prettier": "^3.8.1",
     "typescript": "~5.9.2",
     "typescript-eslint": "^8.60.0"
+  },
+  "dependencies": {
+    "@replit/connectors-sdk": "^0.4.1",
+    "@replit/revenuecat-sdk": "^4.2.0"
   }
 }

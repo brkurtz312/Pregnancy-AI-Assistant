@@ -1,4 +1,4 @@
-modules = ["nodejs-24", "postgresql-16"]
+modules = ["nodejs-24", "postgresql-16", "python-3.11"]
 
 [[artifacts]]
 id = "artifacts/api-server"
@@ -117,3 +117,11 @@ externalPort = 3001
 [[ports]]
 localPort = 24484
 externalPort = 3003
+
+[userenv]
+
+[userenv.shared]
+REVENUECAT_TEST_API_KEY = "test_bFuwhHsDLTFRKigADFvnivhibip"
+REVENUECAT_IOS_API_KEY = "appl_WDMeqvebStKVTwVninvrkxfFxat"
+REVENUECAT_ANDROID_API_KEY = "goog_lYPbhsrnnJykPrxWtpBaZBzociP"
+REVENUECAT_PROJECT_ID = "proj9120626a"
