@@ -209,3 +209,9 @@ id = "r3RrHcQXu3B8Ojc6ks0HJ"
 uri = "file://attached_assets/appstore-screenshot-1260x2736.png"
 type = "image"
 title = "App Store Screenshot — 1260×2736"
+
+[[outputs]]
+id = "BW61TP1jVw5cQmklIaCiR"
+uri = "file://exports/appstore-screenshot-1290x2796.png"
+type = "image"
+title = "App Store screenshot — 1290×2796 (alpha removed)"
