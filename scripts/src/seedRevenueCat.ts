@@ -32,12 +32,17 @@ const PROJECT_NAME = "Pregnancy Assistant";
 // use a plain SKU (the `:basePlanId` suffix is only for subscriptions).
 const PRODUCT_IDENTIFIER = "full_pregnancy_pass";
 const PLAY_STORE_PRODUCT_IDENTIFIER = "full_pregnancy_pass";
+// Apple permanently reserves IAP product IDs once used; the original
+// `full_pregnancy_pass` was burned on a now-deleted listing, so the live
+// App Store IAP (and matching RevenueCat product) is `full_pregnancy_pass_v2`.
+// Test Store / Play Store are independent of Apple and keep the original id.
+const APP_STORE_PRODUCT_IDENTIFIER = "full_pregnancy_pass_v2";
 
 const PRODUCT_DISPLAY_NAME = "Full Pregnancy Pass";
 const PRODUCT_USER_FACING_TITLE = "Full Pregnancy Pass";
 
 const APP_STORE_APP_NAME = "Pregnancy Assistant";
-const APP_STORE_BUNDLE_ID = "com.pregnancyassistant.app";
+const APP_STORE_BUNDLE_ID = "app.replit.pregnancycalculator";
 const PLAY_STORE_APP_NAME = "Pregnancy Assistant";
 const PLAY_STORE_PACKAGE_NAME = "com.pregnancyassistant.app";
 
@@ -206,7 +211,7 @@ async function seedRevenueCat() {
   const appStoreProduct = await ensureProductForApp(
     appStoreApp,
     "App Store",
-    PRODUCT_IDENTIFIER,
+    APP_STORE_PRODUCT_IDENTIFIER,
     false,
   );
   const playStoreProduct = await ensureProductForApp(
