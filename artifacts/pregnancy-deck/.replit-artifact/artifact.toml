@@ -1,0 +1,31 @@
+kind = "slides"
+previewPath = "/pregnancy-deck/"
+title = "Pregnancy AI Assistant — Project Deck"
+version = "1.0.0"
+id = "artifacts/pregnancy-deck"
+router = "path"
+
+[[integratedSkills]]
+name = "slides"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/pregnancy-deck/" ]
+localPort = 25837
+
+[services.development]
+run = "pnpm --filter @workspace/pregnancy-deck run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/pregnancy-deck", "run", "build" ]
+publicDir = "artifacts/pregnancy-deck/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25837"
+BASE_PATH = "/pregnancy-deck/"
