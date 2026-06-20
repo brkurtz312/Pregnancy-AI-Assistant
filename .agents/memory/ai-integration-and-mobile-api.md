@@ -115,6 +115,29 @@ the managed identity (set `ios.bundleIdentifier`/`android.package` to the
 injection is authoritative). Keep it a static app.json. The app's real store
 identity is whatever the publish log shows, not whatever app.json claims.
 
+# Two App Store listings exist — only the bundle-matching one is real
+
+Confirmed in App Store Connect there are TWO listings:
+- "Pregnancy Calculator" → bundle `app.replit.pregnancycalculator` → THIS is the
+  real app. Replit Expo Launch builds land here; RevenueCat (app `app9f5fe51995`)
+  and the `full_pregnancy_pass` IAP are wired to this bundle. Publish/submit HERE.
+- "Pregnancy Assistant" → bundle `com.pregnancyassistant.app` → ORPHAN from the
+  pre-managed-identity era. Different bundle, so it NEVER receives Replit builds
+  and is unrelated to the current project. (Same stale id as the seedRevenueCat.ts
+  constant — ignore that constant; trust the live `app.replit.pregnancycalculator`.)
+
+**Why:** the user's app display name is "Pregnancy AI Assistant" (app.json `name`),
+so they intuitively look at the "Pregnancy Assistant" ASC listing — but builds go
+by BUNDLE ID, not name, so 1.0.1 landed under "Pregnancy Calculator" while the
+orphan stayed at 1.0.0. Wasted a long debugging loop chasing the wrong listing.
+
+**How to apply:** for any App Store / TestFlight / IAP question on this project,
+work in the **"Pregnancy Calculator"** listing (bundle app.replit.pregnancycalculator).
+If the user wants the public name to be "Pregnancy Assistant", RENAME that listing
+(ASC → App Information → Name); store name is independent of bundle id. The name
+"Pregnancy Assistant" is reserved by the orphan, so free it (delete/rename orphan)
+before reusing. Verify which listing you're on by its Bundle ID, never its name.
+
 # App Store resubmit needs a higher app.json `version`, not just build number
 
 Apple closes a "pre-release train" once a marketing version (e.g. 1.0.0) has
