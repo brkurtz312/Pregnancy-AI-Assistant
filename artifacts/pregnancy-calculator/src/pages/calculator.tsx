@@ -102,49 +102,51 @@ export default function CalculatorPage() {
         </div>
 
         {/* Page-level nav: Calculator | Tools | My Info */}
-        <div className="flex gap-2 p-1 bg-muted rounded-xl w-fit mx-auto">
-          <button
-            onClick={() => setPage("calculator")}
-            className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
-              page === "calculator"
-                ? "bg-card shadow text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Baby className="w-4 h-4" /> Calculator
-          </button>
-          <button
-            onClick={() => setPage("tools")}
-            className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
-              page === "tools"
-                ? "bg-card shadow text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Wrench className="w-4 h-4" /> Tools
-          </button>
-          <button
-            onClick={() => setPage("development")}
-            className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
-              page === "development"
-                ? "bg-card shadow text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Sprout className="w-4 h-4" /> Development
-          </button>
-          {isSignedIn && (
+        <div className="w-full overflow-x-auto pb-0.5">
+          <div className="flex gap-1 sm:gap-2 p-1 bg-muted rounded-xl w-fit mx-auto">
             <button
-              onClick={() => setPage("myinfo")}
-              className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
-                page === "myinfo"
+              onClick={() => setPage("calculator")}
+              className={`flex items-center gap-1.5 px-3 sm:px-5 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                page === "calculator"
                   ? "bg-card shadow text-foreground"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <Heart className="w-4 h-4" /> My Info
+              <Baby className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Calculator
             </button>
-          )}
+            <button
+              onClick={() => setPage("tools")}
+              className={`flex items-center gap-1.5 px-3 sm:px-5 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                page === "tools"
+                  ? "bg-card shadow text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Wrench className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Tools
+            </button>
+            <button
+              onClick={() => setPage("development")}
+              className={`flex items-center gap-1.5 px-3 sm:px-5 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                page === "development"
+                  ? "bg-card shadow text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Sprout className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Development
+            </button>
+            {isSignedIn && (
+              <button
+                onClick={() => setPage("myinfo")}
+                className={`flex items-center gap-1.5 px-3 sm:px-5 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                  page === "myinfo"
+                    ? "bg-card shadow text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> My Info
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Calculator view */}
