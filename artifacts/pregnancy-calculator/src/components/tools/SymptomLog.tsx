@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { Trash2, Plus, X } from "lucide-react";
+import { Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -10,22 +9,41 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { useListSymptoms, useCreateSymptom, useDeleteSymptom } from "@workspace/api-client-react";
+import {
+  useListSymptoms,
+  useCreateSymptom,
+  useDeleteSymptom,
+} from "@workspace/api-client-react";
 
 const SYMPTOMS = [
-  "Nausea", "Vomiting", "Headache", "Back pain", "Pelvic pressure",
-  "Fatigue", "Swelling", "Heartburn", "Braxton Hicks", "Spotting",
-  "Mood changes", "Other",
+  "Nausea",
+  "Vomiting",
+  "Headache",
+  "Back pain",
+  "Pelvic pressure",
+  "Fatigue",
+  "Swelling",
+  "Heartburn",
+  "Braxton Hicks",
+  "Spotting",
+  "Mood changes",
+  "Other",
 ];
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, {
-    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
 export function SymptomLog() {
-  const { data, isLoading, refetch } = useListSymptoms({ limit: 30, offset: 0 });
+  const { data, isLoading, refetch } = useListSymptoms({
+    limit: 30,
+    offset: 0,
+  });
   const createMutation = useCreateSymptom();
   const deleteMutation = useDeleteSymptom();
 
@@ -36,7 +54,8 @@ export function SymptomLog() {
   const [notes, setNotes] = useState("");
 
   const handleSave = async () => {
-    const symptom = selectedSymptom === "Other" ? customSymptom.trim() : selectedSymptom;
+    const symptom =
+      selectedSymptom === "Other" ? customSymptom.trim() : selectedSymptom;
     if (!symptom) return;
     await createMutation.mutateAsync({
       data: { symptom, severity, notes: notes.trim() || null },
@@ -59,14 +78,20 @@ export function SymptomLog() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-lg font-semibold">Symptom Log</h3>
-          <p className="text-sm text-muted-foreground">Track how you're feeling day to day</p>
+          <p className="text-sm text-muted-foreground">
+            Track how you're feeling day to day
+          </p>
         </div>
         <Button size="sm" onClick={() => setOpen(true)}>
           <Plus className="w-4 h-4 mr-1" /> Log Symptom
         </Button>
       </div>
 
-      {isLoading && <p className="text-sm text-muted-foreground text-center py-4">Loading…</p>}
+      {isLoading && (
+        <p className="text-sm text-muted-foreground text-center py-4">
+          Loading…
+        </p>
+      )}
 
       {!isLoading && !data?.items.length && (
         <p className="text-sm text-muted-foreground text-center py-8">
@@ -91,8 +116,14 @@ export function SymptomLog() {
                   </div>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">{formatDate(item.loggedAt)}</p>
-              {item.notes && <p className="text-xs text-muted-foreground mt-1">{item.notes}</p>}
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {formatDate(item.loggedAt)}
+              </p>
+              {item.notes && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {item.notes}
+                </p>
+              )}
             </div>
             <Button
               variant="ghost"

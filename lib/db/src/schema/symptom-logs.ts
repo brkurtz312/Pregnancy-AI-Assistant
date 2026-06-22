@@ -13,7 +13,7 @@ export const symptomLogsTable = pgTable("symptom_logs", {
 });
 
 export const insertSymptomLogSchema = createInsertSchema(symptomLogsTable).omit(
-  { id: true, createdAt: true }
+  { id: true, createdAt: true },
 );
 export type InsertSymptomLog = z.infer<typeof insertSymptomLogSchema>;
 export type SymptomLog = typeof symptomLogsTable.$inferSelect;

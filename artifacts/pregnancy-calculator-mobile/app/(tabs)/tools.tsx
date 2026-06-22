@@ -7,7 +7,6 @@ import {
   Alert,
   Modal,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -54,9 +53,11 @@ function formatTime(seconds: number) {
 
 function formatDate(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) +
+  return (
+    d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) +
     " " +
-    d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+  );
 }
 
 function todayDate() {
@@ -67,7 +68,10 @@ function todayDate() {
 
 function SymptomLogSection() {
   const colors = useColors();
-  const { data, isLoading, refetch } = useListSymptoms({ limit: 20, offset: 0 });
+  const { data, isLoading, refetch } = useListSymptoms({
+    limit: 20,
+    offset: 0,
+  });
   const createMutation = useCreateSymptom();
   const deleteMutation = useDeleteSymptom();
 
@@ -90,7 +94,14 @@ function SymptomLogSection() {
     setSeverity(null);
     setNotes("");
     refetch();
-  }, [selectedSymptom, customSymptom, severity, notes]);
+  }, [
+    selectedSymptom,
+    customSymptom,
+    severity,
+    notes,
+    createMutation,
+    refetch,
+  ]);
 
   const handleDelete = useCallback(
     (id: number) => {
@@ -106,7 +117,7 @@ function SymptomLogSection() {
         },
       ]);
     },
-    [deleteMutation, refetch]
+    [deleteMutation, refetch],
   );
 
   const s = StyleSheet.create({
@@ -207,9 +218,7 @@ function SymptomLogSection() {
                 ))}
               </View>
             )}
-            {item.notes ? (
-              <Text style={s.itemMeta}>{item.notes}</Text>
-            ) : null}
+            {item.notes ? <Text style={s.itemMeta}>{item.notes}</Text> : null}
           </View>
           <TouchableOpacity onPress={() => handleDelete(item.id)}>
             <Ionicons
@@ -292,7 +301,11 @@ function SymptomLogSection() {
                 <TextInput
                   style={[
                     styles.input,
-                    { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card },
+                    {
+                      color: colors.foreground,
+                      borderColor: colors.border,
+                      backgroundColor: colors.card,
+                    },
                   ]}
                   value={customSymptom}
                   onChangeText={setCustomSymptom}
@@ -342,7 +355,11 @@ function SymptomLogSection() {
               style={[
                 styles.input,
                 styles.textArea,
-                { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card },
+                {
+                  color: colors.foreground,
+                  borderColor: colors.border,
+                  backgroundColor: colors.card,
+                },
               ]}
               value={notes}
               onChangeText={setNotes}
@@ -355,7 +372,10 @@ function SymptomLogSection() {
             <TouchableOpacity
               style={[
                 styles.primaryBtn,
-                { backgroundColor: colors.primary, opacity: !selectedSymptom ? 0.5 : 1 },
+                {
+                  backgroundColor: colors.primary,
+                  opacity: !selectedSymptom ? 0.5 : 1,
+                },
               ]}
               onPress={handleAdd}
               disabled={!selectedSymptom || createMutation.isPending}
@@ -363,7 +383,12 @@ function SymptomLogSection() {
               {createMutation.isPending ? (
                 <ActivityIndicator color={colors.primaryForeground} />
               ) : (
-                <Text style={[styles.primaryBtnText, { color: colors.primaryForeground }]}>
+                <Text
+                  style={[
+                    styles.primaryBtnText,
+                    { color: colors.primaryForeground },
+                  ]}
+                >
                   Save
                 </Text>
               )}
@@ -416,7 +441,7 @@ function KickCounterSection() {
     setSessionStart(now);
     setElapsed(0);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, []);
+  }, [createMutation]);
 
   const handleKick = useCallback(async () => {
     if (!activeSessionId) return;
@@ -427,7 +452,7 @@ function KickCounterSection() {
       id: activeSessionId,
       data: { kickCount: next },
     });
-  }, [activeSessionId, kickCount]);
+  }, [activeSessionId, kickCount, updateMutation]);
 
   const handleEndSession = useCallback(async () => {
     if (!activeSessionId) return;
@@ -441,7 +466,7 @@ function KickCounterSection() {
     setKickCount(0);
     setElapsed(0);
     refetch();
-  }, [activeSessionId, kickCount]);
+  }, [activeSessionId, kickCount, updateMutation, refetch]);
 
   const handleDelete = useCallback(
     (id: number) => {
@@ -457,7 +482,7 @@ function KickCounterSection() {
         },
       ]);
     },
-    [deleteMutation, refetch]
+    [deleteMutation, refetch],
   );
 
   const s = StyleSheet.create({
@@ -597,7 +622,7 @@ function KickCounterSection() {
           ? Math.round(
               (new Date(item.endedAt).getTime() -
                 new Date(item.startedAt).getTime()) /
-                60000
+                60000,
             )
           : null;
         return (
@@ -663,14 +688,14 @@ function ContractionTimerSection() {
     } else {
       const endTime = new Date();
       const duration = Math.round(
-        (endTime.getTime() - startTime!.getTime()) / 1000
+        (endTime.getTime() - startTime!.getTime()) / 1000,
       );
 
       const items = data?.items ?? [];
       const lastEnd = items[0]?.endedAt;
       const interval = lastEnd
         ? Math.round(
-            (startTime!.getTime() - new Date(lastEnd).getTime()) / 1000
+            (startTime!.getTime() - new Date(lastEnd).getTime()) / 1000,
           )
         : null;
 
@@ -690,7 +715,7 @@ function ContractionTimerSection() {
       });
       refetch();
     }
-  }, [contracting, startTime, data?.items, today]);
+  }, [contracting, startTime, data?.items, today, createMutation, refetch]);
 
   const handleDelete = useCallback(
     (id: number) => {
@@ -706,7 +731,7 @@ function ContractionTimerSection() {
         },
       ]);
     },
-    [deleteMutation, refetch]
+    [deleteMutation, refetch],
   );
 
   const items = data?.items ?? [];
@@ -716,7 +741,7 @@ function ContractionTimerSection() {
           items
             .filter((c) => c.durationSeconds)
             .reduce((s, c) => s + (c.durationSeconds ?? 0), 0) /
-            items.filter((c) => c.durationSeconds).length
+            items.filter((c) => c.durationSeconds).length,
         )
       : null;
   const avgInterval =
@@ -725,7 +750,7 @@ function ContractionTimerSection() {
           items
             .filter((c) => c.intervalSeconds)
             .reduce((s, c) => s + (c.intervalSeconds ?? 0), 0) /
-            items.filter((c) => c.intervalSeconds).length
+            items.filter((c) => c.intervalSeconds).length,
         )
       : null;
   const rule511 =
@@ -953,12 +978,17 @@ export default function ToolsScreen() {
           { backgroundColor: colors.background, paddingTop: insets.top + 20 },
         ]}
       >
-        <Ionicons name="lock-closed-outline" size={48} color={colors.mutedForeground} />
+        <Ionicons
+          name="lock-closed-outline"
+          size={48}
+          color={colors.mutedForeground}
+        />
         <Text style={[styles.signInTitle, { color: colors.foreground }]}>
           Sign in to use Tools
         </Text>
         <Text style={[styles.signInSub, { color: colors.mutedForeground }]}>
-          Your symptom logs, kick counts, and contraction history sync securely across devices.
+          Your symptom logs, kick counts, and contraction history sync securely
+          across devices.
         </Text>
       </View>
     );
@@ -984,21 +1014,30 @@ export default function ToolsScreen() {
 
       <Animated.View
         entering={FadeInDown.delay(80).duration(400)}
-        style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+        style={[
+          styles.card,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
       >
         <SymptomLogSection />
       </Animated.View>
 
       <Animated.View
         entering={FadeInDown.delay(160).duration(400)}
-        style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+        style={[
+          styles.card,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
       >
         <KickCounterSection />
       </Animated.View>
 
       <Animated.View
         entering={FadeInDown.delay(240).duration(400)}
-        style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+        style={[
+          styles.card,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
       >
         <ContractionTimerSection />
       </Animated.View>

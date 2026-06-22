@@ -12,8 +12,8 @@ export const kickSessionsTable = pgTable("kick_sessions", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const insertKickSessionSchema = createInsertSchema(kickSessionsTable).omit(
-  { id: true, createdAt: true }
-);
+export const insertKickSessionSchema = createInsertSchema(
+  kickSessionsTable,
+).omit({ id: true, createdAt: true });
 export type InsertKickSession = z.infer<typeof insertKickSessionSchema>;
 export type KickSession = typeof kickSessionsTable.$inferSelect;

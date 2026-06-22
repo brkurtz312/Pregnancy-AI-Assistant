@@ -10,11 +10,8 @@ import { SymptomLog, KickCounter, ContractionTimer } from "@/components/tools";
 import { PregnancyResults } from "@/lib/pregnancy-math";
 import { Baby, Wrench } from "lucide-react";
 import { AccountBar } from "@/components/auth/account-bar";
-import { useSignIn } from "@clerk/react";
 
 function ToolsSection() {
-  const { isLoaded, signIn } = useSignIn();
-
   return (
     <div className="space-y-6">
       <Card className="p-6 bg-card border-border/50 shadow-sm rounded-3xl">

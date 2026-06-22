@@ -18,73 +18,65 @@ const router: IRouter = Router();
 
 // ─── Symptom Log ────────────────────────────────────────────────────────────
 
-router.get(
-  "/tools/symptoms",
-  requireAuth,
-  async (req: AuthedRequest, res) => {
-    const userId = req.userId!;
-    const limit = Math.min(Number(req.query.limit) || 50, 100);
-    const offset = Number(req.query.offset) || 0;
+router.get("/tools/symptoms", requireAuth, async (req: AuthedRequest, res) => {
+  const userId = req.userId!;
+  const limit = Math.min(Number(req.query.limit) || 50, 100);
+  const offset = Number(req.query.offset) || 0;
 
-    const [items, totalResult] = await Promise.all([
-      db
-        .select()
-        .from(symptomLogsTable)
-        .where(eq(symptomLogsTable.userId, userId))
-        .orderBy(desc(symptomLogsTable.loggedAt))
-        .limit(limit)
-        .offset(offset),
-      db
-        .select({ count: count() })
-        .from(symptomLogsTable)
-        .where(eq(symptomLogsTable.userId, userId)),
-    ]);
+  const [items, totalResult] = await Promise.all([
+    db
+      .select()
+      .from(symptomLogsTable)
+      .where(eq(symptomLogsTable.userId, userId))
+      .orderBy(desc(symptomLogsTable.loggedAt))
+      .limit(limit)
+      .offset(offset),
+    db
+      .select({ count: count() })
+      .from(symptomLogsTable)
+      .where(eq(symptomLogsTable.userId, userId)),
+  ]);
 
-    res.json({
-      items: items.map((s) => ({
-        id: s.id,
-        symptom: s.symptom,
-        severity: s.severity,
-        notes: s.notes,
-        loggedAt: s.loggedAt.toISOString(),
-      })),
-      total: totalResult[0]?.count ?? 0,
-    });
+  res.json({
+    items: items.map((s) => ({
+      id: s.id,
+      symptom: s.symptom,
+      severity: s.severity,
+      notes: s.notes,
+      loggedAt: s.loggedAt.toISOString(),
+    })),
+    total: totalResult[0]?.count ?? 0,
+  });
+});
+
+router.post("/tools/symptoms", requireAuth, async (req: AuthedRequest, res) => {
+  const parsed = CreateSymptomBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
   }
-);
+  const userId = req.userId!;
+  const { symptom, severity, notes, loggedAt } = parsed.data;
 
-router.post(
-  "/tools/symptoms",
-  requireAuth,
-  async (req: AuthedRequest, res) => {
-    const parsed = CreateSymptomBody.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.message });
-      return;
-    }
-    const userId = req.userId!;
-    const { symptom, severity, notes, loggedAt } = parsed.data;
+  const [row] = await db
+    .insert(symptomLogsTable)
+    .values({
+      userId,
+      symptom,
+      severity: severity ?? null,
+      notes: notes ?? null,
+      loggedAt: loggedAt ? new Date(loggedAt) : new Date(),
+    })
+    .returning();
 
-    const [row] = await db
-      .insert(symptomLogsTable)
-      .values({
-        userId,
-        symptom,
-        severity: severity ?? null,
-        notes: notes ?? null,
-        loggedAt: loggedAt ? new Date(loggedAt) : new Date(),
-      })
-      .returning();
-
-    res.status(201).json({
-      id: row.id,
-      symptom: row.symptom,
-      severity: row.severity,
-      notes: row.notes,
-      loggedAt: row.loggedAt.toISOString(),
-    });
-  }
-);
+  res.status(201).json({
+    id: row.id,
+    symptom: row.symptom,
+    severity: row.severity,
+    notes: row.notes,
+    loggedAt: row.loggedAt.toISOString(),
+  });
+});
 
 router.delete(
   "/tools/symptoms/:id",
@@ -99,7 +91,7 @@ router.delete(
     const deleted = await db
       .delete(symptomLogsTable)
       .where(
-        and(eq(symptomLogsTable.id, id), eq(symptomLogsTable.userId, userId))
+        and(eq(symptomLogsTable.id, id), eq(symptomLogsTable.userId, userId)),
       )
       .returning();
 
@@ -108,7 +100,7 @@ router.delete(
       return;
     }
     res.status(204).end();
-  }
+  },
 );
 
 // ─── Kick Sessions ───────────────────────────────────────────────────────────
@@ -145,7 +137,7 @@ router.get(
       })),
       total: totalResult[0]?.count ?? 0,
     });
-  }
+  },
 );
 
 router.post(
@@ -178,7 +170,7 @@ router.post(
       kickCount: row.kickCount,
       notes: row.notes,
     });
-  }
+  },
 );
 
 router.patch(
@@ -199,15 +191,17 @@ router.patch(
     const { kickCount, endedAt, notes } = parsed.data;
 
     const updates: Record<string, unknown> = {};
-    if (kickCount !== undefined && kickCount !== null) updates.kickCount = kickCount;
-    if (endedAt !== undefined) updates.endedAt = endedAt ? new Date(endedAt) : null;
+    if (kickCount !== undefined && kickCount !== null)
+      updates.kickCount = kickCount;
+    if (endedAt !== undefined)
+      updates.endedAt = endedAt ? new Date(endedAt) : null;
     if (notes !== undefined) updates.notes = notes;
 
     const [row] = await db
       .update(kickSessionsTable)
       .set(updates)
       .where(
-        and(eq(kickSessionsTable.id, id), eq(kickSessionsTable.userId, userId))
+        and(eq(kickSessionsTable.id, id), eq(kickSessionsTable.userId, userId)),
       )
       .returning();
 
@@ -223,7 +217,7 @@ router.patch(
       kickCount: row.kickCount,
       notes: row.notes,
     });
-  }
+  },
 );
 
 router.delete(
@@ -239,7 +233,7 @@ router.delete(
     const deleted = await db
       .delete(kickSessionsTable)
       .where(
-        and(eq(kickSessionsTable.id, id), eq(kickSessionsTable.userId, userId))
+        and(eq(kickSessionsTable.id, id), eq(kickSessionsTable.userId, userId)),
       )
       .returning();
 
@@ -248,7 +242,7 @@ router.delete(
       return;
     }
     res.status(204).end();
-  }
+  },
 );
 
 // ─── Contraction Logs ────────────────────────────────────────────────────────
@@ -269,8 +263,8 @@ router.get(
         .where(
           and(
             eq(contractionLogsTable.userId, userId),
-            eq(contractionLogsTable.sessionDate, sessionDate)
-          )
+            eq(contractionLogsTable.sessionDate, sessionDate),
+          ),
         )
         .orderBy(desc(contractionLogsTable.startedAt))
         .limit(limit),
@@ -280,8 +274,8 @@ router.get(
         .where(
           and(
             eq(contractionLogsTable.userId, userId),
-            eq(contractionLogsTable.sessionDate, sessionDate)
-          )
+            eq(contractionLogsTable.sessionDate, sessionDate),
+          ),
         ),
     ]);
 
@@ -296,7 +290,7 @@ router.get(
       })),
       total: totalResult[0]?.count ?? 0,
     });
-  }
+  },
 );
 
 router.post(
@@ -309,8 +303,13 @@ router.post(
       return;
     }
     const userId = req.userId!;
-    const { startedAt, endedAt, durationSeconds, intervalSeconds, sessionDate } =
-      parsed.data;
+    const {
+      startedAt,
+      endedAt,
+      durationSeconds,
+      intervalSeconds,
+      sessionDate,
+    } = parsed.data;
 
     const [row] = await db
       .insert(contractionLogsTable)
@@ -332,7 +331,7 @@ router.post(
       intervalSeconds: row.intervalSeconds,
       sessionDate: row.sessionDate,
     });
-  }
+  },
 );
 
 router.delete(
@@ -350,8 +349,8 @@ router.delete(
       .where(
         and(
           eq(contractionLogsTable.id, id),
-          eq(contractionLogsTable.userId, userId)
-        )
+          eq(contractionLogsTable.userId, userId),
+        ),
       )
       .returning();
 
@@ -360,7 +359,7 @@ router.delete(
       return;
     }
     res.status(204).end();
-  }
+  },
 );
 
 export default router;

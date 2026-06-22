@@ -17,12 +17,18 @@ function formatTime(seconds: number) {
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, {
-    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
 export function KickCounter() {
-  const { data, isLoading, refetch } = useListKickSessions({ limit: 10, offset: 0 });
+  const { data, isLoading, refetch } = useListKickSessions({
+    limit: 10,
+    offset: 0,
+  });
   const createMutation = useCreateKickSession();
   const updateMutation = useUpdateKickSession();
   const deleteMutation = useDeleteKickSession();
@@ -41,7 +47,9 @@ export function KickCounter() {
     } else {
       if (timerRef.current) clearInterval(timerRef.current);
     }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, [sessionStart]);
 
   const handleStart = useCallback(async () => {
@@ -53,14 +61,17 @@ export function KickCounter() {
     setKickCount(0);
     setSessionStart(now);
     setElapsed(0);
-  }, []);
+  }, [createMutation]);
 
   const handleKick = useCallback(async () => {
     if (!activeSessionId) return;
     const next = kickCount + 1;
     setKickCount(next);
-    await updateMutation.mutateAsync({ id: activeSessionId, data: { kickCount: next } });
-  }, [activeSessionId, kickCount]);
+    await updateMutation.mutateAsync({
+      id: activeSessionId,
+      data: { kickCount: next },
+    });
+  }, [activeSessionId, kickCount, updateMutation]);
 
   const handleEnd = useCallback(async () => {
     if (!activeSessionId) return;
@@ -73,23 +84,30 @@ export function KickCounter() {
     setKickCount(0);
     setElapsed(0);
     refetch();
-  }, [activeSessionId, kickCount]);
+  }, [activeSessionId, kickCount, updateMutation, refetch]);
 
-  const handleDelete = useCallback(async (id: number) => {
-    await deleteMutation.mutateAsync({ id });
-    refetch();
-  }, [deleteMutation, refetch]);
+  const handleDelete = useCallback(
+    async (id: number) => {
+      await deleteMutation.mutateAsync({ id });
+      refetch();
+    },
+    [deleteMutation, refetch],
+  );
 
   return (
     <div>
       <div className="mb-4">
         <h3 className="text-lg font-semibold">Kick Counter</h3>
-        <p className="text-sm text-muted-foreground">Count baby's movements in a session</p>
+        <p className="text-sm text-muted-foreground">
+          Count baby's movements in a session
+        </p>
       </div>
 
       {activeSessionId ? (
         <div className="flex flex-col items-center py-6 gap-4 border rounded-2xl mb-6">
-          <p className="text-sm text-muted-foreground">Session time: {formatTime(elapsed)}</p>
+          <p className="text-sm text-muted-foreground">
+            Session time: {formatTime(elapsed)}
+          </p>
           <button
             onClick={handleKick}
             className="w-32 h-32 rounded-full bg-primary text-primary-foreground flex flex-col items-center justify-center shadow-lg hover:opacity-90 active:scale-95 transition-transform select-none"
@@ -102,12 +120,20 @@ export function KickCounter() {
           </Button>
         </div>
       ) : (
-        <Button className="w-full mb-6" onClick={handleStart} disabled={createMutation.isPending}>
+        <Button
+          className="w-full mb-6"
+          onClick={handleStart}
+          disabled={createMutation.isPending}
+        >
           Start Counting
         </Button>
       )}
 
-      {isLoading && <p className="text-sm text-muted-foreground text-center py-4">Loading…</p>}
+      {isLoading && (
+        <p className="text-sm text-muted-foreground text-center py-4">
+          Loading…
+        </p>
+      )}
 
       {!isLoading && !data?.items.length && !activeSessionId && (
         <p className="text-sm text-muted-foreground text-center py-4">
@@ -118,15 +144,24 @@ export function KickCounter() {
       <div className="space-y-2">
         {data?.items.map((item) => {
           const dur = item.endedAt
-            ? Math.round((new Date(item.endedAt).getTime() - new Date(item.startedAt).getTime()) / 60000)
+            ? Math.round(
+                (new Date(item.endedAt).getTime() -
+                  new Date(item.startedAt).getTime()) /
+                  60000,
+              )
             : null;
           return (
             <Card key={item.id} className="p-3 flex items-center gap-3">
               <div className="flex-1">
-                <span className="text-2xl font-bold text-primary">{item.kickCount}</span>
-                <span className="text-sm text-muted-foreground ml-1.5">kicks</span>
+                <span className="text-2xl font-bold text-primary">
+                  {item.kickCount}
+                </span>
+                <span className="text-sm text-muted-foreground ml-1.5">
+                  kicks
+                </span>
                 <p className="text-xs text-muted-foreground">
-                  {formatDate(item.startedAt)}{dur !== null ? ` · ${dur} min` : ""}
+                  {formatDate(item.startedAt)}
+                  {dur !== null ? ` · ${dur} min` : ""}
                 </p>
               </div>
               <Button

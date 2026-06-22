@@ -14,7 +14,7 @@ export const contractionLogsTable = pgTable("contraction_logs", {
 });
 
 export const insertContractionLogSchema = createInsertSchema(
-  contractionLogsTable
+  contractionLogsTable,
 ).omit({ id: true, createdAt: true });
 export type InsertContractionLog = z.infer<typeof insertContractionLogSchema>;
 export type ContractionLog = typeof contractionLogsTable.$inferSelect;
