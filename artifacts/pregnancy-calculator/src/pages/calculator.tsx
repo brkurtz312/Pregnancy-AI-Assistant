@@ -8,9 +8,10 @@ import { LmpForm } from "@/components/calculator/lmp-form";
 import { ResultsDisplay } from "@/components/calculator/results-display";
 import { SymptomLog, KickCounter, ContractionTimer } from "@/components/tools";
 import { MyInfo } from "@/components/profile/MyInfo";
+import { FetalDevelopmentViewer } from "@/components/fetal-development/FetalDevelopmentViewer";
 import { PregnancyResults } from "@/lib/pregnancy-math";
 import { calculateByDueDate } from "@/lib/pregnancy-math";
-import { Baby, Wrench, Heart } from "lucide-react";
+import { Baby, Wrench, Heart, Sprout } from "lucide-react";
 import { AccountBar } from "@/components/auth/account-bar";
 import { useGetProfile, useUpdateProfile } from "@workspace/api-client-react";
 import { useUser } from "@clerk/react";
@@ -33,7 +34,7 @@ function ToolsSection() {
 
 export default function CalculatorPage() {
   const [results, setResults] = useState<PregnancyResults | null>(null);
-  const [page, setPage] = useState<"calculator" | "tools" | "myinfo">(
+  const [page, setPage] = useState<"calculator" | "tools" | "myinfo" | "development">(
     "calculator",
   );
   const resultsRef = useRef<HTMLDivElement>(null);
@@ -121,6 +122,16 @@ export default function CalculatorPage() {
             }`}
           >
             <Wrench className="w-4 h-4" /> Tools
+          </button>
+          <button
+            onClick={() => setPage("development")}
+            className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
+              page === "development"
+                ? "bg-card shadow text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Sprout className="w-4 h-4" /> Development
           </button>
           {isSignedIn && (
             <button
@@ -220,6 +231,9 @@ export default function CalculatorPage() {
 
         {/* Tools view */}
         {page === "tools" && <ToolsSection />}
+
+        {/* Development view */}
+        {page === "development" && <FetalDevelopmentViewer />}
 
         {/* My Info view */}
         {page === "myinfo" && (
