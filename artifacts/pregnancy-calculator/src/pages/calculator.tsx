@@ -34,9 +34,9 @@ function ToolsSection() {
 
 export default function CalculatorPage() {
   const [results, setResults] = useState<PregnancyResults | null>(null);
-  const [page, setPage] = useState<"calculator" | "tools" | "myinfo" | "development">(
-    "calculator",
-  );
+  const [page, setPage] = useState<
+    "calculator" | "tools" | "myinfo" | "development"
+  >("calculator");
   const resultsRef = useRef<HTMLDivElement>(null);
   const autoLoadedRef = useRef(false);
 
