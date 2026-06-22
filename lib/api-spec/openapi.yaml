@@ -14,6 +14,8 @@ tags:
     description: AI assistant operations
   - name: billing
     description: Pass purchase and entitlement operations
+  - name: tools
+    description: Pregnancy tracking tools
 paths:
   /healthz:
     get:
@@ -296,6 +298,307 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /tools/symptoms:
+    get:
+      operationId: listSymptoms
+      tags: [tools]
+      summary: List symptom logs for the signed-in user
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Symptom log list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SymptomLogList"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      operationId: createSymptom
+      tags: [tools]
+      summary: Log a new symptom
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSymptomBody"
+      responses:
+        "201":
+          description: Created symptom log
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SymptomLog"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /tools/symptoms/{id}:
+    delete:
+      operationId: deleteSymptom
+      tags: [tools]
+      summary: Delete a symptom log entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /tools/kick-sessions:
+    get:
+      operationId: listKickSessions
+      tags: [tools]
+      summary: List kick counter sessions for the signed-in user
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Kick session list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KickSessionList"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      operationId: createKickSession
+      tags: [tools]
+      summary: Create a new kick counter session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateKickSessionBody"
+      responses:
+        "201":
+          description: Created kick session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KickSession"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /tools/kick-sessions/{id}:
+    patch:
+      operationId: updateKickSession
+      tags: [tools]
+      summary: Update a kick counter session (add kicks, end session)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateKickSessionBody"
+      responses:
+        "200":
+          description: Updated kick session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KickSession"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deleteKickSession
+      tags: [tools]
+      summary: Delete a kick session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /tools/contractions:
+    get:
+      operationId: listContractions
+      tags: [tools]
+      summary: List contraction logs for the signed-in user
+      parameters:
+        - name: sessionDate
+          in: query
+          description: Filter by session date (YYYY-MM-DD). Defaults to today.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 100
+      responses:
+        "200":
+          description: Contraction log list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContractionList"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      operationId: createContraction
+      tags: [tools]
+      summary: Log a completed contraction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateContractionBody"
+      responses:
+        "201":
+          description: Created contraction log
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contraction"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /tools/contractions/{id}:
+    delete:
+      operationId: deleteContraction
+      tags: [tools]
+      summary: Delete a contraction log entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
   schemas:
     HealthStatus:
@@ -416,3 +719,164 @@ components:
         - week
         - insight
         - disclaimer
+    SymptomLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        symptom:
+          type: string
+        severity:
+          type: ["integer", "null"]
+        notes:
+          type: ["string", "null"]
+        loggedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - symptom
+        - loggedAt
+    SymptomLogList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SymptomLog"
+        total:
+          type: integer
+      required:
+        - items
+        - total
+    CreateSymptomBody:
+      type: object
+      properties:
+        symptom:
+          type: string
+          minLength: 1
+          maxLength: 200
+        severity:
+          type: ["integer", "null"]
+          minimum: 1
+          maximum: 5
+        notes:
+          type: ["string", "null"]
+          maxLength: 1000
+        loggedAt:
+          type: ["string", "null"]
+          format: date-time
+      required:
+        - symptom
+    KickSession:
+      type: object
+      properties:
+        id:
+          type: integer
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: ["string", "null"]
+          format: date-time
+        kickCount:
+          type: integer
+        notes:
+          type: ["string", "null"]
+      required:
+        - id
+        - startedAt
+        - kickCount
+    KickSessionList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/KickSession"
+        total:
+          type: integer
+      required:
+        - items
+        - total
+    CreateKickSessionBody:
+      type: object
+      properties:
+        startedAt:
+          type: ["string", "null"]
+          format: date-time
+        kickCount:
+          type: ["integer", "null"]
+          minimum: 0
+        endedAt:
+          type: ["string", "null"]
+          format: date-time
+        notes:
+          type: ["string", "null"]
+          maxLength: 500
+    UpdateKickSessionBody:
+      type: object
+      properties:
+        kickCount:
+          type: ["integer", "null"]
+          minimum: 0
+        endedAt:
+          type: ["string", "null"]
+          format: date-time
+        notes:
+          type: ["string", "null"]
+          maxLength: 500
+    Contraction:
+      type: object
+      properties:
+        id:
+          type: integer
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: ["string", "null"]
+          format: date-time
+        durationSeconds:
+          type: ["integer", "null"]
+        intervalSeconds:
+          type: ["integer", "null"]
+        sessionDate:
+          type: string
+      required:
+        - id
+        - startedAt
+        - sessionDate
+    ContractionList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Contraction"
+        total:
+          type: integer
+      required:
+        - items
+        - total
+    CreateContractionBody:
+      type: object
+      properties:
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: ["string", "null"]
+          format: date-time
+        durationSeconds:
+          type: ["integer", "null"]
+          minimum: 0
+        intervalSeconds:
+          type: ["integer", "null"]
+          minimum: 0
+        sessionDate:
+          type: string
+          minLength: 1
+      required:
+        - startedAt
+        - sessionDate

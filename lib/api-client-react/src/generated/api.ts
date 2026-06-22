@@ -23,9 +23,22 @@ import type {
   CheckoutRequest,
   CheckoutSession,
   ConfirmRequest,
+  Contraction,
+  ContractionList,
+  CreateContractionBody,
+  CreateKickSessionBody,
+  CreateSymptomBody,
   HealthStatus,
+  KickSession,
+  KickSessionList,
+  ListContractionsParams,
+  ListKickSessionsParams,
+  ListSymptomsParams,
   PassStatus,
   RedeemCodeRequest,
+  SymptomLog,
+  SymptomLogList,
+  UpdateKickSessionBody,
   WeeklyInsight,
   WeeklyInsightQuery,
 } from "./api.schemas";
@@ -709,4 +722,889 @@ export const useRedeemCode = <
   TContext
 > => {
   return useMutation(getRedeemCodeMutationOptions(options));
+};
+
+/**
+ * @summary List symptom logs for the signed-in user
+ */
+export const getListSymptomsUrl = (params?: ListSymptomsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/tools/symptoms?${stringifiedParams}`
+    : `/api/tools/symptoms`;
+};
+
+export const listSymptoms = async (
+  params?: ListSymptomsParams,
+  options?: RequestInit,
+): Promise<SymptomLogList> => {
+  return customFetch<SymptomLogList>(getListSymptomsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListSymptomsQueryKey = (params?: ListSymptomsParams) => {
+  return [`/api/tools/symptoms`, ...(params ? [params] : [])] as const;
+};
+
+export const getListSymptomsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSymptoms>>,
+  TError = ErrorType<ApiError>,
+>(
+  params?: ListSymptomsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSymptoms>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListSymptomsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listSymptoms>>> = ({
+    signal,
+  }) => listSymptoms(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSymptoms>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSymptomsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSymptoms>>
+>;
+export type ListSymptomsQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary List symptom logs for the signed-in user
+ */
+
+export function useListSymptoms<
+  TData = Awaited<ReturnType<typeof listSymptoms>>,
+  TError = ErrorType<ApiError>,
+>(
+  params?: ListSymptomsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSymptoms>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSymptomsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Log a new symptom
+ */
+export const getCreateSymptomUrl = () => {
+  return `/api/tools/symptoms`;
+};
+
+export const createSymptom = async (
+  createSymptomBody: CreateSymptomBody,
+  options?: RequestInit,
+): Promise<SymptomLog> => {
+  return customFetch<SymptomLog>(getCreateSymptomUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createSymptomBody),
+  });
+};
+
+export const getCreateSymptomMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSymptom>>,
+    TError,
+    { data: BodyType<CreateSymptomBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createSymptom>>,
+  TError,
+  { data: BodyType<CreateSymptomBody> },
+  TContext
+> => {
+  const mutationKey = ["createSymptom"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createSymptom>>,
+    { data: BodyType<CreateSymptomBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createSymptom(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateSymptomMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createSymptom>>
+>;
+export type CreateSymptomMutationBody = BodyType<CreateSymptomBody>;
+export type CreateSymptomMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Log a new symptom
+ */
+export const useCreateSymptom = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSymptom>>,
+    TError,
+    { data: BodyType<CreateSymptomBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createSymptom>>,
+  TError,
+  { data: BodyType<CreateSymptomBody> },
+  TContext
+> => {
+  return useMutation(getCreateSymptomMutationOptions(options));
+};
+
+/**
+ * @summary Delete a symptom log entry
+ */
+export const getDeleteSymptomUrl = (id: number) => {
+  return `/api/tools/symptoms/${id}`;
+};
+
+export const deleteSymptom = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteSymptomUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteSymptomMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSymptom>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteSymptom>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteSymptom"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteSymptom>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteSymptom(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteSymptomMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteSymptom>>
+>;
+
+export type DeleteSymptomMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Delete a symptom log entry
+ */
+export const useDeleteSymptom = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSymptom>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteSymptom>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteSymptomMutationOptions(options));
+};
+
+/**
+ * @summary List kick counter sessions for the signed-in user
+ */
+export const getListKickSessionsUrl = (params?: ListKickSessionsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/tools/kick-sessions?${stringifiedParams}`
+    : `/api/tools/kick-sessions`;
+};
+
+export const listKickSessions = async (
+  params?: ListKickSessionsParams,
+  options?: RequestInit,
+): Promise<KickSessionList> => {
+  return customFetch<KickSessionList>(getListKickSessionsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListKickSessionsQueryKey = (
+  params?: ListKickSessionsParams,
+) => {
+  return [`/api/tools/kick-sessions`, ...(params ? [params] : [])] as const;
+};
+
+export const getListKickSessionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listKickSessions>>,
+  TError = ErrorType<ApiError>,
+>(
+  params?: ListKickSessionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listKickSessions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListKickSessionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listKickSessions>>
+  > = ({ signal }) => listKickSessions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listKickSessions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListKickSessionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listKickSessions>>
+>;
+export type ListKickSessionsQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary List kick counter sessions for the signed-in user
+ */
+
+export function useListKickSessions<
+  TData = Awaited<ReturnType<typeof listKickSessions>>,
+  TError = ErrorType<ApiError>,
+>(
+  params?: ListKickSessionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listKickSessions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListKickSessionsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new kick counter session
+ */
+export const getCreateKickSessionUrl = () => {
+  return `/api/tools/kick-sessions`;
+};
+
+export const createKickSession = async (
+  createKickSessionBody: CreateKickSessionBody,
+  options?: RequestInit,
+): Promise<KickSession> => {
+  return customFetch<KickSession>(getCreateKickSessionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createKickSessionBody),
+  });
+};
+
+export const getCreateKickSessionMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createKickSession>>,
+    TError,
+    { data: BodyType<CreateKickSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createKickSession>>,
+  TError,
+  { data: BodyType<CreateKickSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["createKickSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createKickSession>>,
+    { data: BodyType<CreateKickSessionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createKickSession(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateKickSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createKickSession>>
+>;
+export type CreateKickSessionMutationBody = BodyType<CreateKickSessionBody>;
+export type CreateKickSessionMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Create a new kick counter session
+ */
+export const useCreateKickSession = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createKickSession>>,
+    TError,
+    { data: BodyType<CreateKickSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createKickSession>>,
+  TError,
+  { data: BodyType<CreateKickSessionBody> },
+  TContext
+> => {
+  return useMutation(getCreateKickSessionMutationOptions(options));
+};
+
+/**
+ * @summary Update a kick counter session (add kicks, end session)
+ */
+export const getUpdateKickSessionUrl = (id: number) => {
+  return `/api/tools/kick-sessions/${id}`;
+};
+
+export const updateKickSession = async (
+  id: number,
+  updateKickSessionBody: UpdateKickSessionBody,
+  options?: RequestInit,
+): Promise<KickSession> => {
+  return customFetch<KickSession>(getUpdateKickSessionUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateKickSessionBody),
+  });
+};
+
+export const getUpdateKickSessionMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateKickSession>>,
+    TError,
+    { id: number; data: BodyType<UpdateKickSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateKickSession>>,
+  TError,
+  { id: number; data: BodyType<UpdateKickSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["updateKickSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateKickSession>>,
+    { id: number; data: BodyType<UpdateKickSessionBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateKickSession(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateKickSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateKickSession>>
+>;
+export type UpdateKickSessionMutationBody = BodyType<UpdateKickSessionBody>;
+export type UpdateKickSessionMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Update a kick counter session (add kicks, end session)
+ */
+export const useUpdateKickSession = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateKickSession>>,
+    TError,
+    { id: number; data: BodyType<UpdateKickSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateKickSession>>,
+  TError,
+  { id: number; data: BodyType<UpdateKickSessionBody> },
+  TContext
+> => {
+  return useMutation(getUpdateKickSessionMutationOptions(options));
+};
+
+/**
+ * @summary Delete a kick session
+ */
+export const getDeleteKickSessionUrl = (id: number) => {
+  return `/api/tools/kick-sessions/${id}`;
+};
+
+export const deleteKickSession = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteKickSessionUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteKickSessionMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteKickSession>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteKickSession>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteKickSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteKickSession>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteKickSession(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteKickSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteKickSession>>
+>;
+
+export type DeleteKickSessionMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Delete a kick session
+ */
+export const useDeleteKickSession = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteKickSession>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteKickSession>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteKickSessionMutationOptions(options));
+};
+
+/**
+ * @summary List contraction logs for the signed-in user
+ */
+export const getListContractionsUrl = (params?: ListContractionsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/tools/contractions?${stringifiedParams}`
+    : `/api/tools/contractions`;
+};
+
+export const listContractions = async (
+  params?: ListContractionsParams,
+  options?: RequestInit,
+): Promise<ContractionList> => {
+  return customFetch<ContractionList>(getListContractionsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListContractionsQueryKey = (
+  params?: ListContractionsParams,
+) => {
+  return [`/api/tools/contractions`, ...(params ? [params] : [])] as const;
+};
+
+export const getListContractionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listContractions>>,
+  TError = ErrorType<ApiError>,
+>(
+  params?: ListContractionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listContractions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListContractionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listContractions>>
+  > = ({ signal }) => listContractions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listContractions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListContractionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listContractions>>
+>;
+export type ListContractionsQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary List contraction logs for the signed-in user
+ */
+
+export function useListContractions<
+  TData = Awaited<ReturnType<typeof listContractions>>,
+  TError = ErrorType<ApiError>,
+>(
+  params?: ListContractionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listContractions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListContractionsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Log a completed contraction
+ */
+export const getCreateContractionUrl = () => {
+  return `/api/tools/contractions`;
+};
+
+export const createContraction = async (
+  createContractionBody: CreateContractionBody,
+  options?: RequestInit,
+): Promise<Contraction> => {
+  return customFetch<Contraction>(getCreateContractionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createContractionBody),
+  });
+};
+
+export const getCreateContractionMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createContraction>>,
+    TError,
+    { data: BodyType<CreateContractionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createContraction>>,
+  TError,
+  { data: BodyType<CreateContractionBody> },
+  TContext
+> => {
+  const mutationKey = ["createContraction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createContraction>>,
+    { data: BodyType<CreateContractionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createContraction(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateContractionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createContraction>>
+>;
+export type CreateContractionMutationBody = BodyType<CreateContractionBody>;
+export type CreateContractionMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Log a completed contraction
+ */
+export const useCreateContraction = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createContraction>>,
+    TError,
+    { data: BodyType<CreateContractionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createContraction>>,
+  TError,
+  { data: BodyType<CreateContractionBody> },
+  TContext
+> => {
+  return useMutation(getCreateContractionMutationOptions(options));
+};
+
+/**
+ * @summary Delete a contraction log entry
+ */
+export const getDeleteContractionUrl = (id: number) => {
+  return `/api/tools/contractions/${id}`;
+};
+
+export const deleteContraction = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteContractionUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteContractionMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteContraction>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteContraction>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteContraction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteContraction>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteContraction(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteContractionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteContraction>>
+>;
+
+export type DeleteContractionMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Delete a contraction log entry
+ */
+export const useDeleteContraction = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteContraction>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteContraction>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteContractionMutationOptions(options));
 };

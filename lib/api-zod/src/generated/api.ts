@@ -121,3 +121,200 @@ export const RedeemCodeResponse = zod.object({
   freeUsed: zod.number(),
   freeLimit: zod.number(),
 });
+
+/**
+ * @summary List symptom logs for the signed-in user
+ */
+export const listSymptomsQueryLimitDefault = 50;
+export const listSymptomsQueryLimitMax = 100;
+
+export const listSymptomsQueryOffsetDefault = 0;
+export const listSymptomsQueryOffsetMin = 0;
+
+export const ListSymptomsQueryParams = zod.object({
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(listSymptomsQueryLimitMax)
+    .default(listSymptomsQueryLimitDefault),
+  offset: zod.coerce
+    .number()
+    .min(listSymptomsQueryOffsetMin)
+    .default(listSymptomsQueryOffsetDefault),
+});
+
+export const ListSymptomsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      symptom: zod.string(),
+      severity: zod.number().nullish(),
+      notes: zod.string().nullish(),
+      loggedAt: zod.coerce.date(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Log a new symptom
+ */
+export const createSymptomBodySymptomMax = 200;
+
+export const createSymptomBodySeverityMax = 5;
+
+export const createSymptomBodyNotesMax = 1000;
+
+export const CreateSymptomBody = zod.object({
+  symptom: zod.string().min(1).max(createSymptomBodySymptomMax),
+  severity: zod.number().min(1).max(createSymptomBodySeverityMax).nullish(),
+  notes: zod.string().max(createSymptomBodyNotesMax).nullish(),
+  loggedAt: zod.coerce.date().nullish(),
+});
+
+/**
+ * @summary Delete a symptom log entry
+ */
+export const DeleteSymptomParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary List kick counter sessions for the signed-in user
+ */
+export const listKickSessionsQueryLimitDefault = 20;
+export const listKickSessionsQueryLimitMax = 50;
+
+export const listKickSessionsQueryOffsetDefault = 0;
+export const listKickSessionsQueryOffsetMin = 0;
+
+export const ListKickSessionsQueryParams = zod.object({
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(listKickSessionsQueryLimitMax)
+    .default(listKickSessionsQueryLimitDefault),
+  offset: zod.coerce
+    .number()
+    .min(listKickSessionsQueryOffsetMin)
+    .default(listKickSessionsQueryOffsetDefault),
+});
+
+export const ListKickSessionsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      startedAt: zod.coerce.date(),
+      endedAt: zod.coerce.date().nullish(),
+      kickCount: zod.number(),
+      notes: zod.string().nullish(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Create a new kick counter session
+ */
+export const createKickSessionBodyKickCountMin = 0;
+
+export const createKickSessionBodyNotesMax = 500;
+
+export const CreateKickSessionBody = zod.object({
+  startedAt: zod.coerce.date().nullish(),
+  kickCount: zod.number().min(createKickSessionBodyKickCountMin).nullish(),
+  endedAt: zod.coerce.date().nullish(),
+  notes: zod.string().max(createKickSessionBodyNotesMax).nullish(),
+});
+
+/**
+ * @summary Update a kick counter session (add kicks, end session)
+ */
+export const UpdateKickSessionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const updateKickSessionBodyKickCountMin = 0;
+
+export const updateKickSessionBodyNotesMax = 500;
+
+export const UpdateKickSessionBody = zod.object({
+  kickCount: zod.number().min(updateKickSessionBodyKickCountMin).nullish(),
+  endedAt: zod.coerce.date().nullish(),
+  notes: zod.string().max(updateKickSessionBodyNotesMax).nullish(),
+});
+
+export const UpdateKickSessionResponse = zod.object({
+  id: zod.number(),
+  startedAt: zod.coerce.date(),
+  endedAt: zod.coerce.date().nullish(),
+  kickCount: zod.number(),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Delete a kick session
+ */
+export const DeleteKickSessionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary List contraction logs for the signed-in user
+ */
+export const listContractionsQueryLimitDefault = 100;
+export const listContractionsQueryLimitMax = 200;
+
+export const ListContractionsQueryParams = zod.object({
+  sessionDate: zod.coerce
+    .string()
+    .optional()
+    .describe("Filter by session date (YYYY-MM-DD). Defaults to today."),
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(listContractionsQueryLimitMax)
+    .default(listContractionsQueryLimitDefault),
+});
+
+export const ListContractionsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      startedAt: zod.coerce.date(),
+      endedAt: zod.coerce.date().nullish(),
+      durationSeconds: zod.number().nullish(),
+      intervalSeconds: zod.number().nullish(),
+      sessionDate: zod.string(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Log a completed contraction
+ */
+export const createContractionBodyDurationSecondsMin = 0;
+
+export const createContractionBodyIntervalSecondsMin = 0;
+
+export const CreateContractionBody = zod.object({
+  startedAt: zod.coerce.date(),
+  endedAt: zod.coerce.date().nullish(),
+  durationSeconds: zod
+    .number()
+    .min(createContractionBodyDurationSecondsMin)
+    .nullish(),
+  intervalSeconds: zod
+    .number()
+    .min(createContractionBodyIntervalSecondsMin)
+    .nullish(),
+  sessionDate: zod.string().min(1),
+});
+
+/**
+ * @summary Delete a contraction log entry
+ */
+export const DeleteContractionParams = zod.object({
+  id: zod.coerce.number(),
+});

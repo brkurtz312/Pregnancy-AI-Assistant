@@ -86,3 +86,157 @@ export interface WeeklyInsight {
   insight: string;
   disclaimer: string;
 }
+
+export interface SymptomLog {
+  id: number;
+  symptom: string;
+  /** @nullable */
+  severity?: number | null;
+  /** @nullable */
+  notes?: string | null;
+  loggedAt: string;
+}
+
+export interface SymptomLogList {
+  items: SymptomLog[];
+  total: number;
+}
+
+export interface CreateSymptomBody {
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
+  symptom: string;
+  /**
+   * @minimum 1
+   * @maximum 5
+   * @nullable
+   */
+  severity?: number | null;
+  /**
+   * @maxLength 1000
+   * @nullable
+   */
+  notes?: string | null;
+  /** @nullable */
+  loggedAt?: string | null;
+}
+
+export interface KickSession {
+  id: number;
+  startedAt: string;
+  /** @nullable */
+  endedAt?: string | null;
+  kickCount: number;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface KickSessionList {
+  items: KickSession[];
+  total: number;
+}
+
+export interface CreateKickSessionBody {
+  /** @nullable */
+  startedAt?: string | null;
+  /**
+   * @minimum 0
+   * @nullable
+   */
+  kickCount?: number | null;
+  /** @nullable */
+  endedAt?: string | null;
+  /**
+   * @maxLength 500
+   * @nullable
+   */
+  notes?: string | null;
+}
+
+export interface UpdateKickSessionBody {
+  /**
+   * @minimum 0
+   * @nullable
+   */
+  kickCount?: number | null;
+  /** @nullable */
+  endedAt?: string | null;
+  /**
+   * @maxLength 500
+   * @nullable
+   */
+  notes?: string | null;
+}
+
+export interface Contraction {
+  id: number;
+  startedAt: string;
+  /** @nullable */
+  endedAt?: string | null;
+  /** @nullable */
+  durationSeconds?: number | null;
+  /** @nullable */
+  intervalSeconds?: number | null;
+  sessionDate: string;
+}
+
+export interface ContractionList {
+  items: Contraction[];
+  total: number;
+}
+
+export interface CreateContractionBody {
+  startedAt: string;
+  /** @nullable */
+  endedAt?: string | null;
+  /**
+   * @minimum 0
+   * @nullable
+   */
+  durationSeconds?: number | null;
+  /**
+   * @minimum 0
+   * @nullable
+   */
+  intervalSeconds?: number | null;
+  /** @minLength 1 */
+  sessionDate: string;
+}
+
+export type ListSymptomsParams = {
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: number;
+  /**
+   * @minimum 0
+   */
+  offset?: number;
+};
+
+export type ListKickSessionsParams = {
+  /**
+   * @minimum 1
+   * @maximum 50
+   */
+  limit?: number;
+  /**
+   * @minimum 0
+   */
+  offset?: number;
+};
+
+export type ListContractionsParams = {
+  /**
+   * Filter by session date (YYYY-MM-DD). Defaults to today.
+   */
+  sessionDate?: string;
+  /**
+   * @minimum 1
+   * @maximum 200
+   */
+  limit?: number;
+};

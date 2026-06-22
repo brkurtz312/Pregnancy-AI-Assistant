@@ -6,12 +6,33 @@ import { ConceptionForm } from "@/components/calculator/conception-form";
 import { UltrasoundForm } from "@/components/calculator/ultrasound-form";
 import { LmpForm } from "@/components/calculator/lmp-form";
 import { ResultsDisplay } from "@/components/calculator/results-display";
+import { SymptomLog, KickCounter, ContractionTimer } from "@/components/tools";
 import { PregnancyResults } from "@/lib/pregnancy-math";
-import { Baby } from "lucide-react";
+import { Baby, Wrench } from "lucide-react";
 import { AccountBar } from "@/components/auth/account-bar";
+import { useSignIn } from "@clerk/react";
+
+function ToolsSection() {
+  const { isLoaded, signIn } = useSignIn();
+
+  return (
+    <div className="space-y-6">
+      <Card className="p-6 bg-card border-border/50 shadow-sm rounded-3xl">
+        <SymptomLog />
+      </Card>
+      <Card className="p-6 bg-card border-border/50 shadow-sm rounded-3xl">
+        <KickCounter />
+      </Card>
+      <Card className="p-6 bg-card border-border/50 shadow-sm rounded-3xl">
+        <ContractionTimer />
+      </Card>
+    </div>
+  );
+}
 
 export default function CalculatorPage() {
   const [results, setResults] = useState<PregnancyResults | null>(null);
+  const [page, setPage] = useState<"calculator" | "tools">("calculator");
   const resultsRef = useRef<HTMLDivElement>(null);
 
   const handleTabChange = () => {
@@ -47,83 +68,114 @@ export default function CalculatorPage() {
           </p>
         </div>
 
-        {/* Main Calculator Card */}
-        <Card className="p-1 sm:p-2 bg-card border-border/50 shadow-sm rounded-3xl overflow-hidden">
-          <Tabs
-            defaultValue="lmp"
-            className="w-full"
-            onValueChange={handleTabChange}
+        {/* Page-level nav: Calculator | Tools */}
+        <div className="flex gap-2 p-1 bg-muted rounded-xl w-fit mx-auto">
+          <button
+            onClick={() => setPage("calculator")}
+            className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
+              page === "calculator"
+                ? "bg-card shadow text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
           >
-            <div className="p-2 sm:p-4 bg-muted/30 border-b border-border/40">
-              <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto gap-2 bg-transparent p-0">
-                <TabsTrigger
-                  value="lmp"
-                  className="data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-xl py-3 text-sm md:text-base transition-all"
-                  data-testid="tab-lmp"
-                >
-                  By LMP
-                </TabsTrigger>
-                <TabsTrigger
-                  value="duedate"
-                  className="data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-xl py-3 text-sm md:text-base transition-all"
-                  data-testid="tab-due-date"
-                >
-                  By Due Date
-                </TabsTrigger>
-                <TabsTrigger
-                  value="conception"
-                  className="data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-xl py-3 text-sm md:text-base transition-all"
-                  data-testid="tab-conception"
-                >
-                  By Conception Date
-                </TabsTrigger>
-                <TabsTrigger
-                  value="ultrasound"
-                  className="data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-xl py-3 text-sm md:text-base transition-all"
-                  data-testid="tab-ultrasound"
-                >
-                  By Ultrasound
-                </TabsTrigger>
-              </TabsList>
-            </div>
-
-            <div className="p-4 sm:p-6 md:p-8">
-              <TabsContent value="lmp" className="mt-0 outline-none">
-                <div className="max-w-2xl mx-auto">
-                  <LmpForm onCalculate={setResults} />
-                </div>
-              </TabsContent>
-
-              <TabsContent value="duedate" className="mt-0 outline-none">
-                <div className="max-w-2xl mx-auto">
-                  <DueDateForm onCalculate={setResults} />
-                </div>
-              </TabsContent>
-
-              <TabsContent value="conception" className="mt-0 outline-none">
-                <div className="max-w-2xl mx-auto">
-                  <ConceptionForm onCalculate={setResults} />
-                </div>
-              </TabsContent>
-
-              <TabsContent value="ultrasound" className="mt-0 outline-none">
-                <div className="max-w-2xl mx-auto">
-                  <UltrasoundForm onCalculate={setResults} />
-                </div>
-              </TabsContent>
-            </div>
-          </Tabs>
-        </Card>
-
-        {/* Results */}
-        {results && (
-          <div
-            ref={resultsRef}
-            className="scroll-mt-8 animate-in fade-in duration-500"
+            <Baby className="w-4 h-4" /> Calculator
+          </button>
+          <button
+            onClick={() => setPage("tools")}
+            className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
+              page === "tools"
+                ? "bg-card shadow text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
           >
-            <ResultsDisplay results={results} />
-          </div>
+            <Wrench className="w-4 h-4" /> Tools
+          </button>
+        </div>
+
+        {/* Calculator view */}
+        {page === "calculator" && (
+          <>
+            <Card className="p-1 sm:p-2 bg-card border-border/50 shadow-sm rounded-3xl overflow-hidden">
+              <Tabs
+                defaultValue="lmp"
+                className="w-full"
+                onValueChange={handleTabChange}
+              >
+                <div className="p-2 sm:p-4 bg-muted/30 border-b border-border/40">
+                  <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto gap-2 bg-transparent p-0">
+                    <TabsTrigger
+                      value="lmp"
+                      className="data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-xl py-3 text-sm md:text-base transition-all"
+                      data-testid="tab-lmp"
+                    >
+                      By LMP
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="duedate"
+                      className="data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-xl py-3 text-sm md:text-base transition-all"
+                      data-testid="tab-due-date"
+                    >
+                      By Due Date
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="conception"
+                      className="data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-xl py-3 text-sm md:text-base transition-all"
+                      data-testid="tab-conception"
+                    >
+                      By Conception Date
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="ultrasound"
+                      className="data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-xl py-3 text-sm md:text-base transition-all"
+                      data-testid="tab-ultrasound"
+                    >
+                      By Ultrasound
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
+
+                <div className="p-4 sm:p-6 md:p-8">
+                  <TabsContent value="lmp" className="mt-0 outline-none">
+                    <div className="max-w-2xl mx-auto">
+                      <LmpForm onCalculate={setResults} />
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="duedate" className="mt-0 outline-none">
+                    <div className="max-w-2xl mx-auto">
+                      <DueDateForm onCalculate={setResults} />
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="conception" className="mt-0 outline-none">
+                    <div className="max-w-2xl mx-auto">
+                      <ConceptionForm onCalculate={setResults} />
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="ultrasound" className="mt-0 outline-none">
+                    <div className="max-w-2xl mx-auto">
+                      <UltrasoundForm onCalculate={setResults} />
+                    </div>
+                  </TabsContent>
+                </div>
+              </Tabs>
+            </Card>
+
+            {/* Results */}
+            {results && (
+              <div
+                ref={resultsRef}
+                className="scroll-mt-8 animate-in fade-in duration-500"
+              >
+                <ResultsDisplay results={results} />
+              </div>
+            )}
+          </>
         )}
+
+        {/* Tools view */}
+        {page === "tools" && <ToolsSection />}
       </div>
     </div>
   );
