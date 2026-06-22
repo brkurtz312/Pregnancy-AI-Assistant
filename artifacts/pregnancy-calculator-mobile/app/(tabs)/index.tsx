@@ -3,7 +3,7 @@ import DateTimePicker, {
 } from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   type DimensionValue,
   Image,
@@ -23,6 +23,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AccountButton } from "@/components/AccountButton";
 import { AiAssistant } from "@/components/AiAssistant";
+import { useGetProfile, useUpdateProfile } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { getWeeklyDevelopment } from "@/lib/fetal-development";
 import { getFetalImage } from "@/lib/fetal-images";
@@ -541,6 +542,26 @@ export default function CalculatorScreen() {
   const [usDays, setUsDays] = useState(0);
   const [results, setResults] = useState<PregnancyResults | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const autoLoadedRef = useRef(false);
+
+  const { data: profile } = useGetProfile();
+  const updateProfileMutation = useUpdateProfile();
+
+  // Auto-restore results from saved due date on first load
+  useEffect(() => {
+    if (profile?.dueDate && !autoLoadedRef.current && !results) {
+      try {
+        const eddDate = new Date(profile.dueDate);
+        const r = calculateByDueDate(eddDate);
+        if (r) {
+          setResults(r);
+          autoLoadedRef.current = true;
+        }
+      } catch {
+        // ignore parse errors
+      }
+    }
+  }, [profile, results]);
 
   function handleCalculate() {
     setError(null);
@@ -558,6 +579,10 @@ export default function CalculatorScreen() {
 
       setResults(r);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Save the EDD to the user's profile so it auto-loads next time
+      updateProfileMutation.mutate({
+        data: { dueDate: r.edd.toISOString().slice(0, 10) },
+      });
     } catch {
       setError("Could not calculate. Please check your input.");
     }

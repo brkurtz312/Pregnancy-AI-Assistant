@@ -318,3 +318,60 @@ export const CreateContractionBody = zod.object({
 export const DeleteContractionParams = zod.object({
   id: zod.coerce.number(),
 });
+
+/**
+ * Returns the authenticated user's saved profile (due date, provider, hospital).
+ * @summary Get user profile
+ */
+export const GetProfileResponse = zod.object({
+  dueDate: zod
+    .string()
+    .nullish()
+    .describe("ISO date string of the estimated due date (YYYY-MM-DD)"),
+  providerName: zod.string().nullish(),
+  providerPhone: zod.string().nullish(),
+  hospitalName: zod.string().nullish(),
+  hospitalPhone: zod.string().nullish(),
+  hospitalAddress: zod.string().nullish(),
+});
+
+/**
+ * Upserts the authenticated user's profile data.
+ * @summary Create or update user profile
+ */
+export const updateProfileBodyProviderNameMax = 200;
+
+export const updateProfileBodyProviderPhoneMax = 30;
+
+export const updateProfileBodyHospitalNameMax = 200;
+
+export const updateProfileBodyHospitalPhoneMax = 30;
+
+export const updateProfileBodyHospitalAddressMax = 500;
+
+export const UpdateProfileBody = zod.object({
+  dueDate: zod
+    .string()
+    .nullish()
+    .describe("ISO date string of the estimated due date (YYYY-MM-DD)"),
+  providerName: zod.string().max(updateProfileBodyProviderNameMax).nullish(),
+  providerPhone: zod.string().max(updateProfileBodyProviderPhoneMax).nullish(),
+  hospitalName: zod.string().max(updateProfileBodyHospitalNameMax).nullish(),
+  hospitalPhone: zod.string().max(updateProfileBodyHospitalPhoneMax).nullish(),
+  hospitalAddress: zod
+    .string()
+    .max(updateProfileBodyHospitalAddressMax)
+    .nullish(),
+});
+
+export const UpdateProfileResponse = zod.object({
+  dueDate: zod
+    .string()
+    .nullish()
+    .describe("ISO date string of the estimated due date (YYYY-MM-DD)"),
+  providerName: zod.string().nullish(),
+  providerPhone: zod.string().nullish(),
+  hospitalName: zod.string().nullish(),
+  hospitalPhone: zod.string().nullish(),
+  hospitalAddress: zod.string().nullish(),
+});

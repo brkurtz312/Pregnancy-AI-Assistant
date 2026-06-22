@@ -205,6 +205,57 @@ export interface CreateContractionBody {
   sessionDate: string;
 }
 
+export interface UserProfile {
+  /**
+   * ISO date string of the estimated due date (YYYY-MM-DD)
+   * @nullable
+   */
+  dueDate?: string | null;
+  /** @nullable */
+  providerName?: string | null;
+  /** @nullable */
+  providerPhone?: string | null;
+  /** @nullable */
+  hospitalName?: string | null;
+  /** @nullable */
+  hospitalPhone?: string | null;
+  /** @nullable */
+  hospitalAddress?: string | null;
+}
+
+export interface UpdateProfileBody {
+  /**
+   * ISO date string of the estimated due date (YYYY-MM-DD)
+   * @nullable
+   */
+  dueDate?: string | null;
+  /**
+   * @maxLength 200
+   * @nullable
+   */
+  providerName?: string | null;
+  /**
+   * @maxLength 30
+   * @nullable
+   */
+  providerPhone?: string | null;
+  /**
+   * @maxLength 200
+   * @nullable
+   */
+  hospitalName?: string | null;
+  /**
+   * @maxLength 30
+   * @nullable
+   */
+  hospitalPhone?: string | null;
+  /**
+   * @maxLength 500
+   * @nullable
+   */
+  hospitalAddress?: string | null;
+}
+
 export type ListSymptomsParams = {
   /**
    * @minimum 1

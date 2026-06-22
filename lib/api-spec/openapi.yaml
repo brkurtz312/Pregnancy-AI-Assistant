@@ -599,6 +599,59 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /profile:
+    get:
+      operationId: getProfile
+      tags: [profile]
+      summary: Get user profile
+      description: Returns the authenticated user's saved profile (due date, provider, hospital).
+      security:
+        - clerkAuth: []
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    put:
+      operationId: updateProfile
+      tags: [profile]
+      summary: Create or update user profile
+      description: Upserts the authenticated user's profile data.
+      security:
+        - clerkAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileBody"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
   schemas:
     HealthStatus:
@@ -880,3 +933,40 @@ components:
       required:
         - startedAt
         - sessionDate
+    UserProfile:
+      type: object
+      properties:
+        dueDate:
+          type: ["string", "null"]
+          description: ISO date string of the estimated due date (YYYY-MM-DD)
+        providerName:
+          type: ["string", "null"]
+        providerPhone:
+          type: ["string", "null"]
+        hospitalName:
+          type: ["string", "null"]
+        hospitalPhone:
+          type: ["string", "null"]
+        hospitalAddress:
+          type: ["string", "null"]
+    UpdateProfileBody:
+      type: object
+      properties:
+        dueDate:
+          type: ["string", "null"]
+          description: ISO date string of the estimated due date (YYYY-MM-DD)
+        providerName:
+          type: ["string", "null"]
+          maxLength: 200
+        providerPhone:
+          type: ["string", "null"]
+          maxLength: 30
+        hospitalName:
+          type: ["string", "null"]
+          maxLength: 200
+        hospitalPhone:
+          type: ["string", "null"]
+          maxLength: 30
+        hospitalAddress:
+          type: ["string", "null"]
+          maxLength: 500
