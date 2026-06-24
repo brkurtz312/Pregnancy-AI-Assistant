@@ -41,6 +41,10 @@
           "ios": {
             "extraPods": [
               {
+                "name": "AppCheckCore",
+                "modular_headers": true
+              },
+              {
                 "name": "GoogleUtilities",
                 "modular_headers": true
               },
