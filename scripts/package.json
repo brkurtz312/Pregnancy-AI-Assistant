@@ -9,10 +9,13 @@
     "seed-revenuecat": "tsx ./src/seedRevenueCat.ts",
     "check-revenuecat": "tsx ./src/checkRevenueCat.ts",
     "migrate-appstore-product-id": "tsx ./src/migrateAppStoreProductId.ts",
+    "create-review-account": "tsx ./src/create-review-account.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@replit/revenuecat-sdk": "^4.2.0",
+    "@workspace/db": "workspace:*",
+    "drizzle-orm": "catalog:",
     "stripe": "^22.2.0"
   },
   "devDependencies": {

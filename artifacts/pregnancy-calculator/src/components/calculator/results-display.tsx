@@ -345,6 +345,58 @@ export function ResultsDisplay({ results }: ResultsDisplayProps) {
         </div>
       )}
 
+      {/* Medical Information Sources */}
+      <div className="rounded-2xl border border-border/40 bg-muted/30 p-4 text-xs text-muted-foreground space-y-2">
+        <p className="font-semibold text-foreground/70 uppercase tracking-wider text-[10px]">
+          Medical Information Sources
+        </p>
+        <p className="leading-relaxed">
+          Gestational age calculations and trimester definitions follow the
+          method published by the{" "}
+          <a
+            href="https://www.acog.org/clinical/clinical-guidance/committee-opinion/articles/2017/05/methods-for-estimating-the-due-date"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2 hover:text-foreground transition-colors"
+          >
+            American College of Obstetricians and Gynecologists (ACOG)
+          </a>
+          . Fetal development milestones are sourced from the{" "}
+          <a
+            href="https://www.nichd.nih.gov/health/topics/pregnancy/conditioninfo/fetal-development"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2 hover:text-foreground transition-colors"
+          >
+            National Institute of Child Health and Human Development (NICHD)
+          </a>{" "}
+          and the{" "}
+          <a
+            href="https://www.mayoclinic.org/healthy-lifestyle/pregnancy-week-by-week/in-depth/prenatal-care/art-20045302"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2 hover:text-foreground transition-colors"
+          >
+            Mayo Clinic
+          </a>
+          . Pregnancy health information is consistent with guidance from the{" "}
+          <a
+            href="https://www.cdc.gov/reproductivehealth/maternalinfanthealth/pregnancy.htm"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2 hover:text-foreground transition-colors"
+          >
+            CDC
+          </a>
+          .
+        </p>
+        <p className="text-[10px] text-muted-foreground/70">
+          This app is for informational purposes only and is not a substitute
+          for professional medical advice. Always consult your healthcare
+          provider.
+        </p>
+      </div>
+
       {/* AI Assistant */}
       <AiAssistant currentWeek={results.currentGestationalAgeWeeks} />
     </div>

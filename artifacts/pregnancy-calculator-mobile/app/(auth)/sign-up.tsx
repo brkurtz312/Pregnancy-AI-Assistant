@@ -250,6 +250,11 @@ export default function SignUpScreen() {
                   Resend code
                 </Text>
               </TouchableOpacity>
+              <Text
+                style={[styles.spamNote, { color: colors.mutedForeground }]}
+              >
+                Can't find it? Check your spam or junk folder.
+              </Text>
             </>
           )}
         </ScrollView>
@@ -318,4 +323,10 @@ const styles = StyleSheet.create({
   footerText: { fontSize: 14, fontFamily: "Inter_400Regular" },
   footerLink: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   resendBtn: { alignItems: "center", marginTop: 16 },
+  spamNote: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    marginTop: 10,
+  },
 });
