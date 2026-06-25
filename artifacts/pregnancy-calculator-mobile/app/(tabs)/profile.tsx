@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useGetProfile, useUpdateProfile } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
+import { usePass } from "@/hooks/usePass";
 
 function CallButton({ phone }: { phone: string }) {
   const colors = useColors();
@@ -147,6 +148,7 @@ export default function ProfileScreen() {
 
   const { data: profile, isLoading } = useGetProfile();
   const updateMutation = useUpdateProfile();
+  const { hasPass, redeemCode, isRedeeming } = usePass();
 
   const [providerName, setProviderName] = useState("");
   const [providerPhone, setProviderPhone] = useState("");
@@ -154,6 +156,25 @@ export default function ProfileScreen() {
   const [hospitalPhone, setHospitalPhone] = useState("");
   const [hospitalAddress, setHospitalAddress] = useState("");
   const [saved, setSaved] = useState(false);
+  const [accessCode, setAccessCode] = useState("");
+  const [codeError, setCodeError] = useState("");
+  const [codeSuccess, setCodeSuccess] = useState(false);
+
+  const handleRedeemCode = useCallback(async () => {
+    const trimmed = accessCode.trim();
+    if (!trimmed) {
+      setCodeError("Enter an access code.");
+      return;
+    }
+    setCodeError("");
+    try {
+      await redeemCode(trimmed);
+      setCodeSuccess(true);
+      setAccessCode("");
+    } catch {
+      setCodeError("That access code isn't valid.");
+    }
+  }, [accessCode, redeemCode]);
 
   useEffect(() => {
     if (profile) {
@@ -334,6 +355,97 @@ export default function ProfileScreen() {
                       : "Save"}
                 </Text>
               </TouchableOpacity>
+
+              {/* Access code redemption */}
+              {!hasPass && (
+                <View
+                  style={[
+                    styles.card,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <View style={styles.sectionHeader}>
+                    <Ionicons
+                      name="key-outline"
+                      size={20}
+                      color={colors.primary}
+                    />
+                    <Text
+                      style={[
+                        styles.sectionTitle,
+                        { color: colors.foreground },
+                      ]}
+                    >
+                      Access Code
+                    </Text>
+                  </View>
+                  {codeSuccess ? (
+                    <View style={styles.codeSuccessRow}>
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={20}
+                        color={colors.primary}
+                      />
+                      <Text
+                        style={[
+                          styles.codeSuccessText,
+                          { color: colors.primary },
+                        ]}
+                      >
+                        Full Pregnancy Pass unlocked!
+                      </Text>
+                    </View>
+                  ) : (
+                    <>
+                      <View style={styles.fieldRow}>
+                        <TextInput
+                          value={accessCode}
+                          onChangeText={(v) => {
+                            setAccessCode(v);
+                            setCodeError("");
+                          }}
+                          placeholder="Enter access code"
+                          placeholderTextColor={colors.mutedForeground}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          style={[
+                            styles.input,
+                            {
+                              color: colors.foreground,
+                              backgroundColor: colors.background,
+                              borderColor: codeError
+                                ? "#ef4444"
+                                : colors.border,
+                              flex: 1,
+                            },
+                          ]}
+                        />
+                        <TouchableOpacity
+                          onPress={handleRedeemCode}
+                          disabled={isRedeeming}
+                          style={[
+                            styles.redeemBtn,
+                            {
+                              backgroundColor: colors.primary,
+                              opacity: isRedeeming ? 0.6 : 1,
+                            },
+                          ]}
+                        >
+                          <Text style={styles.redeemBtnText}>
+                            {isRedeeming ? "…" : "Redeem"}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                      {codeError ? (
+                        <Text style={styles.codeError}>{codeError}</Text>
+                      ) : null}
+                    </>
+                  )}
+                </View>
+              )}
             </>
           )}
         </View>
@@ -443,6 +555,34 @@ const styles = StyleSheet.create({
   saveBtnText: {
     color: "#fff",
     fontSize: 16,
+    fontFamily: "Inter_600SemiBold",
+  },
+  redeemBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  redeemBtnText: {
+    color: "#fff",
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+  },
+  codeError: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: "#ef4444",
+    marginTop: 4,
+  },
+  codeSuccessRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 4,
+  },
+  codeSuccessText: {
+    fontSize: 15,
     fontFamily: "Inter_600SemiBold",
   },
 });
