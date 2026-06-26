@@ -42,18 +42,12 @@ export default function SignInScreen() {
     });
     if (error) return;
 
-    if (signIn.status === "complete") {
-      await signIn.finalize({
-        navigate: ({ session, decorateUrl }) => {
-          if (session?.currentTask) return;
-          router.replace(decorateUrl("/") as Href);
-        },
-      });
-    } else {
-      setNotice(
-        "Additional verification is required. Please finish signing in on the web app.",
-      );
-    }
+    await signIn.finalize({
+      navigate: ({ session, decorateUrl }) => {
+        if (session?.currentTask) return;
+        router.replace(decorateUrl("/") as Href);
+      },
+    });
   };
 
   return (
