@@ -1,4 +1,4 @@
-import { useSignIn } from "@clerk/expo";
+import { useClerk, useSignIn } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import { type Href, useRouter } from "expo-router";
 import React, { useState } from "react";
@@ -17,15 +17,25 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 
+const apiBase = process.env.EXPO_PUBLIC_DOMAIN
+  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+  : "";
+
 export default function SignInScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { signIn, errors, fetchStatus } = useSignIn();
+  const clerk = useClerk();
 
   const [emailAddress, setEmailAddress] = useState("");
   const [password, setPassword] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
+
+  const [reviewerOpen, setReviewerOpen] = useState(false);
+  const [reviewerCode, setReviewerCode] = useState("");
+  const [reviewerLoading, setReviewerLoading] = useState(false);
+  const [reviewerError, setReviewerError] = useState<string | null>(null);
 
   const fetching = fetchStatus === "fetching";
   const errorText =
@@ -47,6 +57,35 @@ export default function SignInScreen() {
         router.replace("/" as Href);
       },
     });
+  };
+
+  const onReviewerSignIn = async () => {
+    if (reviewerLoading || !reviewerCode.trim()) return;
+    setReviewerError(null);
+    setReviewerLoading(true);
+    try {
+      const res = await fetch(`${apiBase}/api/reviewer/sign-in-token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: reviewerCode.trim() }),
+      });
+      if (!res.ok) {
+        setReviewerError("Invalid access code. Please try again.");
+        return;
+      }
+      const { token } = (await res.json()) as { token: string };
+
+      const si = await clerk.client!.signIn.create({
+        strategy: "ticket",
+        ticket: token,
+      });
+      await clerk.setActive({ session: si.createdSessionId! });
+      router.replace("/" as Href);
+    } catch {
+      setReviewerError("Sign in failed. Please try again.");
+    } finally {
+      setReviewerLoading(false);
+    }
   };
 
   return (
@@ -163,6 +202,91 @@ export default function SignInScreen() {
               </Text>
             </TouchableOpacity>
           </View>
+
+          {!reviewerOpen && (
+            <TouchableOpacity
+              style={styles.reviewerToggle}
+              onPress={() => setReviewerOpen(true)}
+            >
+              <Text
+                style={[
+                  styles.reviewerToggleText,
+                  { color: colors.mutedForeground },
+                ]}
+              >
+                Developer / Reviewer Access
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {reviewerOpen && (
+            <View
+              style={[
+                styles.reviewerBox,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <Text
+                style={[styles.reviewerTitle, { color: colors.foreground }]}
+              >
+                Reviewer Access
+              </Text>
+              <Text
+                style={[
+                  styles.reviewerSub,
+                  { color: colors.mutedForeground },
+                ]}
+              >
+                Enter the developer access code to sign in as the demo account.
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    borderColor: colors.border,
+                    color: colors.foreground,
+                    backgroundColor: colors.background,
+                    marginTop: 8,
+                  },
+                ]}
+                value={reviewerCode}
+                onChangeText={setReviewerCode}
+                placeholder="Access code"
+                placeholderTextColor={colors.mutedForeground}
+                autoCapitalize="none"
+                autoCorrect={false}
+                onSubmitEditing={onReviewerSignIn}
+                returnKeyType="go"
+              />
+              {reviewerError && (
+                <Text style={[styles.error, { color: colors.destructive }]}>
+                  {reviewerError}
+                </Text>
+              )}
+              <TouchableOpacity
+                style={[
+                  styles.primaryBtn,
+                  {
+                    backgroundColor: colors.primary,
+                    opacity:
+                      reviewerLoading || !reviewerCode.trim() ? 0.7 : 1,
+                    marginTop: 12,
+                  },
+                ]}
+                onPress={onReviewerSignIn}
+                disabled={reviewerLoading || !reviewerCode.trim()}
+              >
+                {reviewerLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.primaryBtnText}>Sign In as Reviewer</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -228,4 +352,29 @@ const styles = StyleSheet.create({
   },
   footerText: { fontSize: 14, fontFamily: "Inter_400Regular" },
   footerLink: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  reviewerToggle: {
+    alignItems: "center",
+    marginTop: 24,
+    paddingVertical: 6,
+  },
+  reviewerToggleText: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+  },
+  reviewerBox: {
+    marginTop: 24,
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 16,
+  },
+  reviewerTitle: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    marginBottom: 4,
+  },
+  reviewerSub: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 18,
+  },
 });

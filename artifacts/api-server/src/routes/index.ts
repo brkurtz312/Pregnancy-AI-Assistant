@@ -4,6 +4,7 @@ import aiRouter from "./ai";
 import billingRouter from "./billing";
 import toolsRouter from "./tools";
 import profileRouter from "./profile";
+import reviewerRouter from "./reviewer";
 
 const router: IRouter = Router();
 
@@ -12,5 +13,6 @@ router.use(aiRouter);
 router.use(billingRouter);
 router.use(toolsRouter);
 router.use(profileRouter);
+router.use(reviewerRouter);
 
 export default router;
