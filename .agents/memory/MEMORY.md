@@ -8,3 +8,4 @@
 - [Pass purchase + AI free-limit e2e testing](pass-gating-e2e-testing.md) — gating 403 sits behind isAnthropicConfigured 503; seed ai_usage via DB to test limits cheaply; Stripe test card works.
 - [RevenueCat ASC product sync](revenuecat-asc-sync.md) — verify live RC state (check-revenuecat script), not stale seed constants; generic "Failed to sync products" is the Replit→Apple layer, not our code.
 - [Apple burns IAP product IDs](apple-iap-product-id-burned.md) — IDs reserved forever once used; need a new id + new RC product (store_identifier immutable), no app rebuild.
+- [EAS build git restriction in main agent](eas-build-git-restriction.md) — EAS CLI writes to .git/index.lock; Replit blocks all .git/ writes in the agent. User must run `eas build` manually from the Shell tab.
