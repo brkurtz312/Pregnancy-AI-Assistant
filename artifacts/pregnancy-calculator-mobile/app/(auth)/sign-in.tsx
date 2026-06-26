@@ -43,8 +43,7 @@ export default function SignInScreen() {
     if (error) return;
 
     await signIn.finalize({
-      navigate: ({ session, decorateUrl }) => {
-        if (session?.currentTask) return;
+      navigate: ({ decorateUrl }) => {
         router.replace(decorateUrl("/") as Href);
       },
     });
