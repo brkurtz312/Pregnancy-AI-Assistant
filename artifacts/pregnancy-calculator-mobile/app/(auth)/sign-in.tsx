@@ -42,7 +42,11 @@ export default function SignInScreen() {
     });
     if (error) return;
 
-    router.replace("/" as Href);
+    await signIn.finalize({
+      navigate: () => {
+        router.replace("/" as Href);
+      },
+    });
   };
 
   return (
