@@ -146,7 +146,6 @@ export default function SignInScreen() {
             autoCorrect={false}
             onSubmitEditing={onReviewerSignIn}
             returnKeyType="go"
-            autoFocus
           />
 
           {reviewerError && (
