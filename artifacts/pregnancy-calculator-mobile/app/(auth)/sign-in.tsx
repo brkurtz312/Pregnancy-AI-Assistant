@@ -97,11 +97,13 @@ export default function SignInScreen() {
 
   if (reviewerOpen) {
     return (
-      <KeyboardAvoidingView
-        style={[styles.fill, { backgroundColor: colors.background }]}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <View style={[styles.content, containerPad, styles.fill]}>
+      <View style={[styles.fill, { backgroundColor: colors.background }]}>
+        <View
+          style={[
+            styles.reviewerScreen,
+            { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 16 },
+          ]}
+        >
           <TouchableOpacity
             style={styles.closeBtn}
             onPress={() => setReviewerOpen(false)}
@@ -114,24 +116,15 @@ export default function SignInScreen() {
             />
           </TouchableOpacity>
 
-          <View style={[styles.logo, { backgroundColor: colors.primary }]}>
-            <Ionicons name="shield-checkmark" size={26} color="#fff" />
-          </View>
-
-          <Text style={[styles.title, { color: colors.foreground }]}>
-            Reviewer Access
-          </Text>
-          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            Enter the developer access code to sign in as the demo account.
+          <Text style={[styles.reviewerHeading, { color: colors.mutedForeground }]}>
+            Developer / Reviewer Access
           </Text>
 
-          <Text style={[styles.label, { color: colors.foreground }]}>
-            Access code
-          </Text>
           <TextInput
             ref={reviewerInputRef}
             style={[
               styles.input,
+              styles.reviewerInput,
               {
                 borderColor: colors.border,
                 color: colors.foreground,
@@ -157,6 +150,7 @@ export default function SignInScreen() {
           <TouchableOpacity
             style={[
               styles.primaryBtn,
+              styles.reviewerBtn,
               {
                 backgroundColor: colors.primary,
                 opacity: reviewerLoading || !reviewerCode.trim() ? 0.7 : 1,
@@ -172,7 +166,7 @@ export default function SignInScreen() {
             )}
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     );
   }
 
@@ -374,5 +368,21 @@ const styles = StyleSheet.create({
   reviewerToggleText: {
     fontSize: 12,
     fontFamily: "Inter_400Regular",
+  },
+  reviewerScreen: {
+    paddingHorizontal: 24,
+    gap: 12,
+  },
+  reviewerHeading: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  reviewerInput: {
+    marginTop: 0,
+  },
+  reviewerBtn: {
+    marginTop: 8,
   },
 });
