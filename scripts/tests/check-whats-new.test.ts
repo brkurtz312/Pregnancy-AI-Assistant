@@ -99,6 +99,45 @@ describe("check-whats-new script — CLI exit codes", () => {
     },
     CLI_TIMEOUT,
   );
+
+  it(
+    "exits 1 when app.json contains invalid JSON — blocks release",
+    () => {
+      const { status, stderr } = runScript(
+        "app-invalid.txt",
+        "whatsNew-with-1-0-1.ts",
+      );
+      expect(status).toBe(1);
+      expect(stderr).toMatch(/not valid JSON/i);
+    },
+    CLI_TIMEOUT,
+  );
+
+  it(
+    "exits 1 when expo.version is absent from app.json — blocks release",
+    () => {
+      const { status, stderr } = runScript(
+        "app-no-version.json",
+        "whatsNew-with-1-0-1.ts",
+      );
+      expect(status).toBe(1);
+      expect(stderr).toMatch(/missing or empty/i);
+    },
+    CLI_TIMEOUT,
+  );
+
+  it(
+    "exits 1 when whatsNew.ts defines no versions at all — blocks release",
+    () => {
+      const { status, stderr } = runScript(
+        "app-covered.json",
+        "whatsNew-empty.ts",
+      );
+      expect(status).toBe(1);
+      expect(stderr).toContain("1.0.1");
+    },
+    CLI_TIMEOUT,
+  );
 });
 
 // ---------------------------------------------------------------------------
