@@ -47,6 +47,31 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 
 - `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
 - `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
+- `pnpm run install-hooks` — activates the repo's git hooks (run once per clone)
+
+## Git Hooks
+
+The repo ships a pre-commit hook in `.githooks/pre-commit` that blocks a commit if the mobile app version in `app.json` has no matching entry in `constants/whatsNew.ts`.
+
+**Activate it once after cloning:**
+
+```sh
+pnpm run install-hooks
+```
+
+This runs `git config core.hooksPath .githooks`, which tells git to use the hooks checked into the repo instead of the default `.git/hooks/` directory.
+
+To bypass in an emergency (use sparingly):
+
+```sh
+git commit --no-verify
+```
+
+The check can also be run manually at any time:
+
+```sh
+pnpm --filter @workspace/scripts run check-whats-new
+```
 
 ## Packages
 

@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+#
+# pre-commit hook: ensure every version bump in app.json has a matching
+# What's New entry in constants/whatsNew.ts before the commit lands.
+#
+# Install once per clone:
+#   pnpm run install-hooks
+#
+# To skip in an emergency (use sparingly):
+#   git commit --no-verify
+
+pnpm --filter @workspace/scripts run check-whats-new
