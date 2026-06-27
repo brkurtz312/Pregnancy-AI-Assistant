@@ -71,6 +71,16 @@ describe("useWhatsNew — show once per version", () => {
     expect(result.current.visible).toBe(false);
   });
 
+  it("shows the sheet again when the stored version is older than the current version", async () => {
+    await AsyncStorage.setItem(STORAGE_KEY, "1.0.0");
+
+    const { result } = mountHook();
+
+    await act(async () => {});
+
+    expect(result.current.visible).toBe(true);
+  });
+
   it("full flow: first launch shows modal, dismiss persists it, second launch hides it", async () => {
     const { result: first, unmount } = mountHook();
 
