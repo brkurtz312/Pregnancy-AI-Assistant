@@ -42,7 +42,7 @@ interface AlertPayload {
   reason: "user_missing" | "pass_revoked";
 }
 
-async function sendAlert(payload: AlertPayload): Promise<void> {
+export async function sendAlert(payload: AlertPayload): Promise<void> {
   const { demoUserId, timestamp, reason } = payload;
 
   const title =
@@ -159,7 +159,7 @@ async function sendAlert(payload: AlertPayload): Promise<void> {
   }
 }
 
-async function main() {
+export async function main() {
   const timestamp = new Date().toISOString();
   console.log(`\n[${timestamp}] ── Reviewer pass health check ──`);
 
@@ -233,7 +233,14 @@ async function main() {
   process.exit(0);
 }
 
-main().catch((err) => {
-  console.error(`\n❌ check-reviewer-pass crashed: ${err.message}`);
-  process.exit(1);
-});
+// Only auto-run when executed directly (not when imported by tests)
+const isMain =
+  typeof process !== "undefined" &&
+  process.argv[1]?.endsWith("check-reviewer-pass.ts");
+
+if (isMain) {
+  main().catch((err) => {
+    console.error(`\n❌ check-reviewer-pass crashed: ${err.message}`);
+    process.exit(1);
+  });
+}

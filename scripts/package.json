@@ -14,7 +14,8 @@
     "reset-reviewer-pass": "tsx ./src/reset-reviewer-pass.ts",
     "check-reviewer-pass": "tsx ./src/check-reviewer-pass.ts",
     "check-whats-new": "tsx ./src/check-whats-new.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@replit/revenuecat-sdk": "^4.2.0",
@@ -24,6 +25,7 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
-    "tsx": "catalog:"
+    "tsx": "catalog:",
+    "vitest": "^4.1.8"
   }
 }
