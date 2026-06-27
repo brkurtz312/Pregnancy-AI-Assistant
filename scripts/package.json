@@ -12,6 +12,7 @@
     "create-review-account": "tsx ./src/create-review-account.ts",
     "rotate-reviewer-code": "tsx ./src/rotate-reviewer-code.ts",
     "reset-reviewer-pass": "tsx ./src/reset-reviewer-pass.ts",
+    "check-reviewer-pass": "tsx ./src/check-reviewer-pass.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

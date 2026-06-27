@@ -38,6 +38,10 @@ args = "lint"
 task = "workflow.run"
 args = "format"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Reviewer Pass Health Check"
+
 [[workflows.workflow]]
 name = "typecheck"
 author = "agent"
@@ -81,6 +85,17 @@ args = "pnpm run format"
 
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow]]
+name = "Reviewer Pass Health Check"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "while true; do pnpm --filter @workspace/scripts run check-reviewer-pass; sleep 3600; done"
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [agent]
 stack = "PNPM_WORKSPACE"
