@@ -20,56 +20,51 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
 
-// ── 1. Read the current app version from app.json ───────────────────────────
+// ── Core validation (exported for tests) ─────────────────────────────────────
 
-const appJsonPath = path.join(
-  REPO_ROOT,
-  "artifacts/pregnancy-calculator-mobile/app.json",
-);
-
-let appVersion: string;
-try {
-  const raw = fs.readFileSync(appJsonPath, "utf8");
-  const json = JSON.parse(raw) as { expo?: { version?: string } };
-  appVersion = json?.expo?.version ?? "";
-} catch (err) {
-  console.error(`❌  Could not read app.json at ${appJsonPath}:`, err);
-  process.exit(1);
-}
-
-if (!appVersion) {
-  console.error("❌  expo.version is missing or empty in app.json");
-  process.exit(1);
-}
-
-// ── 2. Check that WHATS_NEW has a key for this version ──────────────────────
-
-const whatsNewPath = path.join(
-  REPO_ROOT,
-  "artifacts/pregnancy-calculator-mobile/constants/whatsNew.ts",
-);
-
-let whatsNewSource: string;
-try {
-  whatsNewSource = fs.readFileSync(whatsNewPath, "utf8");
-} catch (err) {
-  console.error(`❌  Could not read whatsNew.ts at ${whatsNewPath}:`, err);
-  process.exit(1);
+export interface CheckResult {
+  ok: boolean;
+  message: string;
 }
 
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// Match   "1.0.2":   or   '1.0.2':   as an object key in the WHATS_NEW map.
-// This intentionally avoids executing the TS file so the script stays fast and
-// dependency-free. It is resilient to minor formatting changes.
-const keyPattern = new RegExp(
-  `(['"])\\s*${escapeRegex(appVersion)}\\s*\\1\\s*:`,
-);
+/**
+ * Pure validation logic — accepts file contents as strings so tests can pass
+ * fixture data without touching the filesystem.
+ */
+export function checkWhatsNew(
+  appJsonContent: string,
+  whatsNewContent: string,
+): CheckResult {
+  let appVersion: string;
+  try {
+    const json = JSON.parse(appJsonContent) as { expo?: { version?: string } };
+    appVersion = json?.expo?.version ?? "";
+  } catch {
+    return { ok: false, message: "❌  app.json is not valid JSON" };
+  }
 
-if (!keyPattern.test(whatsNewSource)) {
-  console.error(`
+  if (!appVersion) {
+    return {
+      ok: false,
+      message: "❌  expo.version is missing or empty in app.json",
+    };
+  }
+
+  // Match   "1.0.2":   or   '1.0.2':   as an object key in the WHATS_NEW map.
+  // This intentionally avoids executing the TS file so the script stays fast and
+  // dependency-free. It is resilient to minor formatting changes.
+  const keyPattern = new RegExp(
+    `(['"])\\s*${escapeRegex(appVersion)}\\s*\\1\\s*:`,
+  );
+
+  if (!keyPattern.test(whatsNewContent)) {
+    return {
+      ok: false,
+      message: `
 ❌  What's New entry missing for version ${appVersion}
 
   app.json declares version "${appVersion}" but constants/whatsNew.ts has no
@@ -91,11 +86,64 @@ if (!keyPattern.test(whatsNewSource)) {
        },
 
     3. Re-run this check to confirm: pnpm --filter @workspace/scripts run check-whats-new
-`);
-  process.exit(1);
+`,
+    };
+  }
+
+  return {
+    ok: true,
+    message: `✅  What's New entry found for version ${appVersion} — good to ship.`,
+  };
 }
 
-console.log(
-  `✅  What's New entry found for version ${appVersion} — good to ship.`,
-);
-process.exit(0);
+// ── CLI entry point ───────────────────────────────────────────────────────────
+
+function runCli(): void {
+  // Allow tests (and CI) to override the file paths via env vars so the script
+  // can be exercised against fixture files without touching real repo artifacts.
+  const appJsonPath =
+    process.env.CHECK_WHATS_NEW_APP_JSON_PATH ??
+    path.join(REPO_ROOT, "artifacts/pregnancy-calculator-mobile/app.json");
+
+  let appJsonContent: string;
+  try {
+    appJsonContent = fs.readFileSync(appJsonPath, "utf8");
+  } catch (err) {
+    console.error(`❌  Could not read app.json at ${appJsonPath}:`, err);
+    process.exit(1);
+  }
+
+  const whatsNewPath =
+    process.env.CHECK_WHATS_NEW_WHATS_NEW_PATH ??
+    path.join(
+      REPO_ROOT,
+      "artifacts/pregnancy-calculator-mobile/constants/whatsNew.ts",
+    );
+
+  let whatsNewContent: string;
+  try {
+    whatsNewContent = fs.readFileSync(whatsNewPath, "utf8");
+  } catch (err) {
+    console.error(`❌  Could not read whatsNew.ts at ${whatsNewPath}:`, err);
+    process.exit(1);
+  }
+
+  const result = checkWhatsNew(appJsonContent, whatsNewContent);
+  if (result.ok) {
+    console.log(result.message);
+    process.exit(0);
+  } else {
+    console.error(result.message);
+    process.exit(1);
+  }
+}
+
+// Only run when this file is the entry point, not when imported by tests.
+const isMain =
+  process.argv[1] != null &&
+  path.resolve(process.argv[1]) ===
+    path.resolve(fileURLToPath(import.meta.url));
+
+if (isMain) {
+  runCli();
+}
