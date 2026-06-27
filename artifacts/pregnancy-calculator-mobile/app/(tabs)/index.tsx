@@ -2,6 +2,7 @@ import DateTimePicker, {
   DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "@clerk/expo";
 import * as Haptics from "expo-haptics";
 import React, { useState, useEffect, useRef } from "react";
 import {
@@ -23,7 +24,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AccountButton } from "@/components/AccountButton";
 import { AiAssistant } from "@/components/AiAssistant";
-import { useGetProfile, useUpdateProfile } from "@workspace/api-client-react";
+import {
+  getGetProfileQueryKey,
+  useGetProfile,
+  useUpdateProfile,
+} from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { getWeeklyDevelopment } from "@/lib/fetal-development";
 import { getFetalImage } from "@/lib/fetal-images";
@@ -544,7 +549,10 @@ export default function CalculatorScreen() {
   const [error, setError] = useState<string | null>(null);
   const autoLoadedRef = useRef(false);
 
-  const { data: profile } = useGetProfile();
+  const { isSignedIn } = useAuth();
+  const { data: profile } = useGetProfile({
+    query: { enabled: !!isSignedIn, queryKey: getGetProfileQueryKey() },
+  });
   const updateProfileMutation = useUpdateProfile();
 
   // Auto-restore results from saved due date on first load

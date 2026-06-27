@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "@clerk/expo";
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Alert,
@@ -13,7 +14,11 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useGetProfile, useUpdateProfile } from "@workspace/api-client-react";
+import {
+  getGetProfileQueryKey,
+  useGetProfile,
+  useUpdateProfile,
+} from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { usePass } from "@/hooks/usePass";
 
@@ -147,7 +152,10 @@ export default function ProfileScreen() {
   const topPad = isWeb ? 67 : insets.top;
   const bottomPad = isWeb ? 34 : insets.bottom + 16;
 
-  const { data: profile, isLoading } = useGetProfile();
+  const { isSignedIn } = useAuth();
+  const { data: profile, isLoading } = useGetProfile({
+    query: { enabled: !!isSignedIn, queryKey: getGetProfileQueryKey() },
+  });
   const updateMutation = useUpdateProfile();
   const { hasPass, redeemCode, isRedeeming } = usePass();
 
