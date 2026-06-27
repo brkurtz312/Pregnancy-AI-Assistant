@@ -8,7 +8,11 @@ import {
   useFonts,
 } from "@expo-google-fonts/inter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
+import {
+  ApiError,
+  setAuthTokenGetter,
+  setBaseUrl,
+} from "@workspace/api-client-react";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useRef } from "react";
@@ -34,7 +38,30 @@ const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
 // where the SDK talks to the Frontend API encoded in the publishable key.
 const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
 
-const queryClient = new QueryClient();
+/**
+ * Retry predicate for React Query:
+ * - Retry 401 (Unauthorized) up to 2 times — the token may not have been ready
+ *   for the very first fetch after sign-in.
+ * - Never retry other 4xx errors; they represent client mistakes (403, 404,
+ *   422, …) that a retry won't fix.
+ * - Retry all other errors (network failures, 5xx) up to 2 times as usual.
+ */
+function shouldRetry(failureCount: number, error: unknown): boolean {
+  if (failureCount >= 2) return false;
+  if (error instanceof ApiError) {
+    return error.status === 401;
+  }
+  return true;
+}
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: shouldRetry,
+      retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 5000),
+    },
+  },
+});
 
 /**
  * Bridges the Clerk session token into the generated API client. When signed
@@ -53,6 +80,7 @@ const queryClient = new QueryClient();
 function AuthTokenBridge() {
   const { session } = useSession();
   const sessionRef = useRef(session);
+  const prevSessionRef = useRef(session);
 
   // Keep ref current synchronously on every render so the getter closure
   // always sees the latest session without needing to re-register.
@@ -69,7 +97,22 @@ function AuthTokenBridge() {
       }
     });
     return () => setAuthTokenGetter(null);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const wasSignedOut = prevSessionRef.current == null;
+    const isNowSignedIn = session != null;
+    prevSessionRef.current = session;
+
+    // When the session transitions null → non-null (i.e. user just signed in),
+    // invalidate all cached queries so they re-fetch with the new auth token.
+    // This ensures queries that ran unauthenticated (or got a 401 before the
+    // token was available) are refreshed immediately without waiting for
+    // staleTime to expire.
+    if (wasSignedOut && isNowSignedIn) {
+      queryClient.invalidateQueries();
+    }
+  }, [session]);
 
   return null;
 }
