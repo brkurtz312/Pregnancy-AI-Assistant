@@ -53,8 +53,9 @@ export default function SignInScreen() {
     if (error) return;
 
     await signIn.finalize({
-      navigate: () => {
-        router.replace("/" as Href);
+      navigate: ({ session, decorateUrl }) => {
+        if (session?.currentTask) return;
+        router.replace(decorateUrl("/") as Href);
       },
     });
   };
@@ -235,10 +236,7 @@ export default function SignInScreen() {
                 Reviewer Access
               </Text>
               <Text
-                style={[
-                  styles.reviewerSub,
-                  { color: colors.mutedForeground },
-                ]}
+                style={[styles.reviewerSub, { color: colors.mutedForeground }]}
               >
                 Enter the developer access code to sign in as the demo account.
               </Text>
@@ -271,8 +269,7 @@ export default function SignInScreen() {
                   styles.primaryBtn,
                   {
                     backgroundColor: colors.primary,
-                    opacity:
-                      reviewerLoading || !reviewerCode.trim() ? 0.7 : 1,
+                    opacity: reviewerLoading || !reviewerCode.trim() ? 0.7 : 1,
                     marginTop: 12,
                   },
                 ]}

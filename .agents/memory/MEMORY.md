@@ -9,3 +9,4 @@
 - [RevenueCat ASC product sync](revenuecat-asc-sync.md) — verify live RC state (check-revenuecat script), not stale seed constants; generic "Failed to sync products" is the Replit→Apple layer, not our code.
 - [Apple burns IAP product IDs](apple-iap-product-id-burned.md) — IDs reserved forever once used; need a new id + new RC product (store_identifier immutable), no app rebuild.
 - [EAS build git restriction in main agent](eas-build-git-restriction.md) — EAS CLI writes to .git/index.lock; Replit blocks all .git/ writes in the agent. User must run `eas build` manually from the Shell tab.
+- [Clerk mobile 401s: AuthTokenBridge race condition](clerk-mobile-auth-bridge.md) — useEffect([getToken]) re-runs every render and loses to React Query; fix: useSession + useRef updated synchronously each render, getter registered once on mount.

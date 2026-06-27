@@ -14,6 +14,10 @@ export function requireAuth(
   res: Response,
   next: NextFunction,
 ): void {
+  req.log.info(
+    { hasAuthHeader: !!req.headers["authorization"] },
+    "requireAuth",
+  );
   const { userId } = getAuth(req);
   if (!userId) {
     res.status(401).json({ error: "Please sign in to continue." });

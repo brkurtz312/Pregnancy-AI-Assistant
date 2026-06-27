@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
   Linking,
   Platform,
   ScrollView,
@@ -212,7 +213,10 @@ export default function ProfileScreen() {
   ]);
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
+    <KeyboardAvoidingView
+      style={[styles.root, { backgroundColor: colors.background }]}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
       <ScrollView
         contentContainerStyle={{ paddingBottom: bottomPad + 24 }}
         showsVerticalScrollIndicator={false}
@@ -450,7 +454,7 @@ export default function ProfileScreen() {
           )}
         </View>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

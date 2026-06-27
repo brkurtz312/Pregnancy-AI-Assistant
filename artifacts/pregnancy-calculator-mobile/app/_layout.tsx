@@ -1,4 +1,4 @@
-import { ClerkProvider, useAuth } from "@clerk/expo";
+import { ClerkProvider, useSession } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
 import {
   Inter_400Regular,
@@ -11,7 +11,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -39,13 +39,38 @@ const queryClient = new QueryClient();
 /**
  * Bridges the Clerk session token into the generated API client. When signed
  * in, requests carry `Authorization: Bearer <token>`; when signed out,
- * getToken() resolves null and the server meters the request by IP.
+ * the getter returns null and the server meters the request by IP.
+ *
+ * Design notes:
+ * - Uses `useSession` (the actual session object) instead of `useAuth`'s
+ *   `getToken` wrapper so we hold a stable reference to the Clerk session.
+ * - A ref (`sessionRef`) is updated synchronously on every render, while the
+ *   getter closure (registered once on mount) always reads the *current* ref.
+ *   This avoids a timing race where `isSignedIn` flips true in the same render
+ *   cycle that enables React Query queries, but before a `useEffect` with
+ *   `[session]` deps has had a chance to run and update the getter.
  */
 function AuthTokenBridge() {
-  const { getToken } = useAuth();
+  const { session } = useSession();
+  const sessionRef = useRef(session);
+
+  // Keep ref current synchronously on every render so the getter closure
+  // always sees the latest session without needing to re-register.
+  sessionRef.current = session;
+
   useEffect(() => {
-    setAuthTokenGetter(() => getToken());
-  }, [getToken]);
+    // Register the getter once on mount. The closure reads sessionRef so it
+    // is never stale regardless of how many times the session changes.
+    setAuthTokenGetter(async () => {
+      try {
+        return (await sessionRef.current?.getToken()) ?? null;
+      } catch {
+        return null;
+      }
+    });
+    return () => setAuthTokenGetter(null);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   return null;
 }
 
