@@ -1,0 +1,69 @@
+name: EAS Submit (App Store)
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "EAS submit profile"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+
+jobs:
+  check-whats-new:
+    name: Verify What's New entry
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check What's New entry
+        run: pnpm --filter @workspace/scripts run check-whats-new
+
+  submit:
+    name: EAS Submit
+    runs-on: ubuntu-latest
+    needs: check-whats-new
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: EAS Submit
+        working-directory: artifacts/pregnancy-calculator-mobile
+        run: eas submit --profile ${{ github.event.inputs.profile }} --non-interactive
