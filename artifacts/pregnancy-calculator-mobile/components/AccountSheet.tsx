@@ -31,9 +31,12 @@ const PASS_PRICE = "$19.99";
 
 function redeemErrorMessage(err: unknown): string {
   if (err instanceof ApiError) {
+    if (err.status === 401)
+      return "Session expired. Please sign out and sign back in, then try again.";
     if (err.status === 429)
       return "Too many attempts. Please wait a few minutes and try again.";
     if (err.status === 503) return "Code redemption isn't available right now.";
+    if (err.status === 403) return "That access code isn't valid.";
   }
   return "That access code isn't valid.";
 }
