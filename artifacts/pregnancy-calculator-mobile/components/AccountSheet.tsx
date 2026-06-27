@@ -4,9 +4,11 @@ import { useRouter } from "expo-router";
 import React from "react";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -127,27 +129,43 @@ export function AccountSheet({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <Pressable style={styles.backdrop} onPress={onClose} />
-      <View
-        style={[
-          styles.sheet,
-          {
-            backgroundColor: colors.background,
-            borderColor: colors.border,
-            paddingBottom: insets.bottom + 20,
-          },
-        ]}
-      >
-        <View style={styles.handle} />
+      <View style={styles.modalRoot}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.kav}
+          pointerEvents="box-none"
+        >
+          <View
+            style={[
+              styles.sheet,
+              {
+                backgroundColor: colors.background,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <View style={styles.handle} />
 
-        <View style={styles.headerRow}>
-          <Text style={[styles.heading, { color: colors.foreground }]}>
-            {isSignedIn ? "Your Account" : "Account"}
-          </Text>
-          <TouchableOpacity onPress={onClose} hitSlop={10}>
-            <Ionicons name="close" size={24} color={colors.mutedForeground} />
-          </TouchableOpacity>
-        </View>
+            <View style={styles.headerRow}>
+              <Text style={[styles.heading, { color: colors.foreground }]}>
+                {isSignedIn ? "Your Account" : "Account"}
+              </Text>
+              <TouchableOpacity onPress={onClose} hitSlop={10}>
+                <Ionicons
+                  name="close"
+                  size={24}
+                  color={colors.mutedForeground}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              bounces={false}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+            >
 
         {!isSignedIn ? (
           <View style={styles.section}>
@@ -469,21 +487,18 @@ export function AccountSheet({
             </TouchableOpacity>
           </View>
         )}
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.4)",
-  },
+  modalRoot: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
+  kav: { flex: 1, justifyContent: "flex-end" },
   sheet: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,
