@@ -167,17 +167,36 @@ export default function SignInScreen() {
             </TouchableOpacity>
           </View>
 
+          <View style={styles.dividerRow}>
+            <View
+              style={[styles.dividerLine, { backgroundColor: colors.border }]}
+            />
+            <Text
+              style={[styles.dividerText, { color: colors.mutedForeground }]}
+            >
+              OR
+            </Text>
+            <View
+              style={[styles.dividerLine, { backgroundColor: colors.border }]}
+            />
+          </View>
+
           <TouchableOpacity
-            style={styles.reviewerToggle}
+            style={[
+              styles.reviewerBtn,
+              { borderColor: colors.border, backgroundColor: colors.card },
+            ]}
             onPress={() => router.push("/reviewer-access" as Href)}
           >
+            <Ionicons
+              name="shield-checkmark-outline"
+              size={18}
+              color={colors.mutedForeground}
+            />
             <Text
-              style={[
-                styles.reviewerToggleText,
-                { color: colors.mutedForeground },
-              ]}
+              style={[styles.reviewerBtnText, { color: colors.foreground }]}
             >
-              Developer / Reviewer Access
+              Apple Reviewer / Developer Access
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -245,13 +264,29 @@ const styles = StyleSheet.create({
   },
   footerText: { fontSize: 14, fontFamily: "Inter_400Regular" },
   footerLink: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
-  reviewerToggle: {
+  dividerRow: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 10,
     marginTop: 24,
-    paddingVertical: 6,
   },
-  reviewerToggleText: {
+  dividerLine: { flex: 1, height: 1 },
+  dividerText: {
     fontSize: 12,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_500Medium",
+  },
+  reviewerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 13,
+    marginTop: 12,
+  },
+  reviewerBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
   },
 });
