@@ -18,6 +18,7 @@ export default tseslint.config(
       ".local/**",
       ".agents/**",
       "**/.replit-artifact/**",
+      ".cache/**",
     ],
   },
 

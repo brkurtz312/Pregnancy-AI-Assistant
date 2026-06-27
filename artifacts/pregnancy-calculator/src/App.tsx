@@ -1,18 +1,12 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  ClerkProvider,
-  SignIn,
-  SignUp,
-  ClerkLoaded,
-  useSession,
-} from "@clerk/react";
+import { ClerkProvider, SignIn, SignUp, ClerkLoaded } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
-import { useEffect, useRef } from "react";
 import { shadcn } from "@clerk/themes";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { PassProvider } from "@/hooks/use-pass";
+import { SessionWatcher } from "@/components/session-watcher";
 import NotFound from "@/pages/not-found";
 import CalculatorPage from "@/pages/calculator";
 import LandingPage from "@/pages/landing";
@@ -50,38 +44,6 @@ const clerkAppearance = {
     footerActionLink: "text-[hsl(340_65%_55%)] hover:text-[hsl(340_65%_45%)]",
   },
 };
-
-/**
- * Watches the Clerk session and keeps the React Query cache consistent:
- * - Sign-in  (null → session): invalidate all queries so they re-fetch with
- *   the new auth cookies and return authenticated data right away.
- * - Sign-out (session → null): clear the entire cache so stale authenticated
- *   data (profile, pass status, AI usage) does not linger for the next user.
- *
- * Must be rendered inside both <ClerkProvider> and <QueryClientProvider>.
- */
-function SessionWatcher() {
-  const { session } = useSession();
-  const prevSessionRef = useRef(session);
-
-  useEffect(() => {
-    const wasSignedIn = prevSessionRef.current != null;
-    const wasSignedOut = prevSessionRef.current == null;
-    const isNowSignedIn = session != null;
-    const isNowSignedOut = session == null;
-    prevSessionRef.current = session;
-
-    if (wasSignedOut && isNowSignedIn) {
-      queryClient.invalidateQueries();
-    }
-
-    if (wasSignedIn && isNowSignedOut) {
-      queryClient.clear();
-    }
-  }, [session]);
-
-  return null;
-}
 
 // Card sizing is scoped to the sign-in / sign-up pages only. Applying it
 // globally also cramps the "Manage account" (UserProfile) modal, which needs
