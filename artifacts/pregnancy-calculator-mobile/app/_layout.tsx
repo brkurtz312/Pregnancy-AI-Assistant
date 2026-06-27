@@ -100,8 +100,10 @@ function AuthTokenBridge() {
   }, []);
 
   useEffect(() => {
+    const wasSignedIn = prevSessionRef.current != null;
     const wasSignedOut = prevSessionRef.current == null;
     const isNowSignedIn = session != null;
+    const isNowSignedOut = session == null;
     prevSessionRef.current = session;
 
     // When the session transitions null → non-null (i.e. user just signed in),
@@ -111,6 +113,13 @@ function AuthTokenBridge() {
     // staleTime to expire.
     if (wasSignedOut && isNowSignedIn) {
       queryClient.invalidateQueries();
+    }
+
+    // When the session transitions non-null → null (i.e. user just signed out),
+    // clear the entire cache so stale authenticated data (profile, pass status,
+    // AI usage) does not linger for the next user on a shared device.
+    if (wasSignedIn && isNowSignedOut) {
+      queryClient.clear();
     }
   }, [session]);
 
