@@ -10,6 +10,8 @@
     "check-revenuecat": "tsx ./src/checkRevenueCat.ts",
     "migrate-appstore-product-id": "tsx ./src/migrateAppStoreProductId.ts",
     "create-review-account": "tsx ./src/create-review-account.ts",
+    "rotate-reviewer-code": "tsx ./src/rotate-reviewer-code.ts",
+    "reset-reviewer-pass": "tsx ./src/reset-reviewer-pass.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

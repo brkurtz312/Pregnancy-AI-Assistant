@@ -5,3 +5,4 @@ export * from "./symptom-logs";
 export * from "./kick-sessions";
 export * from "./contraction-logs";
 export * from "./user-profiles";
+export * from "./app-config";

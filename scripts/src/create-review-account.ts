@@ -1,6 +1,8 @@
 /**
  * Creates (or resets) the Apple App Review demo account in the production
  * Clerk tenant and grants it the full pregnancy pass in the database.
+ * Also persists the Clerk user id into app_config so the API server can look
+ * it up at runtime without a redeployment.
  *
  * Usage:
  *   pnpm --filter @workspace/scripts run create-review-account
@@ -11,7 +13,8 @@
  */
 
 import { db } from "@workspace/db";
-import { usersTable } from "@workspace/db/schema";
+import { usersTable, appConfigTable } from "@workspace/db/schema";
+import { eq, sql } from "drizzle-orm";
 
 const DEMO_EMAIL = "appreview@pregnancy-assistant.com";
 const DEMO_PASSWORD = "SVvB5:x56my_de!";
@@ -55,6 +58,16 @@ async function clerkPatch(path: string, body: unknown) {
   if (!res.ok)
     throw new Error(`PATCH ${path} → ${res.status}: ${await res.text()}`);
   return res.json();
+}
+
+async function upsertConfig(key: string, value: string) {
+  await db
+    .insert(appConfigTable)
+    .values({ key, value })
+    .onConflictDoUpdate({
+      target: appConfigTable.key,
+      set: { value, updatedAt: sql`now()` },
+    });
 }
 
 async function main() {
@@ -109,11 +122,29 @@ async function main() {
     });
   console.log("✓ Full Pregnancy Pass granted in database");
 
+  // 3. Persist the demo user id so the API can look it up at runtime.
+  //    If the account is recreated, the reviewer route auto-updates without
+  //    any code or env var change.
+  await upsertConfig("reviewer_demo_user_id", clerkUserId);
+  console.log("✓ Demo user id saved to app_config");
+
+  // 4. Check whether a reviewer access code already exists in the DB.
+  const [existingCode] = await db
+    .select()
+    .from(appConfigTable)
+    .where(eq(appConfigTable.key, "reviewer_access_code"));
+
+  const codeNote = existingCode
+    ? "   Access code is already set in the database. Rotate it with:\n     pnpm --filter @workspace/scripts run rotate-reviewer-code"
+    : "   ⚠️  No reviewer access code found in database.\n   Generate one now:\n     pnpm --filter @workspace/scripts run rotate-reviewer-code";
+
   console.log("\n✅ Demo account is ready for App Store review.\n");
   console.log(`   Username: ${DEMO_EMAIL}`);
   console.log(`   Password: ${DEMO_PASSWORD}`);
+  console.log(`   Clerk ID: ${clerkUserId}`);
+  console.log(`\n${codeNote}\n`);
   console.log(
-    "\n   Update these credentials in App Store Connect → Your App → App Review Information → Sign-in required.\n",
+    "   Update App Store Connect → Your App → App Review Information → Sign-in required.\n",
   );
 
   process.exit(0);
