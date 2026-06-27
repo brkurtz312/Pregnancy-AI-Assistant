@@ -1,7 +1,7 @@
 import { useClerk, useSignIn } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import { type Href, useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
   StyleSheet,
@@ -34,6 +34,7 @@ export default function SignInScreen() {
   const [reviewerCode, setReviewerCode] = useState("");
   const [reviewerLoading, setReviewerLoading] = useState(false);
   const [reviewerError, setReviewerError] = useState<string | null>(null);
+  const reviewerInputRef = useRef<TextInput>(null);
 
   const fetching = fetchStatus === "fetching";
   const errorText =
@@ -201,7 +202,10 @@ export default function SignInScreen() {
           {!reviewerOpen && (
             <TouchableOpacity
               style={styles.reviewerToggle}
-              onPress={() => setReviewerOpen(true)}
+              onPress={() => {
+                setReviewerOpen(true);
+                setTimeout(() => reviewerInputRef.current?.focus(), 150);
+              }}
             >
               <Text
                 style={[
@@ -235,6 +239,7 @@ export default function SignInScreen() {
                 Enter the developer access code to sign in as the demo account.
               </Text>
               <TextInput
+                ref={reviewerInputRef}
                 style={[
                   styles.input,
                   {
