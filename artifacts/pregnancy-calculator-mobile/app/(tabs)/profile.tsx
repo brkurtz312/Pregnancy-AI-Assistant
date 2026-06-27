@@ -196,6 +196,7 @@ export default function ProfileScreen() {
   }, [profile]);
 
   const handleSave = useCallback(async () => {
+    if (!isSignedIn) return;
     try {
       await updateMutation.mutateAsync({
         data: {
@@ -212,6 +213,7 @@ export default function ProfileScreen() {
       Alert.alert("Error", "Could not save. Please try again.");
     }
   }, [
+    isSignedIn,
     providerName,
     providerPhone,
     hospitalName,
@@ -343,14 +345,14 @@ export default function ProfileScreen() {
               {/* Save button */}
               <TouchableOpacity
                 onPress={handleSave}
-                disabled={updateMutation.isPending}
+                disabled={!isSignedIn || updateMutation.isPending}
                 style={[
                   styles.saveBtn,
                   {
                     backgroundColor: saved
                       ? colors.primary + "CC"
                       : colors.primary,
-                    opacity: updateMutation.isPending ? 0.6 : 1,
+                    opacity: !isSignedIn || updateMutation.isPending ? 0.6 : 1,
                   },
                 ]}
               >
