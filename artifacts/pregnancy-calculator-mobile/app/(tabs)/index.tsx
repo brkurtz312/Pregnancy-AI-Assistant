@@ -4,6 +4,7 @@ import DateTimePicker, {
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@clerk/expo";
 import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
 import React, { useState, useEffect, useRef } from "react";
 import {
   type DimensionValue,
@@ -549,6 +550,7 @@ export default function CalculatorScreen() {
   const [error, setError] = useState<string | null>(null);
   const autoLoadedRef = useRef(false);
 
+  const router = useRouter();
   const { isSignedIn } = useAuth();
   const { data: profile } = useGetProfile({
     query: { enabled: !!isSignedIn, queryKey: getGetProfileQueryKey() },
@@ -635,6 +637,40 @@ export default function CalculatorScreen() {
         </View>
 
         <View style={styles.content}>
+          {!isSignedIn ? (
+            <View
+              style={[
+                styles.card,
+                styles.signInCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <View style={styles.signInIconWrap}>
+                <Ionicons
+                  name="heart-circle-outline"
+                  size={52}
+                  color={colors.primary}
+                />
+              </View>
+              <Text style={[styles.signInTitle, { color: colors.foreground }]}>
+                Sign in to get started
+              </Text>
+              <Text
+                style={[styles.signInBody, { color: colors.mutedForeground }]}
+              >
+                Track your pregnancy journey, view weekly development, and get
+                personalized AI guidance — all in one place.
+              </Text>
+              <TouchableOpacity
+                onPress={() => router.push("/(auth)/sign-in")}
+                style={[styles.signInBtn, { backgroundColor: colors.primary }]}
+              >
+                <Ionicons name="log-in-outline" size={18} color="#fff" />
+                <Text style={styles.signInBtnText}>Sign In</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
           {/* Method Selector */}
           <Text
             style={[styles.sectionHeading, { color: colors.mutedForeground }]}
@@ -809,6 +845,8 @@ export default function CalculatorScreen() {
             <>
               <ResultsView results={results} />
               <AiAssistant currentWeek={results.currentGestationalAgeWeeks} />
+            </>
+          )}
             </>
           )}
         </View>
@@ -1156,5 +1194,41 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.4)",
     fontSize: 13,
     fontFamily: "Inter_400Regular",
+  },
+  signInCard: {
+    alignItems: "center",
+    paddingVertical: 36,
+    gap: 12,
+    marginTop: 8,
+  },
+  signInIconWrap: {
+    marginBottom: 4,
+  },
+  signInTitle: {
+    fontSize: 20,
+    fontFamily: "Inter_600SemiBold",
+    textAlign: "center",
+  },
+  signInBody: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    lineHeight: 20,
+    paddingHorizontal: 8,
+  },
+  signInBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 16,
+    marginTop: 8,
+  },
+  signInBtnText: {
+    color: "#fff",
+    fontSize: 16,
+    fontFamily: "Inter_600SemiBold",
   },
 });
