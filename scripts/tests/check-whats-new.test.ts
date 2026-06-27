@@ -216,6 +216,101 @@ describe("checkWhatsNew — failing cases", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Hook command path — exercises the exact command the git hook and EAS use
+// ---------------------------------------------------------------------------
+// This proves that `pnpm --filter @workspace/scripts run check-whats-new`
+// (not just tsx directly) returns a non-zero exit code when the version in
+// app.json has no matching WHATS_NEW entry, so the git pre-commit hook and
+// the EAS prebuildCommand both block the release as intended.
+
+const PNPM_TIMEOUT = 45_000;
+const WORKSPACE_ROOT = path.resolve(__dirname, "../..");
+
+describe("check-whats-new — pnpm script command (hook path)", () => {
+  it(
+    "exits 1 via `pnpm --filter @workspace/scripts run check-whats-new` when version has no matching whatsNew entry",
+    () => {
+      const result = spawnSync(
+        "pnpm",
+        ["--filter", "@workspace/scripts", "run", "check-whats-new"],
+        {
+          encoding: "utf8",
+          cwd: WORKSPACE_ROOT,
+          env: {
+            ...process.env,
+            CHECK_WHATS_NEW_APP_JSON_PATH: path.join(
+              FIXTURES,
+              "app-missing.json",
+            ),
+            CHECK_WHATS_NEW_WHATS_NEW_PATH: path.join(
+              FIXTURES,
+              "whatsNew-with-1-0-1.ts",
+            ),
+          },
+        },
+      );
+      expect(result.status).toBe(1);
+      const combined = (result.stdout ?? "") + (result.stderr ?? "");
+      expect(combined).toContain("9.9.9");
+    },
+    PNPM_TIMEOUT,
+  );
+
+  it(
+    "exits 0 via `pnpm --filter @workspace/scripts run check-whats-new` when version has a matching whatsNew entry",
+    () => {
+      const result = spawnSync(
+        "pnpm",
+        ["--filter", "@workspace/scripts", "run", "check-whats-new"],
+        {
+          encoding: "utf8",
+          cwd: WORKSPACE_ROOT,
+          env: {
+            ...process.env,
+            CHECK_WHATS_NEW_APP_JSON_PATH: path.join(
+              FIXTURES,
+              "app-covered.json",
+            ),
+            CHECK_WHATS_NEW_WHATS_NEW_PATH: path.join(
+              FIXTURES,
+              "whatsNew-with-1-0-1.ts",
+            ),
+          },
+        },
+      );
+      expect(result.status).toBe(0);
+    },
+    PNPM_TIMEOUT,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// eas.json regression guard — prebuildCommand must name the correct script
+// ---------------------------------------------------------------------------
+
+const EAS_JSON = path.join(
+  WORKSPACE_ROOT,
+  "artifacts/pregnancy-calculator-mobile/eas.json",
+);
+const EXPECTED_PREBULD_COMMAND =
+  "pnpm --filter @workspace/scripts run check-whats-new";
+
+describe("eas.json — prebuildCommand regression guard", () => {
+  it("production build profile defines a prebuildCommand", () => {
+    const raw = fs.readFileSync(EAS_JSON, "utf8");
+    const eas = JSON.parse(raw);
+    expect(eas?.build?.production?.prebuildCommand).toBeDefined();
+  });
+
+  it("production prebuildCommand runs the check-whats-new script", () => {
+    const raw = fs.readFileSync(EAS_JSON, "utf8");
+    const eas = JSON.parse(raw);
+    const cmd: string = eas?.build?.production?.prebuildCommand ?? "";
+    expect(cmd).toBe(EXPECTED_PREBULD_COMMAND);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Real-repo integration — validates the actual app.json + whatsNew.ts pair
 // ---------------------------------------------------------------------------
 // This test is the early-warning gate: if a developer bumps expo.version in
