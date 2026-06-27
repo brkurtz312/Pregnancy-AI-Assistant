@@ -10,38 +10,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { WHATS_NEW } from "@/constants/whatsNew";
 import { useColors } from "@/hooks/useColors";
-
-interface WhatsNewItem {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  title: string;
-  body: string;
-}
-
-/**
- * Content shown for each app version. Add a new entry here whenever a
- * user-visible change ships and bump the version in app.json.
- *
- * Only the entry matching the *current* version is displayed; older entries
- * are kept for reference but never shown.
- */
-const WHATS_NEW: Record<string, { headline: string; items: WhatsNewItem[] }> = {
-  "1.0.1": {
-    headline: "What's new in this update",
-    items: [
-      {
-        icon: "flash-outline",
-        title: "Sign-in is now faster and more reliable",
-        body: 'We fixed a timing issue that could leave you looking at a loading spinner after tapping "Sign In". You should be in instantly.',
-      },
-      {
-        icon: "shield-checkmark-outline",
-        title: "Fewer unexpected sign-outs",
-        body: "Session handling is more resilient, so you stay signed in across app restarts.",
-      },
-    ],
-  },
-};
 
 export function WhatsNewModal({
   version,

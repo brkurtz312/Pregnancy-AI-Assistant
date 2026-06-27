@@ -15,7 +15,8 @@
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "prebuildCommand": "pnpm --filter @workspace/scripts run check-whats-new"
     }
   },
   "submit": {

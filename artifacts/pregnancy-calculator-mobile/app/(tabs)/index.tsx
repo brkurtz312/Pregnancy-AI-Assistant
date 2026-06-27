@@ -671,182 +671,191 @@ export default function CalculatorScreen() {
             </View>
           ) : (
             <>
-          {/* Method Selector */}
-          <Text
-            style={[styles.sectionHeading, { color: colors.mutedForeground }]}
-          >
-            CALCULATE BY
-          </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.methodScroll}
-          >
-            {METHODS.map((m) => {
-              const active = method === m.id;
-              return (
-                <TouchableOpacity
-                  key={m.id}
-                  style={[
-                    styles.methodPill,
-                    {
-                      backgroundColor: active ? colors.primary : colors.card,
-                      borderColor: active ? colors.primary : colors.border,
-                    },
-                  ]}
-                  onPress={() => {
-                    setMethod(m.id);
-                    setResults(null);
-                    setError(null);
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }}
-                  testID={`method-${m.id}`}
-                >
-                  <Ionicons
-                    name={m.icon}
-                    size={16}
-                    color={active ? "#fff" : colors.mutedForeground}
-                    style={{ marginRight: 6 }}
-                  />
-                  <Text
-                    style={[
-                      styles.methodPillText,
-                      { color: active ? "#fff" : colors.foreground },
-                    ]}
-                  >
-                    {m.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-
-          {/* Input Card */}
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <Text
-              style={[
-                styles.methodDescription,
-                { color: colors.mutedForeground },
-              ]}
-            >
-              {METHOD_DESCRIPTIONS[method]}
-            </Text>
-
-            {method === "lmp" && (
-              <DatePickerField
-                label="First Day of Last Period"
-                value={date}
-                onChange={(d) => {
-                  setDate(d);
-                  setResults(null);
-                }}
-              />
-            )}
-            {method === "due" && (
-              <DatePickerField
-                label="Estimated Due Date"
-                value={date}
-                onChange={(d) => {
-                  setDate(d);
-                  setResults(null);
-                }}
-              />
-            )}
-            {method === "conception" && (
-              <DatePickerField
-                label="Date of Conception"
-                value={date}
-                onChange={(d) => {
-                  setDate(d);
-                  setResults(null);
-                }}
-              />
-            )}
-            {method === "ultrasound" && (
-              <>
-                <DatePickerField
-                  label="Date of Ultrasound"
-                  value={date}
-                  onChange={(d) => {
-                    setDate(d);
-                    setResults(null);
-                  }}
-                />
-                <View style={styles.stepperRow}>
-                  <Stepper
-                    label="Weeks at scan"
-                    value={usWeeks}
-                    min={4}
-                    max={42}
-                    onChange={(v) => {
-                      setUsWeeks(v);
-                      setResults(null);
-                    }}
-                  />
-                  <Stepper
-                    label="Days"
-                    value={usDays}
-                    min={0}
-                    max={6}
-                    onChange={(v) => {
-                      setUsDays(v);
-                      setResults(null);
-                    }}
-                  />
-                </View>
-              </>
-            )}
-
-            {error && (
-              <Text style={[styles.errorText, { color: colors.destructive }]}>
-                {error}
-              </Text>
-            )}
-
-            <View style={styles.buttonRow}>
-              <TouchableOpacity
+              {/* Method Selector */}
+              <Text
                 style={[
-                  styles.calculateBtn,
-                  { backgroundColor: colors.primary },
+                  styles.sectionHeading,
+                  { color: colors.mutedForeground },
                 ]}
-                onPress={handleCalculate}
-                testID="calculate-button"
               >
-                <Ionicons
-                  name="calculator-outline"
-                  size={18}
-                  color="#fff"
-                  style={{ marginRight: 8 }}
-                />
-                <Text style={styles.calculateBtnText}>Calculate</Text>
-              </TouchableOpacity>
-              {results && (
-                <TouchableOpacity
-                  style={[styles.resetBtn, { borderColor: colors.border }]}
-                  onPress={handleReset}
-                >
-                  <Ionicons
-                    name="refresh-outline"
-                    size={18}
-                    color={colors.mutedForeground}
-                  />
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
+                CALCULATE BY
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.methodScroll}
+              >
+                {METHODS.map((m) => {
+                  const active = method === m.id;
+                  return (
+                    <TouchableOpacity
+                      key={m.id}
+                      style={[
+                        styles.methodPill,
+                        {
+                          backgroundColor: active
+                            ? colors.primary
+                            : colors.card,
+                          borderColor: active ? colors.primary : colors.border,
+                        },
+                      ]}
+                      onPress={() => {
+                        setMethod(m.id);
+                        setResults(null);
+                        setError(null);
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }}
+                      testID={`method-${m.id}`}
+                    >
+                      <Ionicons
+                        name={m.icon}
+                        size={16}
+                        color={active ? "#fff" : colors.mutedForeground}
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text
+                        style={[
+                          styles.methodPillText,
+                          { color: active ? "#fff" : colors.foreground },
+                        ]}
+                      >
+                        {m.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
 
-          {/* Results */}
-          {results && (
-            <>
-              <ResultsView results={results} />
-              <AiAssistant currentWeek={results.currentGestationalAgeWeeks} />
-            </>
-          )}
+              {/* Input Card */}
+              <View
+                style={[
+                  styles.card,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.methodDescription,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  {METHOD_DESCRIPTIONS[method]}
+                </Text>
+
+                {method === "lmp" && (
+                  <DatePickerField
+                    label="First Day of Last Period"
+                    value={date}
+                    onChange={(d) => {
+                      setDate(d);
+                      setResults(null);
+                    }}
+                  />
+                )}
+                {method === "due" && (
+                  <DatePickerField
+                    label="Estimated Due Date"
+                    value={date}
+                    onChange={(d) => {
+                      setDate(d);
+                      setResults(null);
+                    }}
+                  />
+                )}
+                {method === "conception" && (
+                  <DatePickerField
+                    label="Date of Conception"
+                    value={date}
+                    onChange={(d) => {
+                      setDate(d);
+                      setResults(null);
+                    }}
+                  />
+                )}
+                {method === "ultrasound" && (
+                  <>
+                    <DatePickerField
+                      label="Date of Ultrasound"
+                      value={date}
+                      onChange={(d) => {
+                        setDate(d);
+                        setResults(null);
+                      }}
+                    />
+                    <View style={styles.stepperRow}>
+                      <Stepper
+                        label="Weeks at scan"
+                        value={usWeeks}
+                        min={4}
+                        max={42}
+                        onChange={(v) => {
+                          setUsWeeks(v);
+                          setResults(null);
+                        }}
+                      />
+                      <Stepper
+                        label="Days"
+                        value={usDays}
+                        min={0}
+                        max={6}
+                        onChange={(v) => {
+                          setUsDays(v);
+                          setResults(null);
+                        }}
+                      />
+                    </View>
+                  </>
+                )}
+
+                {error && (
+                  <Text
+                    style={[styles.errorText, { color: colors.destructive }]}
+                  >
+                    {error}
+                  </Text>
+                )}
+
+                <View style={styles.buttonRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.calculateBtn,
+                      { backgroundColor: colors.primary },
+                    ]}
+                    onPress={handleCalculate}
+                    testID="calculate-button"
+                  >
+                    <Ionicons
+                      name="calculator-outline"
+                      size={18}
+                      color="#fff"
+                      style={{ marginRight: 8 }}
+                    />
+                    <Text style={styles.calculateBtnText}>Calculate</Text>
+                  </TouchableOpacity>
+                  {results && (
+                    <TouchableOpacity
+                      style={[styles.resetBtn, { borderColor: colors.border }]}
+                      onPress={handleReset}
+                    >
+                      <Ionicons
+                        name="refresh-outline"
+                        size={18}
+                        color={colors.mutedForeground}
+                      />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+
+              {/* Results */}
+              {results && (
+                <>
+                  <ResultsView results={results} />
+                  <AiAssistant
+                    currentWeek={results.currentGestationalAgeWeeks}
+                  />
+                </>
+              )}
             </>
           )}
         </View>
