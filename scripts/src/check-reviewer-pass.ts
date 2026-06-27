@@ -7,12 +7,15 @@
  * When a failure is detected the script also sends an outbound alert so the
  * team is notified immediately. Configure at least one of:
  *
- *   ALERT_SLACK_WEBHOOK_URL  — Incoming-webhook URL; receives a Slack message
- *   RESEND_API_KEY + ALERT_EMAIL — sends an email via Resend
+ *   alert_slack_webhook_url (app_config row) or ALERT_SLACK_WEBHOOK_URL (env)
+ *   alert_resend_api_key + alert_email (app_config rows) or
+ *     RESEND_API_KEY + ALERT_EMAIL (env) — sends an email via Resend
  *
- * ALERT_EMAIL sets the recipient address for email notifications.
- * ALERT_FROM_EMAIL optionally overrides the sender address
- * (defaults to "alerts@notifications.pregnancyassistant.app").
+ * app_config rows take precedence over env vars. Manage them with:
+ *   pnpm --filter @workspace/scripts run set-alert-config
+ *
+ * alert_from_email (app_config) / ALERT_FROM_EMAIL (env) optionally overrides
+ * the sender address (defaults to "alerts@notifications.pregnancyassistant.app").
  *
  * Meant to be called on a schedule (e.g. every hour from the
  * "Reviewer Pass Health Check" workflow). It is also safe to run manually:
@@ -59,10 +62,17 @@ export async function sendAlert(payload: AlertPayload): Promise<void> {
     `                Check the DB row for ${demoUserId} and the workflow console for context.`,
   ].join("\n");
 
-  const slackWebhookUrl = process.env.ALERT_SLACK_WEBHOOK_URL;
-  const resendApiKey = process.env.RESEND_API_KEY;
-  const alertEmail = process.env.ALERT_EMAIL;
+  // app_config rows take precedence over env vars so the team can change alert
+  // destinations from the DB without redeploying.
+  const slackWebhookUrl =
+    (await getConfig("alert_slack_webhook_url")) ??
+    process.env.ALERT_SLACK_WEBHOOK_URL;
+  const resendApiKey =
+    (await getConfig("alert_resend_api_key")) ?? process.env.RESEND_API_KEY;
+  const alertEmail =
+    (await getConfig("alert_email")) ?? process.env.ALERT_EMAIL;
   const fromEmail =
+    (await getConfig("alert_from_email")) ??
     process.env.ALERT_FROM_EMAIL ??
     "alerts@notifications.pregnancyassistant.app";
 
@@ -150,10 +160,16 @@ export async function sendAlert(payload: AlertPayload): Promise<void> {
   if (!sent) {
     if (!slackWebhookUrl && !resendApiKey) {
       console.error(
-        "   ⚠️  No alert channel configured. Set ALERT_SLACK_WEBHOOK_URL",
+        "   ⚠️  No alert channel configured. Set alert_slack_webhook_url in",
       );
       console.error(
-        "       or RESEND_API_KEY + ALERT_EMAIL to receive notifications.",
+        "       app_config (via set-alert-config script) or set the env var",
+      );
+      console.error(
+        "       ALERT_SLACK_WEBHOOK_URL, or set alert_resend_api_key +",
+      );
+      console.error(
+        "       alert_email in app_config (or RESEND_API_KEY + ALERT_EMAIL).",
       );
     }
   }

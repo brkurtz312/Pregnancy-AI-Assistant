@@ -14,6 +14,7 @@
     "reset-reviewer-pass": "tsx ./src/reset-reviewer-pass.ts",
     "check-reviewer-pass": "tsx ./src/check-reviewer-pass.ts",
     "check-whats-new": "tsx ./src/check-whats-new.ts",
+    "set-alert-config": "tsx ./src/set-alert-config.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },

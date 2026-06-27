@@ -103,9 +103,13 @@ describe("sendAlert — Slack channel", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", fetchMock);
     fetchMock.mockClear();
+    selectWhereImpl.mockReset();
+    // sendAlert now calls getConfig for 4 keys; return no row for all by default
+    // so the tests below control exactly which source wins per-test.
+    selectWhereImpl.mockResolvedValue([]);
   });
 
-  it("POSTs to the Slack webhook URL when ALERT_SLACK_WEBHOOK_URL is set", async () => {
+  it("POSTs to the Slack webhook URL when ALERT_SLACK_WEBHOOK_URL is set via env var", async () => {
     clearAlertEnv();
     process.env.ALERT_SLACK_WEBHOOK_URL =
       "https://hooks.slack.com/test-webhook";
@@ -125,7 +129,24 @@ describe("sendAlert — Slack channel", () => {
     expect(body.blocks[0].text.text).toContain("user_demo_test");
   });
 
-  it("POSTs to the Resend API when RESEND_API_KEY + ALERT_EMAIL are both set", async () => {
+  it("uses the app_config DB row for Slack URL over the env var", async () => {
+    clearAlertEnv();
+    // env var set to something different so we can confirm DB wins
+    process.env.ALERT_SLACK_WEBHOOK_URL = "https://hooks.slack.com/env-webhook";
+
+    // First getConfig call is for alert_slack_webhook_url → return a DB row
+    selectWhereImpl
+      .mockResolvedValueOnce([{ value: "https://hooks.slack.com/db-webhook" }]) // alert_slack_webhook_url
+      .mockResolvedValue([]); // remaining keys (resend, email, from_email)
+
+    await sendAlert(payload);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url] = fetchMock.mock.calls[0] as [string];
+    expect(url).toBe("https://hooks.slack.com/db-webhook");
+  });
+
+  it("POSTs to the Resend API when RESEND_API_KEY + ALERT_EMAIL are both set via env vars", async () => {
     clearAlertEnv();
     process.env.RESEND_API_KEY = "re_test_key";
     process.env.ALERT_EMAIL = "oncall@example.com";
@@ -143,6 +164,49 @@ describe("sendAlert — Slack channel", () => {
     };
     expect(body.to).toContain("oncall@example.com");
     expect(body.subject).toContain("Reviewer pass revoked");
+  });
+
+  it("uses the app_config DB rows for Resend key and email over env vars", async () => {
+    clearAlertEnv();
+    // env vars set to something different so we can confirm DB wins
+    process.env.RESEND_API_KEY = "re_env_key";
+    process.env.ALERT_EMAIL = "env@example.com";
+
+    // getConfig call order: alert_slack_webhook_url, alert_resend_api_key,
+    //                        alert_email, alert_from_email
+    selectWhereImpl
+      .mockResolvedValueOnce([]) // alert_slack_webhook_url → no DB row
+      .mockResolvedValueOnce([{ value: "re_db_key_abc" }]) // alert_resend_api_key → DB wins
+      .mockResolvedValueOnce([{ value: "db@example.com" }]) // alert_email → DB wins
+      .mockResolvedValue([]); // alert_from_email → no DB row
+
+    await sendAlert(payload);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://api.resend.com/emails");
+
+    const body = JSON.parse(init.body as string) as {
+      to: string[];
+      from: string;
+    };
+    expect(body.to).toContain("db@example.com");
+    expect((init.headers as Record<string, string>)["Authorization"]).toBe(
+      "Bearer re_db_key_abc",
+    );
+  });
+
+  it("falls back to env var when DB row is absent (null getConfig)", async () => {
+    clearAlertEnv();
+    process.env.ALERT_SLACK_WEBHOOK_URL =
+      "https://hooks.slack.com/env-fallback";
+    // All getConfig calls return [] → env fallback kicks in
+
+    await sendAlert(payload);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url] = fetchMock.mock.calls[0] as [string];
+    expect(url).toBe("https://hooks.slack.com/env-fallback");
   });
 
   it("makes no HTTP call when neither channel is configured", async () => {
@@ -190,11 +254,14 @@ describe("main() — pass revoked triggers Slack alert and exits 1", () => {
   });
 
   it("fires a Slack alert and exits 1 when hasPass = false", async () => {
-    // First call → getConfig("reviewer_demo_user_id") returns no row (use env fallback)
-    // Second call → user row with hasPass = false
+    // Call order:
+    //   1. getConfig("reviewer_demo_user_id") → []
+    //   2. user select → [{hasPass: false}]
+    //   3-6. sendAlert getConfig calls (4 keys) → [] each (env fallback active)
     selectWhereImpl
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([{ hasPass: false }]);
+      .mockResolvedValueOnce([]) // getConfig(reviewer_demo_user_id)
+      .mockResolvedValueOnce([{ hasPass: false }]) // user select
+      .mockResolvedValue([]); // sendAlert getConfig calls → env fallback
 
     const exitSpy = mockProcessExit();
 
@@ -210,7 +277,8 @@ describe("main() — pass revoked triggers Slack alert and exits 1", () => {
   it("fires a Slack alert and exits 1 when the demo user row is missing entirely", async () => {
     selectWhereImpl
       .mockResolvedValueOnce([]) // getConfig → null
-      .mockResolvedValueOnce([]); // user select → row missing
+      .mockResolvedValueOnce([]) // user select → row missing
+      .mockResolvedValue([]); // sendAlert getConfig calls
 
     const exitSpy = mockProcessExit();
 
@@ -246,7 +314,8 @@ describe("main() — no alert channel configured", () => {
   it("exits 1 and logs the warning without making any HTTP call", async () => {
     selectWhereImpl
       .mockResolvedValueOnce([]) // getConfig → null
-      .mockResolvedValueOnce([{ hasPass: false }]); // user → revoked
+      .mockResolvedValueOnce([{ hasPass: false }]) // user → revoked
+      .mockResolvedValue([]); // sendAlert getConfig calls → all null → no env fallback either
 
     const exitSpy = mockProcessExit();
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
