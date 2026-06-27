@@ -1,4 +1,5 @@
 import React, { Component, ComponentType, PropsWithChildren } from "react";
+import crashlytics from "@react-native-firebase/crashlytics";
 
 import { ErrorFallback, ErrorFallbackProps } from "@/components/ErrorFallback";
 
@@ -30,6 +31,13 @@ export class ErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, info: { componentStack: string }): void {
+    try {
+      const cl = crashlytics();
+      cl.log(info.componentStack);
+      cl.recordError(error, "react_error_boundary");
+    } catch {
+      // Native module not available (Expo Go) — safe to ignore.
+    }
     if (typeof this.props.onError === "function") {
       this.props.onError(error, info.componentStack);
     }

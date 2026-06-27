@@ -17,6 +17,7 @@ import Constants from "expo-constants";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useRef } from "react";
+import crashlytics from "@react-native-firebase/crashlytics";
 
 import { WhatsNewModal } from "@/components/WhatsNewModal";
 import { useWhatsNew } from "@/hooks/useWhatsNew";
@@ -29,6 +30,23 @@ import { ErrorFallback } from "@/components/ErrorFallback";
 import { SubscriptionProvider } from "@/lib/revenuecat";
 
 SplashScreen.preventAutoHideAsync();
+
+// Send a non-fatal test event on every cold start so you can confirm in the
+// Firebase Console (Crashlytics → Non-fatals) that the pipeline is working.
+// Wrapped in try/catch because the native module is unavailable in Expo Go
+// (only active in EAS development builds and production builds).
+try {
+  const appVersion = Constants.expoConfig?.version ?? "unknown";
+  const cl = crashlytics();
+  cl.setAttribute("app_version", appVersion);
+  cl.log(`Crashlytics pipeline verified — v${appVersion}`);
+  cl.recordError(
+    new Error(`Crashlytics setup test — v${appVersion}`),
+    "setup_verification",
+  );
+} catch {
+  // Native module not available (Expo Go) — safe to ignore.
+}
 
 // Native builds need an absolute API base URL (they don't share the web proxy
 // origin). EXPO_PUBLIC_DOMAIN is the deployment/dev domain without a protocol.
@@ -173,7 +191,7 @@ function ConfigErrorScreen() {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -219,3 +237,5 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+export default RootLayout;
