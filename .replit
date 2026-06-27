@@ -42,6 +42,10 @@ args = "format"
 task = "workflow.run"
 args = "Reviewer Pass Health Check"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "check-whats-new"
+
 [[workflows.workflow]]
 name = "typecheck"
 author = "agent"
@@ -96,6 +100,17 @@ args = "while true; do pnpm --filter @workspace/scripts run check-reviewer-pass;
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow]]
+name = "check-whats-new"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts run check-whats-new"
+
+[workflows.workflow.metadata]
+isValidation = true
 
 [agent]
 stack = "PNPM_WORKSPACE"

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { spawnSync } from "child_process";
+import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { checkWhatsNew } from "../src/check-whats-new";
@@ -172,5 +173,31 @@ describe("checkWhatsNew — failing cases", () => {
   it("does not false-positive on a version that is only a substring of an existing key", () => {
     const result = checkWhatsNew(makeAppJson("1.0"), WHATS_NEW_WITH_1_0_1);
     expect(result.ok).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Real-repo integration — validates the actual app.json + whatsNew.ts pair
+// ---------------------------------------------------------------------------
+// This test is the early-warning gate: if a developer bumps expo.version in
+// app.json without adding the matching WHATS_NEW key, this test fails in the
+// normal test suite long before EAS build time.
+
+const REPO_ROOT = path.resolve(__dirname, "../..");
+const REAL_APP_JSON = path.join(
+  REPO_ROOT,
+  "artifacts/pregnancy-calculator-mobile/app.json",
+);
+const REAL_WHATS_NEW = path.join(
+  REPO_ROOT,
+  "artifacts/pregnancy-calculator-mobile/constants/whatsNew.ts",
+);
+
+describe("check-whats-new — real repo files", () => {
+  it("app.json version has a matching entry in constants/whatsNew.ts", () => {
+    const appJsonContent = fs.readFileSync(REAL_APP_JSON, "utf8");
+    const whatsNewContent = fs.readFileSync(REAL_WHATS_NEW, "utf8");
+    const result = checkWhatsNew(appJsonContent, whatsNewContent);
+    expect(result.ok, result.message).toBe(true);
   });
 });
