@@ -69,7 +69,7 @@ function AuthTokenBridge() {
       }
     });
     return () => setAuthTokenGetter(null);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   return null;
 }
