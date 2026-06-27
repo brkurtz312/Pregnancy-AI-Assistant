@@ -1,7 +1,7 @@
-import { useClerk, useSignIn } from "@clerk/expo";
+import { useSignIn } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import { type Href, useRouter } from "expo-router";
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -17,26 +17,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 
-const apiBase = process.env.EXPO_PUBLIC_DOMAIN
-  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-  : "";
-
 export default function SignInScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { signIn, errors, fetchStatus } = useSignIn();
-  const clerk = useClerk();
 
   const [emailAddress, setEmailAddress] = useState("");
   const [password, setPassword] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
-
-  const [reviewerOpen, setReviewerOpen] = useState(false);
-  const [reviewerCode, setReviewerCode] = useState("");
-  const [reviewerLoading, setReviewerLoading] = useState(false);
-  const [reviewerError, setReviewerError] = useState<string | null>(null);
-  const reviewerInputRef = useRef<TextInput>(null);
 
   const fetching = fetchStatus === "fetching";
   const errorText =
@@ -61,114 +50,10 @@ export default function SignInScreen() {
     });
   };
 
-  const onReviewerSignIn = async () => {
-    if (reviewerLoading || !reviewerCode.trim()) return;
-    setReviewerError(null);
-    setReviewerLoading(true);
-    try {
-      const res = await fetch(`${apiBase}/api/reviewer/sign-in-token`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: reviewerCode.trim() }),
-      });
-      if (!res.ok) {
-        setReviewerError("Invalid access code. Please try again.");
-        return;
-      }
-      const { token } = (await res.json()) as { token: string };
-
-      const si = await clerk.client!.signIn.create({
-        strategy: "ticket",
-        ticket: token,
-      });
-      await clerk.setActive({ session: si.createdSessionId! });
-      router.replace("/" as Href);
-    } catch {
-      setReviewerError("Sign in failed. Please try again.");
-    } finally {
-      setReviewerLoading(false);
-    }
-  };
-
   const containerPad = {
     paddingTop: insets.top + 12,
     paddingBottom: insets.bottom + 24,
   };
-
-  if (reviewerOpen) {
-    return (
-      <View style={[styles.fill, { backgroundColor: colors.background }]}>
-        <View
-          style={[
-            styles.reviewerScreen,
-            { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 16 },
-          ]}
-        >
-          <TouchableOpacity
-            style={styles.closeBtn}
-            onPress={() => setReviewerOpen(false)}
-            hitSlop={10}
-          >
-            <Ionicons
-              name="arrow-back"
-              size={24}
-              color={colors.mutedForeground}
-            />
-          </TouchableOpacity>
-
-          <Text style={[styles.reviewerHeading, { color: colors.mutedForeground }]}>
-            Developer / Reviewer Access
-          </Text>
-
-          <TextInput
-            ref={reviewerInputRef}
-            style={[
-              styles.input,
-              styles.reviewerInput,
-              {
-                borderColor: colors.border,
-                color: colors.foreground,
-                backgroundColor: colors.card,
-              },
-            ]}
-            value={reviewerCode}
-            onChangeText={setReviewerCode}
-            placeholder="Enter access code"
-            placeholderTextColor={colors.mutedForeground}
-            autoCapitalize="none"
-            autoCorrect={false}
-            onSubmitEditing={onReviewerSignIn}
-            returnKeyType="go"
-          />
-
-          {reviewerError && (
-            <Text style={[styles.error, { color: colors.destructive }]}>
-              {reviewerError}
-            </Text>
-          )}
-
-          <TouchableOpacity
-            style={[
-              styles.primaryBtn,
-              styles.reviewerBtn,
-              {
-                backgroundColor: colors.primary,
-                opacity: reviewerLoading || !reviewerCode.trim() ? 0.7 : 1,
-              },
-            ]}
-            onPress={onReviewerSignIn}
-            disabled={reviewerLoading || !reviewerCode.trim()}
-          >
-            {reviewerLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.primaryBtnText}>Sign In as Reviewer</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
 
   return (
     <View style={[styles.fill, { backgroundColor: colors.background }]}>
@@ -284,7 +169,7 @@ export default function SignInScreen() {
 
           <TouchableOpacity
             style={styles.reviewerToggle}
-            onPress={() => setReviewerOpen(true)}
+            onPress={() => router.push("/reviewer-access" as Href)}
           >
             <Text
               style={[
@@ -368,21 +253,5 @@ const styles = StyleSheet.create({
   reviewerToggleText: {
     fontSize: 12,
     fontFamily: "Inter_400Regular",
-  },
-  reviewerScreen: {
-    paddingHorizontal: 24,
-    gap: 12,
-  },
-  reviewerHeading: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-    marginTop: 4,
-    marginBottom: 4,
-  },
-  reviewerInput: {
-    marginTop: 0,
-  },
-  reviewerBtn: {
-    marginTop: 8,
   },
 });
