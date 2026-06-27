@@ -4,6 +4,16 @@
  * re-granting it and exits with a non-zero code so the failure is visible in
  * logs and the calling workflow's console.
  *
+ * When a failure is detected the script also sends an outbound alert so the
+ * team is notified immediately. Configure at least one of:
+ *
+ *   ALERT_SLACK_WEBHOOK_URL  — Incoming-webhook URL; receives a Slack message
+ *   RESEND_API_KEY + ALERT_EMAIL — sends an email via Resend
+ *
+ * ALERT_EMAIL sets the recipient address for email notifications.
+ * ALERT_FROM_EMAIL optionally overrides the sender address
+ * (defaults to "alerts@notifications.pregnancyassistant.app").
+ *
  * Meant to be called on a schedule (e.g. every hour from the
  * "Reviewer Pass Health Check" workflow). It is also safe to run manually:
  *
@@ -24,6 +34,129 @@ async function getConfig(key: string): Promise<string | null> {
     .from(appConfigTable)
     .where(eq(appConfigTable.key, key));
   return row?.value ?? null;
+}
+
+interface AlertPayload {
+  demoUserId: string;
+  timestamp: string;
+  reason: "user_missing" | "pass_revoked";
+}
+
+async function sendAlert(payload: AlertPayload): Promise<void> {
+  const { demoUserId, timestamp, reason } = payload;
+
+  const title =
+    reason === "user_missing"
+      ? "❌ Reviewer demo account missing from DB"
+      : "❌ Reviewer pass revoked (hasPass = false)";
+
+  const body = [
+    title,
+    `Demo user ID : ${demoUserId}`,
+    `UTC timestamp : ${timestamp}`,
+    `Action taken  : Pass auto-healed (hasPass set to true)`,
+    `Next steps    : Investigate why the pass was cleared (Stripe webhook? DB migration? test script?).`,
+    `                Check the DB row for ${demoUserId} and the workflow console for context.`,
+  ].join("\n");
+
+  const slackWebhookUrl = process.env.ALERT_SLACK_WEBHOOK_URL;
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const alertEmail = process.env.ALERT_EMAIL;
+  const fromEmail =
+    process.env.ALERT_FROM_EMAIL ??
+    "alerts@notifications.pregnancyassistant.app";
+
+  let sent = false;
+
+  if (slackWebhookUrl) {
+    try {
+      const slackBody = {
+        text: title,
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: [
+                `*${title}*`,
+                `• *Demo user ID:* \`${demoUserId}\``,
+                `• *UTC timestamp:* ${timestamp}`,
+                `• *Action:* Pass auto-healed (\`hasPass\` set to \`true\`)`,
+                `• *Next steps:* Investigate why the pass was cleared (Stripe webhook? DB migration? test script?).`,
+              ].join("\n"),
+            },
+          },
+        ],
+      };
+
+      const res = await fetch(slackWebhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(slackBody),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error(`   ⚠️  Slack alert failed (${res.status}): ${text}`);
+      } else {
+        console.error("   📣 Slack alert sent.");
+        sent = true;
+      }
+    } catch (err) {
+      console.error(`   ⚠️  Slack alert threw: ${(err as Error).message}`);
+    }
+  }
+
+  if (resendApiKey && !alertEmail) {
+    console.error(
+      "   ⚠️  RESEND_API_KEY is set but ALERT_EMAIL is missing — email alert skipped.",
+    );
+  }
+
+  if (!resendApiKey && alertEmail) {
+    console.error(
+      "   ⚠️  ALERT_EMAIL is set but RESEND_API_KEY is missing — email alert skipped.",
+    );
+  }
+
+  if (resendApiKey && alertEmail) {
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: fromEmail,
+          to: [alertEmail],
+          subject: title,
+          text: body,
+        }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error(`   ⚠️  Resend alert failed (${res.status}): ${text}`);
+      } else {
+        console.error(`   📣 Email alert sent to ${alertEmail}.`);
+        sent = true;
+      }
+    } catch (err) {
+      console.error(`   ⚠️  Resend alert threw: ${(err as Error).message}`);
+    }
+  }
+
+  if (!sent) {
+    if (!slackWebhookUrl && !resendApiKey) {
+      console.error(
+        "   ⚠️  No alert channel configured. Set ALERT_SLACK_WEBHOOK_URL",
+      );
+      console.error(
+        "       or RESEND_API_KEY + ALERT_EMAIL to receive notifications.",
+      );
+    }
+  }
 }
 
 async function main() {
@@ -67,6 +200,7 @@ async function main() {
         },
       });
     console.error("   ✅ Auto-heal complete. Review your DB and Clerk setup.");
+    await sendAlert({ demoUserId, timestamp, reason: "user_missing" });
     process.exit(1);
   }
 
@@ -91,6 +225,7 @@ async function main() {
     console.error(
       "   ✅ Pass re-granted. Investigate why it was cleared (Stripe webhook? DB migration? test script?).",
     );
+    await sendAlert({ demoUserId, timestamp, reason: "pass_revoked" });
     process.exit(1);
   }
 
