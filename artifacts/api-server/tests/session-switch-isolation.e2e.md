@@ -24,7 +24,7 @@ Use the `testing` skill: call
 - "My Info" nav tab (Heart icon) only renders when `isSignedIn` is true. It appears as
   a button with text "My Info" inside the navigation pill row.
 - Profile endpoint: `PUT /api/profile` — accepts `{ providerName, providerPhone,
-  hospitalName, hospitalPhone, hospitalAddress }` (all optional strings or null).
+hospitalName, hospitalPhone, hospitalAddress }` (all optional strings or null).
   Requires the current Clerk session cookie; returns the saved profile.
 - `GET /api/profile` — returns the current user's profile fields (same shape as PUT).
 - My Info page input IDs: `#providerName`, `#providerPhone`, `#hospitalName`,
