@@ -1,18 +1,16 @@
 import { useClerk, useSignIn } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import { type Href, useRouter } from "expo-router";
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
@@ -25,7 +23,6 @@ export default function SignInScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const scrollRef = useRef<ScrollView>(null);
   const { signIn, errors, fetchStatus } = useSignIn();
   const clerk = useClerk();
 
@@ -91,19 +88,14 @@ export default function SignInScreen() {
   };
 
   return (
-    <View style={[styles.fill, { backgroundColor: colors.background }]}>
-      <KeyboardAvoidingView
-        style={styles.fill}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <ScrollView
-          ref={scrollRef}
-          contentContainerStyle={[
-            styles.content,
-            { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 },
-          ]}
-          keyboardShouldPersistTaps="handled"
-        >
+    <KeyboardAwareScrollView
+      style={[styles.fill, { backgroundColor: colors.background }]}
+      contentContainerStyle={[
+        styles.content,
+        { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 },
+      ]}
+      keyboardShouldPersistTaps="handled"
+    >
           <TouchableOpacity
             style={styles.closeBtn}
             onPress={() => router.back()}
@@ -260,12 +252,6 @@ export default function SignInScreen() {
                 autoCorrect={false}
                 onSubmitEditing={onReviewerSignIn}
                 returnKeyType="go"
-                onFocus={() =>
-                  setTimeout(
-                    () => scrollRef.current?.scrollToEnd({ animated: true }),
-                    100,
-                  )
-                }
               />
               {reviewerError && (
                 <Text style={[styles.error, { color: colors.destructive }]}>
@@ -292,9 +278,7 @@ export default function SignInScreen() {
               </TouchableOpacity>
             </View>
           )}
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </View>
+    </KeyboardAwareScrollView>
   );
 }
 
