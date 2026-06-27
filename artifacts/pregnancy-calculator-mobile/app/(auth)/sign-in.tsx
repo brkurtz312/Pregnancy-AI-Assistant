@@ -4,13 +4,15 @@ import { type Href, useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
@@ -88,15 +90,103 @@ export default function SignInScreen() {
     }
   };
 
+  const containerPad = {
+    paddingTop: insets.top + 12,
+    paddingBottom: insets.bottom + 24,
+  };
+
+  if (reviewerOpen) {
+    return (
+      <KeyboardAvoidingView
+        style={[styles.fill, { backgroundColor: colors.background }]}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <View style={[styles.content, containerPad, styles.fill]}>
+          <TouchableOpacity
+            style={styles.closeBtn}
+            onPress={() => setReviewerOpen(false)}
+            hitSlop={10}
+          >
+            <Ionicons
+              name="arrow-back"
+              size={24}
+              color={colors.mutedForeground}
+            />
+          </TouchableOpacity>
+
+          <View style={[styles.logo, { backgroundColor: colors.primary }]}>
+            <Ionicons name="shield-checkmark" size={26} color="#fff" />
+          </View>
+
+          <Text style={[styles.title, { color: colors.foreground }]}>
+            Reviewer Access
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+            Enter the developer access code to sign in as the demo account.
+          </Text>
+
+          <Text style={[styles.label, { color: colors.foreground }]}>
+            Access code
+          </Text>
+          <TextInput
+            ref={reviewerInputRef}
+            style={[
+              styles.input,
+              {
+                borderColor: colors.border,
+                color: colors.foreground,
+                backgroundColor: colors.card,
+              },
+            ]}
+            value={reviewerCode}
+            onChangeText={setReviewerCode}
+            placeholder="Enter access code"
+            placeholderTextColor={colors.mutedForeground}
+            autoCapitalize="none"
+            autoCorrect={false}
+            onSubmitEditing={onReviewerSignIn}
+            returnKeyType="go"
+            autoFocus
+          />
+
+          {reviewerError && (
+            <Text style={[styles.error, { color: colors.destructive }]}>
+              {reviewerError}
+            </Text>
+          )}
+
+          <TouchableOpacity
+            style={[
+              styles.primaryBtn,
+              {
+                backgroundColor: colors.primary,
+                opacity: reviewerLoading || !reviewerCode.trim() ? 0.7 : 1,
+              },
+            ]}
+            onPress={onReviewerSignIn}
+            disabled={reviewerLoading || !reviewerCode.trim()}
+          >
+            {reviewerLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.primaryBtnText}>Sign In as Reviewer</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    );
+  }
+
   return (
-    <KeyboardAwareScrollView
-      style={[styles.fill, { backgroundColor: colors.background }]}
-      contentContainerStyle={[
-        styles.content,
-        { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 },
-      ]}
-      keyboardShouldPersistTaps="handled"
-    >
+    <View style={[styles.fill, { backgroundColor: colors.background }]}>
+      <KeyboardAvoidingView
+        style={styles.fill}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={[styles.content, containerPad]}
+          keyboardShouldPersistTaps="handled"
+        >
           <TouchableOpacity
             style={styles.closeBtn}
             onPress={() => router.back()}
@@ -199,98 +289,29 @@ export default function SignInScreen() {
             </TouchableOpacity>
           </View>
 
-          {!reviewerOpen && (
-            <TouchableOpacity
-              style={styles.reviewerToggle}
-              onPress={() => {
-                setReviewerOpen(true);
-                setTimeout(() => reviewerInputRef.current?.focus(), 150);
-              }}
-            >
-              <Text
-                style={[
-                  styles.reviewerToggleText,
-                  { color: colors.mutedForeground },
-                ]}
-              >
-                Developer / Reviewer Access
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          {reviewerOpen && (
-            <View
+          <TouchableOpacity
+            style={styles.reviewerToggle}
+            onPress={() => setReviewerOpen(true)}
+          >
+            <Text
               style={[
-                styles.reviewerBox,
-                {
-                  backgroundColor: colors.card,
-                  borderColor: colors.border,
-                },
+                styles.reviewerToggleText,
+                { color: colors.mutedForeground },
               ]}
             >
-              <Text
-                style={[styles.reviewerTitle, { color: colors.foreground }]}
-              >
-                Reviewer Access
-              </Text>
-              <Text
-                style={[styles.reviewerSub, { color: colors.mutedForeground }]}
-              >
-                Enter the developer access code to sign in as the demo account.
-              </Text>
-              <TextInput
-                ref={reviewerInputRef}
-                style={[
-                  styles.input,
-                  {
-                    borderColor: colors.border,
-                    color: colors.foreground,
-                    backgroundColor: colors.background,
-                    marginTop: 8,
-                  },
-                ]}
-                value={reviewerCode}
-                onChangeText={setReviewerCode}
-                placeholder="Access code"
-                placeholderTextColor={colors.mutedForeground}
-                autoCapitalize="none"
-                autoCorrect={false}
-                onSubmitEditing={onReviewerSignIn}
-                returnKeyType="go"
-              />
-              {reviewerError && (
-                <Text style={[styles.error, { color: colors.destructive }]}>
-                  {reviewerError}
-                </Text>
-              )}
-              <TouchableOpacity
-                style={[
-                  styles.primaryBtn,
-                  {
-                    backgroundColor: colors.primary,
-                    opacity: reviewerLoading || !reviewerCode.trim() ? 0.7 : 1,
-                    marginTop: 12,
-                  },
-                ]}
-                onPress={onReviewerSignIn}
-                disabled={reviewerLoading || !reviewerCode.trim()}
-              >
-                {reviewerLoading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.primaryBtnText}>Sign In as Reviewer</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          )}
-    </KeyboardAwareScrollView>
+              Developer / Reviewer Access
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   content: { paddingHorizontal: 24, gap: 6 },
-  closeBtn: { alignSelf: "flex-end", padding: 4 },
+  closeBtn: { alignSelf: "flex-start", padding: 4, marginBottom: 8 },
   logo: {
     width: 56,
     height: 56,
@@ -354,21 +375,5 @@ const styles = StyleSheet.create({
   reviewerToggleText: {
     fontSize: 12,
     fontFamily: "Inter_400Regular",
-  },
-  reviewerBox: {
-    marginTop: 24,
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 16,
-  },
-  reviewerTitle: {
-    fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
-    marginBottom: 4,
-  },
-  reviewerSub: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    lineHeight: 18,
   },
 });
