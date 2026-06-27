@@ -1,6 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { spawnSync } from "child_process";
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { checkWhatsNew } from "../src/check-whats-new";
@@ -334,4 +335,114 @@ describe("check-whats-new — real repo files", () => {
     const result = checkWhatsNew(appJsonContent, whatsNewContent);
     expect(result.ok, result.message).toBe(true);
   });
+});
+
+// ---------------------------------------------------------------------------
+// Git hook smoke test — end-to-end: hook registration + commit blocking
+// ---------------------------------------------------------------------------
+// Creates a temporary git repo, installs the pre-commit hook via the same
+// `git config core.hooksPath` mechanism as `pnpm run install-hooks`, then
+// asserts that `git commit` is blocked when the app.json version has no
+// matching WHATS_NEW entry, and allowed when the version is covered.
+//
+// The hook in the temp repo delegates to the real workspace script via pnpm,
+// using env vars to redirect it at fixture files — so the test exercises the
+// full git → hook → pnpm → check-whats-new chain without modifying the real
+// repository.
+
+const HOOK_SMOKE_TIMEOUT = 60_000;
+
+function makeHookScript(appJsonFixture: string, whatsNewFixture: string): string {
+  return [
+    "#!/usr/bin/env sh",
+    `cd "${WORKSPACE_ROOT}"`,
+    `export CHECK_WHATS_NEW_APP_JSON_PATH="${path.join(FIXTURES, appJsonFixture)}"`,
+    `export CHECK_WHATS_NEW_WHATS_NEW_PATH="${path.join(FIXTURES, whatsNewFixture)}"`,
+    `pnpm --filter @workspace/scripts run check-whats-new`,
+    "",
+  ].join("\n");
+}
+
+describe("pre-commit hook — git integration smoke test", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "whats-new-hook-"));
+
+    spawnSync("git", ["init"], { cwd: tmpDir, encoding: "utf8" });
+    spawnSync("git", ["config", "user.email", "test@example.com"], {
+      cwd: tmpDir,
+      encoding: "utf8",
+    });
+    spawnSync("git", ["config", "user.name", "Test User"], {
+      cwd: tmpDir,
+      encoding: "utf8",
+    });
+
+    // Mirror the real `.githooks/` layout: one directory, one hook file.
+    const hooksDir = path.join(tmpDir, ".githooks");
+    fs.mkdirSync(hooksDir);
+    fs.writeFileSync(
+      path.join(hooksDir, "pre-commit"),
+      makeHookScript("app-missing.json", "whatsNew-with-1-0-1.ts"),
+      { mode: 0o755 },
+    );
+
+    // Install via the same mechanism as `pnpm run install-hooks`.
+    spawnSync("git", ["config", "core.hooksPath", ".githooks"], {
+      cwd: tmpDir,
+      encoding: "utf8",
+    });
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("hook file exists at .githooks/pre-commit after installation", () => {
+    const hookPath = path.join(tmpDir, ".githooks", "pre-commit");
+    expect(fs.existsSync(hookPath)).toBe(true);
+    const stat = fs.statSync(hookPath);
+    // verify it is executable by the owner
+    expect(stat.mode & 0o100).not.toBe(0);
+  });
+
+  it(
+    "git commit exits non-zero when app.json version is missing from whatsNew.ts",
+    () => {
+      fs.writeFileSync(path.join(tmpDir, "dummy.txt"), "test");
+      spawnSync("git", ["add", "dummy.txt"], { cwd: tmpDir, encoding: "utf8" });
+
+      const result = spawnSync("git", ["commit", "-m", "bump version"], {
+        cwd: tmpDir,
+        encoding: "utf8",
+      });
+
+      expect(result.status).not.toBe(0);
+    },
+    HOOK_SMOKE_TIMEOUT,
+  );
+
+  it(
+    "git commit succeeds when app.json version has a matching whatsNew entry",
+    () => {
+      // Replace the hook with one that points at the covered fixture.
+      fs.writeFileSync(
+        path.join(tmpDir, ".githooks", "pre-commit"),
+        makeHookScript("app-covered.json", "whatsNew-with-1-0-1.ts"),
+        { mode: 0o755 },
+      );
+
+      fs.writeFileSync(path.join(tmpDir, "dummy.txt"), "test");
+      spawnSync("git", ["add", "dummy.txt"], { cwd: tmpDir, encoding: "utf8" });
+
+      const result = spawnSync("git", ["commit", "-m", "covered version"], {
+        cwd: tmpDir,
+        encoding: "utf8",
+      });
+
+      expect(result.status).toBe(0);
+    },
+    HOOK_SMOKE_TIMEOUT,
+  );
 });
