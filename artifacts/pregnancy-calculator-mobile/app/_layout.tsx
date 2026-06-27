@@ -13,9 +13,13 @@ import {
   setAuthTokenGetter,
   setBaseUrl,
 } from "@workspace/api-client-react";
+import Constants from "expo-constants";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useRef } from "react";
+
+import { WhatsNewModal } from "@/components/WhatsNewModal";
+import { useWhatsNew } from "@/hooks/useWhatsNew";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -127,14 +131,24 @@ function AuthTokenBridge() {
 }
 
 function RootLayoutNav() {
+  const appVersion = Constants.expoConfig?.version ?? "";
+  const { visible, dismiss } = useWhatsNew();
+
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen
-        name="(auth)"
-        options={{ headerShown: false, presentation: "modal" }}
+    <>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="(auth)"
+          options={{ headerShown: false, presentation: "modal" }}
+        />
+      </Stack>
+      <WhatsNewModal
+        version={appVersion}
+        visible={visible}
+        onDismiss={dismiss}
       />
-    </Stack>
+    </>
   );
 }
 
