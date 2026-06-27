@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@clerk/expo";
+import { useRouter } from "expo-router";
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Alert,
@@ -148,6 +149,7 @@ function Field({
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? 67 : insets.top;
   const bottomPad = isWeb ? 34 : insets.bottom + 16;
@@ -249,7 +251,39 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.content}>
-          {isLoading ? (
+          {!isSignedIn ? (
+            <View
+              style={[
+                styles.card,
+                styles.signInCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <View style={styles.signInIconWrap}>
+                <Ionicons
+                  name="person-circle-outline"
+                  size={52}
+                  color={colors.primary}
+                />
+              </View>
+              <Text style={[styles.signInTitle, { color: colors.foreground }]}>
+                Sign in to view your info
+              </Text>
+              <Text
+                style={[styles.signInBody, { color: colors.mutedForeground }]}
+              >
+                Save your provider and hospital details so they're always at
+                your fingertips.
+              </Text>
+              <TouchableOpacity
+                onPress={() => router.push("/(auth)/sign-in")}
+                style={[styles.signInBtn, { backgroundColor: colors.primary }]}
+              >
+                <Ionicons name="log-in-outline" size={18} color="#fff" />
+                <Text style={styles.signInBtnText}>Sign In</Text>
+              </TouchableOpacity>
+            </View>
+          ) : isLoading ? (
             <Text
               style={[styles.loadingText, { color: colors.mutedForeground }]}
             >
@@ -597,6 +631,42 @@ const styles = StyleSheet.create({
   },
   codeSuccessText: {
     fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+  },
+  signInCard: {
+    alignItems: "center",
+    paddingVertical: 36,
+    gap: 12,
+    marginTop: 8,
+  },
+  signInIconWrap: {
+    marginBottom: 4,
+  },
+  signInTitle: {
+    fontSize: 20,
+    fontFamily: "Inter_600SemiBold",
+    textAlign: "center",
+  },
+  signInBody: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    lineHeight: 20,
+    paddingHorizontal: 8,
+  },
+  signInBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 16,
+    marginTop: 8,
+  },
+  signInBtnText: {
+    color: "#fff",
+    fontSize: 16,
     fontFamily: "Inter_600SemiBold",
   },
 });

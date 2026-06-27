@@ -1,6 +1,12 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ClerkProvider, SignIn, SignUp, ClerkLoaded, useSession } from "@clerk/react";
+import {
+  ClerkProvider,
+  SignIn,
+  SignUp,
+  ClerkLoaded,
+  useSession,
+} from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { useEffect, useRef } from "react";
 import { shadcn } from "@clerk/themes";
