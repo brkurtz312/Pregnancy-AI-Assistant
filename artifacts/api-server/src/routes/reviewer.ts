@@ -46,16 +46,13 @@ function codesMatch(a: string, b: string): boolean {
 }
 
 /**
- * Finds or creates the reviewer demo user in Clerk.
- * Caches the user ID to avoid repeated Clerk API calls.
- * Returns the Clerk user ID so the caller can create a sign-in token.
+ * Finds the reviewer demo user by email in Clerk, creating them if absent.
+ * Works regardless of which Clerk instance (test vs live) the server is using.
+ * Returns the Clerk user id, or null on any error.
  */
-async function ensureDemoUserId(
+async function ensureDemoUser(
   clerkKey: string,
-  log: {
-    error: (obj: object, msg: string) => void;
-    info: (obj: object, msg: string) => void;
-  },
+  log: { error: (obj: object, msg: string) => void; info: (obj: object, msg: string) => void },
 ): Promise<string | null> {
   const headers = {
     Authorization: `Bearer ${clerkKey}`,
@@ -63,22 +60,7 @@ async function ensureDemoUserId(
   };
 
   try {
-    // 1. Return cached user ID if we have one
-    const cachedId = await getConfig("reviewer_demo_user_id");
-    if (cachedId) {
-      log.info({ userId: cachedId }, "Using cached reviewer demo user id");
-      // Ensure the pass is still granted in our DB (idempotent)
-      await db
-        .insert(usersTable)
-        .values({ id: cachedId, email: DEMO_EMAIL, hasPass: true })
-        .onConflictDoUpdate({
-          target: usersTable.id,
-          set: { hasPass: true },
-        });
-      return cachedId;
-    }
-
-    // 2. Find by email in Clerk
+    // 1. Look for the user by email
     const searchRes = await fetch(
       `${CLERK_API}/users?email_address=${encodeURIComponent(DEMO_EMAIL)}&limit=1`,
       { headers },
@@ -87,38 +69,36 @@ async function ensureDemoUserId(
       log.error({ status: searchRes.status }, "Clerk user search failed");
       return null;
     }
-    const found = (await searchRes.json()) as Array<{ id: string }>;
+    const found = (await searchRes.json()) as Array<{ id: string; email_addresses?: Array<{ id: string }> }>;
 
     let userId: string;
 
     if (found.length > 0) {
       userId = found[0].id;
-      log.info({ userId }, "Found existing reviewer demo user");
+      log.info({ userId }, "Found existing reviewer demo user in Clerk");
     } else {
-      log.info({}, "Reviewer demo user not found — creating");
+      // 2. Create the user if not found
+      log.info({}, "Reviewer demo user not in Clerk — creating");
       const createRes = await fetch(`${CLERK_API}/users`, {
         method: "POST",
         headers,
         body: JSON.stringify({
           email_address: [DEMO_EMAIL],
-          skip_password_requirement: true,
+          password: "SVvB5:x56my_de!",
+          skip_password_checks: true,
           email_address_verified: true,
         }),
       });
       if (!createRes.ok) {
-        const body = await createRes.text();
-        log.error(
-          { status: createRes.status, body },
-          "Clerk user creation failed",
-        );
+        log.error({ status: createRes.status }, "Clerk user creation failed");
         return null;
       }
       const created = (await createRes.json()) as { id: string };
       userId = created.id;
-      log.info({ userId }, "Created reviewer demo user");
+      log.info({ userId }, "Created reviewer demo user in Clerk");
     }
 
-    // 3. Grant the pass in our DB
+    // 3. Ensure the user has the pass in our DB
     await db
       .insert(usersTable)
       .values({ id: userId, email: DEMO_EMAIL, hasPass: true })
@@ -127,51 +107,12 @@ async function ensureDemoUserId(
         set: { hasPass: true },
       });
 
-    // 4. Cache the user ID
+    // 4. Persist user id to app_config so future calls skip the lookup
     await upsertConfig("reviewer_demo_user_id", userId);
 
     return userId;
   } catch (err) {
-    log.error({ err }, "ensureDemoUserId threw");
-    return null;
-  }
-}
-
-/**
- * Creates a Clerk sign-in token for the given user.
- * Sign-in tokens bypass password auth and client-trust checks entirely —
- * the mobile app redeems it with signIn.create({ strategy: 'ticket', ticket: token }).
- */
-async function createSignInToken(
-  clerkKey: string,
-  userId: string,
-  log: {
-    error: (obj: object, msg: string) => void;
-    info: (obj: object, msg: string) => void;
-  },
-): Promise<string | null> {
-  try {
-    const res = await fetch(`${CLERK_API}/sign_in_tokens`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${clerkKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ user_id: userId }),
-    });
-    if (!res.ok) {
-      const body = await res.text();
-      log.error(
-        { status: res.status, body },
-        "Clerk sign-in token creation failed",
-      );
-      return null;
-    }
-    const data = (await res.json()) as { token: string; url: string };
-    log.info({ userId }, "Created Clerk sign-in token");
-    return data.token;
-  } catch (err) {
-    log.error({ err }, "createSignInToken threw");
+    log.error({ err }, "ensureDemoUser threw");
     return null;
   }
 }
@@ -207,19 +148,53 @@ router.post(
       return;
     }
 
-    const userId = await ensureDemoUserId(clerkKey, req.log);
-    if (!userId) {
-      res.status(502).json({ error: "Demo account setup failed" });
+    // Resolve the demo user — prefer cached DB id, but verify it works.
+    // If the id is stale (different Clerk instance) fall through to self-heal.
+    const dbUserId = await getConfig("reviewer_demo_user_id");
+    let demoUserId = dbUserId ?? process.env.REVIEWER_DEMO_USER_ID;
+
+    const headers = {
+      Authorization: `Bearer ${clerkKey}`,
+      "Content-Type": "application/json",
+    };
+
+    // Try issuing a token with the cached id first (fast path)
+    if (demoUserId) {
+      const tokenRes = await fetch(`${CLERK_API}/sign_in_tokens`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ user_id: demoUserId, expires_in_seconds: 3600 }),
+      });
+      if (tokenRes.ok) {
+        const data = (await tokenRes.json()) as { token: string };
+        res.json({ token: data.token });
+        return;
+      }
+      req.log.warn({ userId: demoUserId, status: tokenRes.status }, "Cached demo user id rejected by Clerk — self-healing");
+    }
+
+    // Slow path: find or create the user by email
+    const healedUserId = await ensureDemoUser(clerkKey, req.log);
+    if (!healedUserId) {
+      res.status(502).json({ error: "Token generation failed" });
       return;
     }
 
-    const token = await createSignInToken(clerkKey, userId, req.log);
-    if (!token) {
-      res.status(502).json({ error: "Sign-in token creation failed" });
+    const tokenRes = await fetch(`${CLERK_API}/sign_in_tokens`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ user_id: healedUserId, expires_in_seconds: 3600 }),
+    });
+
+    if (!tokenRes.ok) {
+      const body = await tokenRes.text().catch(() => "(unreadable)");
+      req.log.error({ status: tokenRes.status, body }, "Clerk sign_in_tokens failed after self-heal");
+      res.status(502).json({ error: "Token generation failed" });
       return;
     }
 
-    res.json({ token });
+    const data = (await tokenRes.json()) as { token: string };
+    res.json({ token: data.token });
   },
 );
 

@@ -1,4 +1,4 @@
-import { useSignIn } from "@clerk/expo";
+import { useClerk } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import { type Href, useRouter } from "expo-router";
 import React, { useState } from "react";
@@ -23,7 +23,7 @@ export default function ReviewerAccessScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { signIn } = useSignIn();
+  const clerk = useClerk();
 
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,65 +34,24 @@ export default function ReviewerAccessScreen() {
     setError(null);
     setLoading(true);
     try {
-      // 1. Validate the access code and get a Clerk sign-in token
       const res = await fetch(`${apiBase}/api/reviewer/sign-in-token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: code.trim() }),
       });
       if (!res.ok) {
-        if (res.status === 401) {
-          setError("Invalid access code. Please try again.");
-        } else {
-          setError("Sign-in service unavailable. Please try again later.");
-        }
+        setError("Invalid access code. Please try again.");
         return;
       }
       const { token } = (await res.json()) as { token: string };
-
-      // 2. Redeem the sign-in token (ticket strategy bypasses password auth
-      //    and client-trust checks entirely)
-      const { error: ticketError } = await signIn.create({
+      const si = await clerk.client!.signIn.create({
         strategy: "ticket",
         ticket: token,
       });
-      if (ticketError) {
-        const msg =
-          ticketError &&
-          typeof ticketError === "object" &&
-          "message" in ticketError &&
-          typeof (ticketError as { message: unknown }).message === "string"
-            ? (ticketError as { message: string }).message
-            : JSON.stringify(ticketError);
-        console.error("[reviewer-access] ticket sign-in error:", ticketError);
-        setError(`Sign in failed: ${msg}`);
-        return;
-      }
-
-      // 3. Finalize (ticket strategy always completes in one step)
-      if (signIn.status === "complete") {
-        await signIn.finalize({
-          navigate: ({ session, decorateUrl }) => {
-            if (session?.currentTask) return;
-            router.replace(decorateUrl("/") as Href);
-          },
-        });
-      } else {
-        console.error(
-          "[reviewer-access] unexpected sign-in status:",
-          signIn.status,
-        );
-        setError(`Unexpected sign-in state: ${signIn.status ?? "unknown"}`);
-      }
-    } catch (err) {
-      console.error("[reviewer-access] sign-in threw:", err);
-      const msg =
-        err instanceof Error
-          ? err.message
-          : typeof err === "object"
-            ? JSON.stringify(err)
-            : String(err);
-      setError(`Error: ${msg}`);
+      await clerk.setActive({ session: si.createdSessionId! });
+      router.replace("/" as Href);
+    } catch {
+      setError("Sign in failed. Please try again.");
     } finally {
       setLoading(false);
     }
