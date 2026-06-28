@@ -54,13 +54,21 @@ export default function ReviewerAccessScreen() {
       };
 
       // 2. Sign in using the standard email/password flow — same as sign-in.tsx
-      const { error: pwError } = await signIn.password({
+      const pwResult = await signIn.password({
         identifier: email,
         password,
       });
+      const pwError = (pwResult as { error?: unknown })?.error;
       if (pwError) {
+        const msg =
+          pwError &&
+          typeof pwError === "object" &&
+          "message" in pwError &&
+          typeof (pwError as { message: unknown }).message === "string"
+            ? (pwError as { message: string }).message
+            : JSON.stringify(pwError);
         console.error("[reviewer-access] password sign-in error:", pwError);
-        setError("Sign in failed. Please try again.");
+        setError(`Sign in failed: ${msg}`);
         return;
       }
 
@@ -73,7 +81,13 @@ export default function ReviewerAccessScreen() {
       });
     } catch (err) {
       console.error("[reviewer-access] sign-in threw:", err);
-      setError("Sign in failed. Please try again.");
+      const msg =
+        err instanceof Error
+          ? err.message
+          : typeof err === "object"
+            ? JSON.stringify(err)
+            : String(err);
+      setError(`Error: ${msg}`);
     } finally {
       setLoading(false);
     }
