@@ -1,9 +1,4 @@
-// useSignIn from @clerk/react/legacy gives the classic { signIn, setActive, isLoaded }
-// shape with signIn.create() — the same path that useOAuth uses internally in @clerk/expo v3.
-// The new @clerk/expo useSignIn returns a signals-based value that lacks these methods.
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore — @clerk/react/legacy lacks bundled .d.ts but ships the runtime API
-import { useSignIn } from "@clerk/react/legacy";
+import { useClerk } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import { type Href, useRouter } from "expo-router";
 import React, { useState } from "react";
@@ -28,14 +23,14 @@ export default function ReviewerAccessScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { signIn, setActive, isLoaded } = useSignIn();
+  const clerk = useClerk();
 
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const onSignIn = async () => {
-    if (loading || !code.trim() || !isLoaded) return;
+    if (loading || !code.trim()) return;
     setError(null);
     setLoading(true);
     try {
@@ -53,11 +48,22 @@ export default function ReviewerAccessScreen() {
         return;
       }
       const { token } = (await res.json()) as { token: string };
-      const result = await signIn.create({
+
+      // clerk.client.signIn is the underlying Clerk SignIn resource.
+      // We cast to any because @clerk/expo v3 re-typed the public surface but
+      // the runtime object still supports the ticket strategy via create().
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signInResource = (clerk.client as any)?.signIn;
+      if (!signInResource) {
+        setError("Sign in failed. Please try again.");
+        return;
+      }
+      const si = await signInResource.create({
         strategy: "ticket",
         ticket: token,
       });
-      await setActive({ session: result.createdSessionId! });
+      console.log("[reviewer-access] signIn.create result:", JSON.stringify(si));
+      await clerk.setActive({ session: si.createdSessionId });
       router.replace("/" as Href);
     } catch (err) {
       console.error("[reviewer-access] sign-in failed:", err);
