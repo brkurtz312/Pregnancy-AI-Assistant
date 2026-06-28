@@ -1,4 +1,4 @@
-import { useClerk } from "@clerk/expo";
+import { useSignIn } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import { type Href, useRouter } from "expo-router";
 import React, { useState } from "react";
@@ -23,7 +23,7 @@ export default function ReviewerAccessScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const clerk = useClerk();
+  const { signIn } = useSignIn();
 
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,6 +34,7 @@ export default function ReviewerAccessScreen() {
     setError(null);
     setLoading(true);
     try {
+      // 1. Validate the access code and get fresh demo credentials
       const res = await fetch(`${apiBase}/api/reviewer/sign-in-token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -47,26 +48,31 @@ export default function ReviewerAccessScreen() {
         }
         return;
       }
-      const { token } = (await res.json()) as { token: string };
+      const { email, password } = (await res.json()) as {
+        email: string;
+        password: string;
+      };
 
-      // clerk.client.signIn is the underlying Clerk SignIn resource.
-      // We cast to any because @clerk/expo v3 re-typed the public surface but
-      // the runtime object still supports the ticket strategy via create().
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const signInResource = (clerk.client as any)?.signIn;
-      if (!signInResource) {
+      // 2. Sign in using the standard email/password flow — same as sign-in.tsx
+      const { error: pwError } = await signIn.password({
+        identifier: email,
+        password,
+      });
+      if (pwError) {
+        console.error("[reviewer-access] password sign-in error:", pwError);
         setError("Sign in failed. Please try again.");
         return;
       }
-      const si = await signInResource.create({
-        strategy: "ticket",
-        ticket: token,
+
+      // 3. Finalize and navigate home
+      await signIn.finalize({
+        navigate: ({ session, decorateUrl }) => {
+          if (session?.currentTask) return;
+          router.replace(decorateUrl("/") as Href);
+        },
       });
-      console.log("[reviewer-access] signIn.create result:", JSON.stringify(si));
-      await clerk.setActive({ session: si.createdSessionId });
-      router.replace("/" as Href);
     } catch (err) {
-      console.error("[reviewer-access] sign-in failed:", err);
+      console.error("[reviewer-access] sign-in threw:", err);
       setError("Sign in failed. Please try again.");
     } finally {
       setLoading(false);

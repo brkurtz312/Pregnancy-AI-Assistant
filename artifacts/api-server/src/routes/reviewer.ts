@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { timingSafeEqual } from "node:crypto";
+import { timingSafeEqual, randomBytes } from "node:crypto";
 import { db, appConfigTable, usersTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { reviewerSignInLimiter } from "../lib/rate-limit";
@@ -45,22 +45,31 @@ function codesMatch(a: string, b: string): boolean {
   }
 }
 
+function generateTempPassword(): string {
+  return randomBytes(18).toString("base64url");
+}
+
 /**
- * Finds the reviewer demo user by email in Clerk, creating them if absent.
- * Works regardless of which Clerk instance (test vs live) the server is using.
- * Returns the Clerk user id, or null on any error.
+ * Finds or creates the reviewer demo user in Clerk, resets their password to a
+ * fresh random value, grants them the pass in our DB, and returns their email
+ * + the new password so the mobile app can sign in via the standard
+ * email/password flow — bypassing sign-in token compatibility issues across
+ * Clerk SDK versions.
  */
-async function ensureDemoUser(
+async function ensureDemoUserAndResetPassword(
   clerkKey: string,
-  log: { error: (obj: object, msg: string) => void; info: (obj: object, msg: string) => void },
-): Promise<string | null> {
+  log: {
+    error: (obj: object, msg: string) => void;
+    info: (obj: object, msg: string) => void;
+  },
+): Promise<{ userId: string; email: string; password: string } | null> {
   const headers = {
     Authorization: `Bearer ${clerkKey}`,
     "Content-Type": "application/json",
   };
 
   try {
-    // 1. Look for the user by email
+    // 1. Find or create the demo user by email
     const searchRes = await fetch(
       `${CLERK_API}/users?email_address=${encodeURIComponent(DEMO_EMAIL)}&limit=1`,
       { headers },
@@ -69,22 +78,35 @@ async function ensureDemoUser(
       log.error({ status: searchRes.status }, "Clerk user search failed");
       return null;
     }
-    const found = (await searchRes.json()) as Array<{ id: string; email_addresses?: Array<{ id: string }> }>;
+    const found = (await searchRes.json()) as Array<{ id: string }>;
 
+    const tempPassword = generateTempPassword();
     let userId: string;
 
     if (found.length > 0) {
       userId = found[0].id;
-      log.info({ userId }, "Found existing reviewer demo user in Clerk");
+      log.info({ userId }, "Found existing reviewer demo user");
+      // Reset password so the returned credentials are always fresh
+      const patchRes = await fetch(`${CLERK_API}/users/${userId}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({
+          password: tempPassword,
+          skip_password_checks: true,
+        }),
+      });
+      if (!patchRes.ok) {
+        log.error({ status: patchRes.status }, "Clerk password reset failed");
+        return null;
+      }
     } else {
-      // 2. Create the user if not found
-      log.info({}, "Reviewer demo user not in Clerk — creating");
+      log.info({}, "Reviewer demo user not found — creating");
       const createRes = await fetch(`${CLERK_API}/users`, {
         method: "POST",
         headers,
         body: JSON.stringify({
           email_address: [DEMO_EMAIL],
-          password: "SVvB5:x56my_de!",
+          password: tempPassword,
           skip_password_checks: true,
           email_address_verified: true,
         }),
@@ -95,10 +117,10 @@ async function ensureDemoUser(
       }
       const created = (await createRes.json()) as { id: string };
       userId = created.id;
-      log.info({ userId }, "Created reviewer demo user in Clerk");
+      log.info({ userId }, "Created reviewer demo user");
     }
 
-    // 3. Ensure the user has the pass in our DB
+    // 2. Grant the pass in our DB
     await db
       .insert(usersTable)
       .values({ id: userId, email: DEMO_EMAIL, hasPass: true })
@@ -107,12 +129,12 @@ async function ensureDemoUser(
         set: { hasPass: true },
       });
 
-    // 4. Persist user id to app_config so future calls skip the lookup
+    // 3. Cache the user id so the next call skips the search
     await upsertConfig("reviewer_demo_user_id", userId);
 
-    return userId;
+    return { userId, email: DEMO_EMAIL, password: tempPassword };
   } catch (err) {
-    log.error({ err }, "ensureDemoUser threw");
+    log.error({ err }, "ensureDemoUserAndResetPassword threw");
     return null;
   }
 }
@@ -148,53 +170,15 @@ router.post(
       return;
     }
 
-    // Resolve the demo user — prefer cached DB id, but verify it works.
-    // If the id is stale (different Clerk instance) fall through to self-heal.
-    const dbUserId = await getConfig("reviewer_demo_user_id");
-    let demoUserId = dbUserId ?? process.env.REVIEWER_DEMO_USER_ID;
-
-    const headers = {
-      Authorization: `Bearer ${clerkKey}`,
-      "Content-Type": "application/json",
-    };
-
-    // Try issuing a token with the cached id first (fast path)
-    if (demoUserId) {
-      const tokenRes = await fetch(`${CLERK_API}/sign_in_tokens`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ user_id: demoUserId, expires_in_seconds: 3600 }),
-      });
-      if (tokenRes.ok) {
-        const data = (await tokenRes.json()) as { token: string };
-        res.json({ token: data.token });
-        return;
-      }
-      req.log.warn({ userId: demoUserId, status: tokenRes.status }, "Cached demo user id rejected by Clerk — self-healing");
-    }
-
-    // Slow path: find or create the user by email
-    const healedUserId = await ensureDemoUser(clerkKey, req.log);
-    if (!healedUserId) {
-      res.status(502).json({ error: "Token generation failed" });
+    const demo = await ensureDemoUserAndResetPassword(clerkKey, req.log);
+    if (!demo) {
+      res.status(502).json({ error: "Demo account setup failed" });
       return;
     }
 
-    const tokenRes = await fetch(`${CLERK_API}/sign_in_tokens`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ user_id: healedUserId, expires_in_seconds: 3600 }),
-    });
-
-    if (!tokenRes.ok) {
-      const body = await tokenRes.text().catch(() => "(unreadable)");
-      req.log.error({ status: tokenRes.status, body }, "Clerk sign_in_tokens failed after self-heal");
-      res.status(502).json({ error: "Token generation failed" });
-      return;
-    }
-
-    const data = (await tokenRes.json()) as { token: string };
-    res.json({ token: data.token });
+    // Return email + fresh temp password so the mobile app can sign in via the
+    // standard signIn.password() flow, which works with all Clerk SDK versions.
+    res.json({ email: demo.email, password: demo.password });
   },
 );
 
