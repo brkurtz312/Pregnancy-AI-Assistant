@@ -50,13 +50,14 @@ function generateTempPassword(): string {
 }
 
 /**
- * Finds or creates the reviewer demo user in Clerk, resets their password to a
- * fresh random value, grants them the pass in our DB, and returns their email
- * + the new password so the mobile app can sign in via the standard
- * email/password flow — bypassing sign-in token compatibility issues across
- * Clerk SDK versions.
+ * Finds or creates the reviewer demo user in Clerk.
+ *
+ * Password strategy: generate a password ONCE, store it in app_config as
+ * "reviewer_demo_password", and reuse it forever. This avoids the race
+ * condition where Clerk's backend update hasn't propagated to its Frontend API
+ * by the time the mobile SDK calls signIn.password().
  */
-async function ensureDemoUserAndResetPassword(
+async function ensureDemoUser(
   clerkKey: string,
   log: {
     error: (obj: object, msg: string) => void;
@@ -69,7 +70,16 @@ async function ensureDemoUserAndResetPassword(
   };
 
   try {
-    // 1. Find or create the demo user by email
+    // 1. Check if we already have a stable password stored
+    const storedPassword = await getConfig("reviewer_demo_password");
+    const storedUserId = await getConfig("reviewer_demo_user_id");
+
+    if (storedPassword && storedUserId) {
+      log.info({ userId: storedUserId }, "Returning cached reviewer credentials");
+      return { userId: storedUserId, email: DEMO_EMAIL, password: storedPassword };
+    }
+
+    // 2. Find or create the demo user by email
     const searchRes = await fetch(
       `${CLERK_API}/users?email_address=${encodeURIComponent(DEMO_EMAIL)}&limit=1`,
       { headers },
@@ -80,24 +90,31 @@ async function ensureDemoUserAndResetPassword(
     }
     const found = (await searchRes.json()) as Array<{ id: string }>;
 
-    const tempPassword = generateTempPassword();
+    // Generate a stable password to use from now on
+    const stablePassword = storedPassword ?? generateTempPassword();
     let userId: string;
 
     if (found.length > 0) {
       userId = found[0].id;
       log.info({ userId }, "Found existing reviewer demo user");
-      // Reset password so the returned credentials are always fresh
-      const patchRes = await fetch(`${CLERK_API}/users/${userId}`, {
-        method: "PATCH",
-        headers,
-        body: JSON.stringify({
-          password: tempPassword,
-          skip_password_checks: true,
-        }),
-      });
-      if (!patchRes.ok) {
-        log.error({ status: patchRes.status }, "Clerk password reset failed");
-        return null;
+
+      if (!storedPassword) {
+        // First time after migration — set a known password in Clerk
+        const patchRes = await fetch(`${CLERK_API}/users/${userId}`, {
+          method: "PATCH",
+          headers,
+          body: JSON.stringify({
+            password: stablePassword,
+            skip_password_checks: true,
+          }),
+        });
+        if (!patchRes.ok) {
+          log.error({ status: patchRes.status }, "Clerk password set failed");
+          return null;
+        }
+        log.info({ userId }, "Set stable password on existing reviewer user");
+        // Give Clerk's frontend API time to propagate the backend password change
+        await new Promise((r) => setTimeout(r, 3000));
       }
     } else {
       log.info({}, "Reviewer demo user not found — creating");
@@ -106,7 +123,7 @@ async function ensureDemoUserAndResetPassword(
         headers,
         body: JSON.stringify({
           email_address: [DEMO_EMAIL],
-          password: tempPassword,
+          password: stablePassword,
           skip_password_checks: true,
           email_address_verified: true,
         }),
@@ -118,9 +135,11 @@ async function ensureDemoUserAndResetPassword(
       const created = (await createRes.json()) as { id: string };
       userId = created.id;
       log.info({ userId }, "Created reviewer demo user");
+      // Give Clerk's frontend API time to propagate the new user's password
+      await new Promise((r) => setTimeout(r, 3000));
     }
 
-    // 2. Grant the pass in our DB
+    // 3. Grant the pass in our DB
     await db
       .insert(usersTable)
       .values({ id: userId, email: DEMO_EMAIL, hasPass: true })
@@ -129,12 +148,13 @@ async function ensureDemoUserAndResetPassword(
         set: { hasPass: true },
       });
 
-    // 3. Cache the user id so the next call skips the search
+    // 4. Persist the stable credentials so future calls skip Clerk entirely
     await upsertConfig("reviewer_demo_user_id", userId);
+    await upsertConfig("reviewer_demo_password", stablePassword);
 
-    return { userId, email: DEMO_EMAIL, password: tempPassword };
+    return { userId, email: DEMO_EMAIL, password: stablePassword };
   } catch (err) {
-    log.error({ err }, "ensureDemoUserAndResetPassword threw");
+    log.error({ err }, "ensureDemoUser threw");
     return null;
   }
 }
@@ -170,7 +190,7 @@ router.post(
       return;
     }
 
-    const demo = await ensureDemoUserAndResetPassword(clerkKey, req.log);
+    const demo = await ensureDemoUser(clerkKey, req.log);
     if (!demo) {
       res.status(502).json({ error: "Demo account setup failed" });
       return;
