@@ -39,3 +39,19 @@ existed but were dev keys. The `pk_test` vs `pk_live` prefix distinction is the 
 - `requireAuth` logs `hasAuthHeader=true` but `getAuth(req).userId` is null
 - Reviewer sign-in fails because reviewer demo user only exists in the live Clerk instance
 - User can "sign in" successfully in the app UI (Clerk SDK accepts it) but API calls fail
+
+## Ticket strategy > password strategy for server-controlled accounts
+
+After fixing the Clerk key mismatch, the password strategy still failed with
+"Cannot finalize sign-in without a created session." Root cause: Clerk's
+**client-trust check** fires when a password was recently changed server-side
+(PATCH /v1/users/:id), setting signIn.status to needs_client_trust instead
+of complete. finalize() throws if status != complete.
+
+**Fix:** Use Clerk's sign-in token (ticket) strategy instead:
+1. Server: POST /v1/sign_in_tokens with { user_id } → get { token }
+2. Mobile: signIn.create({ strategy: 'ticket', ticket: token })
+3. Check signIn.status === 'complete', then call signIn.finalize()
+
+Ticket strategy bypasses password auth and client-trust entirely. Always use
+this for server-managed accounts where you control the Clerk credentials.
