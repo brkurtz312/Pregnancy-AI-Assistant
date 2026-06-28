@@ -9,6 +9,7 @@ import { ResultsDisplay } from "@/components/calculator/results-display";
 import { SymptomLog, KickCounter, ContractionTimer } from "@/components/tools";
 import { MyInfo } from "@/components/profile/MyInfo";
 import { FetalDevelopmentViewer } from "@/components/fetal-development/FetalDevelopmentViewer";
+import { MaternalDevelopmentViewer } from "@/components/fetal-development/MaternalDevelopmentViewer";
 import { PregnancyResults } from "@/lib/pregnancy-math";
 import { calculateByDueDate } from "@/lib/pregnancy-math";
 import { Baby, Wrench, Heart, Sprout } from "lucide-react";
@@ -37,6 +38,7 @@ export default function CalculatorPage() {
   const [page, setPage] = useState<
     "calculator" | "tools" | "myinfo" | "development"
   >("calculator");
+  const [devView, setDevView] = useState<"fetal" | "maternal">("fetal");
   const resultsRef = useRef<HTMLDivElement>(null);
   const autoLoadedRef = useRef(false);
 
@@ -235,7 +237,36 @@ export default function CalculatorPage() {
         {page === "tools" && <ToolsSection />}
 
         {/* Development view */}
-        {page === "development" && <FetalDevelopmentViewer />}
+        {page === "development" && (
+          <div className="space-y-4">
+            {/* Fetal / Maternal sub-toggle */}
+            <div className="flex justify-center">
+              <div className="flex gap-1 p-1 bg-muted rounded-xl">
+                <button
+                  onClick={() => setDevView("fetal")}
+                  className={`px-5 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                    devView === "fetal"
+                      ? "bg-card shadow text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Fetal View
+                </button>
+                <button
+                  onClick={() => setDevView("maternal")}
+                  className={`px-5 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                    devView === "maternal"
+                      ? "bg-card shadow text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Maternal View
+                </button>
+              </div>
+            </div>
+            {devView === "fetal" ? <FetalDevelopmentViewer /> : <MaternalDevelopmentViewer />}
+          </div>
+        )}
 
         {/* My Info view */}
         {page === "myinfo" && (
