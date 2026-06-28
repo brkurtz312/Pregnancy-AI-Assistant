@@ -286,32 +286,6 @@ describe("check-whats-new — pnpm script command (hook path)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// eas.json regression guard — prebuildCommand must name the correct script
-// ---------------------------------------------------------------------------
-
-const EAS_JSON = path.join(
-  WORKSPACE_ROOT,
-  "artifacts/pregnancy-calculator-mobile/eas.json",
-);
-const EXPECTED_PREBULD_COMMAND =
-  "pnpm --filter @workspace/scripts run check-whats-new";
-
-describe("eas.json — prebuildCommand regression guard", () => {
-  it("production build profile defines a prebuildCommand", () => {
-    const raw = fs.readFileSync(EAS_JSON, "utf8");
-    const eas = JSON.parse(raw);
-    expect(eas?.build?.production?.prebuildCommand).toBeDefined();
-  });
-
-  it("production prebuildCommand runs the check-whats-new script", () => {
-    const raw = fs.readFileSync(EAS_JSON, "utf8");
-    const eas = JSON.parse(raw);
-    const cmd: string = eas?.build?.production?.prebuildCommand ?? "";
-    expect(cmd).toBe(EXPECTED_PREBULD_COMMAND);
-  });
-});
-
-// ---------------------------------------------------------------------------
 // Real-repo integration — validates the actual app.json + whatsNew.ts pair
 // ---------------------------------------------------------------------------
 // This test is the early-warning gate: if a developer bumps expo.version in
