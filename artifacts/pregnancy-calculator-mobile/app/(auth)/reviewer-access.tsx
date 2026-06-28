@@ -78,7 +78,10 @@ export default function ReviewerAccessScreen() {
           },
         });
       } else {
-        console.error("[reviewer-access] unexpected sign-in status:", signIn.status);
+        console.error(
+          "[reviewer-access] unexpected sign-in status:",
+          signIn.status,
+        );
         setError(`Unexpected sign-in state: ${signIn.status ?? "unknown"}`);
       }
     } catch (err) {

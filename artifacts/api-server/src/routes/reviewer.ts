@@ -107,7 +107,10 @@ async function ensureDemoUserId(
       });
       if (!createRes.ok) {
         const body = await createRes.text();
-        log.error({ status: createRes.status, body }, "Clerk user creation failed");
+        log.error(
+          { status: createRes.status, body },
+          "Clerk user creation failed",
+        );
         return null;
       }
       const created = (await createRes.json()) as { id: string };
@@ -158,7 +161,10 @@ async function createSignInToken(
     });
     if (!res.ok) {
       const body = await res.text();
-      log.error({ status: res.status, body }, "Clerk sign-in token creation failed");
+      log.error(
+        { status: res.status, body },
+        "Clerk sign-in token creation failed",
+      );
       return null;
     }
     const data = (await res.json()) as { token: string; url: string };
