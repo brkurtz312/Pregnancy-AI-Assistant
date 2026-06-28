@@ -34,7 +34,7 @@ export default function ReviewerAccessScreen() {
     setError(null);
     setLoading(true);
     try {
-      // 1. Validate the access code and get fresh demo credentials
+      // 1. Validate the access code and get a Clerk sign-in token
       const res = await fetch(`${apiBase}/api/reviewer/sign-in-token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -48,37 +48,39 @@ export default function ReviewerAccessScreen() {
         }
         return;
       }
-      const { email, password } = (await res.json()) as {
-        email: string;
-        password: string;
-      };
+      const { token } = (await res.json()) as { token: string };
 
-      // 2. Sign in using the standard email/password flow — same as sign-in.tsx
-      const pwResult = await signIn.password({
-        identifier: email,
-        password,
+      // 2. Redeem the sign-in token (ticket strategy bypasses password auth
+      //    and client-trust checks entirely)
+      const { error: ticketError } = await signIn.create({
+        strategy: "ticket",
+        ticket: token,
       });
-      const pwError = (pwResult as { error?: unknown })?.error;
-      if (pwError) {
+      if (ticketError) {
         const msg =
-          pwError &&
-          typeof pwError === "object" &&
-          "message" in pwError &&
-          typeof (pwError as { message: unknown }).message === "string"
-            ? (pwError as { message: string }).message
-            : JSON.stringify(pwError);
-        console.error("[reviewer-access] password sign-in error:", pwError);
+          ticketError &&
+          typeof ticketError === "object" &&
+          "message" in ticketError &&
+          typeof (ticketError as { message: unknown }).message === "string"
+            ? (ticketError as { message: string }).message
+            : JSON.stringify(ticketError);
+        console.error("[reviewer-access] ticket sign-in error:", ticketError);
         setError(`Sign in failed: ${msg}`);
         return;
       }
 
-      // 3. Finalize and navigate home
-      await signIn.finalize({
-        navigate: ({ session, decorateUrl }) => {
-          if (session?.currentTask) return;
-          router.replace(decorateUrl("/") as Href);
-        },
-      });
+      // 3. Finalize (ticket strategy always completes in one step)
+      if (signIn.status === "complete") {
+        await signIn.finalize({
+          navigate: ({ session, decorateUrl }) => {
+            if (session?.currentTask) return;
+            router.replace(decorateUrl("/") as Href);
+          },
+        });
+      } else {
+        console.error("[reviewer-access] unexpected sign-in status:", signIn.status);
+        setError(`Unexpected sign-in state: ${signIn.status ?? "unknown"}`);
+      }
     } catch (err) {
       console.error("[reviewer-access] sign-in threw:", err);
       const msg =
