@@ -1,5 +1,45 @@
 import { useState, useEffect } from "react";
 
+const FETAL_URL = "https://fetal-development.pplx.app";
+const MATERNAL_URL = "https://maternal-development.pplx.app";
+
+function ViewerNav({ current }) {
+  const otherUrl = `${FETAL_URL}#stage=${current}`;
+  return (
+    <div style={{
+      width: "100%", background: "#0b0e17",
+      borderBottom: "1px solid rgba(78,205,196,0.12)",
+      display: "flex", justifyContent: "center", padding: "10px 24px",
+    }}>
+      <div style={{
+        display: "flex", gap: 6, alignItems: "center",
+        background: "rgba(255,255,255,0.04)", borderRadius: 8,
+        padding: "4px", border: "1px solid rgba(78,205,196,0.15)"
+      }}>
+        {/* Inactive pill — link to fetal */}
+        <a href={otherUrl} style={{
+          padding: "6px 18px", borderRadius: 6, fontSize: "0.72rem",
+          letterSpacing: "0.1em", textTransform: "uppercase",
+          fontFamily: "Arial, sans-serif", fontWeight: 500,
+          color: "#7abcb4", textDecoration: "none",
+          transition: "background 0.2s, color 0.2s",
+        }}
+          onMouseEnter={e => { e.target.style.background = "rgba(78,205,196,0.12)"; e.target.style.color = "#4ecdc4"; }}
+          onMouseLeave={e => { e.target.style.background = "transparent"; e.target.style.color = "#7abcb4"; }}
+        >Fetal View</a>
+        {/* Active pill */}
+        <span style={{
+          padding: "6px 18px", borderRadius: 6, fontSize: "0.72rem",
+          letterSpacing: "0.1em", textTransform: "uppercase",
+          fontFamily: "Arial, sans-serif", fontWeight: 600,
+          background: "#4ecdc4", color: "#07090f", cursor: "default",
+          userSelect: "none",
+        }}>Maternal View</span>
+      </div>
+    </div>
+  );
+}
+
 const STAGES = [
   {
     weekLabel: "Weeks 1–2",
@@ -130,9 +170,24 @@ const ALT_TEXT = [
 ];
 
 export default function App() {
-  const [current, setCurrent] = useState(0);
+  const getInitialStage = () => {
+    const hash = window.location.hash;
+    const match = hash.match(/#stage=(\d+)/);
+    if (match) {
+      const idx = parseInt(match[1], 10);
+      return Math.min(Math.max(idx, 0), STAGES.length - 1);
+    }
+    return 0;
+  };
+
+  const [current, setCurrent] = useState(getInitialStage);
   const [playing, setPlaying] = useState(false);
   const [visible, setVisible] = useState(true);
+
+  // Keep hash in sync as user navigates
+  useEffect(() => {
+    window.location.hash = `stage=${current}`;
+  }, [current]);
 
   useEffect(() => {
     if (!playing) return;
@@ -158,6 +213,7 @@ export default function App() {
       minHeight: "100vh", background: "#07090f", color: "#e8eeec",
       fontFamily: "Georgia, serif", display: "flex", flexDirection: "column", alignItems: "center"
     }}>
+      <ViewerNav current={current} />
       {/* Header */}
       <div style={{
         width: "100%", maxWidth: 960, padding: "26px 28px 14px",
