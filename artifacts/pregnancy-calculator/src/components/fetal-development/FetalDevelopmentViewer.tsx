@@ -1,6 +1,207 @@
 import { useState, useEffect } from "react";
 
-const STAGES = [
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface ClinicalParam {
+  label: string;
+  value: string;
+}
+
+interface ClinicalData {
+  summary: string;
+  params: ClinicalParam[];
+  action?: string;
+}
+
+interface Stage {
+  weekLabel: string;
+  title: string;
+  desc: string;
+  milestones: string[];
+  size: string;
+  image: string;
+  alt: string;
+  clinical: ClinicalData;
+}
+
+// ─── ClinicalDrawer Component ─────────────────────────────────────────────────
+
+interface ClinicalDrawerProps {
+  data: ClinicalData;
+  open: boolean;
+  onToggle: () => void;
+}
+
+function ClinicalDrawer({ data, open, onToggle }: ClinicalDrawerProps) {
+  return (
+    <div style={{ marginTop: 18, width: "100%" }}>
+      {/* Toggle button */}
+      <button
+        onClick={onToggle}
+        aria-expanded={open}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          background: "none",
+          border: `1px solid ${open ? "rgba(78,205,196,0.55)" : "rgba(78,205,196,0.28)"}`,
+          borderRadius: 4,
+          padding: "7px 14px",
+          cursor: "pointer",
+          color: open ? "#4ecdc4" : "#7abcb4",
+          fontFamily: "Arial, sans-serif",
+          fontSize: "0.72rem",
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+          transition: "all 0.22s",
+        }}
+        onMouseEnter={(e) =>
+          (e.currentTarget.style.borderColor = "rgba(78,205,196,0.7)")
+        }
+        onMouseLeave={(e) =>
+          (e.currentTarget.style.borderColor = open
+            ? "rgba(78,205,196,0.55)"
+            : "rgba(78,205,196,0.28)")
+        }
+      >
+        {/* Stethoscope icon */}
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3" />
+          <path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4" />
+          <circle cx="20" cy="10" r="2" />
+        </svg>
+        Clinical Reference
+        {/* Chevron */}
+        <svg
+          width="10"
+          height="10"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{
+            transition: "transform 0.22s",
+            transform: open ? "rotate(180deg)" : "rotate(0deg)",
+          }}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      {/* Expandable panel */}
+      <div
+        style={{
+          overflow: "hidden",
+          maxHeight: open ? "600px" : "0px",
+          opacity: open ? 1 : 0,
+          transition: "max-height 0.38s ease, opacity 0.28s ease",
+        }}
+      >
+        <div
+          style={{
+            marginTop: 10,
+            background: "rgba(78,205,196,0.05)",
+            border: "1px solid rgba(78,205,196,0.18)",
+            borderRadius: 6,
+            padding: "14px 16px",
+          }}
+        >
+          {/* Summary line */}
+          <p
+            style={{
+              fontFamily: "Arial, sans-serif",
+              fontSize: "0.82rem",
+              color: "#b0d4ce",
+              lineHeight: 1.7,
+              margin: "0 0 12px",
+              borderBottom: "1px solid rgba(78,205,196,0.1)",
+              paddingBottom: 10,
+            }}
+          >
+            {data.summary}
+          </p>
+
+          {/* Key parameters grid */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+              gap: "8px 16px",
+            }}
+          >
+            {data.params.map((p, i) => (
+              <div
+                key={i}
+                style={{ display: "flex", flexDirection: "column", gap: 2 }}
+              >
+                <span
+                  style={{
+                    fontFamily: "Arial, sans-serif",
+                    fontSize: "0.62rem",
+                    letterSpacing: "0.15em",
+                    textTransform: "uppercase",
+                    color: "#4ecdc4",
+                    opacity: 0.8,
+                  }}
+                >
+                  {p.label}
+                </span>
+                <span
+                  style={{
+                    fontFamily: "Arial, sans-serif",
+                    fontSize: "0.82rem",
+                    color: "#d4eae6",
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {p.value}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Action note */}
+          {data.action && (
+            <div
+              style={{
+                marginTop: 12,
+                paddingTop: 10,
+                borderTop: "1px solid rgba(78,205,196,0.1)",
+                fontFamily: "Arial, sans-serif",
+                fontSize: "0.78rem",
+                color: "#7abcb4",
+                lineHeight: 1.6,
+                display: "flex",
+                gap: 8,
+                alignItems: "flex-start",
+              }}
+            >
+              <span style={{ color: "#4ecdc4", flexShrink: 0, marginTop: 1 }}>
+                ⚑
+              </span>
+              {data.action}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Stage Data ───────────────────────────────────────────────────────────────
+
+const STAGES: Stage[] = [
   {
     weekLabel: "Weeks 1–2",
     title: "Fertilization & Implantation",
@@ -14,6 +215,20 @@ const STAGES = [
     size: "~0.1 mm",
     image: "/images/fetal/stage1-zygote.webp",
     alt: "3D render of a human zygote with zona pellucida and pronuclei in uterine environment",
+    clinical: {
+      summary:
+        "Pre-implantation phase — no sonographic findings expected. Establish LMP and calculate EDD. If hCG rising without visible IUP, serial monitoring for ectopic.",
+      params: [
+        { label: "US Findings", value: "None — pre-implantation" },
+        { label: "Gestational Sac", value: "Not visible until 4.5–5 wks TVS" },
+        { label: "Endometrium", value: "Thickening; normal echogenicity" },
+        {
+          label: "hCG Discriminatory",
+          value: "≥1,000 mIU/mL → IUP must be visible",
+        },
+      ],
+      action: "Confirm LMP · Calculate EDD · Baseline hCG if indicated",
+    },
   },
   {
     weekLabel: "Weeks 3–4",
@@ -28,6 +243,26 @@ const STAGES = [
     size: "~2 mm",
     image: "/images/fetal/stage2-blastocyst.webp",
     alt: "3D render of a human blastocyst showing trophoblast cells and inner cell mass",
+    clinical: {
+      summary:
+        "Gestational sac first visible ~4.5–5 wks TVS. MSD grows ~1 mm/day. Yolk sac not yet seen at 3–4 wks — appears when MSD ≥8–10 mm.",
+      params: [
+        { label: "MSD at 4 wks", value: "2–5 mm" },
+        { label: "MSD at 5 wks", value: "6–16 mm (mean 10 mm)" },
+        { label: "MSD Growth Rate", value: "~1.0–1.13 mm/day" },
+        {
+          label: "MSD Dating Formula",
+          value: "MSD (mm) + 30 = days of pregnancy",
+        },
+        {
+          label: "Failure: No Embryo",
+          value: "MSD ≥25 mm → diagnostic failure",
+        },
+        { label: "Suspicious", value: "MSD 16–24 mm without embryo" },
+      ],
+      action:
+        "MSD ≥25 mm + no embryo = anembryonic pregnancy. hCG ≥1,000 + no IUP = rule out ectopic.",
+    },
   },
   {
     weekLabel: "Weeks 5–8",
@@ -42,6 +277,25 @@ const STAGES = [
     size: "~8 mm · ~1g",
     image: "/images/fetal/stage3-week6.webp",
     alt: "3D render of a 6-week embryo in C-shape with heart bulge and limb buds",
+    clinical: {
+      summary:
+        "Cardiac activity expected when CRL ≥5 mm (~6–6.5 wks). Yolk sac normal 3–5 mm; >7 mm before 9 wks suspicious. Dating by CRL accurate to ±3–5 days (7–13+6 wks).",
+      params: [
+        { label: "CRL 6.0 wks", value: "4.5 mm" },
+        { label: "CRL 6.5 wks", value: "6.5 mm" },
+        { label: "CRL 7.0 wks", value: "9.2 mm" },
+        { label: "CRL 8.0 wks", value: "15 mm" },
+        { label: "Yolk Sac (6 wks)", value: "~3.0 mm (normal 2–5 mm)" },
+        { label: "Yolk Sac (8 wks)", value: "~4.7 mm (normal 3–6 mm)" },
+        {
+          label: "Small Sac Sign",
+          value: "MSD − CRL <5 mm → poor prognosis",
+        },
+        { label: "Cardiac Activity", value: "Required at CRL ≥7 mm (TVS)" },
+      ],
+      action:
+        "No cardiac activity at CRL ≥7 mm = embryonic demise. CRL ≥5 mm without cardiac activity = suspicious; repeat in 7 days.",
+    },
   },
   {
     weekLabel: "Weeks 9–12",
@@ -56,6 +310,28 @@ const STAGES = [
     size: "~6 cm · ~14g",
     image: "/images/fetal/stage4-week10.webp",
     alt: "3D render of a 10-week fetus in fetal position inside the uterus",
+    clinical: {
+      summary:
+        "NT screening window: CRL 45–84 mm (11w3d–13w6d). Combined first-trimester screen: NT + PAPP-A + free β-hCG. Detection rate ~85–90% for T21.",
+      params: [
+        { label: "CRL 9.0 wks", value: "22–23 mm" },
+        { label: "CRL 10.0 wks", value: "31 mm" },
+        { label: "CRL 11.0 wks", value: "41–44 mm" },
+        { label: "CRL 12.0 wks", value: "52–57 mm" },
+        { label: "NT Window", value: "CRL 45–84 mm (11w3d–13w6d)" },
+        { label: "NT Normal", value: "<3.0 mm (clinical cutoff)" },
+        {
+          label: "NT High Risk",
+          value: ">3.5 mm → chromosomal/structural workup",
+        },
+        {
+          label: "Yolk Sac Peak",
+          value: "~5.9 mm at 10 wks; regresses after",
+        },
+      ],
+      action:
+        "Offer combined 1st trimester screen 11–13+6 wks. NT ≥3 mm → genetic counseling + cell-free DNA or CVS.",
+    },
   },
   {
     weekLabel: "Weeks 13–16",
@@ -70,6 +346,27 @@ const STAGES = [
     size: "~16 cm · ~100g",
     image: "/images/fetal/stage5-week14.webp",
     alt: "3D render of a 14-week fetus with lanugo and umbilical cord in amniotic fluid",
+    clinical: {
+      summary:
+        "Biometry begins (BPD, HC, AC, FL). HC most predictive 14–22 wks. Nuchal fold measured 16–24 wks; ≥6 mm (18–24 wks) = T21 soft marker. High-risk cervical length screening starts.",
+      params: [
+        { label: "BPD 14 wks", value: "25 mm" },
+        { label: "BPD 16 wks", value: "32 mm" },
+        { label: "HC 14 wks", value: "~115 mm" },
+        { label: "FL (from 14 wks)", value: "~12 mm at 14 wks" },
+        {
+          label: "Nuchal Fold Normal",
+          value: "<5 mm (16–18 wks) · <6 mm (18–24 wks)",
+        },
+        { label: "Nuchal Fold Abnormal", value: "≥6 mm → T21 soft marker" },
+        {
+          label: "Cervical Length",
+          value: "<25 mm = increased PTB risk (high-risk pts)",
+        },
+      ],
+      action:
+        "Begin biometry dating if not established. CL screening 16–24 wks for prior PTB, short-CX history, or twins.",
+    },
   },
   {
     weekLabel: "Weeks 17–24",
@@ -84,6 +381,27 @@ const STAGES = [
     size: "~30 cm · ~600g",
     image: "/images/fetal/stage6-week20.webp",
     alt: "3D render of a 20-week fetus with vernix coating in womb environment",
+    clinical: {
+      summary:
+        "Standard anatomy scan 18–22 wks (ACOG). Viability ~24 wks. Fundus at umbilicus at 20 wks; FH (cm) ≈ GA (wks) from 20–36 wks. UA S/D ratio 50th %ile = 4.0 at 20 wks.",
+      params: [
+        { label: "BPD 20 wks", value: "46–48 mm" },
+        { label: "HC 20 wks", value: "~175 mm" },
+        { label: "AC 20 wks", value: "~149 mm" },
+        { label: "FL 20 wks", value: "~32 mm" },
+        { label: "Anatomy Scan", value: "18–22 wks (optimal single exam)" },
+        { label: "UA S/D (20 wks)", value: "50th %ile = 4.0" },
+        { label: "Ventriculomegaly", value: "Lateral ventricle atrium ≥10 mm" },
+        { label: "Renal Pyelectasis", value: "AP pelvis ≥7 mm (2nd tri)" },
+        { label: "Nuchal Fold", value: "≥6 mm = T21 soft marker" },
+        {
+          label: "Cervical Length",
+          value: "<25 mm → progesterone (universal screen)",
+        },
+      ],
+      action:
+        "Schedule anatomy scan 18–22 wks. CL <25 mm → progesterone supplementation. Viability counseling at 24 wks.",
+    },
   },
   {
     weekLabel: "Weeks 25–32",
@@ -98,6 +416,24 @@ const STAGES = [
     size: "~38 cm · ~1.5 kg",
     image: "/images/fetal/stage7-week28.webp",
     alt: "3D render of a 28-week fetus with fat deposits and open eyes in uterus",
+    clinical: {
+      summary:
+        "Growth surveillance with EFW and biometry. UA Doppler S/D >4 abnormal at 28–34 wks. SGA = EFW <10th %ile. Absent or reversed end-diastolic flow = severe fetal compromise.",
+      params: [
+        { label: "BPD 28 wks", value: "71–72 mm" },
+        { label: "HC 28 wks", value: "250–270 mm" },
+        { label: "AC 28 wks", value: "220–250 mm" },
+        { label: "FL 28 wks", value: "52–55 mm" },
+        { label: "BPD 32 wks", value: "80–85 mm" },
+        { label: "AC 32 wks", value: "260–280 mm" },
+        { label: "UA S/D 28–34 wks", value: "Abnormal >4.0" },
+        { label: "SGA Threshold", value: "EFW <10th %ile" },
+        { label: "Severe SGA", value: "EFW <3rd %ile" },
+        { label: "Dating Accuracy", value: "±21 days at 28+ wks" },
+      ],
+      action:
+        "Growth scan q3–4 wks if IUGR concern. UA AEDF or REDF → hospitalize, expedite delivery planning.",
+    },
   },
   {
     weekLabel: "Weeks 33–40",
@@ -112,13 +448,32 @@ const STAGES = [
     size: "~50 cm · ~3.4 kg",
     image: "/images/fetal/stage8-week40.webp",
     alt: "3D render of a full-term 40-week fetus in vertex position inside uterus",
+    clinical: {
+      summary:
+        "Term assessment: AFI 5–25 cm normal, EFW ~3,200–3,600 g (±15%), UA S/D ~2.18 at 40 wks. Confirm cephalic presentation and engagement. BPD unreliable for dating at term (moulding).",
+      params: [
+        { label: "EFW at Term", value: "~3,200–3,600 g (Hadlock ±15%)" },
+        { label: "AFI Normal", value: "5–25 cm" },
+        { label: "Oligohydramnios", value: "AFI <5 cm" },
+        { label: "Polyhydramnios", value: "AFI >25 cm" },
+        { label: "UA S/D at 40 wks", value: "~2.18 (50th %ile) · RI ~0.65" },
+        { label: "BPD at 40 wks", value: "~94 mm (not for dating)" },
+        { label: "Dating Accuracy", value: "±3–4 wks at term biometry" },
+        { label: "Macrosomia", value: "EFW >4,000–4,500 g" },
+      ],
+      action:
+        "Confirm vertex presentation. Oligohydramnios <5 cm → BPP, delivery planning. Macrosomia >4,500 g → elective C/S discussion.",
+    },
   },
 ];
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export function FetalDevelopmentViewer() {
   const [current, setCurrent] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [visible, setVisible] = useState(true);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     if (!playing) return;
@@ -133,6 +488,11 @@ export function FetalDevelopmentViewer() {
     }, 7000);
     return () => clearInterval(t);
   }, [playing]);
+
+  // Close drawer when navigating to a new stage
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [current]);
 
   function goTo(idx: number) {
     if (idx === current) return;
@@ -224,7 +584,7 @@ export function FetalDevelopmentViewer() {
         style={{
           padding: "22px 28px",
           display: "flex",
-          alignItems: "center",
+          alignItems: "flex-start",
           gap: 36,
           flexWrap: "wrap",
           justifyContent: "center",
@@ -244,6 +604,8 @@ export function FetalDevelopmentViewer() {
             opacity: visible ? 1 : 0,
             transition: "opacity 0.35s ease",
             background: "#0d1117",
+            alignSelf: "flex-start",
+            marginTop: 4,
           }}
         >
           <img
@@ -258,7 +620,7 @@ export function FetalDevelopmentViewer() {
           />
         </div>
 
-        {/* Text */}
+        {/* Text + Clinical Drawer */}
         <div
           style={{
             flex: "1 1 280px",
@@ -351,6 +713,13 @@ export function FetalDevelopmentViewer() {
           >
             Size: <span style={{ color: "#7eccc4" }}>{s.size}</span>
           </div>
+
+          {/* ── Clinical Info Drawer ── */}
+          <ClinicalDrawer
+            data={s.clinical}
+            open={drawerOpen}
+            onToggle={() => setDrawerOpen((o) => !o)}
+          />
         </div>
       </div>
 
