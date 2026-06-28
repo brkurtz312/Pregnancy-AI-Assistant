@@ -1,4 +1,9 @@
-import { useClerk } from "@clerk/expo";
+// useSignIn from @clerk/react/legacy gives the classic { signIn, setActive, isLoaded }
+// shape with signIn.create() — the same path that useOAuth uses internally in @clerk/expo v3.
+// The new @clerk/expo useSignIn returns a signals-based value that lacks these methods.
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore — @clerk/react/legacy lacks bundled .d.ts but ships the runtime API
+import { useSignIn } from "@clerk/react/legacy";
 import { Ionicons } from "@expo/vector-icons";
 import { type Href, useRouter } from "expo-router";
 import React, { useState } from "react";
@@ -23,14 +28,14 @@ export default function ReviewerAccessScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const clerk = useClerk();
+  const { signIn, setActive, isLoaded } = useSignIn();
 
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const onSignIn = async () => {
-    if (loading || !code.trim()) return;
+    if (loading || !code.trim() || !isLoaded) return;
     setError(null);
     setLoading(true);
     try {
@@ -40,17 +45,22 @@ export default function ReviewerAccessScreen() {
         body: JSON.stringify({ code: code.trim() }),
       });
       if (!res.ok) {
-        setError("Invalid access code. Please try again.");
+        if (res.status === 401) {
+          setError("Invalid access code. Please try again.");
+        } else {
+          setError("Sign-in service unavailable. Please try again later.");
+        }
         return;
       }
       const { token } = (await res.json()) as { token: string };
-      const si = await clerk.client!.signIn.create({
+      const result = await signIn.create({
         strategy: "ticket",
         ticket: token,
       });
-      await clerk.setActive({ session: si.createdSessionId! });
+      await setActive({ session: result.createdSessionId! });
       router.replace("/" as Href);
-    } catch {
+    } catch (err) {
+      console.error("[reviewer-access] sign-in failed:", err);
       setError("Sign in failed. Please try again.");
     } finally {
       setLoading(false);
