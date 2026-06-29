@@ -6,7 +6,10 @@
       }
     },
     "ios": {
-      "bundleIdentifier": "app.replit.pregnancycalculator"
+      "bundleIdentifier": "app.replit.pregnancycalculator",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     }
   }
 }
