@@ -4,6 +4,9 @@
       "eas": {
         "projectId": "4c1dd8ae-d042-4653-a20e-f96d566465d2"
       }
+    },
+    "ios": {
+      "bundleIdentifier": "app.replit.pregnancycalculator"
     }
   }
 }
