@@ -84,6 +84,25 @@ export default function SignInScreen() {
             your devices.
           </Text>
 
+          <TouchableOpacity
+            style={[styles.reviewerBanner, { borderColor: "#0071e3", backgroundColor: "#e8f1fb" }]}
+            onPress={() => router.push("/reviewer-access" as Href)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="shield-checkmark" size={20} color="#0071e3" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.reviewerBannerTitle}>Apple Reviewer / Developer Access</Text>
+              <Text style={styles.reviewerBannerSub}>Tap here to sign in with your reviewer access code</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#0071e3" />
+          </TouchableOpacity>
+
+          <View style={styles.dividerRow}>
+            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+            <Text style={[styles.dividerText, { color: colors.mutedForeground }]}>or sign in with email</Text>
+            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+          </View>
+
           <Text style={[styles.label, { color: colors.foreground }]}>
             Email
           </Text>
@@ -167,38 +186,6 @@ export default function SignInScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.dividerRow}>
-            <View
-              style={[styles.dividerLine, { backgroundColor: colors.border }]}
-            />
-            <Text
-              style={[styles.dividerText, { color: colors.mutedForeground }]}
-            >
-              OR
-            </Text>
-            <View
-              style={[styles.dividerLine, { backgroundColor: colors.border }]}
-            />
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.reviewerBtn,
-              { borderColor: colors.border, backgroundColor: colors.card },
-            ]}
-            onPress={() => router.push("/reviewer-access" as Href)}
-          >
-            <Ionicons
-              name="shield-checkmark-outline"
-              size={18}
-              color={colors.mutedForeground}
-            />
-            <Text
-              style={[styles.reviewerBtnText, { color: colors.foreground }]}
-            >
-              Apple Reviewer / Developer Access
-            </Text>
-          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -268,25 +255,34 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    marginTop: 24,
+    marginTop: 20,
+    marginBottom: 4,
   },
   dividerLine: { flex: 1, height: 1 },
   dividerText: {
     fontSize: 12,
     fontFamily: "Inter_500Medium",
   },
-  reviewerBtn: {
+  reviewerBanner: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    borderWidth: 1,
+    gap: 12,
+    borderWidth: 1.5,
     borderRadius: 12,
-    paddingVertical: 13,
-    marginTop: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    marginTop: 8,
   },
-  reviewerBtnText: {
+  reviewerBannerTitle: {
     fontSize: 14,
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Inter_600SemiBold",
+    color: "#0071e3",
+  },
+  reviewerBannerSub: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: "#0071e3",
+    marginTop: 2,
+    opacity: 0.8,
   },
 });
