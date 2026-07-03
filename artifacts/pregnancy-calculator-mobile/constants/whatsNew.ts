@@ -27,6 +27,21 @@ export interface WhatsNewEntry {
  * the build before it reaches the App Store.
  */
 export const WHATS_NEW: Record<string, WhatsNewEntry> = {
+  "1.0.2": {
+    headline: "What's new in this update",
+    items: [
+      {
+        icon: "body-outline",
+        title: "New: Maternal View",
+        body: "Switch between Fetal and Maternal views on the Development tab to see how your body changes alongside your baby, week by week.",
+      },
+      {
+        icon: "medkit-outline",
+        title: "New: Clinical Reference",
+        body: "Expand the Clinical Reference panel on any fetal stage for ultrasound biometry, developmental milestones, and clinical action notes.",
+      },
+    ],
+  },
   "1.0.1": {
     headline: "What's new in this update",
     items: [
