@@ -187,16 +187,17 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
       <View
         style={[
           styles.card,
-          { backgroundColor: colors.card, borderColor: colors.border },
+          styles.askCard,
+          { backgroundColor: colors.card, borderColor: colors.primary },
         ]}
       >
         <View style={styles.askHeaderRow}>
           <View style={styles.cardTitleRow}>
-            <Ionicons
-              name="chatbubble-ellipses-outline"
-              size={18}
-              color={colors.primary}
-            />
+            <View
+              style={[styles.askIconWrap, { backgroundColor: colors.primary }]}
+            >
+              <Ionicons name="chatbubble-ellipses" size={16} color="#fff" />
+            </View>
             <Text style={[styles.cardTitle, { color: colors.foreground }]}>
               Ask a Question
             </Text>
@@ -413,6 +414,16 @@ const styles = StyleSheet.create({
   },
   cardTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   cardTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  askCard: {
+    borderWidth: 1.5,
+  },
+  askIconWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   askHeaderRow: {
     flexDirection: "row",
     alignItems: "center",

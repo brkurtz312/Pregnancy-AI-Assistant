@@ -311,7 +311,13 @@ function FetalImageViewer({
   );
 }
 
-function ResultsView({ results }: { results: PregnancyResults }) {
+function ResultsView({
+  results,
+  onAskAiPress,
+}: {
+  results: PregnancyResults;
+  onAskAiPress: () => void;
+}) {
   const colors = useColors();
   const [imageFullscreen, setImageFullscreen] = useState(false);
   const weekData = getWeeklyDevelopment(results.currentGestationalAgeWeeks);
@@ -349,6 +355,28 @@ function ResultsView({ results }: { results: PregnancyResults }) {
           </Text>
         </View>
       </View>
+
+      {/* Ask AI CTA */}
+      <TouchableOpacity
+        style={[styles.aiCta, { backgroundColor: colors.accent }]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onAskAiPress();
+        }}
+        activeOpacity={0.88}
+        testID="ask-ai-cta"
+      >
+        <View style={styles.aiCtaIconWrap}>
+          <Ionicons name="sparkles" size={20} color="#fff" />
+        </View>
+        <View style={styles.aiCtaTextWrap}>
+          <Text style={styles.aiCtaTitle}>Have a question?</Text>
+          <Text style={styles.aiCtaSubtitle}>
+            Ask our AI assistant anything about your pregnancy
+          </Text>
+        </View>
+        <Ionicons name="arrow-down-circle" size={26} color="#fff" />
+      </TouchableOpacity>
 
       {/* Progress */}
       <View
@@ -549,6 +577,9 @@ export default function CalculatorScreen() {
   const [results, setResults] = useState<PregnancyResults | null>(null);
   const [error, setError] = useState<string | null>(null);
   const autoLoadedRef = useRef(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [aiSectionOffset, setAiSectionOffset] = useState(0);
 
   const router = useRouter();
   const { isSignedIn } = useAuth();
@@ -607,18 +638,27 @@ export default function CalculatorScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }
 
+  function scrollToAiAssistant() {
+    scrollRef.current?.scrollTo({
+      y: Math.max(0, headerHeight + aiSectionOffset - 16),
+      animated: true,
+    });
+  }
+
   const topPad = isWeb ? 67 : insets.top;
   const bottomPad = isWeb ? 34 : insets.bottom + 16;
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={{ paddingBottom: bottomPad + 24 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
         {/* Header */}
         <View
+          onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
           style={[
             styles.header,
             { backgroundColor: colors.primary, paddingTop: topPad + 16 },
@@ -850,10 +890,17 @@ export default function CalculatorScreen() {
               {/* Results */}
               {results && (
                 <>
-                  <ResultsView results={results} />
-                  <AiAssistant
-                    currentWeek={results.currentGestationalAgeWeeks}
+                  <ResultsView
+                    results={results}
+                    onAskAiPress={scrollToAiAssistant}
                   />
+                  <View
+                    onLayout={(e) => setAiSectionOffset(e.nativeEvent.layout.y)}
+                  >
+                    <AiAssistant
+                      currentWeek={results.currentGestationalAgeWeeks}
+                    />
+                  </View>
                 </>
               )}
             </>
@@ -1073,6 +1120,34 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.85)",
     fontSize: 13,
     fontFamily: "Inter_400Regular",
+  },
+  aiCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 12,
+  },
+  aiCtaIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.25)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  aiCtaTextWrap: { flex: 1 },
+  aiCtaTitle: {
+    color: "#fff",
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+  },
+  aiCtaSubtitle: {
+    color: "rgba(255,255,255,0.9)",
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    marginTop: 2,
   },
   cardRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   cardTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold" },

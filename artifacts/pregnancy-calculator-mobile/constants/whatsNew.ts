@@ -27,6 +27,16 @@ export interface WhatsNewEntry {
  * the build before it reaches the App Store.
  */
 export const WHATS_NEW: Record<string, WhatsNewEntry> = {
+  "1.0.3": {
+    headline: "What's new in this update",
+    items: [
+      {
+        icon: "sparkles-outline",
+        title: "Easier access to Ask a Question",
+        body: "A new banner on your Home tab now takes you straight to the AI assistant, so you can get answers about your pregnancy in one tap.",
+      },
+    ],
+  },
   "1.0.2": {
     headline: "What's new in this update",
     items: [
