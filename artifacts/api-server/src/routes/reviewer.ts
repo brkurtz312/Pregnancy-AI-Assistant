@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { timingSafeEqual } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { db, appConfigTable, usersTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { reviewerSignInLimiter } from "../lib/rate-limit";
@@ -79,12 +79,16 @@ async function ensureDemoUser(
     } else {
       // 2. Create the user if not found
       log.info({}, "Reviewer demo user not in Clerk — creating");
+      // The reviewer never logs in with a password — access is always granted
+      // via a freshly issued Clerk sign-in token — so generate a random,
+      // never-persisted password purely to satisfy Clerk's user-creation API.
+      const randomPassword = randomBytes(24).toString("base64url");
       const createRes = await fetch(`${CLERK_API}/users`, {
         method: "POST",
         headers,
         body: JSON.stringify({
           email_address: [DEMO_EMAIL],
-          password: "SVvB5:x56my_de!",
+          password: randomPassword,
           skip_password_checks: true,
           email_address_verified: true,
         }),
@@ -151,7 +155,7 @@ router.post(
     // Resolve the demo user — prefer cached DB id, but verify it works.
     // If the id is stale (different Clerk instance) fall through to self-heal.
     const dbUserId = await getConfig("reviewer_demo_user_id");
-    let demoUserId = dbUserId ?? process.env.REVIEWER_DEMO_USER_ID;
+    const demoUserId = dbUserId ?? process.env.REVIEWER_DEMO_USER_ID;
 
     const headers = {
       Authorization: `Bearer ${clerkKey}`,
