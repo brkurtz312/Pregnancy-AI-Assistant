@@ -34,9 +34,10 @@ function resolveAdminToken(): string | null {
  * so this endpoint is the canonical way to verify (and auto-heal) the reviewer
  * pass in the live environment.
  *
- * Auth: Bearer token in the Authorization header.
- *   - Use ADMIN_CHECK_TOKEN env var for a dedicated secret (recommended).
- *   - Falls back to REVIEWER_ACCESS_CODE / app_config reviewer_access_code.
+ * Auth: Bearer token in the Authorization header, matched against the
+ * dedicated ADMIN_CHECK_TOKEN env var. Does NOT accept REVIEWER_ACCESS_CODE
+ * or the app_config reviewer_access_code row — that code is distributed to
+ * Apple in App Review notes and must never grant admin-level access.
  *
  * Responses:
  *   200 { ok: true,  demoUserId, healed: false, timestamp }  — pass is healthy
