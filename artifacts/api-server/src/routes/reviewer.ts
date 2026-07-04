@@ -52,7 +52,10 @@ function codesMatch(a: string, b: string): boolean {
  */
 async function ensureDemoUser(
   clerkKey: string,
-  log: { error: (obj: object, msg: string) => void; info: (obj: object, msg: string) => void },
+  log: {
+    error: (obj: object, msg: string) => void;
+    info: (obj: object, msg: string) => void;
+  },
 ): Promise<string | null> {
   const headers = {
     Authorization: `Bearer ${clerkKey}`,
@@ -69,7 +72,10 @@ async function ensureDemoUser(
       log.error({ status: searchRes.status }, "Clerk user search failed");
       return null;
     }
-    const found = (await searchRes.json()) as Array<{ id: string; email_addresses?: Array<{ id: string }> }>;
+    const found = (await searchRes.json()) as Array<{
+      id: string;
+      email_addresses?: Array<{ id: string }>;
+    }>;
 
     let userId: string;
 
@@ -174,7 +180,10 @@ router.post(
         res.json({ token: data.token });
         return;
       }
-      req.log.warn({ userId: demoUserId, status: tokenRes.status }, "Cached demo user id rejected by Clerk — self-healing");
+      req.log.warn(
+        { userId: demoUserId, status: tokenRes.status },
+        "Cached demo user id rejected by Clerk — self-healing",
+      );
     }
 
     // Slow path: find or create the user by email
@@ -192,7 +201,10 @@ router.post(
 
     if (!tokenRes.ok) {
       const body = await tokenRes.text().catch(() => "(unreadable)");
-      req.log.error({ status: tokenRes.status, body }, "Clerk sign_in_tokens failed after self-heal");
+      req.log.error(
+        { status: tokenRes.status, body },
+        "Clerk sign_in_tokens failed after self-heal",
+      );
       res.status(502).json({ error: "Token generation failed" });
       return;
     }

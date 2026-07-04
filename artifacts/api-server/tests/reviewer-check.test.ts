@@ -188,45 +188,33 @@ describe("POST /api/admin/reviewer-check", () => {
     });
   });
 
-  describe("token resolution fallbacks", () => {
-    it("accepts the token from the app_config DB row when ADMIN_CHECK_TOKEN is not set", async () => {
+  describe("token resolution", () => {
+    it("rejects the reviewer access code (DB row) even though it is not the admin token", async () => {
+      // The reviewer access code (shared with Apple in App Review notes) must
+      // never grant admin access, even if ADMIN_CHECK_TOKEN is unset.
       delete process.env.ADMIN_CHECK_TOKEN;
-      // DB returns the reviewer_access_code row
       dbSelectWhere.mockResolvedValue([{ value: "db-token" }]);
-      runReviewerPassCheck.mockResolvedValue({
-        ok: true,
-        demoUserId: "user_demo_123",
-        healed: false,
-        timestamp: new Date().toISOString(),
-      });
 
       const res = await request(app)
         .post("/api/admin/reviewer-check")
         .set("Authorization", "Bearer db-token");
 
-      expect(res.status).toBe(200);
-      expect(res.body.ok).toBe(true);
-      expect(runReviewerPassCheck).toHaveBeenCalledTimes(1);
+      expect(res.status).toBe(503);
+      expect(runReviewerPassCheck).not.toHaveBeenCalled();
     });
 
-    it("accepts the token from REVIEWER_ACCESS_CODE env when ADMIN_CHECK_TOKEN is not set and DB has no row", async () => {
+    it("rejects the reviewer access code (REVIEWER_ACCESS_CODE env) even though it is not the admin token", async () => {
       delete process.env.ADMIN_CHECK_TOKEN;
       const ORIGINAL_RAC = process.env.REVIEWER_ACCESS_CODE;
       process.env.REVIEWER_ACCESS_CODE = "env-fallback-token";
       dbSelectWhere.mockResolvedValue([]);
-      runReviewerPassCheck.mockResolvedValue({
-        ok: true,
-        demoUserId: "user_demo_123",
-        healed: false,
-        timestamp: new Date().toISOString(),
-      });
 
       const res = await request(app)
         .post("/api/admin/reviewer-check")
         .set("Authorization", "Bearer env-fallback-token");
 
-      expect(res.status).toBe(200);
-      expect(res.body.ok).toBe(true);
+      expect(res.status).toBe(503);
+      expect(runReviewerPassCheck).not.toHaveBeenCalled();
 
       if (ORIGINAL_RAC === undefined) delete process.env.REVIEWER_ACCESS_CODE;
       else process.env.REVIEWER_ACCESS_CODE = ORIGINAL_RAC;
