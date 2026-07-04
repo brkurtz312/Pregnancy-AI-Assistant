@@ -578,8 +578,7 @@ export default function CalculatorScreen() {
   const [error, setError] = useState<string | null>(null);
   const autoLoadedRef = useRef(false);
   const scrollRef = useRef<ScrollView>(null);
-  const [headerHeight, setHeaderHeight] = useState(0);
-  const [aiSectionOffset, setAiSectionOffset] = useState(0);
+  const aiSectionRef = useRef<View>(null);
 
   const router = useRouter();
   const { isSignedIn } = useAuth();
@@ -639,10 +638,17 @@ export default function CalculatorScreen() {
   }
 
   function scrollToAiAssistant() {
-    scrollRef.current?.scrollTo({
-      y: Math.max(0, headerHeight + aiSectionOffset - 16),
-      animated: true,
-    });
+    const scrollNode = scrollRef.current;
+    if (!scrollNode || !aiSectionRef.current) return;
+    aiSectionRef.current.measureLayout(
+      scrollNode.getInnerViewNode() as unknown as number,
+      (_x: number, y: number) => {
+        scrollNode.scrollTo({ y: Math.max(0, y - 16), animated: true });
+      },
+      () => {
+        // measurement failed (e.g. section not yet mounted); ignore silently
+      },
+    );
   }
 
   const topPad = isWeb ? 67 : insets.top;
@@ -658,7 +664,6 @@ export default function CalculatorScreen() {
       >
         {/* Header */}
         <View
-          onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
           style={[
             styles.header,
             { backgroundColor: colors.primary, paddingTop: topPad + 16 },
@@ -894,9 +899,7 @@ export default function CalculatorScreen() {
                     results={results}
                     onAskAiPress={scrollToAiAssistant}
                   />
-                  <View
-                    onLayout={(e) => setAiSectionOffset(e.nativeEvent.layout.y)}
-                  >
+                  <View ref={aiSectionRef}>
                     <AiAssistant
                       currentWeek={results.currentGestationalAgeWeeks}
                     />
