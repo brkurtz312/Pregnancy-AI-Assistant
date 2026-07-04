@@ -1,22 +1,8 @@
 import { Router, type IRouter } from "express";
 import { timingSafeEqual } from "node:crypto";
-import { db, appConfigTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
 import { runReviewerPassCheck } from "../lib/reviewer-check";
 
 const router: IRouter = Router();
-
-async function getConfig(key: string): Promise<string | null> {
-  try {
-    const [row] = await db
-      .select()
-      .from(appConfigTable)
-      .where(eq(appConfigTable.key, key));
-    return row?.value ?? null;
-  } catch {
-    return null;
-  }
-}
 
 function tokensMatch(a: string, b: string): boolean {
   try {
@@ -30,16 +16,14 @@ function tokensMatch(a: string, b: string): boolean {
 
 /**
  * Verifies the caller holds the admin bearer token.
- * Accepts the token from:
- *   1. ADMIN_CHECK_TOKEN env var (dedicated secret — preferred)
- *   2. REVIEWER_ACCESS_CODE env var / app_config DB row (reuses an already-deployed secret)
+ * Requires a dedicated ADMIN_CHECK_TOKEN secret — this endpoint intentionally
+ * does NOT accept the reviewer access code (that code is shared with Apple in
+ * App Review notes, so it must never grant admin-level access).
  *
  * Returns the raw token string, or null if none is configured.
  */
-async function resolveAdminToken(): Promise<string | null> {
-  if (process.env.ADMIN_CHECK_TOKEN) return process.env.ADMIN_CHECK_TOKEN;
-  const dbCode = await getConfig("reviewer_access_code");
-  return dbCode ?? process.env.REVIEWER_ACCESS_CODE ?? null;
+function resolveAdminToken(): string | null {
+  return process.env.ADMIN_CHECK_TOKEN ?? null;
 }
 
 /**
@@ -71,7 +55,7 @@ router.post("/admin/reviewer-check", async (req, res) => {
     return;
   }
 
-  const adminToken = await resolveAdminToken();
+  const adminToken = resolveAdminToken();
 
   if (!adminToken) {
     req.log.error("Admin reviewer-check called but no token is configured");
