@@ -578,7 +578,9 @@ export default function CalculatorScreen() {
   const [error, setError] = useState<string | null>(null);
   const autoLoadedRef = useRef(false);
   const scrollRef = useRef<ScrollView>(null);
+  const scrollContainerRef = useRef<View>(null);
   const aiSectionRef = useRef<View>(null);
+  const scrollOffsetRef = useRef(0);
 
   const router = useRouter();
   const { isSignedIn } = useAuth();
@@ -639,28 +641,40 @@ export default function CalculatorScreen() {
 
   function scrollToAiAssistant() {
     const scrollNode = scrollRef.current;
-    if (!scrollNode || !aiSectionRef.current) return;
-    aiSectionRef.current.measureLayout(
-      scrollNode.getInnerViewNode() as unknown as number,
-      (_x: number, y: number) => {
-        scrollNode.scrollTo({ y: Math.max(0, y - 16), animated: true });
-      },
-      () => {
-        // measurement failed (e.g. section not yet mounted); ignore silently
-      },
-    );
+    const containerNode = scrollContainerRef.current;
+    const targetNode = aiSectionRef.current;
+    if (!scrollNode || !containerNode || !targetNode) return;
+    // Measure both the (fixed) scroll container and the target section in
+    // window coordinates, then combine with the tracked scroll offset. This
+    // only relies on View.measureInWindow(), which works reliably under both
+    // the legacy architecture and Fabric (New Architecture, enabled here) —
+    // unlike measureLayout() with a raw node handle, which silently fails
+    // under Fabric.
+    containerNode.measureInWindow((_containerX, containerY) => {
+      targetNode.measureInWindow((_targetX, targetY) => {
+        const y = scrollOffsetRef.current + (targetY - containerY) - 16;
+        scrollNode.scrollTo({ y: Math.max(0, y), animated: true });
+      });
+    });
   }
 
   const topPad = isWeb ? 67 : insets.top;
   const bottomPad = isWeb ? 34 : insets.bottom + 16;
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
+    <View
+      ref={scrollContainerRef}
+      style={[styles.root, { backgroundColor: colors.background }]}
+    >
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={{ paddingBottom: bottomPad + 24 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        onScroll={(e) => {
+          scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
       >
         {/* Header */}
         <View
