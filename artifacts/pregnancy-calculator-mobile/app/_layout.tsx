@@ -238,6 +238,18 @@ function RootLayoutNav() {
           name="intimacy-after-delivery"
           options={{ headerShown: false, presentation: "card" }}
         />
+        <Stack.Screen
+          name="labor-natural-induced"
+          options={{ headerShown: false, presentation: "card" }}
+        />
+        <Stack.Screen
+          name="labor-pain-management"
+          options={{ headerShown: false, presentation: "card" }}
+        />
+        <Stack.Screen
+          name="cesarean-birth"
+          options={{ headerShown: false, presentation: "card" }}
+        />
       </Stack>
       <WhatsNewModal
         version={appVersion}

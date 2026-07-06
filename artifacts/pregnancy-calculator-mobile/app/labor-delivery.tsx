@@ -95,17 +95,125 @@ export default function LaborDeliveryScreen() {
           </TouchableOpacity>
         </Animated.View>
 
-        <Animated.View
-          entering={FadeInDown.delay(120).duration(400)}
-          style={[
-            styles.comingSoonCard,
-            { backgroundColor: colors.primary + "10" },
-          ]}
-        >
-          <Ionicons name="pulse-outline" size={28} color={colors.primary} />
-          <Text style={[styles.comingSoonText, { color: colors.foreground }]}>
-            More guidance on labor and delivery is coming soon.
-          </Text>
+        <Animated.View entering={FadeInDown.delay(120).duration(400)}>
+          <TouchableOpacity
+            style={[
+              styles.learnCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+            onPress={() =>
+              router.push({
+                pathname: "/labor-natural-induced",
+                params: { from: "Labor and Delivery" },
+              })
+            }
+          >
+            <View
+              style={[
+                styles.learnIcon,
+                { backgroundColor: colors.primary + "18" },
+              ]}
+            >
+              <Ionicons name="body-outline" size={20} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.learnTitle, { color: colors.foreground }]}>
+                Labor - Natural and Induced
+              </Text>
+              <Text
+                style={[styles.learnSub, { color: colors.mutedForeground }]}
+              >
+                Signs of labor, what to expect, and how induction works
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={colors.mutedForeground}
+            />
+          </TouchableOpacity>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(180).duration(400)}>
+          <TouchableOpacity
+            style={[
+              styles.learnCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+            onPress={() =>
+              router.push({
+                pathname: "/labor-pain-management",
+                params: { from: "Labor and Delivery" },
+              })
+            }
+          >
+            <View
+              style={[
+                styles.learnIcon,
+                { backgroundColor: colors.primary + "18" },
+              ]}
+            >
+              <Ionicons
+                name="medkit-outline"
+                size={20}
+                color={colors.primary}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.learnTitle, { color: colors.foreground }]}>
+                Pain Management in Labor
+              </Text>
+              <Text
+                style={[styles.learnSub, { color: colors.mutedForeground }]}
+              >
+                Your options, from breathing and movement to epidurals
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={colors.mutedForeground}
+            />
+          </TouchableOpacity>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(240).duration(400)}>
+          <TouchableOpacity
+            style={[
+              styles.learnCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+            onPress={() =>
+              router.push({
+                pathname: "/cesarean-birth",
+                params: { from: "Labor and Delivery" },
+              })
+            }
+          >
+            <View
+              style={[
+                styles.learnIcon,
+                { backgroundColor: colors.primary + "18" },
+              ]}
+            >
+              <Ionicons name="cut-outline" size={20} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.learnTitle, { color: colors.foreground }]}>
+                What about a Cesarean
+              </Text>
+              <Text
+                style={[styles.learnSub, { color: colors.mutedForeground }]}
+              >
+                What to expect, recovery, and future pregnancies
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={colors.mutedForeground}
+            />
+          </TouchableOpacity>
         </Animated.View>
       </ScrollView>
     </View>
@@ -167,17 +275,5 @@ const styles = StyleSheet.create({
   learnSub: {
     fontSize: 13,
     fontFamily: "Inter_400Regular",
-  },
-  comingSoonCard: {
-    borderRadius: 16,
-    padding: 20,
-    alignItems: "center",
-    gap: 10,
-  },
-  comingSoonText: {
-    fontSize: 14,
-    fontFamily: "Inter_500Medium",
-    textAlign: "center",
-    lineHeight: 20,
   },
 });
