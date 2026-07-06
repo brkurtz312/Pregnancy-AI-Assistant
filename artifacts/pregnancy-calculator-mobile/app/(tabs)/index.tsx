@@ -24,7 +24,6 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AccountButton } from "@/components/AccountButton";
-import { AiAssistant } from "@/components/AiAssistant";
 import {
   getGetProfileQueryKey,
   useGetProfile,
@@ -311,13 +310,7 @@ function FetalImageViewer({
   );
 }
 
-function ResultsView({
-  results,
-  onAskAiPress,
-}: {
-  results: PregnancyResults;
-  onAskAiPress: () => void;
-}) {
+function ResultsView({ results }: { results: PregnancyResults }) {
   const colors = useColors();
   const [imageFullscreen, setImageFullscreen] = useState(false);
   const weekData = getWeeklyDevelopment(results.currentGestationalAgeWeeks);
@@ -355,28 +348,6 @@ function ResultsView({
           </Text>
         </View>
       </View>
-
-      {/* Ask AI CTA */}
-      <TouchableOpacity
-        style={[styles.aiCta, { backgroundColor: colors.accent }]}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          onAskAiPress();
-        }}
-        activeOpacity={0.88}
-        testID="ask-ai-cta"
-      >
-        <View style={styles.aiCtaIconWrap}>
-          <Ionicons name="sparkles" size={20} color="#fff" />
-        </View>
-        <View style={styles.aiCtaTextWrap}>
-          <Text style={styles.aiCtaTitle}>Have a question?</Text>
-          <Text style={styles.aiCtaSubtitle}>
-            Ask our AI assistant anything about your pregnancy
-          </Text>
-        </View>
-        <Ionicons name="arrow-down-circle" size={26} color="#fff" />
-      </TouchableOpacity>
 
       {/* Progress */}
       <View
@@ -577,10 +548,6 @@ export default function CalculatorScreen() {
   const [results, setResults] = useState<PregnancyResults | null>(null);
   const [error, setError] = useState<string | null>(null);
   const autoLoadedRef = useRef(false);
-  const scrollRef = useRef<ScrollView>(null);
-  const scrollContainerRef = useRef<View>(null);
-  const aiSectionRef = useRef<View>(null);
-  const scrollOffsetRef = useRef(0);
 
   const router = useRouter();
   const { isSignedIn } = useAuth();
@@ -639,42 +606,15 @@ export default function CalculatorScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }
 
-  function scrollToAiAssistant() {
-    const scrollNode = scrollRef.current;
-    const containerNode = scrollContainerRef.current;
-    const targetNode = aiSectionRef.current;
-    if (!scrollNode || !containerNode || !targetNode) return;
-    // Measure both the (fixed) scroll container and the target section in
-    // window coordinates, then combine with the tracked scroll offset. This
-    // only relies on View.measureInWindow(), which works reliably under both
-    // the legacy architecture and Fabric (New Architecture, enabled here) —
-    // unlike measureLayout() with a raw node handle, which silently fails
-    // under Fabric.
-    containerNode.measureInWindow((_containerX, containerY) => {
-      targetNode.measureInWindow((_targetX, targetY) => {
-        const y = scrollOffsetRef.current + (targetY - containerY) - 16;
-        scrollNode.scrollTo({ y: Math.max(0, y), animated: true });
-      });
-    });
-  }
-
   const topPad = isWeb ? 67 : insets.top;
   const bottomPad = isWeb ? 34 : insets.bottom + 16;
 
   return (
-    <View
-      ref={scrollContainerRef}
-      style={[styles.root, { backgroundColor: colors.background }]}
-    >
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       <ScrollView
-        ref={scrollRef}
         contentContainerStyle={{ paddingBottom: bottomPad + 24 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        onScroll={(e) => {
-          scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
-        }}
-        scrollEventThrottle={16}
       >
         {/* Header */}
         <View
@@ -907,19 +847,7 @@ export default function CalculatorScreen() {
               </View>
 
               {/* Results */}
-              {results && (
-                <>
-                  <ResultsView
-                    results={results}
-                    onAskAiPress={scrollToAiAssistant}
-                  />
-                  <View ref={aiSectionRef}>
-                    <AiAssistant
-                      currentWeek={results.currentGestationalAgeWeeks}
-                    />
-                  </View>
-                </>
-              )}
+              {results && <ResultsView results={results} />}
             </>
           )}
         </View>
@@ -1137,34 +1065,6 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.85)",
     fontSize: 13,
     fontFamily: "Inter_400Regular",
-  },
-  aiCta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderRadius: 16,
-    padding: 14,
-    marginTop: 12,
-  },
-  aiCtaIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.25)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  aiCtaTextWrap: { flex: 1 },
-  aiCtaTitle: {
-    color: "#fff",
-    fontSize: 15,
-    fontFamily: "Inter_700Bold",
-  },
-  aiCtaSubtitle: {
-    color: "rgba(255,255,255,0.9)",
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    marginTop: 2,
   },
   cardRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   cardTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
