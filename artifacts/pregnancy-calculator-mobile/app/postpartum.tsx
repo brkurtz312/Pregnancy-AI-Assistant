@@ -131,8 +131,51 @@ export default function PostpartumScreen() {
           </TouchableOpacity>
         </Animated.View>
 
+        <Animated.View entering={FadeInDown.delay(150).duration(400)}>
+          <TouchableOpacity
+            style={[
+              styles.learnCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+            onPress={() =>
+              router.push({
+                pathname: "/postpartum-contraception",
+                params: { from: "Postpartum" },
+              })
+            }
+          >
+            <View
+              style={[
+                styles.learnIcon,
+                { backgroundColor: colors.primary + "18" },
+              ]}
+            >
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={20}
+                color={colors.primary}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.learnTitle, { color: colors.foreground }]}>
+                Postpartum Contraception
+              </Text>
+              <Text
+                style={[styles.learnSub, { color: colors.mutedForeground }]}
+              >
+                Compare birth control options and timing after delivery
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={colors.mutedForeground}
+            />
+          </TouchableOpacity>
+        </Animated.View>
+
         <Animated.View
-          entering={FadeInDown.delay(150).duration(400)}
+          entering={FadeInDown.delay(210).duration(400)}
           style={[
             styles.comingSoonCard,
             { backgroundColor: colors.primary + "10" },

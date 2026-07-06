@@ -230,6 +230,10 @@ function RootLayoutNav() {
           name="breastfeeding-summary"
           options={{ headerShown: false, presentation: "card" }}
         />
+        <Stack.Screen
+          name="postpartum-contraception"
+          options={{ headerShown: false, presentation: "card" }}
+        />
       </Stack>
       <WhatsNewModal
         version={appVersion}
