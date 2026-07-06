@@ -234,6 +234,10 @@ function RootLayoutNav() {
           name="postpartum-contraception"
           options={{ headerShown: false, presentation: "card" }}
         />
+        <Stack.Screen
+          name="intimacy-after-delivery"
+          options={{ headerShown: false, presentation: "card" }}
+        />
       </Stack>
       <WhatsNewModal
         version={appVersion}
