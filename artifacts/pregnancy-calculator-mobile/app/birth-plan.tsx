@@ -46,7 +46,7 @@ async function openBlankPdf() {
     if (await Sharing.isAvailableAsync()) {
       await Sharing.shareAsync(destUri, {
         mimeType: "application/pdf",
-        dialogTitle: "Sample Birth Plan (ACOG)",
+        dialogTitle: "Birth Plan",
         UTI: "com.adobe.pdf",
       });
     } else {
