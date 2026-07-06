@@ -1,5 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
+import { Asset } from "expo-asset";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
@@ -19,11 +21,54 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import {
+  COMPLICATION_HANDOUTS,
   COMPLICATION_HIGHLIGHTS,
   COMPLICATION_CALLOUT_REASONS,
   COMPLICATION_RESOURCES,
   buildComplicationsResourceHtml,
+  type ComplicationHandout,
 } from "@/lib/pregnancy-complications";
+
+async function openHandoutPdf(handout: ComplicationHandout) {
+  try {
+    const asset = Asset.fromModule(handout.asset);
+    await asset.downloadAsync();
+    const sourceUri = asset.localUri ?? asset.uri;
+    if (!sourceUri) {
+      throw new Error("PDF asset has no resolvable URI");
+    }
+    const destUri = `${FileSystem.cacheDirectory}${handout.file}`;
+    await FileSystem.copyAsync({ from: sourceUri, to: destUri });
+    if (Platform.OS === "web") {
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(destUri, {
+          mimeType: "application/pdf",
+          dialogTitle: handout.title,
+          UTI: "com.adobe.pdf",
+        });
+      } else {
+        Alert.alert(
+          "Can't open PDF",
+          "Viewing files isn't available on this device.",
+        );
+      }
+      return;
+    }
+    router.push({
+      pathname: "/pdf-viewer",
+      params: {
+        uri: destUri,
+        title: handout.title,
+        shareTitle: handout.title,
+      },
+    });
+  } catch {
+    Alert.alert(
+      "Can't open PDF",
+      "Something went wrong opening the handout. Please try again.",
+    );
+  }
+}
 
 export default function PregnancyComplicationsScreen() {
   const colors = useColors();
@@ -163,6 +208,40 @@ export default function PregnancyComplicationsScreen() {
 
         <Animated.View
           entering={FadeInDown.delay(150).duration(400)}
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+            Patient handouts
+          </Text>
+          {COMPLICATION_HANDOUTS.map((handout) => (
+            <TouchableOpacity
+              key={handout.file}
+              style={styles.resourceItem}
+              onPress={() => openHandoutPdf(handout)}
+            >
+              <Text
+                style={[
+                  styles.resourceName,
+                  styles.resourceLink,
+                  { color: colors.primary, flex: 1 },
+                ]}
+              >
+                {handout.title}
+              </Text>
+              <Ionicons
+                name="document-text-outline"
+                size={16}
+                color={colors.primary}
+              />
+            </TouchableOpacity>
+          ))}
+        </Animated.View>
+
+        <Animated.View
+          entering={FadeInDown.delay(190).duration(400)}
           style={[
             styles.card,
             { backgroundColor: colors.card, borderColor: colors.border },

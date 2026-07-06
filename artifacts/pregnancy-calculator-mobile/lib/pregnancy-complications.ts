@@ -4,6 +4,40 @@ export interface ComplicationResource {
   url?: string;
 }
 
+export interface ComplicationHandout {
+  title: string;
+  file: string;
+  asset: number;
+}
+
+export const COMPLICATION_HANDOUTS: ComplicationHandout[] = [
+  {
+    title: "Gestational Diabetes",
+    file: "gestational-diabetes.pdf",
+    asset: require("@/assets/docs/gestational-diabetes.pdf"),
+  },
+  {
+    title: "Hypertension in Pregnancy",
+    file: "hypertension-in-pregnancy.pdf",
+    asset: require("@/assets/docs/hypertension-in-pregnancy.pdf"),
+  },
+  {
+    title: "Multifetal Pregnancy (Twins & More)",
+    file: "multifetal-pregnancy.pdf",
+    asset: require("@/assets/docs/multifetal-pregnancy.pdf"),
+  },
+  {
+    title: "Placental Disorders in Pregnancy",
+    file: "placental-disorders.pdf",
+    asset: require("@/assets/docs/placental-disorders.pdf"),
+  },
+  {
+    title: "Preterm Labor & Ruptured Membranes (PPROM)",
+    file: "preterm-labor-pprom.pdf",
+    asset: require("@/assets/docs/preterm-labor-pprom.pdf"),
+  },
+];
+
 export const COMPLICATION_HIGHLIGHTS: string[] = [
   "Preeclampsia is high blood pressure that develops after 20 weeks, sometimes with protein in the urine or signs of organ strain. It's usually caught through routine blood pressure checks and urine tests at prenatal visits — one reason regular visits matter even when you feel fine.",
   "Gestational diabetes is high blood sugar that develops during pregnancy, usually found with a glucose screening test around 24–28 weeks. It's managed with diet, monitoring, and sometimes medication, and typically resolves after delivery.",
