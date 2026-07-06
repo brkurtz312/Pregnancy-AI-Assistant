@@ -215,6 +215,45 @@ export default function LaborDeliveryScreen() {
             />
           </TouchableOpacity>
         </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(300).duration(400)}>
+          <TouchableOpacity
+            style={[
+              styles.learnCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+            onPress={() =>
+              router.push({
+                pathname: "/hospital-bag",
+                params: { from: "Labor and Delivery" },
+              })
+            }
+          >
+            <View
+              style={[
+                styles.learnIcon,
+                { backgroundColor: colors.primary + "18" },
+              ]}
+            >
+              <Ionicons name="bag-outline" size={20} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.learnTitle, { color: colors.foreground }]}>
+                Hospital Bag Checklist
+              </Text>
+              <Text
+                style={[styles.learnSub, { color: colors.mutedForeground }]}
+              >
+                Check off what to pack, then print or save it as a PDF
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={colors.mutedForeground}
+            />
+          </TouchableOpacity>
+        </Animated.View>
       </ScrollView>
     </View>
   );

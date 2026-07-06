@@ -250,6 +250,10 @@ function RootLayoutNav() {
           name="cesarean-birth"
           options={{ headerShown: false, presentation: "card" }}
         />
+        <Stack.Screen
+          name="hospital-bag"
+          options={{ headerShown: false, presentation: "card" }}
+        />
       </Stack>
       <WhatsNewModal
         version={appVersion}
