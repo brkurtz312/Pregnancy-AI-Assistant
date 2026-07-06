@@ -199,6 +199,10 @@ function RootLayoutNav() {
           options={{ headerShown: false, presentation: "card" }}
         />
         <Stack.Screen
+          name="prenatal-care"
+          options={{ headerShown: false, presentation: "card" }}
+        />
+        <Stack.Screen
           name="labor-delivery"
           options={{ headerShown: false, presentation: "card" }}
         />

@@ -775,7 +775,7 @@ function LearnSection() {
         onPress={() =>
           router.push({
             pathname: "/birth-plan",
-            params: { from: "Office Visit" },
+            params: { from: "Office Visits" },
           })
         }
       >
@@ -902,7 +902,7 @@ export default function OfficeVisitScreen() {
       >
         <Ionicons name="chevron-back" size={22} color={colors.foreground} />
         <Text style={[styles.backText, { color: colors.foreground }]}>
-          Get Ready
+          Prenatal Care
         </Text>
       </TouchableOpacity>
     </View>
@@ -919,7 +919,7 @@ export default function OfficeVisitScreen() {
             color={colors.mutedForeground}
           />
           <Text style={[styles.signInTitle, { color: colors.foreground }]}>
-            Sign in to use Office Visit
+            Sign in to use Office Visits
           </Text>
           <Text style={[styles.signInSub, { color: colors.mutedForeground }]}>
             Your appointment log and reminders sync securely across devices.
@@ -942,7 +942,7 @@ export default function OfficeVisitScreen() {
       >
         <Animated.View entering={FadeInDown.duration(400)}>
           <Text style={[styles.pageTitle, { color: colors.foreground }]}>
-            Office Visit
+            Office Visits
           </Text>
           <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
             Get ready for your prenatal appointments.

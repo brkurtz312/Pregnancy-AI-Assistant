@@ -15,11 +15,11 @@ type SectionOption = {
 
 const SECTIONS: SectionOption[] = [
   {
-    key: "office-visit",
+    key: "prenatal-care",
     icon: "clipboard-outline",
-    title: "Office Visit",
-    description: "Appointments, questions to ask, and visit summaries.",
-    route: "/office-visit",
+    title: "Prenatal Care",
+    description: "Office visits, prenatal testing, and your birth plan.",
+    route: "/prenatal-care",
   },
   {
     key: "labor-delivery",
