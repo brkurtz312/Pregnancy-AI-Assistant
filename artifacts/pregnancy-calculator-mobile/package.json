@@ -77,6 +77,8 @@
     "@react-native-community/datetimepicker": "^8.4.4",
     "expo-build-properties": "~1.0.10",
     "expo-modules-autolinking": "~3.0.26",
+    "expo-print": "~15.0.8",
+    "expo-sharing": "~14.0.8",
     "react-native-purchases": "^10.4.0"
   }
 }

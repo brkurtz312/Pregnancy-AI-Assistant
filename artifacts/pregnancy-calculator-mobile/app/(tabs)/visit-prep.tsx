@@ -3,7 +3,6 @@ import DateTimePicker, {
 } from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import { useUser } from "@clerk/expo";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
@@ -30,21 +29,11 @@ import {
   type PrenatalVisit,
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
-
-const CHECKLIST_STORAGE_KEY = "@visit_prep_checklist";
-
-const DEFAULT_QUESTIONS = [
-  "How is the baby's growth and heart rate looking?",
-  "Are my weight gain and blood pressure in a normal range?",
-  "What symptoms should prompt me to call you right away?",
-  "Do I need any additional tests or screenings before the next visit?",
-  "Is my current exercise and activity level okay?",
-  "What vitamins or supplements should I be taking?",
-  "How are my iron, glucose, or anemia screening results?",
-  "What early signs of labor should I watch for?",
-  "Are there any restrictions on travel or activities?",
-  "What's the plan for delivery, and when should I preregister at the hospital?",
-];
+import {
+  loadQuestions,
+  saveQuestions,
+  type QuestionItem,
+} from "@/lib/visit-questions";
 
 function formatDateTime(iso: string) {
   const d = new Date(iso);
@@ -595,71 +584,147 @@ function AppointmentLogSection({
   );
 }
 
-// ─── Questions Checklist Section ─────────────────────────────────────────────
+// ─── What Questions Do You Want to Ask Section ───────────────────────────────
 
-function QuestionsChecklistSection() {
+function QuestionsToAskSection() {
   const colors = useColors();
-  const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const [items, setItems] = useState<QuestionItem[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [newQuestion, setNewQuestion] = useState("");
 
   useEffect(() => {
-    AsyncStorage.getItem(CHECKLIST_STORAGE_KEY)
-      .then((raw) => {
-        if (raw) setChecked(JSON.parse(raw));
-      })
+    loadQuestions()
+      .then(setItems)
       .finally(() => setLoaded(true));
   }, []);
 
-  const toggle = useCallback((question: string) => {
-    setChecked((prev) => {
-      const next = { ...prev, [question]: !prev[question] };
-      AsyncStorage.setItem(CHECKLIST_STORAGE_KEY, JSON.stringify(next));
-      return next;
-    });
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  const persist = useCallback((next: QuestionItem[]) => {
+    setItems(next);
+    saveQuestions(next);
   }, []);
 
-  const checkedCount = Object.values(checked).filter(Boolean).length;
+  const toggle = useCallback(
+    (id: string) => {
+      persist(
+        items.map((q) => (q.id === id ? { ...q, selected: !q.selected } : q)),
+      );
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    },
+    [items, persist],
+  );
+
+  const handleAdd = useCallback(() => {
+    const text = newQuestion.trim();
+    if (!text) return;
+    persist([
+      ...items,
+      { id: `custom-${Date.now()}`, text, selected: true, custom: true },
+    ]);
+    setNewQuestion("");
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [items, newQuestion, persist]);
+
+  const handleRemove = useCallback(
+    (id: string) => {
+      persist(items.filter((q) => q.id !== id));
+    },
+    [items, persist],
+  );
+
+  const selectedCount = items.filter((q) => q.selected).length;
 
   return (
     <View style={styles.container}>
       <View style={styles.row}>
         <Text style={[styles.title, { color: colors.foreground }]}>
-          Questions to Ask
+          What Questions Do You Want to Ask?
         </Text>
         <Text style={[styles.progress, { color: colors.mutedForeground }]}>
-          {checkedCount}/{DEFAULT_QUESTIONS.length}
+          {selectedCount} selected
         </Text>
       </View>
+      <Text
+        style={[
+          styles.questionsHint,
+          { color: colors.mutedForeground, marginBottom: 12 },
+        ]}
+      >
+        Pick from common questions or add your own. Selected questions are
+        included in your visit summary.
+      </Text>
 
       {!loaded && <ActivityIndicator color={colors.primary} />}
       {loaded &&
-        DEFAULT_QUESTIONS.map((q) => (
-          <TouchableOpacity
-            key={q}
-            style={styles.checklistRow}
-            onPress={() => toggle(q)}
-          >
-            <Ionicons
-              name={checked[q] ? "checkbox" : "square-outline"}
-              size={22}
-              color={checked[q] ? colors.primary : colors.mutedForeground}
-            />
-            <Text
-              style={[
-                styles.checklistText,
-                {
-                  color: checked[q]
-                    ? colors.mutedForeground
-                    : colors.foreground,
-                  textDecorationLine: checked[q] ? "line-through" : "none",
-                },
-              ]}
+        items.map((q) => (
+          <View key={q.id} style={styles.checklistRow}>
+            <TouchableOpacity
+              style={styles.checklistRowMain}
+              onPress={() => toggle(q.id)}
             >
-              {q}
-            </Text>
-          </TouchableOpacity>
+              <Ionicons
+                name={q.selected ? "checkbox" : "square-outline"}
+                size={22}
+                color={q.selected ? colors.primary : colors.mutedForeground}
+              />
+              <Text
+                style={[styles.checklistText, { color: colors.foreground }]}
+              >
+                {q.text}
+              </Text>
+            </TouchableOpacity>
+            {q.custom && (
+              <TouchableOpacity onPress={() => handleRemove(q.id)}>
+                <Ionicons
+                  name="trash-outline"
+                  size={18}
+                  color={colors.mutedForeground}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
         ))}
+
+      <View style={styles.addQuestionRow}>
+        <TextInput
+          style={[
+            styles.addQuestionInput,
+            {
+              borderColor: colors.border,
+              color: colors.foreground,
+              backgroundColor: colors.muted,
+            },
+          ]}
+          value={newQuestion}
+          onChangeText={setNewQuestion}
+          placeholder="Add your own question..."
+          placeholderTextColor={colors.mutedForeground}
+          onSubmitEditing={handleAdd}
+          returnKeyType="done"
+        />
+        <TouchableOpacity
+          style={[styles.addQuestionBtn, { backgroundColor: colors.primary }]}
+          onPress={handleAdd}
+          disabled={!newQuestion.trim()}
+        >
+          <Ionicons name="add" size={20} color={colors.primaryForeground} />
+        </TouchableOpacity>
+      </View>
+
+      <TouchableOpacity
+        style={[styles.summaryBtn, { backgroundColor: colors.primary }]}
+        onPress={() => router.push("/visit-summary")}
+      >
+        <Ionicons
+          name="document-text-outline"
+          size={18}
+          color={colors.primaryForeground}
+        />
+        <Text
+          style={[styles.summaryBtnText, { color: colors.primaryForeground }]}
+        >
+          View Visit Summary
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -873,7 +938,7 @@ export default function VisitPrepScreen() {
           { backgroundColor: colors.card, borderColor: colors.border },
         ]}
       >
-        <QuestionsChecklistSection />
+        <QuestionsToAskSection />
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(300).duration(400)}>
@@ -1035,11 +1100,56 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 14,
   },
+  checklistRowMain: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
   checklistText: {
     flex: 1,
     fontSize: 14,
     fontFamily: "Inter_400Regular",
     lineHeight: 20,
+  },
+  questionsHint: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 18,
+  },
+  addQuestionRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  addQuestionInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+  },
+  addQuestionBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  summaryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 12,
+    paddingVertical: 14,
+  },
+  summaryBtnText: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
   },
   signInScreen: {
     flex: 1,

@@ -90,6 +90,18 @@ export function calculateByUltrasound(
   return calculateCommonResults(lmp);
 }
 
+export function getGestationalAgeAtDate(
+  dueDate: Date,
+  targetDate: Date,
+): { weeks: number; days: number } {
+  const lmp = subDays(startOfDay(dueDate), PREGNANCY_DURATION_DAYS);
+  const totalDays = Math.max(0, differenceInDays(startOfDay(targetDate), lmp));
+  return {
+    weeks: Math.floor(totalDays / 7),
+    days: totalDays % 7,
+  };
+}
+
 export function formatGestationalAge(weeks: number, days: number): string {
   return `${weeks}w ${days}d`;
 }
