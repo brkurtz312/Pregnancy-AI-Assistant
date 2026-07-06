@@ -1,7 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 
@@ -29,51 +36,147 @@ export default function LaborDeliveryScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.content}>
-        <Ionicons name="pulse-outline" size={48} color={colors.primary} />
-        <Text style={[styles.title, { color: colors.foreground }]}>
-          Labor and Delivery
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          This section is coming soon. Check back for guidance on preparing for
-          labor and delivery.
-        </Text>
-      </View>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingBottom: insets.bottom + 32 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <Animated.View entering={FadeInDown.duration(400)}>
+          <Text style={[styles.pageTitle, { color: colors.foreground }]}>
+            Labor and Delivery
+          </Text>
+          <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
+            Get ready for the big day
+          </Text>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(60).duration(400)}>
+          <TouchableOpacity
+            style={[
+              styles.learnCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+            onPress={() =>
+              router.push({
+                pathname: "/birth-plan",
+                params: { from: "Labor and Delivery" },
+              })
+            }
+          >
+            <View
+              style={[
+                styles.learnIcon,
+                { backgroundColor: colors.primary + "18" },
+              ]}
+            >
+              <Ionicons
+                name="clipboard-outline"
+                size={20}
+                color={colors.primary}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.learnTitle, { color: colors.foreground }]}>
+                Prepare Your Birth Plan
+              </Text>
+              <Text
+                style={[styles.learnSub, { color: colors.mutedForeground }]}
+              >
+                Print a blank worksheet or answer questions to auto-fill one
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={colors.mutedForeground}
+            />
+          </TouchableOpacity>
+        </Animated.View>
+
+        <Animated.View
+          entering={FadeInDown.delay(120).duration(400)}
+          style={[
+            styles.comingSoonCard,
+            { backgroundColor: colors.primary + "10" },
+          ]}
+        >
+          <Ionicons name="pulse-outline" size={28} color={colors.primary} />
+          <Text style={[styles.comingSoonText, { color: colors.foreground }]}>
+            More guidance on labor and delivery is coming soon.
+          </Text>
+        </Animated.View>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   header: {
-    paddingHorizontal: 20,
-    paddingBottom: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingBottom: 12,
     borderBottomWidth: 1,
   },
   backBtn: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
   },
   backText: {
     fontSize: 16,
     fontFamily: "Inter_500Medium",
     marginLeft: 2,
   },
-  content: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 32,
-    gap: 12,
+  scroll: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
-  title: {
-    fontSize: 22,
+  pageTitle: {
+    fontSize: 26,
     fontFamily: "Inter_700Bold",
-    textAlign: "center",
+    marginBottom: 4,
   },
-  subtitle: {
+  pageSub: {
     fontSize: 14,
     fontFamily: "Inter_400Regular",
+    marginBottom: 16,
+  },
+  learnCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  learnIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  learnTitle: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    marginBottom: 2,
+  },
+  learnSub: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+  },
+  comingSoonCard: {
+    borderRadius: 16,
+    padding: 20,
+    alignItems: "center",
+    gap: 10,
+  },
+  comingSoonText: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
     textAlign: "center",
     lineHeight: 20,
   },
