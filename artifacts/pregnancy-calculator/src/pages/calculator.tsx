@@ -264,7 +264,11 @@ export default function CalculatorPage() {
                 </button>
               </div>
             </div>
-            {devView === "fetal" ? <FetalDevelopmentViewer /> : <MaternalDevelopmentViewer />}
+            {devView === "fetal" ? (
+              <FetalDevelopmentViewer />
+            ) : (
+              <MaternalDevelopmentViewer />
+            )}
           </div>
         )}
 

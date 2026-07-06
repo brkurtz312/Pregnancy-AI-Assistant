@@ -6,35 +6,71 @@ const MATERNAL_URL = "https://maternal-development.pplx.app";
 function ViewerNav({ current }) {
   const otherUrl = `${FETAL_URL}#stage=${current}`;
   return (
-    <div style={{
-      width: "100%", background: "#0b0e17",
-      borderBottom: "1px solid rgba(78,205,196,0.12)",
-      display: "flex", justifyContent: "center", padding: "10px 24px",
-    }}>
-      <div style={{
-        display: "flex", gap: 6, alignItems: "center",
-        background: "rgba(255,255,255,0.04)", borderRadius: 8,
-        padding: "4px", border: "1px solid rgba(78,205,196,0.15)"
-      }}>
-        {/* Inactive pill — link to fetal */}
-        <a href={otherUrl} style={{
-          padding: "6px 18px", borderRadius: 6, fontSize: "0.72rem",
-          letterSpacing: "0.1em", textTransform: "uppercase",
-          fontFamily: "Arial, sans-serif", fontWeight: 500,
-          color: "#7abcb4", textDecoration: "none",
-          transition: "background 0.2s, color 0.2s",
+    <div
+      style={{
+        width: "100%",
+        background: "#0b0e17",
+        borderBottom: "1px solid rgba(78,205,196,0.12)",
+        display: "flex",
+        justifyContent: "center",
+        padding: "10px 24px",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          gap: 6,
+          alignItems: "center",
+          background: "rgba(255,255,255,0.04)",
+          borderRadius: 8,
+          padding: "4px",
+          border: "1px solid rgba(78,205,196,0.15)",
         }}
-          onMouseEnter={e => { e.target.style.background = "rgba(78,205,196,0.12)"; e.target.style.color = "#4ecdc4"; }}
-          onMouseLeave={e => { e.target.style.background = "transparent"; e.target.style.color = "#7abcb4"; }}
-        >Fetal View</a>
+      >
+        {/* Inactive pill — link to fetal */}
+        <a
+          href={otherUrl}
+          style={{
+            padding: "6px 18px",
+            borderRadius: 6,
+            fontSize: "0.72rem",
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            fontFamily: "Arial, sans-serif",
+            fontWeight: 500,
+            color: "#7abcb4",
+            textDecoration: "none",
+            transition: "background 0.2s, color 0.2s",
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.background = "rgba(78,205,196,0.12)";
+            e.target.style.color = "#4ecdc4";
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.background = "transparent";
+            e.target.style.color = "#7abcb4";
+          }}
+        >
+          Fetal View
+        </a>
         {/* Active pill */}
-        <span style={{
-          padding: "6px 18px", borderRadius: 6, fontSize: "0.72rem",
-          letterSpacing: "0.1em", textTransform: "uppercase",
-          fontFamily: "Arial, sans-serif", fontWeight: 600,
-          background: "#4ecdc4", color: "#07090f", cursor: "default",
-          userSelect: "none",
-        }}>Maternal View</span>
+        <span
+          style={{
+            padding: "6px 18px",
+            borderRadius: 6,
+            fontSize: "0.72rem",
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            fontFamily: "Arial, sans-serif",
+            fontWeight: 600,
+            background: "#4ecdc4",
+            color: "#07090f",
+            cursor: "default",
+            userSelect: "none",
+          }}
+        >
+          Maternal View
+        </span>
       </div>
     </div>
   );
@@ -192,8 +228,11 @@ export default function App() {
   useEffect(() => {
     if (!playing) return;
     const t = setInterval(() => {
-      setCurrent(prev => {
-        if (prev >= STAGES.length - 1) { setPlaying(false); return prev; }
+      setCurrent((prev) => {
+        if (prev >= STAGES.length - 1) {
+          setPlaying(false);
+          return prev;
+        }
         return prev + 1;
       });
     }, 7000);
@@ -203,61 +242,121 @@ export default function App() {
   function goTo(idx) {
     if (idx === current) return;
     setVisible(false);
-    setTimeout(() => { setCurrent(idx); setVisible(true); }, 320);
+    setTimeout(() => {
+      setCurrent(idx);
+      setVisible(true);
+    }, 320);
   }
 
   const s = STAGES[current];
 
   return (
-    <div style={{
-      minHeight: "100vh", background: "#07090f", color: "#e8eeec",
-      fontFamily: "Georgia, serif", display: "flex", flexDirection: "column", alignItems: "center"
-    }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#07090f",
+        color: "#e8eeec",
+        fontFamily: "Georgia, serif",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+      }}
+    >
       <ViewerNav current={current} />
       {/* Header */}
-      <div style={{
-        width: "100%", maxWidth: 960, padding: "26px 28px 14px",
-        borderBottom: "1px solid rgba(78,205,196,0.15)", textAlign: "center"
-      }}>
-        <h1 style={{
-          fontFamily: "Georgia, serif", fontWeight: 300,
-          fontSize: "clamp(1.4rem,4vw,2.1rem)", letterSpacing: "0.05em", color: "#eef4f2", margin: 0
-        }}>The Maternal Body in Pregnancy</h1>
-        <p style={{
-          fontSize: "0.68rem", letterSpacing: "0.22em", textTransform: "uppercase",
-          color: "#7abcb4", marginTop: 6, fontFamily: "Arial, sans-serif"
-        }}>Anatomical Cross-Section · Conception to Birth</p>
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 960,
+          padding: "26px 28px 14px",
+          borderBottom: "1px solid rgba(78,205,196,0.15)",
+          textAlign: "center",
+        }}
+      >
+        <h1
+          style={{
+            fontFamily: "Georgia, serif",
+            fontWeight: 300,
+            fontSize: "clamp(1.4rem,4vw,2.1rem)",
+            letterSpacing: "0.05em",
+            color: "#eef4f2",
+            margin: 0,
+          }}
+        >
+          The Maternal Body in Pregnancy
+        </h1>
+        <p
+          style={{
+            fontSize: "0.68rem",
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+            color: "#7abcb4",
+            marginTop: 6,
+            fontFamily: "Arial, sans-serif",
+          }}
+        >
+          Anatomical Cross-Section · Conception to Birth
+        </p>
         {/* Progress dots */}
-        <div style={{ display: "flex", gap: 5, justifyContent: "center", marginTop: 14 }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 5,
+            justifyContent: "center",
+            marginTop: 14,
+          }}
+        >
           {STAGES.map((_, i) => (
-            <div key={i} onClick={() => goTo(i)} style={{
-              height: 4, borderRadius: 2, cursor: "pointer",
-              width: i === current ? 44 : 28,
-              background: i === current ? "#4ecdc4" : i < current ? "rgba(78,205,196,0.50)" : "rgba(78,205,196,0.16)",
-              transition: "all 0.3s"
-            }} />
+            <div
+              key={i}
+              onClick={() => goTo(i)}
+              style={{
+                height: 4,
+                borderRadius: 2,
+                cursor: "pointer",
+                width: i === current ? 44 : 28,
+                background:
+                  i === current
+                    ? "#4ecdc4"
+                    : i < current
+                      ? "rgba(78,205,196,0.50)"
+                      : "rgba(78,205,196,0.16)",
+                transition: "all 0.3s",
+              }}
+            />
           ))}
         </div>
       </div>
 
       {/* Main content */}
-      <div style={{
-        flex: 1, width: "100%", maxWidth: 960, padding: "24px 28px",
-        display: "flex", alignItems: "flex-start", gap: 36,
-        flexWrap: "wrap", justifyContent: "center"
-      }}>
+      <div
+        style={{
+          flex: 1,
+          width: "100%",
+          maxWidth: 960,
+          padding: "24px 28px",
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 36,
+          flexWrap: "wrap",
+          justifyContent: "center",
+        }}
+      >
         {/* Anatomical image — portrait ratio */}
-        <div style={{
-          flexShrink: 0,
-          width: 280,
-          borderRadius: 12,
-          overflow: "hidden",
-          boxShadow: "0 0 48px rgba(78,205,196,0.14), 0 0 90px rgba(78,205,196,0.06), inset 0 0 0 1px rgba(78,205,196,0.20)",
-          border: "1px solid rgba(78,205,196,0.25)",
-          opacity: visible ? 1 : 0,
-          transition: "opacity 0.35s ease",
-          background: "#0d1117",
-        }}>
+        <div
+          style={{
+            flexShrink: 0,
+            width: 280,
+            borderRadius: 12,
+            overflow: "hidden",
+            boxShadow:
+              "0 0 48px rgba(78,205,196,0.14), 0 0 90px rgba(78,205,196,0.06), inset 0 0 0 1px rgba(78,205,196,0.20)",
+            border: "1px solid rgba(78,205,196,0.25)",
+            opacity: visible ? 1 : 0,
+            transition: "opacity 0.35s ease",
+            background: "#0d1117",
+          }}
+        >
           <img
             src={IMAGES[current]}
             alt={ALT_TEXT[current]}
@@ -270,86 +369,202 @@ export default function App() {
         </div>
 
         {/* Text panel */}
-        <div style={{
-          flex: "1 1 300px", minWidth: 260,
-          opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(10px)",
-          transition: "opacity 0.35s ease, transform 0.35s ease"
-        }}>
-          <div style={{
-            fontSize: "0.64rem", letterSpacing: "0.22em", textTransform: "uppercase",
-            color: "#4ecdc4", marginBottom: 8, fontFamily: "Arial, sans-serif"
-          }}>{s.weekLabel}</div>
-          <h2 style={{
-            fontFamily: "Georgia, serif", fontWeight: 400,
-            fontSize: "clamp(1.3rem,3vw,1.85rem)", lineHeight: 1.25,
-            color: "#f2f7f5", margin: "0 0 14px"
-          }}>{s.title}</h2>
-          <p style={{
-            fontSize: "0.9rem", lineHeight: 1.85, color: "#ccddd8",
-            marginBottom: 16, fontFamily: "Arial, sans-serif"
-          }}>{s.desc}</p>
+        <div
+          style={{
+            flex: "1 1 300px",
+            minWidth: 260,
+            opacity: visible ? 1 : 0,
+            transform: visible ? "translateY(0)" : "translateY(10px)",
+            transition: "opacity 0.35s ease, transform 0.35s ease",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "0.64rem",
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              color: "#4ecdc4",
+              marginBottom: 8,
+              fontFamily: "Arial, sans-serif",
+            }}
+          >
+            {s.weekLabel}
+          </div>
+          <h2
+            style={{
+              fontFamily: "Georgia, serif",
+              fontWeight: 400,
+              fontSize: "clamp(1.3rem,3vw,1.85rem)",
+              lineHeight: 1.25,
+              color: "#f2f7f5",
+              margin: "0 0 14px",
+            }}
+          >
+            {s.title}
+          </h2>
+          <p
+            style={{
+              fontSize: "0.9rem",
+              lineHeight: 1.85,
+              color: "#ccddd8",
+              marginBottom: 16,
+              fontFamily: "Arial, sans-serif",
+            }}
+          >
+            {s.desc}
+          </p>
 
-          <ul style={{ listStyle: "none", padding: 0, margin: "0 0 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <ul
+            style={{
+              listStyle: "none",
+              padding: 0,
+              margin: "0 0 16px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
             {s.maternal.map((m, i) => (
-              <li key={i} style={{
-                display: "flex", alignItems: "flex-start", gap: 10,
-                fontSize: "0.84rem", color: "#b8d4ce", fontFamily: "Arial, sans-serif", lineHeight: 1.5
-              }}>
-                <span style={{
-                  width: 6, height: 6, borderRadius: "50%", background: "#4ecdc4",
-                  marginTop: "0.42em", flexShrink: 0
-                }} />
+              <li
+                key={i}
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 10,
+                  fontSize: "0.84rem",
+                  color: "#b8d4ce",
+                  fontFamily: "Arial, sans-serif",
+                  lineHeight: 1.5,
+                }}
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    background: "#4ecdc4",
+                    marginTop: "0.42em",
+                    flexShrink: 0,
+                  }}
+                />
                 {m}
               </li>
             ))}
           </ul>
 
           {/* Clinical callouts */}
-          <div style={{
-            borderTop: "1px solid rgba(78,205,196,0.12)", paddingTop: 14,
-            display: "flex", flexDirection: "column", gap: 6
-          }}>
-            <div style={{ fontSize: "0.75rem", color: "#5db0a6", fontFamily: "Arial, sans-serif" }}>
-              Fundal height: <span style={{ color: "#7eccc4" }}>{s.uterusFundus}</span>
+          <div
+            style={{
+              borderTop: "1px solid rgba(78,205,196,0.12)",
+              paddingTop: 14,
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+            }}
+          >
+            <div
+              style={{
+                fontSize: "0.75rem",
+                color: "#5db0a6",
+                fontFamily: "Arial, sans-serif",
+              }}
+            >
+              Fundal height:{" "}
+              <span style={{ color: "#7eccc4" }}>{s.uterusFundus}</span>
             </div>
-            <div style={{ fontSize: "0.75rem", color: "#5db0a6", fontFamily: "Arial, sans-serif" }}>
-              Organ displacement: <span style={{ color: "#7eccc4" }}>{s.organChanges}</span>
+            <div
+              style={{
+                fontSize: "0.75rem",
+                color: "#5db0a6",
+                fontFamily: "Arial, sans-serif",
+              }}
+            >
+              Organ displacement:{" "}
+              <span style={{ color: "#7eccc4" }}>{s.organChanges}</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Navigation */}
-      <div style={{
-        width: "100%", maxWidth: 960, padding: "14px 28px 26px",
-        borderTop: "1px solid rgba(78,205,196,0.12)",
-        display: "flex", alignItems: "center", justifyContent: "space-between"
-      }}>
-        <button onClick={() => goTo(current - 1)} disabled={current === 0} style={{
-          background: "none", border: "1px solid rgba(78,205,196,0.28)", color: "#7ed9c8",
-          fontFamily: "Arial, sans-serif", fontSize: "0.8rem", letterSpacing: "0.1em",
-          padding: "10px 22px", borderRadius: 3, cursor: current === 0 ? "default" : "pointer",
-          opacity: current === 0 ? 0.22 : 1, transition: "all 0.2s"
-        }}>← Previous</button>
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 960,
+          padding: "14px 28px 26px",
+          borderTop: "1px solid rgba(78,205,196,0.12)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <button
+          onClick={() => goTo(current - 1)}
+          disabled={current === 0}
+          style={{
+            background: "none",
+            border: "1px solid rgba(78,205,196,0.28)",
+            color: "#7ed9c8",
+            fontFamily: "Arial, sans-serif",
+            fontSize: "0.8rem",
+            letterSpacing: "0.1em",
+            padding: "10px 22px",
+            borderRadius: 3,
+            cursor: current === 0 ? "default" : "pointer",
+            opacity: current === 0 ? 0.22 : 1,
+            transition: "all 0.2s",
+          }}
+        >
+          ← Previous
+        </button>
 
-        <button onClick={() => setPlaying(p => !p)} style={{
-          background: "none", border: "none", color: playing ? "#4ecdc4" : "#7a9e98",
-          fontFamily: "Arial, sans-serif", fontSize: "0.72rem", letterSpacing: "0.14em",
-          textTransform: "uppercase", cursor: "pointer", display: "flex", alignItems: "center", gap: 8
-        }}>
-          <span style={{
-            width: 8, height: 8, borderRadius: "50%",
-            background: playing ? "#4ecdc4" : "#7a9e98", display: "inline-block"
-          }} />
+        <button
+          onClick={() => setPlaying((p) => !p)}
+          style={{
+            background: "none",
+            border: "none",
+            color: playing ? "#4ecdc4" : "#7a9e98",
+            fontFamily: "Arial, sans-serif",
+            fontSize: "0.72rem",
+            letterSpacing: "0.14em",
+            textTransform: "uppercase",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              background: playing ? "#4ecdc4" : "#7a9e98",
+              display: "inline-block",
+            }}
+          />
           {playing ? "Pause" : "Autoplay"}
         </button>
 
-        <button onClick={() => goTo(current + 1)} disabled={current === STAGES.length - 1} style={{
-          background: "none", border: "1px solid rgba(78,205,196,0.28)", color: "#7ed9c8",
-          fontFamily: "Arial, sans-serif", fontSize: "0.8rem", letterSpacing: "0.1em",
-          padding: "10px 22px", borderRadius: 3, cursor: current === STAGES.length - 1 ? "default" : "pointer",
-          opacity: current === STAGES.length - 1 ? 0.22 : 1, transition: "all 0.2s"
-        }}>Next →</button>
+        <button
+          onClick={() => goTo(current + 1)}
+          disabled={current === STAGES.length - 1}
+          style={{
+            background: "none",
+            border: "1px solid rgba(78,205,196,0.28)",
+            color: "#7ed9c8",
+            fontFamily: "Arial, sans-serif",
+            fontSize: "0.8rem",
+            letterSpacing: "0.1em",
+            padding: "10px 22px",
+            borderRadius: 3,
+            cursor: current === STAGES.length - 1 ? "default" : "pointer",
+            opacity: current === STAGES.length - 1 ? 0.22 : 1,
+            transition: "all 0.2s",
+          }}
+        >
+          Next →
+        </button>
       </div>
     </div>
   );

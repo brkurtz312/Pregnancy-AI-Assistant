@@ -38,7 +38,9 @@ export default function PrenatalTestingLate() {
         }}
       />
 
-      <div style={{ padding: "7vh 8vw", height: "90vh", boxSizing: "border-box" }}>
+      <div
+        style={{ padding: "7vh 8vw", height: "90vh", boxSizing: "border-box" }}
+      >
         <div
           style={{
             fontSize: "2.2vw",
@@ -60,7 +62,8 @@ export default function PrenatalTestingLate() {
             letterSpacing: "-0.015em",
           }}
         >
-          Late testing helps prepare for labor, newborn protection, and added monitoring when needed
+          Late testing helps prepare for labor, newborn protection, and added
+          monitoring when needed
         </h2>
 
         <div style={{ display: "flex", gap: "2vw", marginTop: "4vh" }}>
@@ -122,11 +125,20 @@ export default function PrenatalTestingLate() {
             padding: "2.4vh 1.8vw",
           }}
         >
-          <div style={{ fontSize: "1.95vw", fontWeight: 600, color: "#1a1a2e" }}>
+          <div
+            style={{ fontSize: "1.95vw", fontWeight: 600, color: "#1a1a2e" }}
+          >
             When extra testing is needed
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1vh", marginTop: "1.3vh" }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr",
+              gap: "1vh",
+              marginTop: "1.3vh",
+            }}
+          >
             {extras.map((item) => (
               <div
                 key={item}
@@ -162,10 +174,24 @@ export default function PrenatalTestingLate() {
           boxSizing: "border-box",
         }}
       >
-        <div style={{ fontSize: "2.2vw", fontWeight: 500, color: "#ffffff", letterSpacing: "0.05em" }}>
+        <div
+          style={{
+            fontSize: "2.2vw",
+            fontWeight: 500,
+            color: "#ffffff",
+            letterSpacing: "0.05em",
+          }}
+        >
           Pregnancy AI Assistant
         </div>
-        <div style={{ fontSize: "2.2vw", fontWeight: 500, color: "#ffffff", opacity: 0.8 }}>
+        <div
+          style={{
+            fontSize: "2.2vw",
+            fontWeight: 500,
+            color: "#ffffff",
+            opacity: 0.8,
+          }}
+        >
           12
         </div>
       </div>

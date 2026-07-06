@@ -326,7 +326,10 @@ describe("check-whats-new — real repo files", () => {
 
 const HOOK_SMOKE_TIMEOUT = 60_000;
 
-function makeHookScript(appJsonFixture: string, whatsNewFixture: string): string {
+function makeHookScript(
+  appJsonFixture: string,
+  whatsNewFixture: string,
+): string {
   return [
     "#!/usr/bin/env sh",
     `cd "${WORKSPACE_ROOT}"`,

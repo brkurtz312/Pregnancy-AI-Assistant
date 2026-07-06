@@ -32,7 +32,9 @@ export default function PrenatalTestingEarly() {
         }}
       />
 
-      <div style={{ padding: "7vh 8vw", height: "90vh", boxSizing: "border-box" }}>
+      <div
+        style={{ padding: "7vh 8vw", height: "90vh", boxSizing: "border-box" }}
+      >
         <div
           style={{
             fontSize: "2.2vw",
@@ -54,7 +56,8 @@ export default function PrenatalTestingEarly() {
             letterSpacing: "-0.015em",
           }}
         >
-          The first trimester focuses on dating, baseline labs, and screening choices
+          The first trimester focuses on dating, baseline labs, and screening
+          choices
         </h2>
 
         <div style={{ display: "flex", gap: "2vw", marginTop: "4vh" }}>
@@ -134,7 +137,10 @@ export default function PrenatalTestingEarly() {
               lineHeight: 1.4,
             }}
           >
-            Some patients may also need cervical cancer screening, hemoglobin A1C for possible pregestational diabetes, thyroid testing, TB screening, or baseline preeclampsia-related labs depending on history and risk factors.
+            Some patients may also need cervical cancer screening, hemoglobin
+            A1C for possible pregestational diabetes, thyroid testing, TB
+            screening, or baseline preeclampsia-related labs depending on
+            history and risk factors.
           </p>
         </div>
       </div>
@@ -154,10 +160,24 @@ export default function PrenatalTestingEarly() {
           boxSizing: "border-box",
         }}
       >
-        <div style={{ fontSize: "2.2vw", fontWeight: 500, color: "#ffffff", letterSpacing: "0.05em" }}>
+        <div
+          style={{
+            fontSize: "2.2vw",
+            fontWeight: 500,
+            color: "#ffffff",
+            letterSpacing: "0.05em",
+          }}
+        >
           Pregnancy AI Assistant
         </div>
-        <div style={{ fontSize: "2.2vw", fontWeight: 500, color: "#ffffff", opacity: 0.8 }}>
+        <div
+          style={{
+            fontSize: "2.2vw",
+            fontWeight: 500,
+            color: "#ffffff",
+            opacity: 0.8,
+          }}
+        >
           10
         </div>
       </div>

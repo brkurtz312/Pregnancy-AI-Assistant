@@ -1,5 +1,11 @@
 import { useRef, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Animated } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Animated,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { ClinicalData } from "@/constants/fetalStages";
 
@@ -26,10 +32,18 @@ export function ClinicalDrawer({ data }: { data: ClinicalData }) {
         activeOpacity={0.75}
         style={[
           styles.toggleBtn,
-          { borderColor: open ? "rgba(78,205,196,0.55)" : "rgba(78,205,196,0.28)" },
+          {
+            borderColor: open
+              ? "rgba(78,205,196,0.55)"
+              : "rgba(78,205,196,0.28)",
+          },
         ]}
       >
-        <Ionicons name="medkit-outline" size={14} color={open ? ACCENT : "#7abcb4"} />
+        <Ionicons
+          name="medkit-outline"
+          size={14}
+          color={open ? ACCENT : "#7abcb4"}
+        />
         <Text style={[styles.toggleText, { color: open ? ACCENT : "#7abcb4" }]}>
           Clinical Reference
         </Text>

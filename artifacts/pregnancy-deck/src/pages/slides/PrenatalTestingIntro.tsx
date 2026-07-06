@@ -48,7 +48,9 @@ export default function PrenatalTestingIntro() {
         }}
       />
 
-      <div style={{ padding: "7vh 8vw", height: "90vh", boxSizing: "border-box" }}>
+      <div
+        style={{ padding: "7vh 8vw", height: "90vh", boxSizing: "border-box" }}
+      >
         <div
           style={{
             fontSize: "2.2vw",
@@ -71,7 +73,8 @@ export default function PrenatalTestingIntro() {
             maxWidth: "70vw",
           }}
         >
-          A simple guide to what testing is done during pregnancy and why it matters
+          A simple guide to what testing is done during pregnancy and why it
+          matters
         </h2>
 
         <p
@@ -83,7 +86,9 @@ export default function PrenatalTestingIntro() {
             maxWidth: "72vw",
           }}
         >
-          Prenatal testing helps watch over both patient and baby throughout pregnancy. Most tests are done to provide reassurance, identify common concerns early, and guide safe pregnancy and delivery planning.
+          Prenatal testing helps watch over both patient and baby throughout
+          pregnancy. Most tests are done to provide reassurance, identify common
+          concerns early, and guide safe pregnancy and delivery planning.
         </p>
 
         <div style={{ display: "flex", gap: "2vw", marginTop: "4vh" }}>
@@ -159,10 +164,24 @@ export default function PrenatalTestingIntro() {
           boxSizing: "border-box",
         }}
       >
-        <div style={{ fontSize: "2.2vw", fontWeight: 500, color: "#ffffff", letterSpacing: "0.05em" }}>
+        <div
+          style={{
+            fontSize: "2.2vw",
+            fontWeight: 500,
+            color: "#ffffff",
+            letterSpacing: "0.05em",
+          }}
+        >
           Pregnancy AI Assistant
         </div>
-        <div style={{ fontSize: "2.2vw", fontWeight: 500, color: "#ffffff", opacity: 0.8 }}>
+        <div
+          style={{
+            fontSize: "2.2vw",
+            fontWeight: 500,
+            color: "#ffffff",
+            opacity: 0.8,
+          }}
+        >
           09
         </div>
       </div>

@@ -221,7 +221,10 @@ export default function DevelopmentScreen() {
 
               {/* Size */}
               <Text style={styles.sizeLabel}>
-                Size: <Text style={styles.sizeValue}>{FETAL_STAGES[current].size}</Text>
+                Size:{" "}
+                <Text style={styles.sizeValue}>
+                  {FETAL_STAGES[current].size}
+                </Text>
               </Text>
 
               <ClinicalDrawer data={FETAL_STAGES[current].clinical} />

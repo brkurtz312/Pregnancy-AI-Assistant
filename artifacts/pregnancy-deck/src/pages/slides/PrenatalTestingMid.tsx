@@ -35,7 +35,9 @@ export default function PrenatalTestingMid() {
         }}
       />
 
-      <div style={{ padding: "7vh 8vw", height: "90vh", boxSizing: "border-box" }}>
+      <div
+        style={{ padding: "7vh 8vw", height: "90vh", boxSizing: "border-box" }}
+      >
         <div
           style={{
             fontSize: "2.2vw",
@@ -57,7 +59,8 @@ export default function PrenatalTestingMid() {
             letterSpacing: "-0.015em",
           }}
         >
-          Mid-pregnancy testing looks at fetal anatomy, glucose, and repeat maternal labs
+          Mid-pregnancy testing looks at fetal anatomy, glucose, and repeat
+          maternal labs
         </h2>
 
         <div style={{ display: "flex", gap: "2vw", marginTop: "4vh" }}>
@@ -126,11 +129,21 @@ export default function PrenatalTestingMid() {
               padding: "2.2vh 1.6vw",
             }}
           >
-            <div style={{ fontSize: "1.85vw", fontWeight: 600, color: "#1a1a2e" }}>
+            <div
+              style={{ fontSize: "1.85vw", fontWeight: 600, color: "#1a1a2e" }}
+            >
               If Rh negative
             </div>
-            <p style={{ fontSize: "1.5vw", color: "#4a4a68", margin: "0.8vh 0 0 0", lineHeight: 1.4 }}>
-              A repeat type and screen is usually drawn and RhoGAM is given at about 28 weeks when the earlier antibody screen was negative.
+            <p
+              style={{
+                fontSize: "1.5vw",
+                color: "#4a4a68",
+                margin: "0.8vh 0 0 0",
+                lineHeight: 1.4,
+              }}
+            >
+              A repeat type and screen is usually drawn and RhoGAM is given at
+              about 28 weeks when the earlier antibody screen was negative.
             </p>
           </div>
 
@@ -141,11 +154,22 @@ export default function PrenatalTestingMid() {
               padding: "2.2vh 1.6vw",
             }}
           >
-            <div style={{ fontSize: "1.85vw", fontWeight: 600, color: "#1a1a2e" }}>
+            <div
+              style={{ fontSize: "1.85vw", fontWeight: 600, color: "#1a1a2e" }}
+            >
               If higher risk
             </div>
-            <p style={{ fontSize: "1.5vw", color: "#4a4a68", margin: "0.8vh 0 0 0", lineHeight: 1.4 }}>
-              Some pregnancies need a more detailed anatomy scan or additional fetal assessment based on age, diabetes, multiples, prior results, or a suspected fetal abnormality.
+            <p
+              style={{
+                fontSize: "1.5vw",
+                color: "#4a4a68",
+                margin: "0.8vh 0 0 0",
+                lineHeight: 1.4,
+              }}
+            >
+              Some pregnancies need a more detailed anatomy scan or additional
+              fetal assessment based on age, diabetes, multiples, prior results,
+              or a suspected fetal abnormality.
             </p>
           </div>
         </div>
@@ -166,10 +190,24 @@ export default function PrenatalTestingMid() {
           boxSizing: "border-box",
         }}
       >
-        <div style={{ fontSize: "2.2vw", fontWeight: 500, color: "#ffffff", letterSpacing: "0.05em" }}>
+        <div
+          style={{
+            fontSize: "2.2vw",
+            fontWeight: 500,
+            color: "#ffffff",
+            letterSpacing: "0.05em",
+          }}
+        >
           Pregnancy AI Assistant
         </div>
-        <div style={{ fontSize: "2.2vw", fontWeight: 500, color: "#ffffff", opacity: 0.8 }}>
+        <div
+          style={{
+            fontSize: "2.2vw",
+            fontWeight: 500,
+            color: "#ffffff",
+            opacity: 0.8,
+          }}
+        >
           11
         </div>
       </div>

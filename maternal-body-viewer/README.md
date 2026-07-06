@@ -21,6 +21,7 @@ An interactive educational React application showing anatomical sagittal cross-s
 ## Companion App
 
 This viewer is designed as a companion to the **Fetal Development Viewer**:
+
 - Fetal viewer: https://fetal-development.pplx.app — close-up fetal anatomy per stage
 - Maternal viewer: https://maternal-development.pplx.app — maternal body cross-section per stage
 
