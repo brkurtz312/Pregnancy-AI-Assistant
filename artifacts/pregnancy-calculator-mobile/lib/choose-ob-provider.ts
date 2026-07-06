@@ -5,46 +5,57 @@ export interface ObProviderResource {
 }
 
 export const OB_PROVIDER_HIGHLIGHTS: string[] = [
-  "Ob-gyns are physicians trained in both routine and high-risk pregnancy, labor, and surgery (including cesareans). They're a good fit if you have a medical condition, a prior complicated pregnancy, or want one clinician who can handle anything that comes up.",
-  "Certified nurse-midwives (CNMs) are advanced-practice clinicians who specialize in low-risk pregnancy and birth, often with more time per visit and a strong focus on unmedicated or minimal-intervention labor. They partner with an ob-gyn for backup if complications arise.",
-  "Family medicine physicians can provide prenatal care and, in some practices, attend deliveries — a good option if you'd like the same doctor to also care for your baby after birth.",
-  "Maternal-fetal medicine (MFM) specialists are ob-gyns with extra training in high-risk pregnancy. You may see one for a portion of your care (a consult or co-managed visits) if you have a health condition, are carrying multiples, or a scan shows a concern — you don't need to choose between MFM and your regular provider.",
-  "Check that the provider is in-network with your insurance and delivers at a hospital or birth center that's covered and reasonably close to home.",
-  "Ask who covers for your provider when they're off duty, and how many other clinicians in the practice you might meet before delivery — many practices rotate coverage, so you could be delivered by someone other than your usual provider.",
-  "Notice how the practice communicates: do they answer questions thoroughly, respect your birth preferences, and make you feel heard? A good fit matters as much as credentials, since you'll be seeing this person regularly for months.",
-  "It's okay to switch providers during pregnancy if something isn't working — most records transfer easily, especially early on.",
+  "Obstetrician–Gynecologist (ob-gyn): a medical doctor (MD or DO) with 4 years of medical school plus a 4-year residency in obstetrics and gynecology, board-certified by the American Board of Obstetrics and Gynecology (ABOG). Ob-gyns handle average- and high-risk pregnancy, vaginal and cesarean delivery, and complications — required if you may need a cesarean or develop complications.",
+  "Maternal–Fetal Medicine (MFM) specialist: an ob-gyn with an additional 2–3 year fellowship in high-risk pregnancy. Most patients keep their regular ob-gyn and add an MFM to the team for conditions like diabetes, high blood pressure, prior serious complications, multiples, or fetal concerns.",
+  "Family medicine doctor (with obstetric training): provides prenatal visits and vaginal delivery for uncomplicated pregnancies, often continuing to care for the baby afterward — a good fit if an ob-gyn is available for backup and cesarean delivery. Ask directly whether they attend deliveries or refer out.",
+  'Midwives care for average-risk pregnancy through labor, delivery, and postpartum, usually as part of a team with ob-gyns. Not all midwifery credentials are equivalent: ACOG supports Certified Nurse-Midwives (CNMs) and Certified Midwives (CMs), both certified by the American Midwifery Certification Board (AMCB), and endorses the International Confederation of Midwives (ICM) Global Standards as the minimum baseline. ACOG does not support midwives who don\'t meet these standards, including uncertified or "lay" midwives.',
+  "Physician backup matters. Even a healthy pregnancy can turn quickly, so know: who covers when your provider is off duty, which hospital they deliver at, whether an ob-gyn is immediately available for emergencies, and — for home or birth-center plans — whether there's a written transfer arrangement with a hospital.",
+  "The delivery facility matters as much as the provider. Hospitals are rated in four levels of maternal care (Level I–IV) based on capability. Ask about 24/7 anesthesia, NICU level, on-call MFM availability, and policies on labor support, VBAC, and family-centered cesarean.",
+  "To find a provider: ask your primary care doctor or trusted people you know for recommendations, use your insurance plan's \"find a doctor\" tool to confirm in-network status, check your preferred hospital's provider directory, or — for high-risk pregnancy — use the Society for Maternal-Fetal Medicine's specialist directory.",
+  "Quick matching guide: healthy average-risk pregnancy → ob-gyn, family medicine doctor, or CNM/CM with ob-gyn backup. Prior cesarean hoping for VBAC, a medical condition, multiples, or a prior serious complication → an ob-gyn, usually with MFM consultation or co-management.",
 ];
 
 export const OB_PROVIDER_QUESTIONS: string[] = [
-  "What's your philosophy on labor interventions, pain relief, and cesareans?",
-  "How many other providers are in your practice, and could any of them deliver my baby instead of you?",
-  "Which hospital or birth center do you deliver at, and is it in-network?",
-  "How do you handle after-hours questions or emergencies?",
-  "What's a typical visit schedule, and how much time is spent with me at each visit?",
-  "Do you support a birth plan, doula involvement, or specific requests like delayed cord clamping?",
-  "How do you coordinate with a maternal-fetal medicine specialist if a complication comes up?",
+  "What are your training and credentials, and are you board-certified (ABOG for ob-gyns; AMCB or ICM standards for midwives)?",
+  "How many people are in your call group, and might I see someone else at delivery?",
+  "Which hospital do you deliver at, and what level of maternal care does it provide?",
+  "For a midwife or family medicine provider: who is your backup ob-gyn, and how quickly can an emergency cesarean be started?",
+  "Is there 24/7 anesthesia, a NICU, and an MFM specialist available if needed?",
+  "How do you feel about a birth plan, doula involvement, VBAC, or family-centered cesarean?",
+  "What is your cesarean rate, and when do you typically recommend one?",
+  "Can I take a tour of the labor-and-delivery unit?",
 ];
 
 export const OB_PROVIDER_RESOURCES: ObProviderResource[] = [
   {
-    name: "ACOG Patient FAQ — Having a Baby: Choosing Your Health Care Provider",
-    detail: "acog.org/womens-health/faqs/having-a-baby",
-    url: "https://www.acog.org/womens-health/faqs/having-a-baby",
+    name: "ACOG — Prenatal Care (patient FAQ)",
+    detail: "acog.org/womens-health/faqs/prenatal-care",
+    url: "https://www.acog.org/womens-health/faqs/prenatal-care",
   },
   {
     name: "ACOG — Find an Ob-Gyn",
-    detail: "acog.org/find-an-ob-gyn",
-    url: "https://www.acog.org/find-an-ob-gyn",
+    detail: "acog.org/womens-health/find-an-ob-gyn",
+    url: "https://www.acog.org/womens-health/find-an-ob-gyn",
   },
   {
-    name: "American College of Nurse-Midwives — Find a Midwife",
-    detail: "midwife.org/find-a-midwife",
-    url: "https://www.midwife.org/find-a-midwife",
+    name: "ACOG — Midwifery Policy & Positions",
+    detail: "acog.org/advocacy/policy-priorities/midwifery",
+    url: "https://www.acog.org/advocacy/policy-priorities/midwifery",
   },
   {
-    name: "Your insurance plan directory",
+    name: "SMFM — Find an MFM Specialist",
+    detail: "smfm.org · directory linked from ACOG's Find an Ob-Gyn page",
+    url: "https://www.smfm.org",
+  },
+  {
+    name: "American Midwifery Certification Board (AMCB) — verify a CNM or CM",
+    detail: "amcbmidwife.org",
+    url: "https://www.amcbmidwife.org",
+  },
+  {
+    name: "Your ob-gyn office",
     detail:
-      "Confirm in-network status and covered hospitals before your first visit.",
+      "Call any time — questions about who to see are part of your prenatal care.",
   },
 ];
 
@@ -97,7 +108,7 @@ export function buildObProviderResourceHtml(): string {
       </head>
       <body>
         <h1>Choosing an OB Provider — My Resource Summary</h1>
-        <p class="sub">Educational information to help you evaluate prenatal care providers. This is not medical advice.</p>
+        <p class="sub">Based on ACOG patient guidance on choosing a pregnancy provider. This is educational information, not medical advice.</p>
 
         <div class="callout">
           <h2>Good questions to ask a potential provider</h2>
