@@ -7,6 +7,7 @@ import React, { useState } from "react";
 import {
   Alert,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -41,18 +42,29 @@ async function openPdfSummary() {
     }
     const destUri = `${FileSystem.cacheDirectory}routine-prenatal-tests.pdf`;
     await FileSystem.copyAsync({ from: sourceUri, to: destUri });
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(destUri, {
-        mimeType: "application/pdf",
-        dialogTitle: "Routine Prenatal Tests & Procedures",
-        UTI: "com.adobe.pdf",
-      });
-    } else {
-      Alert.alert(
-        "Can't open PDF",
-        "Viewing files isn't available on this device.",
-      );
+    if (Platform.OS === "web") {
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(destUri, {
+          mimeType: "application/pdf",
+          dialogTitle: "Routine Prenatal Tests & Procedures",
+          UTI: "com.adobe.pdf",
+        });
+      } else {
+        Alert.alert(
+          "Can't open PDF",
+          "Viewing files isn't available on this device.",
+        );
+      }
+      return;
     }
+    router.push({
+      pathname: "/pdf-viewer",
+      params: {
+        uri: destUri,
+        title: "Routine Prenatal Tests & Procedures",
+        shareTitle: "Routine Prenatal Tests & Procedures",
+      },
+    });
   } catch {
     Alert.alert(
       "Can't open PDF",
@@ -371,7 +383,7 @@ export default function PrenatalTestingScreen() {
               color={colors.primary}
             />
             <Text style={[styles.pdfBtnText, { color: colors.primary }]}>
-              View PDF Summary
+              View Full Handout (PDF)
             </Text>
           </TouchableOpacity>
         </Animated.View>
