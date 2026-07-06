@@ -71,20 +71,20 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="visit-prep"
-        options={{
-          title: "Get Ready",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="checkmark-done-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="learn"
         options={{
           title: "Learn",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="book-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="visit-prep"
+        options={{
+          title: "Get Ready",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="checkmark-done-outline" size={size} color={color} />
           ),
         }}
       />
