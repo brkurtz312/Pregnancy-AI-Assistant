@@ -1,6 +1,7 @@
 export interface CesareanResource {
   name: string;
   detail: string;
+  url?: string;
 }
 
 export const CESAREAN_HIGHLIGHTS: string[] = [
@@ -29,18 +30,22 @@ export const CESAREAN_NATIONAL_RESOURCES: CesareanResource[] = [
   {
     name: "ACOG Patient FAQ — Cesarean Birth",
     detail: "acog.org/womens-health/faqs/cesarean-birth",
+    url: "https://www.acog.org/womens-health/faqs/cesarean-birth",
   },
   {
     name: "ACOG Patient FAQ — Vaginal Birth After Cesarean (VBAC)",
     detail: "acog.org/womens-health/faqs/vaginal-birth-after-cesarean-delivery",
+    url: "https://www.acog.org/womens-health/faqs/vaginal-birth-after-cesarean-delivery",
   },
   {
     name: "ACOG Patient FAQ — Postpartum Pain Management",
     detail: "acog.org/womens-health/faqs/postpartum-pain-management",
+    url: "https://www.acog.org/womens-health/faqs/postpartum-pain-management",
   },
   {
     name: "ACOG — Labor, Delivery, and Postpartum Care (patient hub)",
     detail: "acog.org/womens-health/pregnancy/labor-and-delivery",
+    url: "https://www.acog.org/womens-health/pregnancy/labor-and-delivery",
   },
   {
     name: "Your ob-gyn office",

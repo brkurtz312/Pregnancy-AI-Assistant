@@ -5,6 +5,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import * as WebBrowser from "expo-web-browser";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -27,6 +28,7 @@ import {
 } from "@/lib/cesarean-birth";
 
 const PDF_ASSET = require("@/assets/docs/cesarean-birth.pdf");
+const HANDOUT_TITLE = "Cesarean Birth: Planned or Unplanned";
 
 async function openHandoutPdf() {
   try {
@@ -38,18 +40,25 @@ async function openHandoutPdf() {
     }
     const destUri = `${FileSystem.cacheDirectory}cesarean-birth.pdf`;
     await FileSystem.copyAsync({ from: sourceUri, to: destUri });
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(destUri, {
-        mimeType: "application/pdf",
-        dialogTitle: "Cesarean Birth: Planned or Unplanned (ACOG)",
-        UTI: "com.adobe.pdf",
-      });
-    } else {
-      Alert.alert(
-        "Can't open PDF",
-        "Viewing files isn't available on this device.",
-      );
+    if (Platform.OS === "web") {
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(destUri, {
+          mimeType: "application/pdf",
+          dialogTitle: HANDOUT_TITLE,
+          UTI: "com.adobe.pdf",
+        });
+      } else {
+        Alert.alert(
+          "Can't open PDF",
+          "Viewing files isn't available on this device.",
+        );
+      }
+      return;
     }
+    router.push({
+      pathname: "/pdf-viewer",
+      params: { uri: destUri, title: HANDOUT_TITLE, shareTitle: HANDOUT_TITLE },
+    });
   } catch {
     Alert.alert(
       "Can't open PDF",
@@ -205,7 +214,7 @@ export default function CesareanBirthScreen() {
               color={colors.primary}
             />
             <Text style={[styles.pdfBtnText, { color: colors.primary }]}>
-              View Full ACOG Handout (PDF)
+              View Full Handout (PDF)
             </Text>
           </TouchableOpacity>
         </Animated.View>
@@ -220,21 +229,56 @@ export default function CesareanBirthScreen() {
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
             Trusted resources
           </Text>
-          {CESAREAN_NATIONAL_RESOURCES.map((r) => (
-            <View key={r.name} style={{ marginBottom: 8 }}>
-              <Text style={[styles.resourceName, { color: colors.foreground }]}>
-                {r.name}
-              </Text>
-              <Text
-                style={[
-                  styles.resourceDetail,
-                  { color: colors.mutedForeground },
-                ]}
+          {CESAREAN_NATIONAL_RESOURCES.map((r) =>
+            r.url ? (
+              <TouchableOpacity
+                key={r.name}
+                style={styles.resourceItem}
+                onPress={() => WebBrowser.openBrowserAsync(r.url as string)}
               >
-                {r.detail}
-              </Text>
-            </View>
-          ))}
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.resourceName,
+                      styles.resourceLink,
+                      { color: colors.primary },
+                    ]}
+                  >
+                    {r.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.resourceDetail,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    {r.detail}
+                  </Text>
+                </View>
+                <Ionicons
+                  name="open-outline"
+                  size={16}
+                  color={colors.primary}
+                />
+              </TouchableOpacity>
+            ) : (
+              <View key={r.name} style={{ marginBottom: 8 }}>
+                <Text
+                  style={[styles.resourceName, { color: colors.foreground }]}
+                >
+                  {r.name}
+                </Text>
+                <Text
+                  style={[
+                    styles.resourceDetail,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  {r.detail}
+                </Text>
+              </View>
+            ),
+          )}
         </Animated.View>
 
         <TouchableOpacity
@@ -387,10 +431,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
   },
+  resourceItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
   resourceName: {
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
     marginBottom: 2,
+  },
+  resourceLink: {
+    textDecorationLine: "underline",
   },
   resourceDetail: {
     fontSize: 13,

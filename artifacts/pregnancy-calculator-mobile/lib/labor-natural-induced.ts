@@ -1,6 +1,7 @@
 export interface LniResource {
   name: string;
   detail: string;
+  url?: string;
 }
 
 export const LNI_HIGHLIGHTS: string[] = [
@@ -28,22 +29,27 @@ export const LNI_NATIONAL_RESOURCES: LniResource[] = [
   {
     name: "ACOG Patient FAQ — How to Tell When Labor Begins",
     detail: "acog.org/womens-health/faqs/how-to-tell-when-labor-begins",
+    url: "https://www.acog.org/womens-health/faqs/how-to-tell-when-labor-begins",
   },
   {
     name: "ACOG Patient FAQ — Labor Induction",
     detail: "acog.org/womens-health/faqs/labor-induction",
+    url: "https://www.acog.org/womens-health/faqs/labor-induction",
   },
   {
     name: "ACOG Patient FAQ — Induction of Labor at 39 Weeks",
     detail: "acog.org/womens-health/faqs/induction-of-labor-at-39-weeks",
+    url: "https://www.acog.org/womens-health/faqs/induction-of-labor-at-39-weeks",
   },
   {
     name: "ACOG Explains: Inducing Labor (video)",
     detail: "acog.org/womens-health/videos/inducing-labor",
+    url: "https://www.acog.org/womens-health/videos/inducing-labor",
   },
   {
     name: "ACOG — Labor, Delivery, and Postpartum Care (patient hub)",
     detail: "acog.org/womens-health/pregnancy/labor-and-delivery",
+    url: "https://www.acog.org/womens-health/pregnancy/labor-and-delivery",
   },
   {
     name: "Your ob-gyn office",

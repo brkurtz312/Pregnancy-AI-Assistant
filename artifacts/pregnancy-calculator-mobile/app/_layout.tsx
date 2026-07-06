@@ -254,6 +254,10 @@ function RootLayoutNav() {
           name="hospital-bag"
           options={{ headerShown: false, presentation: "card" }}
         />
+        <Stack.Screen
+          name="pdf-viewer"
+          options={{ headerShown: false, presentation: "modal" }}
+        />
       </Stack>
       <WhatsNewModal
         version={appVersion}

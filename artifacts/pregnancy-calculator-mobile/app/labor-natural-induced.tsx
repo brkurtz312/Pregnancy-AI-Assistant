@@ -5,6 +5,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import * as WebBrowser from "expo-web-browser";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -27,6 +28,7 @@ import {
 } from "@/lib/labor-natural-induced";
 
 const PDF_ASSET = require("@/assets/docs/labor-natural-induced.pdf");
+const HANDOUT_TITLE = "Labor: Natural or Induced";
 
 async function openHandoutPdf() {
   try {
@@ -38,18 +40,25 @@ async function openHandoutPdf() {
     }
     const destUri = `${FileSystem.cacheDirectory}labor-natural-induced.pdf`;
     await FileSystem.copyAsync({ from: sourceUri, to: destUri });
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(destUri, {
-        mimeType: "application/pdf",
-        dialogTitle: "Labor: Natural or Induced (ACOG)",
-        UTI: "com.adobe.pdf",
-      });
-    } else {
-      Alert.alert(
-        "Can't open PDF",
-        "Viewing files isn't available on this device.",
-      );
+    if (Platform.OS === "web") {
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(destUri, {
+          mimeType: "application/pdf",
+          dialogTitle: HANDOUT_TITLE,
+          UTI: "com.adobe.pdf",
+        });
+      } else {
+        Alert.alert(
+          "Can't open PDF",
+          "Viewing files isn't available on this device.",
+        );
+      }
+      return;
     }
+    router.push({
+      pathname: "/pdf-viewer",
+      params: { uri: destUri, title: HANDOUT_TITLE, shareTitle: HANDOUT_TITLE },
+    });
   } catch {
     Alert.alert(
       "Can't open PDF",
@@ -205,7 +214,7 @@ export default function LaborNaturalInducedScreen() {
               color={colors.primary}
             />
             <Text style={[styles.pdfBtnText, { color: colors.primary }]}>
-              View Full ACOG Handout (PDF)
+              View Full Handout (PDF)
             </Text>
           </TouchableOpacity>
         </Animated.View>
@@ -220,21 +229,56 @@ export default function LaborNaturalInducedScreen() {
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
             Trusted resources
           </Text>
-          {LNI_NATIONAL_RESOURCES.map((r) => (
-            <View key={r.name} style={{ marginBottom: 8 }}>
-              <Text style={[styles.resourceName, { color: colors.foreground }]}>
-                {r.name}
-              </Text>
-              <Text
-                style={[
-                  styles.resourceDetail,
-                  { color: colors.mutedForeground },
-                ]}
+          {LNI_NATIONAL_RESOURCES.map((r) =>
+            r.url ? (
+              <TouchableOpacity
+                key={r.name}
+                style={styles.resourceItem}
+                onPress={() => WebBrowser.openBrowserAsync(r.url as string)}
               >
-                {r.detail}
-              </Text>
-            </View>
-          ))}
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.resourceName,
+                      styles.resourceLink,
+                      { color: colors.primary },
+                    ]}
+                  >
+                    {r.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.resourceDetail,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    {r.detail}
+                  </Text>
+                </View>
+                <Ionicons
+                  name="open-outline"
+                  size={16}
+                  color={colors.primary}
+                />
+              </TouchableOpacity>
+            ) : (
+              <View key={r.name} style={{ marginBottom: 8 }}>
+                <Text
+                  style={[styles.resourceName, { color: colors.foreground }]}
+                >
+                  {r.name}
+                </Text>
+                <Text
+                  style={[
+                    styles.resourceDetail,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  {r.detail}
+                </Text>
+              </View>
+            ),
+          )}
         </Animated.View>
 
         <TouchableOpacity
@@ -387,10 +431,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
   },
+  resourceItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
   resourceName: {
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
     marginBottom: 2,
+  },
+  resourceLink: {
+    textDecorationLine: "underline",
   },
   resourceDetail: {
     fontSize: 13,

@@ -1,6 +1,7 @@
 export interface PainResource {
   name: string;
   detail: string;
+  url?: string;
 }
 
 export const PAIN_HIGHLIGHTS: string[] = [
@@ -29,38 +30,47 @@ export const PAIN_NATIONAL_RESOURCES: PainResource[] = [
     name: "ACOG — Thinking About Childbirth Without Pain Medication",
     detail:
       "acog.org — patient article on preparing to labor without medication",
+    url: "https://www.acog.org/womens-health",
   },
   {
     name: "ACOG Explains: Inducing Labor (video)",
     detail: "acog.org/womens-health/videos/inducing-labor",
+    url: "https://www.acog.org/womens-health/videos/inducing-labor",
   },
   {
     name: "ACOG Explains: Postpartum Recovery (video)",
     detail: "acog.org/womens-health/videos/postpartum-recovery",
+    url: "https://www.acog.org/womens-health/videos/postpartum-recovery",
   },
   {
     name: "ACOG — Labor, Delivery, and Postpartum hub",
     detail: "acog.org/womens-health/pregnancy/labor-and-delivery",
+    url: "https://www.acog.org/womens-health/pregnancy/labor-and-delivery",
   },
   {
     name: "Society for Obstetric Anesthesia & Perinatology (SOAP) — Information for Mothers",
     detail: "soap.org/information-for-mothers",
+    url: "https://www.soap.org/information-for-mothers",
   },
   {
     name: "SOAP — Labor Epidurals: Your Questions Answered (patient PDF)",
     detail: "soap.org — labor epidurals: your questions answered",
+    url: "https://www.soap.org",
   },
   {
     name: "The Painless Push (SOAP-endorsed patient site on labor epidurals)",
     detail: "thepainlesspush.com",
+    url: "https://www.thepainlesspush.com",
   },
   {
     name: "Babies After 35 — Pain Control During Labor and Delivery (podcast/video with OB & anesthesiologist)",
     detail: "babiesafter35.com — pain control during labor and delivery",
+    url: "https://www.babiesafter35.com",
   },
   {
     name: "Patient-Education Animation — Labor and Vaginal Birth (Nucleus Medical Media)",
     detail: "youtube.com — labor and vaginal birth animation",
+    url: "https://www.youtube.com",
   },
 ];
 

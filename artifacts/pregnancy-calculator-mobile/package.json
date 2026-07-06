@@ -81,6 +81,7 @@
     "expo-modules-autolinking": "~3.0.26",
     "expo-print": "~15.0.8",
     "expo-sharing": "~14.0.8",
-    "react-native-purchases": "^10.4.0"
+    "react-native-purchases": "^10.4.0",
+    "react-native-webview": "^14.0.1"
   }
 }
