@@ -1,7 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React from "react";
+import { Asset } from "expo-asset";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
+import React, { useState } from "react";
 import {
+  Alert,
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,14 +18,96 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import {
-  TIMELINE,
+  TEST_CATEGORIES,
   FAQS,
   VISIT_QUESTIONS,
+  type TestDetail,
+  type HepBTest,
 } from "@/lib/prenatal-testing-content";
+
+const PDF_ASSET = require("@/assets/docs/routine-prenatal-tests.pdf");
+
+function isHepBTest(test: TestDetail | HepBTest): test is HepBTest {
+  return "subParts" in test;
+}
+
+async function openPdfSummary() {
+  try {
+    const asset = Asset.fromModule(PDF_ASSET);
+    await asset.downloadAsync();
+    const sourceUri = asset.localUri ?? asset.uri;
+    if (!sourceUri) {
+      throw new Error("PDF asset has no resolvable URI");
+    }
+    const destUri = `${FileSystem.cacheDirectory}routine-prenatal-tests.pdf`;
+    await FileSystem.copyAsync({ from: sourceUri, to: destUri });
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(destUri, {
+        mimeType: "application/pdf",
+        dialogTitle: "Routine Prenatal Tests & Procedures",
+        UTI: "com.adobe.pdf",
+      });
+    } else {
+      Alert.alert(
+        "Can't open PDF",
+        "Viewing files isn't available on this device.",
+      );
+    }
+  } catch {
+    Alert.alert(
+      "Can't open PDF",
+      "Something went wrong opening the PDF summary. Please try again.",
+    );
+  }
+}
+
+function TestDetailBlock({
+  test,
+  colors,
+}: {
+  test: TestDetail;
+  colors: ReturnType<typeof useColors>;
+}) {
+  return (
+    <View>
+      <Text style={[styles.detailLabel, { color: colors.primary }]}>
+        WHY IT'S DONE
+      </Text>
+      <Text style={[styles.detailBody, { color: colors.foreground }]}>
+        {test.why}
+      </Text>
+      <Text
+        style={[
+          styles.detailLabel,
+          { color: colors.primary, marginTop: 14 },
+        ]}
+      >
+        WHEN
+      </Text>
+      <Text style={[styles.detailBody, { color: colors.foreground }]}>
+        {test.when}
+      </Text>
+      <Text
+        style={[
+          styles.detailLabel,
+          { color: colors.primary, marginTop: 14 },
+        ]}
+      >
+        WHAT IF IT'S ABNORMAL
+      </Text>
+      <Text style={[styles.detailBody, { color: colors.foreground }]}>
+        {test.whatIfAbnormal}
+      </Text>
+    </View>
+  );
+}
 
 export default function PrenatalTestingScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const [selectedTest, setSelectedTest] = useState<
+    TestDetail | HepBTest | null
+  >(null);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -58,7 +146,25 @@ export default function PrenatalTestingScreen() {
         </Animated.View>
 
         <Animated.View
-          entering={FadeInDown.delay(60).duration(400)}
+          entering={FadeInDown.delay(40).duration(400)}
+          style={[
+            styles.tipBanner,
+            { backgroundColor: colors.primary + "18" },
+          ]}
+        >
+          <Ionicons
+            name="information-circle"
+            size={20}
+            color={colors.primary}
+          />
+          <Text style={[styles.tipBannerText, { color: colors.foreground }]}>
+            Tap on each test below for more information — why it's done, when
+            it's done, and what happens if the result is abnormal.
+          </Text>
+        </Animated.View>
+
+        <Animated.View
+          entering={FadeInDown.delay(80).duration(400)}
           style={[
             styles.card,
             { backgroundColor: colors.card, borderColor: colors.border },
@@ -67,17 +173,9 @@ export default function PrenatalTestingScreen() {
           <Text style={[styles.body, { color: colors.foreground }]}>
             Prenatal testing helps your care team watch over both you and your
             baby throughout pregnancy. Some tests are routine for most
-            pregnancies, while others are offered as options or recommended only
-            when there are special risks, symptoms, or earlier results that need
-            a closer look.
-          </Text>
-          <Text
-            style={[styles.body, { color: colors.foreground, marginTop: 10 }]}
-          >
-            Every pregnancy is different, so your schedule may vary based on
-            your medical history, how far along you are when prenatal care
-            begins, whether you are carrying more than one baby, or what
-            previous test results show.
+            pregnancies, while others are offered as options or recommended
+            only when there are special risks, symptoms, or earlier results
+            that need a closer look.
           </Text>
           <View
             style={[styles.noteBox, { backgroundColor: colors.primary + "18" }]}
@@ -91,68 +189,81 @@ export default function PrenatalTestingScreen() {
           </View>
         </Animated.View>
 
-        <Animated.View
-          entering={FadeInDown.delay(120).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            Prenatal testing at a glance
-          </Text>
-          {TIMELINE.map((row, i) => (
-            <View
-              key={row.time}
-              style={[
-                styles.timelineRow,
-                i < TIMELINE.length - 1 && {
-                  borderBottomWidth: 1,
-                  borderBottomColor: colors.border,
-                },
-              ]}
-            >
-              <Text style={[styles.timelineTime, { color: colors.primary }]}>
-                {row.time}
-              </Text>
-              <Text
-                style={[styles.timelineTests, { color: colors.foreground }]}
-              >
-                {row.tests}
-              </Text>
-              <Text
-                style={[styles.timelineWhy, { color: colors.mutedForeground }]}
-              >
-                {row.why}
-              </Text>
-            </View>
-          ))}
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(180).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            When extra testing is needed
-          </Text>
-          <Text style={[styles.body, { color: colors.foreground }]}>
-            Not every pregnancy follows the exact same testing path. Some
-            patients need added monitoring because of high blood pressure,
-            diabetes, twins, fetal growth concerns, abnormal earlier tests,
-            decreased fetal movement, or other maternal or fetal conditions.
-          </Text>
-          <Text
-            style={[styles.body, { color: colors.foreground, marginTop: 10 }]}
+        {TEST_CATEGORIES.map((category, categoryIndex) => (
+          <Animated.View
+            key={category.id}
+            entering={FadeInDown.delay(120 + categoryIndex * 40).duration(
+              400,
+            )}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
           >
-            Additional testing later in pregnancy may include repeat
-            ultrasounds, nonstress testing, or biophysical profile testing to
-            give the care team closer information about the baby's well-being.
-          </Text>
-        </Animated.View>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              {category.title}
+            </Text>
+            {category.tests.map((test, i) => (
+              <View key={test.id}>
+                <TouchableOpacity
+                  style={[
+                    styles.testRow,
+                    i < category.tests.length - 1 && {
+                      borderBottomWidth: 1,
+                      borderBottomColor: colors.border,
+                    },
+                  ]}
+                  onPress={() => setSelectedTest(test)}
+                  activeOpacity={0.6}
+                >
+                  <View
+                    style={[
+                      styles.testDot,
+                      { backgroundColor: colors.primary },
+                    ]}
+                  />
+                  <Text
+                    style={[styles.testName, { color: colors.primary }]}
+                  >
+                    {test.name}
+                  </Text>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={colors.mutedForeground}
+                  />
+                </TouchableOpacity>
+                {isHepBTest(test) && (
+                  <View style={styles.subPartRow}>
+                    {test.subParts.map((sub) => (
+                      <TouchableOpacity
+                        key={sub.id}
+                        style={[
+                          styles.subPartChip,
+                          {
+                            backgroundColor: colors.primary + "14",
+                            borderColor: colors.primary + "40",
+                          },
+                        ]}
+                        onPress={() => setSelectedTest(sub)}
+                        activeOpacity={0.6}
+                      >
+                        <Text
+                          style={[
+                            styles.subPartChipText,
+                            { color: colors.primary },
+                          ]}
+                        >
+                          {sub.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+            ))}
+          </Animated.View>
+        ))}
 
         <Animated.View
           entering={FadeInDown.delay(240).duration(400)}
@@ -186,7 +297,7 @@ export default function PrenatalTestingScreen() {
         </Animated.View>
 
         <Animated.View
-          entering={FadeInDown.delay(300).duration(400)}
+          entering={FadeInDown.delay(280).duration(400)}
           style={[
             styles.card,
             { backgroundColor: colors.card, borderColor: colors.border },
@@ -208,25 +319,7 @@ export default function PrenatalTestingScreen() {
         </Animated.View>
 
         <Animated.View
-          entering={FadeInDown.delay(360).duration(400)}
-          style={[
-            styles.card,
-            {
-              backgroundColor: colors.primary + "12",
-              borderColor: colors.primary + "30",
-            },
-          ]}
-        >
-          <Text style={[styles.body, { color: colors.foreground }]}>
-            Most prenatal testing is done to provide reassurance, catch common
-            problems early, and guide safe care for pregnancy and delivery.
-            These tests are one part of supporting a healthy pregnancy for both
-            mother and baby.
-          </Text>
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(420).duration(400)}
+          entering={FadeInDown.delay(320).duration(400)}
           style={[
             styles.card,
             styles.askCard,
@@ -258,7 +351,129 @@ export default function PrenatalTestingScreen() {
             <Text style={styles.askBtnText}>Ask a Question</Text>
           </TouchableOpacity>
         </Animated.View>
+
+        <Animated.View
+          entering={FadeInDown.delay(360).duration(400)}
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+            Want the full picture?
+          </Text>
+          <Text
+            style={[
+              styles.body,
+              { color: colors.mutedForeground, marginBottom: 14 },
+            ]}
+          >
+            If you'd like to see the complete PDF summary this page is based
+            on, you can view or save it here.
+          </Text>
+          <TouchableOpacity
+            style={[
+              styles.pdfBtn,
+              { borderColor: colors.primary, backgroundColor: colors.card },
+            ]}
+            onPress={openPdfSummary}
+          >
+            <Ionicons
+              name="document-text-outline"
+              size={18}
+              color={colors.primary}
+            />
+            <Text style={[styles.pdfBtnText, { color: colors.primary }]}>
+              View PDF Summary
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
       </ScrollView>
+
+      <Modal
+        visible={!!selectedTest}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedTest(null)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setSelectedTest(null)}
+        >
+          <Pressable
+            style={[
+              styles.modalSheet,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.modalHeader}>
+                <Text
+                  style={[styles.modalTitle, { color: colors.foreground }]}
+                >
+                  {selectedTest?.name}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setSelectedTest(null)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons
+                    name="close"
+                    size={22}
+                    color={colors.mutedForeground}
+                  />
+                </TouchableOpacity>
+              </View>
+              {selectedTest && (
+                <>
+                  <TestDetailBlock test={selectedTest} colors={colors} />
+                  {isHepBTest(selectedTest) && (
+                    <View style={styles.subPartsSection}>
+                      <Text
+                        style={[
+                          styles.subPartsHeading,
+                          { color: colors.foreground },
+                        ]}
+                      >
+                        The three parts of this panel
+                      </Text>
+                      {selectedTest.subParts.map((sub) => (
+                        <TouchableOpacity
+                          key={sub.id}
+                          style={[
+                            styles.subPartDetailRow,
+                            {
+                              backgroundColor: colors.primary + "10",
+                              borderColor: colors.border,
+                            },
+                          ]}
+                          onPress={() => setSelectedTest(sub)}
+                          activeOpacity={0.6}
+                        >
+                          <Text
+                            style={[
+                              styles.subPartDetailName,
+                              { color: colors.primary },
+                            ]}
+                          >
+                            {sub.name}
+                          </Text>
+                          <Ionicons
+                            name="chevron-forward"
+                            size={16}
+                            color={colors.mutedForeground}
+                          />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </>
+              )}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -290,7 +505,21 @@ const styles = StyleSheet.create({
   pageSub: {
     fontSize: 14,
     fontFamily: "Inter_400Regular",
-    marginBottom: 20,
+    marginBottom: 16,
+  },
+  tipBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+  },
+  tipBannerText: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+    lineHeight: 20,
   },
   card: {
     borderRadius: 18,
@@ -314,6 +543,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
   },
+  pdfBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 12,
+    paddingVertical: 14,
+    borderWidth: 1.5,
+  },
+  pdfBtnText: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+  },
   sectionTitle: {
     fontSize: 17,
     fontFamily: "Inter_600SemiBold",
@@ -334,24 +576,39 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
     lineHeight: 19,
   },
-  timelineRow: {
-    paddingVertical: 12,
+  testRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 13,
   },
-  timelineTime: {
-    fontSize: 13,
-    fontFamily: "Inter_700Bold",
-    marginBottom: 4,
+  testDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
-  timelineTests: {
+  testName: {
+    flex: 1,
     fontSize: 14,
-    fontFamily: "Inter_500Medium",
-    lineHeight: 20,
-    marginBottom: 4,
+    fontFamily: "Inter_600SemiBold",
+    textDecorationLine: "underline",
   },
-  timelineWhy: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    lineHeight: 19,
+  subPartRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    paddingBottom: 12,
+    paddingLeft: 16,
+  },
+  subPartChip: {
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+  },
+  subPartChipText: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
   },
   faqRow: {
     paddingVertical: 12,
@@ -383,5 +640,66 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_400Regular",
     lineHeight: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    padding: 20,
+  },
+  modalSheet: {
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    maxHeight: "80%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12,
+    marginBottom: 16,
+  },
+  modalTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontFamily: "Inter_700Bold",
+  },
+  detailLabel: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  detailBody: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 21,
+  },
+  subPartsSection: {
+    marginTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0,0,0,0.08)",
+    paddingTop: 16,
+  },
+  subPartsHeading: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    marginBottom: 10,
+  },
+  subPartDetailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 8,
+  },
+  subPartDetailName: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
   },
 });
