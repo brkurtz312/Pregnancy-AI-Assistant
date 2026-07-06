@@ -586,10 +586,29 @@ function KickCounterSection() {
     },
   });
 
+  const showInstructions = useCallback(() => {
+    Alert.alert(
+      "How it works",
+      "Tap Start Counting when you're ready to track movements.\n\n" +
+        "Tap the big button once for every kick, roll, or movement you feel.\n\n" +
+        "Tap End Session when you're done — many providers suggest 10 movements within about 2 hours as a healthy pace.",
+    );
+  }, []);
+
   return (
     <View style={s.container}>
       <View style={s.row}>
         <Text style={s.title}>Kick Counter</Text>
+        <TouchableOpacity
+          onPress={showInstructions}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons
+            name="information-circle-outline"
+            size={20}
+            color={colors.mutedForeground}
+          />
+        </TouchableOpacity>
       </View>
 
       {activeSessionId ? (
@@ -878,10 +897,29 @@ function ContractionTimerSection() {
     },
   });
 
+  const showInstructions = useCallback(() => {
+    Alert.alert(
+      "How it works",
+      "Tap Start the moment a contraction begins.\n\n" +
+        "Tap Stop as soon as it ends — this logs its duration and the interval since your last one.\n\n" +
+        "Repeat for each contraction so we can spot patterns, like 5-1-1 (contractions lasting at least 1 minute, every 5 minutes or less, for at least 1 hour).",
+    );
+  }, []);
+
   return (
     <View style={s.container}>
       <View style={s.row}>
         <Text style={s.title}>Contraction Timer</Text>
+        <TouchableOpacity
+          onPress={showInstructions}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons
+            name="information-circle-outline"
+            size={20}
+            color={colors.mutedForeground}
+          />
+        </TouchableOpacity>
       </View>
 
       <View style={s.timerBox}>

@@ -141,6 +141,10 @@ function RootLayoutNav() {
           name="(auth)"
           options={{ headerShown: false, presentation: "fullScreenModal" }}
         />
+        <Stack.Screen
+          name="prenatal-testing"
+          options={{ headerShown: false, presentation: "card" }}
+        />
       </Stack>
       <WhatsNewModal
         version={appVersion}

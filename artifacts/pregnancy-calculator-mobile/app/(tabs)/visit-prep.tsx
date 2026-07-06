@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useUser } from "@clerk/expo";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
+import { router } from "expo-router";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   ActivityIndicator,
@@ -663,6 +664,45 @@ function QuestionsChecklistSection() {
   );
 }
 
+// ─── Learn Section ───────────────────────────────────────────────────────────
+
+function LearnSection() {
+  const colors = useColors();
+
+  return (
+    <TouchableOpacity
+      style={[
+        styles.learnCard,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+      onPress={() => router.push("/prenatal-testing")}
+    >
+      <View
+        style={[styles.learnIcon, { backgroundColor: colors.primary + "18" }]}
+      >
+        <Ionicons
+          name="document-text-outline"
+          size={20}
+          color={colors.primary}
+        />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.learnTitle, { color: colors.foreground }]}>
+          Understanding Prenatal Testing
+        </Text>
+        <Text style={[styles.learnSub, { color: colors.mutedForeground }]}>
+          What to expect and why these tests matter
+        </Text>
+      </View>
+      <Ionicons
+        name="chevron-forward"
+        size={18}
+        color={colors.mutedForeground}
+      />
+    </TouchableOpacity>
+  );
+}
+
 // ─── Main Visit Prep Screen ──────────────────────────────────────────────────
 
 export default function VisitPrepScreen() {
@@ -836,6 +876,10 @@ export default function VisitPrepScreen() {
         <QuestionsChecklistSection />
       </Animated.View>
 
+      <Animated.View entering={FadeInDown.delay(300).duration(400)}>
+        <LearnSection />
+      </Animated.View>
+
       <VisitModal
         visible={modalVisible}
         onClose={() => {
@@ -907,6 +951,31 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     padding: 16,
+  },
+  learnCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+  },
+  learnIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  learnTitle: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    marginBottom: 2,
+  },
+  learnSub: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
   },
   countdown: {
     fontSize: 20,

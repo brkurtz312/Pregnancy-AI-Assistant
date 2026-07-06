@@ -1,7 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   useListKickSessions,
   useCreateKickSession,
@@ -96,11 +101,47 @@ export function KickCounter() {
 
   return (
     <div>
-      <div className="mb-4">
-        <h3 className="text-lg font-semibold">Kick Counter</h3>
-        <p className="text-sm text-muted-foreground">
-          Count baby's movements in a session
-        </p>
+      <div className="mb-4 flex items-start justify-between gap-2">
+        <div>
+          <h3 className="text-lg font-semibold">Kick Counter</h3>
+          <p className="text-sm text-muted-foreground">
+            Count baby's movements in a session
+          </p>
+        </div>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 shrink-0 text-muted-foreground"
+              aria-label="How to use the kick counter"
+            >
+              <Info className="w-4 h-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="text-sm">
+            <p className="font-semibold mb-1.5">How it works</p>
+            <ul className="space-y-1.5 text-muted-foreground list-disc pl-4">
+              <li>
+                Tap{" "}
+                <span className="font-medium text-foreground">
+                  Start Counting
+                </span>{" "}
+                when you're ready to track movements.
+              </li>
+              <li>
+                Tap the big button once for every kick, roll, or movement you
+                feel.
+              </li>
+              <li>
+                Tap{" "}
+                <span className="font-medium text-foreground">End Session</span>{" "}
+                when you're done — many providers suggest 10 movements within
+                about 2 hours as a healthy pace.
+              </li>
+            </ul>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {activeSessionId ? (

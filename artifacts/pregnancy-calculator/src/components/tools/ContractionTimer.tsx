@@ -1,7 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Trash2, AlertTriangle } from "lucide-react";
+import { Trash2, AlertTriangle, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   useListContractions,
   useCreateContraction,
@@ -125,11 +130,43 @@ export function ContractionTimer() {
 
   return (
     <div>
-      <div className="mb-4">
-        <h3 className="text-lg font-semibold">Contraction Timer</h3>
-        <p className="text-sm text-muted-foreground">
-          Time and track contractions for today
-        </p>
+      <div className="mb-4 flex items-start justify-between gap-2">
+        <div>
+          <h3 className="text-lg font-semibold">Contraction Timer</h3>
+          <p className="text-sm text-muted-foreground">
+            Time and track contractions for today
+          </p>
+        </div>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 shrink-0 text-muted-foreground"
+              aria-label="How to use the contraction timer"
+            >
+              <Info className="w-4 h-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="text-sm">
+            <p className="font-semibold mb-1.5">How it works</p>
+            <ul className="space-y-1.5 text-muted-foreground list-disc pl-4">
+              <li>
+                Tap <span className="font-medium text-foreground">Start</span>{" "}
+                the moment a contraction begins.
+              </li>
+              <li>
+                Tap <span className="font-medium text-foreground">Stop</span> as
+                soon as it ends — this logs its duration and the interval since
+                your last one.
+              </li>
+              <li>
+                Repeat for each contraction so we can spot patterns, like 5-1-1
+                (contractions lasting ≥1 min, every ≤5 min, for ≥1 hour).
+              </li>
+            </ul>
+          </PopoverContent>
+        </Popover>
       </div>
 
       <div
