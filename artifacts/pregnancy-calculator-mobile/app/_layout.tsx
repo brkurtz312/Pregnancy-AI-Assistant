@@ -214,6 +214,14 @@ function RootLayoutNav() {
           name="postpartum"
           options={{ headerShown: false, presentation: "card" }}
         />
+        <Stack.Screen
+          name="postpartum-depression"
+          options={{ headerShown: false, presentation: "card" }}
+        />
+        <Stack.Screen
+          name="postpartum-depression-summary"
+          options={{ headerShown: false, presentation: "card" }}
+        />
       </Stack>
       <WhatsNewModal
         version={appVersion}
