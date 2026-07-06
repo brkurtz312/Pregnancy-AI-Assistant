@@ -73,9 +73,7 @@ export default function PdfViewerScreen() {
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={styles.doneBtn}
         >
-          <Text style={[styles.doneText, { color: colors.primary }]}>
-            Done
-          </Text>
+          <Text style={[styles.doneText, { color: colors.primary }]}>Done</Text>
         </TouchableOpacity>
         <Text
           style={[styles.title, { color: colors.foreground }]}
