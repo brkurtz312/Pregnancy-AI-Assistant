@@ -77,10 +77,7 @@ function TestDetailBlock({
         {test.why}
       </Text>
       <Text
-        style={[
-          styles.detailLabel,
-          { color: colors.primary, marginTop: 14 },
-        ]}
+        style={[styles.detailLabel, { color: colors.primary, marginTop: 14 }]}
       >
         WHEN
       </Text>
@@ -88,10 +85,7 @@ function TestDetailBlock({
         {test.when}
       </Text>
       <Text
-        style={[
-          styles.detailLabel,
-          { color: colors.primary, marginTop: 14 },
-        ]}
+        style={[styles.detailLabel, { color: colors.primary, marginTop: 14 }]}
       >
         WHAT IF IT'S ABNORMAL
       </Text>
@@ -147,10 +141,7 @@ export default function PrenatalTestingScreen() {
 
         <Animated.View
           entering={FadeInDown.delay(40).duration(400)}
-          style={[
-            styles.tipBanner,
-            { backgroundColor: colors.primary + "18" },
-          ]}
+          style={[styles.tipBanner, { backgroundColor: colors.primary + "18" }]}
         >
           <Ionicons
             name="information-circle"
@@ -173,9 +164,9 @@ export default function PrenatalTestingScreen() {
           <Text style={[styles.body, { color: colors.foreground }]}>
             Prenatal testing helps your care team watch over both you and your
             baby throughout pregnancy. Some tests are routine for most
-            pregnancies, while others are offered as options or recommended
-            only when there are special risks, symptoms, or earlier results
-            that need a closer look.
+            pregnancies, while others are offered as options or recommended only
+            when there are special risks, symptoms, or earlier results that need
+            a closer look.
           </Text>
           <View
             style={[styles.noteBox, { backgroundColor: colors.primary + "18" }]}
@@ -192,9 +183,7 @@ export default function PrenatalTestingScreen() {
         {TEST_CATEGORIES.map((category, categoryIndex) => (
           <Animated.View
             key={category.id}
-            entering={FadeInDown.delay(120 + categoryIndex * 40).duration(
-              400,
-            )}
+            entering={FadeInDown.delay(120 + categoryIndex * 40).duration(400)}
             style={[
               styles.card,
               { backgroundColor: colors.card, borderColor: colors.border },
@@ -222,9 +211,7 @@ export default function PrenatalTestingScreen() {
                       { backgroundColor: colors.primary },
                     ]}
                   />
-                  <Text
-                    style={[styles.testName, { color: colors.primary }]}
-                  >
+                  <Text style={[styles.testName, { color: colors.primary }]}>
                     {test.name}
                   </Text>
                   <Ionicons
@@ -368,8 +355,8 @@ export default function PrenatalTestingScreen() {
               { color: colors.mutedForeground, marginBottom: 14 },
             ]}
           >
-            If you'd like to see the complete PDF summary this page is based
-            on, you can view or save it here.
+            If you'd like to see the complete PDF summary this page is based on,
+            you can view or save it here.
           </Text>
           <TouchableOpacity
             style={[
@@ -409,9 +396,7 @@ export default function PrenatalTestingScreen() {
           >
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.modalHeader}>
-                <Text
-                  style={[styles.modalTitle, { color: colors.foreground }]}
-                >
+                <Text style={[styles.modalTitle, { color: colors.foreground }]}>
                   {selectedTest?.name}
                 </Text>
                 <TouchableOpacity
