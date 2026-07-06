@@ -238,6 +238,11 @@ export default function PregnancyComplicationsScreen() {
               />
             </TouchableOpacity>
           ))}
+          <Text
+            style={[styles.moreToComeText, { color: colors.mutedForeground }]}
+          >
+            More to come
+          </Text>
         </Animated.View>
 
         <Animated.View
@@ -456,6 +461,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_400Regular",
     lineHeight: 18,
+  },
+  moreToComeText: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    fontStyle: "italic",
+    marginTop: 4,
   },
   shareBtn: {
     flexDirection: "row",
