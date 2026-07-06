@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "@clerk/expo";
 import { router, useLocalSearchParams } from "expo-router";
 import { Asset } from "expo-asset";
 import * as FileSystem from "expo-file-system/legacy";
@@ -19,6 +20,11 @@ import {
 } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  getGetProfileQueryKey,
+  useGetProfile,
+  useUpdateProfile,
+} from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import {
   BF_HIGHLIGHTS,
@@ -116,6 +122,13 @@ export default function BreastfeedingScreen() {
   const params = useLocalSearchParams<{ from?: string }>();
   const backLabel = params.from || "Postpartum";
 
+  const { isSignedIn } = useAuth();
+  const { data: profile } = useGetProfile({
+    query: { enabled: !!isSignedIn, queryKey: getGetProfileQueryKey() },
+  });
+  const updateProfileMutation = useUpdateProfile();
+  const profileZip = profile?.zipCode?.trim() ?? "";
+
   const [checkin, setCheckin] = useState<BfCheckin>({
     wantsResources: undefined,
     zip: "",
@@ -142,7 +155,7 @@ export default function BreastfeedingScreen() {
   }, []);
 
   const handleGenerate = useCallback(async () => {
-    const zip = checkin.zip?.trim() ?? "";
+    const zip = profileZip || (checkin.zip?.trim() ?? "");
     if (checkin.wantsResources === "yes" && !/^\d{5}$/.test(zip)) {
       setZipError("Please enter a valid 5-digit zip code.");
       return;
@@ -151,9 +164,13 @@ export default function BreastfeedingScreen() {
     try {
       setGenerating(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const html = buildBreastfeedingResourceHtml(checkin);
-      const updated = await markBfSummaryGenerated(checkin);
+      const checkinForSummary = { ...checkin, zip };
+      const html = buildBreastfeedingResourceHtml(checkinForSummary);
+      const updated = await markBfSummaryGenerated(checkinForSummary);
       setCheckin(updated);
+      if (!profileZip && isSignedIn && /^\d{5}$/.test(zip)) {
+        updateProfileMutation.mutate({ data: { zipCode: zip } });
+      }
       if (Platform.OS === "web") {
         setGenerated(true);
         Alert.alert(
@@ -181,7 +198,7 @@ export default function BreastfeedingScreen() {
     } finally {
       setGenerating(false);
     }
-  }, [checkin]);
+  }, [checkin, profileZip, isSignedIn, updateProfileMutation]);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -334,44 +351,63 @@ export default function BreastfeedingScreen() {
 
               {checkin.wantsResources === "yes" && (
                 <View style={{ marginTop: 14 }}>
-                  <Text
-                    style={[styles.fieldLabel, { color: colors.foreground }]}
-                  >
-                    Your zip code
-                  </Text>
-                  <Text
-                    style={[
-                      styles.fieldHelper,
-                      { color: colors.mutedForeground },
-                    ]}
-                  >
-                    We'll point you to directories that let you search for
-                    lactation consultants, peer-support groups, and free
-                    breastfeeding help near you.
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      {
-                        borderColor: zipError ? "#c0392b" : colors.border,
-                        color: colors.foreground,
-                        backgroundColor: colors.background,
-                      },
-                    ]}
-                    value={checkin.zip}
-                    onChangeText={(v) => {
-                      setZipError(null);
-                      updateCheckin({ zip: v });
-                    }}
-                    placeholder="e.g. 94110"
-                    placeholderTextColor={colors.mutedForeground}
-                    keyboardType="number-pad"
-                    maxLength={5}
-                  />
-                  {zipError && (
-                    <Text style={[styles.errorText, { color: "#c0392b" }]}>
-                      {zipError}
+                  {profileZip ? (
+                    <Text
+                      style={[
+                        styles.fieldHelper,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      We'll use the zip code from My Info ({profileZip}) to
+                      point you to lactation consultants, peer-support groups,
+                      and free breastfeeding help near you.
                     </Text>
+                  ) : (
+                    <>
+                      <Text
+                        style={[
+                          styles.fieldLabel,
+                          { color: colors.foreground },
+                        ]}
+                      >
+                        Your zip code
+                      </Text>
+                      <Text
+                        style={[
+                          styles.fieldHelper,
+                          { color: colors.mutedForeground },
+                        ]}
+                      >
+                        We'll point you to directories that let you search for
+                        lactation consultants, peer-support groups, and free
+                        breastfeeding help near you. We'll also save this to My
+                        Info so we don't have to ask again.
+                      </Text>
+                      <TextInput
+                        style={[
+                          styles.input,
+                          {
+                            borderColor: zipError ? "#c0392b" : colors.border,
+                            color: colors.foreground,
+                            backgroundColor: colors.background,
+                          },
+                        ]}
+                        value={checkin.zip}
+                        onChangeText={(v) => {
+                          setZipError(null);
+                          updateCheckin({ zip: v });
+                        }}
+                        placeholder="e.g. 94110"
+                        placeholderTextColor={colors.mutedForeground}
+                        keyboardType="number-pad"
+                        maxLength={5}
+                      />
+                      {zipError && (
+                        <Text style={[styles.errorText, { color: "#c0392b" }]}>
+                          {zipError}
+                        </Text>
+                      )}
+                    </>
                   )}
                 </View>
               )}
