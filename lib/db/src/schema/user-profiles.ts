@@ -4,9 +4,14 @@ import { z } from "zod/v4";
 
 export const userProfilesTable = pgTable("user_profiles", {
   userId: text("user_id").primaryKey(),
+  firstName: text("first_name"),
+  zipCode: text("zip_code"),
   dueDate: text("due_date"),
   providerName: text("provider_name"),
   providerPhone: text("provider_phone"),
+  providerAddress: text("provider_address"),
+  // "hospital" | "birthing_center"
+  deliveryCenterType: text("delivery_center_type"),
   hospitalName: text("hospital_name"),
   hospitalPhone: text("hospital_phone"),
   hospitalAddress: text("hospital_address"),

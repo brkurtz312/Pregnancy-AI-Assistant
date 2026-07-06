@@ -1129,6 +1129,10 @@ components:
     UserProfile:
       type: object
       properties:
+        firstName:
+          type: ["string", "null"]
+        zipCode:
+          type: ["string", "null"]
         dueDate:
           type: ["string", "null"]
           description: ISO date string of the estimated due date (YYYY-MM-DD)
@@ -1136,6 +1140,11 @@ components:
           type: ["string", "null"]
         providerPhone:
           type: ["string", "null"]
+        providerAddress:
+          type: ["string", "null"]
+        deliveryCenterType:
+          type: ["string", "null"]
+          enum: ["hospital", "birthing_center", null]
         hospitalName:
           type: ["string", "null"]
         hospitalPhone:
@@ -1145,6 +1154,12 @@ components:
     UpdateProfileBody:
       type: object
       properties:
+        firstName:
+          type: ["string", "null"]
+          maxLength: 100
+        zipCode:
+          type: ["string", "null"]
+          maxLength: 10
         dueDate:
           type: ["string", "null"]
           description: ISO date string of the estimated due date (YYYY-MM-DD)
@@ -1154,6 +1169,12 @@ components:
         providerPhone:
           type: ["string", "null"]
           maxLength: 30
+        providerAddress:
+          type: ["string", "null"]
+          maxLength: 500
+        deliveryCenterType:
+          type: ["string", "null"]
+          enum: ["hospital", "birthing_center", null]
         hospitalName:
           type: ["string", "null"]
           maxLength: 200

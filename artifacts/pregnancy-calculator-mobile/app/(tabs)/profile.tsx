@@ -114,7 +114,7 @@ function Field({
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
-  keyboardType?: "default" | "phone-pad";
+  keyboardType?: "default" | "phone-pad" | "number-pad";
   suffix?: React.ReactNode;
 }) {
   const colors = useColors();
@@ -161,8 +161,14 @@ export default function ProfileScreen() {
   const updateMutation = useUpdateProfile();
   const { hasPass, redeemCode, isRedeeming } = usePass();
 
+  const [firstName, setFirstName] = useState("");
+  const [zipCode, setZipCode] = useState("");
   const [providerName, setProviderName] = useState("");
   const [providerPhone, setProviderPhone] = useState("");
+  const [providerAddress, setProviderAddress] = useState("");
+  const [deliveryCenterType, setDeliveryCenterType] = useState<
+    "hospital" | "birthing_center"
+  >("hospital");
   const [hospitalName, setHospitalName] = useState("");
   const [hospitalPhone, setHospitalPhone] = useState("");
   const [hospitalAddress, setHospitalAddress] = useState("");
@@ -189,8 +195,16 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     if (profile) {
+      setFirstName(profile.firstName ?? "");
+      setZipCode(profile.zipCode ?? "");
       setProviderName(profile.providerName ?? "");
       setProviderPhone(profile.providerPhone ?? "");
+      setProviderAddress(profile.providerAddress ?? "");
+      setDeliveryCenterType(
+        profile.deliveryCenterType === "birthing_center"
+          ? "birthing_center"
+          : "hospital",
+      );
       setHospitalName(profile.hospitalName ?? "");
       setHospitalPhone(profile.hospitalPhone ?? "");
       setHospitalAddress(profile.hospitalAddress ?? "");
@@ -202,8 +216,12 @@ export default function ProfileScreen() {
     try {
       await updateMutation.mutateAsync({
         data: {
+          firstName: firstName.trim() || null,
+          zipCode: zipCode.trim() || null,
           providerName: providerName.trim() || null,
           providerPhone: providerPhone.trim() || null,
+          providerAddress: providerAddress.trim() || null,
+          deliveryCenterType,
           hospitalName: hospitalName.trim() || null,
           hospitalPhone: hospitalPhone.trim() || null,
           hospitalAddress: hospitalAddress.trim() || null,
@@ -216,8 +234,12 @@ export default function ProfileScreen() {
     }
   }, [
     isSignedIn,
+    firstName,
+    zipCode,
     providerName,
     providerPhone,
+    providerAddress,
+    deliveryCenterType,
     hospitalName,
     hospitalPhone,
     hospitalAddress,
@@ -291,6 +313,50 @@ export default function ProfileScreen() {
             </Text>
           ) : (
             <>
+              {/* About you section */}
+              <View
+                style={[
+                  styles.card,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <View style={styles.sectionHeader}>
+                  <Ionicons
+                    name="person-outline"
+                    size={20}
+                    color={colors.primary}
+                  />
+                  <Text
+                    style={[styles.sectionTitle, { color: colors.foreground }]}
+                  >
+                    About You
+                  </Text>
+                </View>
+
+                <Field
+                  label="FIRST NAME"
+                  value={firstName}
+                  onChange={setFirstName}
+                  placeholder="Jane"
+                />
+                <Field
+                  label="ZIP CODE"
+                  value={zipCode}
+                  onChange={setZipCode}
+                  placeholder="90210"
+                  keyboardType="number-pad"
+                />
+                <Text
+                  style={[
+                    styles.privacyNote,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  Used only to find local resources for you — not shared or
+                  collected.
+                </Text>
+              </View>
+
               {/* Provider section */}
               <View
                 style={[
@@ -327,9 +393,18 @@ export default function ProfileScreen() {
                     providerPhone ? <CallButton phone={providerPhone} /> : null
                   }
                 />
+                <Field
+                  label="ADDRESS"
+                  value={providerAddress}
+                  onChange={setProviderAddress}
+                  placeholder="123 Main St, City, State 00000"
+                />
+                {providerAddress ? (
+                  <DirectionsButtons address={providerAddress} />
+                ) : null}
               </View>
 
-              {/* Hospital section */}
+              {/* Delivery center section */}
               <View
                 style={[
                   styles.card,
@@ -345,8 +420,58 @@ export default function ProfileScreen() {
                   <Text
                     style={[styles.sectionTitle, { color: colors.foreground }]}
                   >
-                    My Hospital
+                    My Delivery Center
                   </Text>
+                </View>
+
+                <View style={styles.fieldWrap}>
+                  <Text
+                    style={[
+                      styles.fieldLabel,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    TYPE
+                  </Text>
+                  <View style={styles.toggleRow}>
+                    {(
+                      [
+                        { key: "hospital", label: "Hospital" },
+                        { key: "birthing_center", label: "Birthing Center" },
+                      ] as {
+                        key: "hospital" | "birthing_center";
+                        label: string;
+                      }[]
+                    ).map((opt) => {
+                      const active = deliveryCenterType === opt.key;
+                      return (
+                        <TouchableOpacity
+                          key={opt.key}
+                          onPress={() => setDeliveryCenterType(opt.key)}
+                          style={[
+                            styles.toggleBtn,
+                            {
+                              backgroundColor: active
+                                ? colors.primary
+                                : colors.background,
+                              borderColor: active
+                                ? colors.primary
+                                : colors.border,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.toggleBtnText,
+                              { color: active ? "#fff" : colors.foreground },
+                            ]}
+                          >
+                            {opt.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
                 </View>
 
                 <Field
@@ -560,6 +685,27 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   fieldRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  privacyNote: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 17,
+  },
+  toggleRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  toggleBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  toggleBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
   input: {
     borderWidth: 1,
     borderRadius: 12,

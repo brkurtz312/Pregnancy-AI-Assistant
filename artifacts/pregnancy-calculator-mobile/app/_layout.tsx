@@ -1,4 +1,4 @@
-import { ClerkProvider, useSession } from "@clerk/expo";
+import { ClerkProvider, useAuth, useSession } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
 import {
   Inter_400Regular,
@@ -10,11 +10,13 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   ApiError,
+  getGetProfileQueryKey,
   setAuthTokenGetter,
   setBaseUrl,
+  useGetProfile,
 } from "@workspace/api-client-react";
 import Constants from "expo-constants";
-import { Stack } from "expo-router";
+import { type Href, Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useRef } from "react";
 import { WhatsNewModal } from "@/components/WhatsNewModal";
@@ -129,16 +131,55 @@ function AuthTokenBridge() {
   return null;
 }
 
+/**
+ * Redirects a signed-in user to the onboarding screen once, the first time
+ * their profile is loaded and has no `firstName` set. Uses `useSegments` to
+ * avoid an infinite redirect loop while already on `/onboarding`, and only
+ * fires once per app session (`hasPromptedRef`) so navigating back out of
+ * onboarding (e.g. via Skip) doesn't immediately re-trigger it.
+ */
+function OnboardingGate() {
+  const { isSignedIn, isLoaded } = useAuth();
+  const router = useRouter();
+  const segments = useSegments();
+  const hasPromptedRef = useRef(false);
+
+  const { data: profile } = useGetProfile({
+    query: { enabled: !!isSignedIn, queryKey: getGetProfileQueryKey() },
+  });
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+    if (hasPromptedRef.current) return;
+    if (profile === undefined) return;
+    if (segments[0] === "onboarding") return;
+
+    if (!profile?.firstName) {
+      hasPromptedRef.current = true;
+      router.push("/onboarding" as Href);
+    } else {
+      hasPromptedRef.current = true;
+    }
+  }, [isLoaded, isSignedIn, profile, segments, router]);
+
+  return null;
+}
+
 function RootLayoutNav() {
   const appVersion = Constants.expoConfig?.version ?? "";
   const { visible, dismiss } = useWhatsNew();
 
   return (
     <>
+      <OnboardingGate />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
           name="(auth)"
+          options={{ headerShown: false, presentation: "fullScreenModal" }}
+        />
+        <Stack.Screen
+          name="onboarding"
           options={{ headerShown: false, presentation: "fullScreenModal" }}
         />
         <Stack.Screen

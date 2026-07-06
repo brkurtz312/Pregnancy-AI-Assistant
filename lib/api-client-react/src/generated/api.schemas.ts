@@ -261,7 +261,23 @@ export interface CreateContractionBody {
   sessionDate: string;
 }
 
+/**
+ * @nullable
+ */
+export type UserProfileDeliveryCenterType =
+  | (typeof UserProfileDeliveryCenterType)[keyof typeof UserProfileDeliveryCenterType]
+  | null;
+
+export const UserProfileDeliveryCenterType = {
+  hospital: "hospital",
+  birthing_center: "birthing_center",
+} as const;
+
 export interface UserProfile {
+  /** @nullable */
+  firstName?: string | null;
+  /** @nullable */
+  zipCode?: string | null;
   /**
    * ISO date string of the estimated due date (YYYY-MM-DD)
    * @nullable
@@ -272,6 +288,10 @@ export interface UserProfile {
   /** @nullable */
   providerPhone?: string | null;
   /** @nullable */
+  providerAddress?: string | null;
+  /** @nullable */
+  deliveryCenterType?: UserProfileDeliveryCenterType;
+  /** @nullable */
   hospitalName?: string | null;
   /** @nullable */
   hospitalPhone?: string | null;
@@ -279,7 +299,29 @@ export interface UserProfile {
   hospitalAddress?: string | null;
 }
 
+/**
+ * @nullable
+ */
+export type UpdateProfileBodyDeliveryCenterType =
+  | (typeof UpdateProfileBodyDeliveryCenterType)[keyof typeof UpdateProfileBodyDeliveryCenterType]
+  | null;
+
+export const UpdateProfileBodyDeliveryCenterType = {
+  hospital: "hospital",
+  birthing_center: "birthing_center",
+} as const;
+
 export interface UpdateProfileBody {
+  /**
+   * @maxLength 100
+   * @nullable
+   */
+  firstName?: string | null;
+  /**
+   * @maxLength 10
+   * @nullable
+   */
+  zipCode?: string | null;
   /**
    * ISO date string of the estimated due date (YYYY-MM-DD)
    * @nullable
@@ -295,6 +337,13 @@ export interface UpdateProfileBody {
    * @nullable
    */
   providerPhone?: string | null;
+  /**
+   * @maxLength 500
+   * @nullable
+   */
+  providerAddress?: string | null;
+  /** @nullable */
+  deliveryCenterType?: UpdateProfileBodyDeliveryCenterType;
   /**
    * @maxLength 200
    * @nullable

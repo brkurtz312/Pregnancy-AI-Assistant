@@ -417,12 +417,22 @@ export const DeletePrenatalVisitParams = zod.object({
  * @summary Get user profile
  */
 export const GetProfileResponse = zod.object({
+  firstName: zod.string().nullish(),
+  zipCode: zod.string().nullish(),
   dueDate: zod
     .string()
     .nullish()
     .describe("ISO date string of the estimated due date (YYYY-MM-DD)"),
   providerName: zod.string().nullish(),
   providerPhone: zod.string().nullish(),
+  providerAddress: zod.string().nullish(),
+  deliveryCenterType: zod
+    .union([
+      zod.literal("hospital"),
+      zod.literal("birthing_center"),
+      zod.literal(null),
+    ])
+    .nullish(),
   hospitalName: zod.string().nullish(),
   hospitalPhone: zod.string().nullish(),
   hospitalAddress: zod.string().nullish(),
@@ -432,9 +442,15 @@ export const GetProfileResponse = zod.object({
  * Upserts the authenticated user's profile data.
  * @summary Create or update user profile
  */
+export const updateProfileBodyFirstNameMax = 100;
+
+export const updateProfileBodyZipCodeMax = 10;
+
 export const updateProfileBodyProviderNameMax = 200;
 
 export const updateProfileBodyProviderPhoneMax = 30;
+
+export const updateProfileBodyProviderAddressMax = 500;
 
 export const updateProfileBodyHospitalNameMax = 200;
 
@@ -443,12 +459,25 @@ export const updateProfileBodyHospitalPhoneMax = 30;
 export const updateProfileBodyHospitalAddressMax = 500;
 
 export const UpdateProfileBody = zod.object({
+  firstName: zod.string().max(updateProfileBodyFirstNameMax).nullish(),
+  zipCode: zod.string().max(updateProfileBodyZipCodeMax).nullish(),
   dueDate: zod
     .string()
     .nullish()
     .describe("ISO date string of the estimated due date (YYYY-MM-DD)"),
   providerName: zod.string().max(updateProfileBodyProviderNameMax).nullish(),
   providerPhone: zod.string().max(updateProfileBodyProviderPhoneMax).nullish(),
+  providerAddress: zod
+    .string()
+    .max(updateProfileBodyProviderAddressMax)
+    .nullish(),
+  deliveryCenterType: zod
+    .union([
+      zod.literal("hospital"),
+      zod.literal("birthing_center"),
+      zod.literal(null),
+    ])
+    .nullish(),
   hospitalName: zod.string().max(updateProfileBodyHospitalNameMax).nullish(),
   hospitalPhone: zod.string().max(updateProfileBodyHospitalPhoneMax).nullish(),
   hospitalAddress: zod
@@ -458,12 +487,22 @@ export const UpdateProfileBody = zod.object({
 });
 
 export const UpdateProfileResponse = zod.object({
+  firstName: zod.string().nullish(),
+  zipCode: zod.string().nullish(),
   dueDate: zod
     .string()
     .nullish()
     .describe("ISO date string of the estimated due date (YYYY-MM-DD)"),
   providerName: zod.string().nullish(),
   providerPhone: zod.string().nullish(),
+  providerAddress: zod.string().nullish(),
+  deliveryCenterType: zod
+    .union([
+      zod.literal("hospital"),
+      zod.literal("birthing_center"),
+      zod.literal(null),
+    ])
+    .nullish(),
   hospitalName: zod.string().nullish(),
   hospitalPhone: zod.string().nullish(),
   hospitalAddress: zod.string().nullish(),

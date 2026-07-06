@@ -17,9 +17,13 @@ router.get("/profile", requireAuth, async (req: AuthedRequest, res) => {
 
   const row = rows[0];
   res.json({
+    firstName: row?.firstName ?? null,
+    zipCode: row?.zipCode ?? null,
     dueDate: row?.dueDate ?? null,
     providerName: row?.providerName ?? null,
     providerPhone: row?.providerPhone ?? null,
+    providerAddress: row?.providerAddress ?? null,
+    deliveryCenterType: row?.deliveryCenterType ?? null,
     hospitalName: row?.hospitalName ?? null,
     hospitalPhone: row?.hospitalPhone ?? null,
     hospitalAddress: row?.hospitalAddress ?? null,
@@ -34,9 +38,13 @@ router.put("/profile", requireAuth, async (req: AuthedRequest, res) => {
   }
   const userId = req.userId!;
   const {
+    firstName,
+    zipCode,
     dueDate,
     providerName,
     providerPhone,
+    providerAddress,
+    deliveryCenterType,
     hospitalName,
     hospitalPhone,
     hospitalAddress,
@@ -46,9 +54,13 @@ router.put("/profile", requireAuth, async (req: AuthedRequest, res) => {
     .insert(userProfilesTable)
     .values({
       userId,
+      firstName: firstName ?? null,
+      zipCode: zipCode ?? null,
       dueDate: dueDate ?? null,
       providerName: providerName ?? null,
       providerPhone: providerPhone ?? null,
+      providerAddress: providerAddress ?? null,
+      deliveryCenterType: deliveryCenterType ?? null,
       hospitalName: hospitalName ?? null,
       hospitalPhone: hospitalPhone ?? null,
       hospitalAddress: hospitalAddress ?? null,
@@ -56,12 +68,20 @@ router.put("/profile", requireAuth, async (req: AuthedRequest, res) => {
     .onConflictDoUpdate({
       target: userProfilesTable.userId,
       set: {
+        ...(firstName !== undefined && { firstName: firstName ?? null }),
+        ...(zipCode !== undefined && { zipCode: zipCode ?? null }),
         ...(dueDate !== undefined && { dueDate: dueDate ?? null }),
         ...(providerName !== undefined && {
           providerName: providerName ?? null,
         }),
         ...(providerPhone !== undefined && {
           providerPhone: providerPhone ?? null,
+        }),
+        ...(providerAddress !== undefined && {
+          providerAddress: providerAddress ?? null,
+        }),
+        ...(deliveryCenterType !== undefined && {
+          deliveryCenterType: deliveryCenterType ?? null,
         }),
         ...(hospitalName !== undefined && {
           hospitalName: hospitalName ?? null,
@@ -78,9 +98,13 @@ router.put("/profile", requireAuth, async (req: AuthedRequest, res) => {
     .returning();
 
   res.json({
+    firstName: row.firstName ?? null,
+    zipCode: row.zipCode ?? null,
     dueDate: row.dueDate ?? null,
     providerName: row.providerName ?? null,
     providerPhone: row.providerPhone ?? null,
+    providerAddress: row.providerAddress ?? null,
+    deliveryCenterType: row.deliveryCenterType ?? null,
     hospitalName: row.hospitalName ?? null,
     hospitalPhone: row.hospitalPhone ?? null,
     hospitalAddress: row.hospitalAddress ?? null,
