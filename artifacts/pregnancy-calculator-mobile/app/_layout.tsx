@@ -203,6 +203,14 @@ function RootLayoutNav() {
           options={{ headerShown: false, presentation: "card" }}
         />
         <Stack.Screen
+          name="choose-ob-provider"
+          options={{ headerShown: false, presentation: "card" }}
+        />
+        <Stack.Screen
+          name="pregnancy-complications"
+          options={{ headerShown: false, presentation: "card" }}
+        />
+        <Stack.Screen
           name="labor-delivery"
           options={{ headerShown: false, presentation: "card" }}
         />
