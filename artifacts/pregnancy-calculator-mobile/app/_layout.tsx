@@ -149,6 +149,10 @@ function RootLayoutNav() {
           name="visit-summary"
           options={{ headerShown: false, presentation: "card" }}
         />
+        <Stack.Screen
+          name="development"
+          options={{ headerShown: false, presentation: "card" }}
+        />
       </Stack>
       <WhatsNewModal
         version={appVersion}

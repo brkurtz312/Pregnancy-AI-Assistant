@@ -1,3 +1,5 @@
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
@@ -92,6 +94,14 @@ export default function DevelopmentScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: BG }]}>
+      <TouchableOpacity
+        onPress={() => router.back()}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        style={styles.backBtn}
+      >
+        <Ionicons name="chevron-back" size={22} color="#eef4f2" />
+        <Text style={styles.backText}>Learn</Text>
+      </TouchableOpacity>
       <ScrollView
         style={{ flex: 1, backgroundColor: BG }}
         contentContainerStyle={styles.scroll}
@@ -307,6 +317,19 @@ export default function DevelopmentScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  backBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  backText: {
+    fontSize: 16,
+    fontFamily: "Inter_500Medium",
+    color: "#eef4f2",
+    marginLeft: 2,
+  },
   scroll: { paddingBottom: 32 },
   header: {
     paddingHorizontal: 24,
