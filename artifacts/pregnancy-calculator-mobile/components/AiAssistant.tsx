@@ -1,9 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import {
-  ApiError,
-  useAskAssistant,
-  useGetWeeklyInsight,
-} from "@workspace/api-client-react";
+import { ApiError, useAskAssistant } from "@workspace/api-client-react";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -47,19 +43,12 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
   const router = useRouter();
   const pass = usePass();
 
-  const weekly = useGetWeeklyInsight();
   const ask = useAskAssistant();
 
   const [messages, setMessages] = useState<ChatTurn[]>([]);
   const [input, setInput] = useState("");
   const [disclaimer, setDisclaimer] = useState<string | null>(null);
   const [limitReached, setLimitReached] = useState(false);
-
-  useEffect(() => {
-    if (week == null) return;
-    weekly.mutate({ data: { week } });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [week]);
 
   // Re-enable the input whenever entitlement changes so a freshly purchased
   // pass, a new weekly free quota, or an account switch lifts the limit gate
@@ -121,68 +110,6 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
 
   return (
     <Animated.View entering={FadeInDown.duration(400).springify()}>
-      {/* Weekly insight */}
-      {week != null && (
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <View style={styles.cardHeaderRow}>
-            <View style={styles.cardTitleRow}>
-              <Ionicons
-                name="sparkles-outline"
-                size={18}
-                color={colors.primary}
-              />
-              <Text style={[styles.cardTitle, { color: colors.foreground }]}>
-                Your Week {week} Insight
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                weekly.mutate({ data: { week } });
-              }}
-              disabled={weekly.isPending}
-              hitSlop={8}
-            >
-              <Ionicons
-                name="refresh-outline"
-                size={18}
-                color={
-                  weekly.isPending ? colors.mutedForeground : colors.primary
-                }
-              />
-            </TouchableOpacity>
-          </View>
-
-          {weekly.isPending ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator size="small" color={colors.primary} />
-              <Text
-                style={[styles.loadingText, { color: colors.mutedForeground }]}
-              >
-                Gathering guidance for week {week}…
-              </Text>
-            </View>
-          ) : weekly.isError ? (
-            <TouchableOpacity onPress={() => weekly.mutate({ data: { week } })}>
-              <Text
-                style={[styles.errorText, { color: colors.mutedForeground }]}
-              >
-                Couldn't load this week's insight. Tap to try again.
-              </Text>
-            </TouchableOpacity>
-          ) : weekly.data ? (
-            <Text style={[styles.insightText, { color: colors.foreground }]}>
-              {weekly.data.insight}
-            </Text>
-          ) : null}
-        </View>
-      )}
-
       {/* Q&A */}
       <View
         style={[
@@ -460,8 +387,6 @@ const styles = StyleSheet.create({
   },
   loadingRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   loadingText: { fontSize: 13, fontFamily: "Inter_400Regular" },
-  errorText: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
-  insightText: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 21 },
   introText: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
   suggestionWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   suggestionPill: {

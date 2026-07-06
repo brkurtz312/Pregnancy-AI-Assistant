@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AccountButton } from "@/components/AccountButton";
 import { AiAssistant } from "@/components/AiAssistant";
+import { WeeklyInsightCard } from "@/components/WeeklyInsightCard";
 import {
   useGetProfile,
   getGetProfileQueryKey,
@@ -86,6 +87,7 @@ export default function AskScreen() {
               </Text>
             </View>
           )}
+          <WeeklyInsightCard currentWeek={currentWeek} />
           <AiAssistant currentWeek={currentWeek} />
         </View>
       </ScrollView>

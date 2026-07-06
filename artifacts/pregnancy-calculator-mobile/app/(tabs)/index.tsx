@@ -24,6 +24,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AccountButton } from "@/components/AccountButton";
+import { WeeklyInsightCard } from "@/components/WeeklyInsightCard";
 import {
   getGetProfileQueryKey,
   useGetProfile,
@@ -847,7 +848,14 @@ export default function CalculatorScreen() {
               </View>
 
               {/* Results */}
-              {results && <ResultsView results={results} />}
+              {results && (
+                <>
+                  <ResultsView results={results} />
+                  <WeeklyInsightCard
+                    currentWeek={results.currentGestationalAgeWeeks}
+                  />
+                </>
+              )}
             </>
           )}
         </View>
