@@ -254,6 +254,50 @@ export default function LaborDeliveryScreen() {
             />
           </TouchableOpacity>
         </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(360).duration(400)}>
+          <TouchableOpacity
+            style={[
+              styles.learnCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+            onPress={() =>
+              router.push({
+                pathname: "/support-person-vol2",
+                params: { from: "Labor and Delivery" },
+              })
+            }
+          >
+            <View
+              style={[
+                styles.learnIcon,
+                { backgroundColor: colors.primary + "18" },
+              ]}
+            >
+              <Ionicons
+                name="hand-left-outline"
+                size={20}
+                color={colors.primary}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.learnTitle, { color: colors.foreground }]}>
+                Support Person Survival Series · Vol 2
+              </Text>
+              <Text
+                style={[styles.learnSub, { color: colors.mutedForeground }]}
+              >
+                "Can We Do This?" — the labor & delivery handbook for your
+                support person
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={colors.mutedForeground}
+            />
+          </TouchableOpacity>
+        </Animated.View>
       </ScrollView>
     </View>
   );

@@ -217,8 +217,52 @@ export default function PostpartumScreen() {
           </TouchableOpacity>
         </Animated.View>
 
+        <Animated.View entering={FadeInDown.delay(270).duration(400)}>
+          <TouchableOpacity
+            style={[
+              styles.learnCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+            onPress={() =>
+              router.push({
+                pathname: "/support-person-vol3",
+                params: { from: "Postpartum" },
+              })
+            }
+          >
+            <View
+              style={[
+                styles.learnIcon,
+                { backgroundColor: colors.primary + "18" },
+              ]}
+            >
+              <Ionicons
+                name="hand-left-outline"
+                size={20}
+                color={colors.primary}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.learnTitle, { color: colors.foreground }]}>
+                Support Person Survival Series · Vol 3
+              </Text>
+              <Text
+                style={[styles.learnSub, { color: colors.mutedForeground }]}
+              >
+                "We Did It! Now What?" — the postpartum handbook for your
+                support person
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={colors.mutedForeground}
+            />
+          </TouchableOpacity>
+        </Animated.View>
+
         <Animated.View
-          entering={FadeInDown.delay(270).duration(400)}
+          entering={FadeInDown.delay(330).duration(400)}
           style={[
             styles.comingSoonCard,
             { backgroundColor: colors.primary + "10" },

@@ -211,7 +211,15 @@ function RootLayoutNav() {
           options={{ headerShown: false, presentation: "card" }}
         />
         <Stack.Screen
+          name="support-person-vol1"
+          options={{ headerShown: false, presentation: "card" }}
+        />
+        <Stack.Screen
           name="labor-delivery"
+          options={{ headerShown: false, presentation: "card" }}
+        />
+        <Stack.Screen
+          name="support-person-vol2"
           options={{ headerShown: false, presentation: "card" }}
         />
         <Stack.Screen
@@ -224,6 +232,10 @@ function RootLayoutNav() {
         />
         <Stack.Screen
           name="postpartum"
+          options={{ headerShown: false, presentation: "card" }}
+        />
+        <Stack.Screen
+          name="support-person-vol3"
           options={{ headerShown: false, presentation: "card" }}
         />
         <Stack.Screen
