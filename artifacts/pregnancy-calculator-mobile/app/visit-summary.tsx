@@ -277,7 +277,7 @@ export default function VisitSummaryScreen() {
         >
           <Ionicons name="chevron-back" size={22} color={colors.foreground} />
           <Text style={[styles.backText, { color: colors.foreground }]}>
-            Visit Prep
+            Office Visit
           </Text>
         </TouchableOpacity>
       </View>
@@ -357,7 +357,7 @@ export default function VisitSummaryScreen() {
             ))
           ) : (
             <Text style={[styles.bodyMuted, { color: colors.mutedForeground }]}>
-              No questions selected yet. Go back to Visit Prep to pick some.
+              No questions selected yet. Go back to Office Visit to pick some.
             </Text>
           )}
         </Animated.View>

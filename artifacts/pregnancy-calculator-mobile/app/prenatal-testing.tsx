@@ -36,7 +36,7 @@ export default function PrenatalTestingScreen() {
         >
           <Ionicons name="chevron-back" size={22} color={colors.foreground} />
           <Text style={[styles.backText, { color: colors.foreground }]}>
-            Visit Prep
+            Office Visit
           </Text>
         </TouchableOpacity>
       </View>

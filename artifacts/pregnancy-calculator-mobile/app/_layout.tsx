@@ -153,6 +153,18 @@ function RootLayoutNav() {
           name="development"
           options={{ headerShown: false, presentation: "card" }}
         />
+        <Stack.Screen
+          name="office-visit"
+          options={{ headerShown: false, presentation: "card" }}
+        />
+        <Stack.Screen
+          name="labor-delivery"
+          options={{ headerShown: false, presentation: "card" }}
+        />
+        <Stack.Screen
+          name="postpartum"
+          options={{ headerShown: false, presentation: "card" }}
+        />
       </Stack>
       <WhatsNewModal
         version={appVersion}

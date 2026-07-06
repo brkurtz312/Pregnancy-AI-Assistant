@@ -73,9 +73,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="visit-prep"
         options={{
-          title: "Visit Prep",
+          title: "Get Ready",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="clipboard-outline" size={size} color={color} />
+            <Ionicons name="checkmark-done-outline" size={size} color={color} />
           ),
         }}
       />
