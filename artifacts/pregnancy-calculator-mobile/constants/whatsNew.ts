@@ -27,6 +27,16 @@ export interface WhatsNewEntry {
  * the build before it reaches the App Store.
  */
 export const WHATS_NEW: Record<string, WhatsNewEntry> = {
+  "1.0.4": {
+    headline: "What's new in this update",
+    items: [
+      {
+        icon: "clipboard-outline",
+        title: "New: Visit Prep tab",
+        body: "Prepare for your next appointment with a doctor question checklist, a countdown to your upcoming visit, and a log to track weight, blood pressure, and notes from past visits.",
+      },
+    ],
+  },
   "1.0.3": {
     headline: "What's new in this update",
     items: [

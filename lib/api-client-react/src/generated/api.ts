@@ -27,18 +27,23 @@ import type {
   ContractionList,
   CreateContractionBody,
   CreateKickSessionBody,
+  CreatePrenatalVisitBody,
   CreateSymptomBody,
   HealthStatus,
   KickSession,
   KickSessionList,
   ListContractionsParams,
   ListKickSessionsParams,
+  ListPrenatalVisitsParams,
   ListSymptomsParams,
   PassStatus,
+  PrenatalVisit,
+  PrenatalVisitList,
   RedeemCodeRequest,
   SymptomLog,
   SymptomLogList,
   UpdateKickSessionBody,
+  UpdatePrenatalVisitBody,
   UpdateProfileBody,
   UserProfile,
   WeeklyInsight,
@@ -1609,6 +1614,360 @@ export const useDeleteContraction = <
   TContext
 > => {
   return useMutation(getDeleteContractionMutationOptions(options));
+};
+
+/**
+ * @summary List prenatal visit entries for the signed-in user
+ */
+export const getListPrenatalVisitsUrl = (params?: ListPrenatalVisitsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/tools/prenatal-visits?${stringifiedParams}`
+    : `/api/tools/prenatal-visits`;
+};
+
+export const listPrenatalVisits = async (
+  params?: ListPrenatalVisitsParams,
+  options?: RequestInit,
+): Promise<PrenatalVisitList> => {
+  return customFetch<PrenatalVisitList>(getListPrenatalVisitsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListPrenatalVisitsQueryKey = (
+  params?: ListPrenatalVisitsParams,
+) => {
+  return [`/api/tools/prenatal-visits`, ...(params ? [params] : [])] as const;
+};
+
+export const getListPrenatalVisitsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPrenatalVisits>>,
+  TError = ErrorType<ApiError>,
+>(
+  params?: ListPrenatalVisitsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPrenatalVisits>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListPrenatalVisitsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPrenatalVisits>>
+  > = ({ signal }) => listPrenatalVisits(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPrenatalVisits>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPrenatalVisitsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPrenatalVisits>>
+>;
+export type ListPrenatalVisitsQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary List prenatal visit entries for the signed-in user
+ */
+
+export function useListPrenatalVisits<
+  TData = Awaited<ReturnType<typeof listPrenatalVisits>>,
+  TError = ErrorType<ApiError>,
+>(
+  params?: ListPrenatalVisitsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPrenatalVisits>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPrenatalVisitsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a prenatal visit entry (upcoming appointment or past visit log)
+ */
+export const getCreatePrenatalVisitUrl = () => {
+  return `/api/tools/prenatal-visits`;
+};
+
+export const createPrenatalVisit = async (
+  createPrenatalVisitBody: CreatePrenatalVisitBody,
+  options?: RequestInit,
+): Promise<PrenatalVisit> => {
+  return customFetch<PrenatalVisit>(getCreatePrenatalVisitUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createPrenatalVisitBody),
+  });
+};
+
+export const getCreatePrenatalVisitMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPrenatalVisit>>,
+    TError,
+    { data: BodyType<CreatePrenatalVisitBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createPrenatalVisit>>,
+  TError,
+  { data: BodyType<CreatePrenatalVisitBody> },
+  TContext
+> => {
+  const mutationKey = ["createPrenatalVisit"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createPrenatalVisit>>,
+    { data: BodyType<CreatePrenatalVisitBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createPrenatalVisit(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreatePrenatalVisitMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPrenatalVisit>>
+>;
+export type CreatePrenatalVisitMutationBody = BodyType<CreatePrenatalVisitBody>;
+export type CreatePrenatalVisitMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Create a prenatal visit entry (upcoming appointment or past visit log)
+ */
+export const useCreatePrenatalVisit = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPrenatalVisit>>,
+    TError,
+    { data: BodyType<CreatePrenatalVisitBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createPrenatalVisit>>,
+  TError,
+  { data: BodyType<CreatePrenatalVisitBody> },
+  TContext
+> => {
+  return useMutation(getCreatePrenatalVisitMutationOptions(options));
+};
+
+/**
+ * @summary Update a prenatal visit entry (e.g. log notes, weight, BP after a visit)
+ */
+export const getUpdatePrenatalVisitUrl = (id: number) => {
+  return `/api/tools/prenatal-visits/${id}`;
+};
+
+export const updatePrenatalVisit = async (
+  id: number,
+  updatePrenatalVisitBody: UpdatePrenatalVisitBody,
+  options?: RequestInit,
+): Promise<PrenatalVisit> => {
+  return customFetch<PrenatalVisit>(getUpdatePrenatalVisitUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updatePrenatalVisitBody),
+  });
+};
+
+export const getUpdatePrenatalVisitMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePrenatalVisit>>,
+    TError,
+    { id: number; data: BodyType<UpdatePrenatalVisitBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updatePrenatalVisit>>,
+  TError,
+  { id: number; data: BodyType<UpdatePrenatalVisitBody> },
+  TContext
+> => {
+  const mutationKey = ["updatePrenatalVisit"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updatePrenatalVisit>>,
+    { id: number; data: BodyType<UpdatePrenatalVisitBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updatePrenatalVisit(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdatePrenatalVisitMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updatePrenatalVisit>>
+>;
+export type UpdatePrenatalVisitMutationBody = BodyType<UpdatePrenatalVisitBody>;
+export type UpdatePrenatalVisitMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Update a prenatal visit entry (e.g. log notes, weight, BP after a visit)
+ */
+export const useUpdatePrenatalVisit = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePrenatalVisit>>,
+    TError,
+    { id: number; data: BodyType<UpdatePrenatalVisitBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updatePrenatalVisit>>,
+  TError,
+  { id: number; data: BodyType<UpdatePrenatalVisitBody> },
+  TContext
+> => {
+  return useMutation(getUpdatePrenatalVisitMutationOptions(options));
+};
+
+/**
+ * @summary Delete a prenatal visit entry
+ */
+export const getDeletePrenatalVisitUrl = (id: number) => {
+  return `/api/tools/prenatal-visits/${id}`;
+};
+
+export const deletePrenatalVisit = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeletePrenatalVisitUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeletePrenatalVisitMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deletePrenatalVisit>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deletePrenatalVisit>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deletePrenatalVisit"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deletePrenatalVisit>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deletePrenatalVisit(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeletePrenatalVisitMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deletePrenatalVisit>>
+>;
+
+export type DeletePrenatalVisitMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Delete a prenatal visit entry
+ */
+export const useDeletePrenatalVisit = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deletePrenatalVisit>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deletePrenatalVisit>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeletePrenatalVisitMutationOptions(options));
 };
 
 /**

@@ -320,6 +320,99 @@ export const DeleteContractionParams = zod.object({
 });
 
 /**
+ * @summary List prenatal visit entries for the signed-in user
+ */
+export const listPrenatalVisitsQueryLimitDefault = 50;
+export const listPrenatalVisitsQueryLimitMax = 100;
+
+export const listPrenatalVisitsQueryOffsetDefault = 0;
+export const listPrenatalVisitsQueryOffsetMin = 0;
+
+export const ListPrenatalVisitsQueryParams = zod.object({
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(listPrenatalVisitsQueryLimitMax)
+    .default(listPrenatalVisitsQueryLimitDefault),
+  offset: zod.coerce
+    .number()
+    .min(listPrenatalVisitsQueryOffsetMin)
+    .default(listPrenatalVisitsQueryOffsetDefault),
+});
+
+export const ListPrenatalVisitsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      visitDate: zod.coerce.date(),
+      weight: zod.string().nullish(),
+      bloodPressure: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Create a prenatal visit entry (upcoming appointment or past visit log)
+ */
+export const createPrenatalVisitBodyWeightMax = 50;
+
+export const createPrenatalVisitBodyBloodPressureMax = 50;
+
+export const createPrenatalVisitBodyNotesMax = 1000;
+
+export const CreatePrenatalVisitBody = zod.object({
+  visitDate: zod.coerce.date(),
+  weight: zod.string().max(createPrenatalVisitBodyWeightMax).nullish(),
+  bloodPressure: zod
+    .string()
+    .max(createPrenatalVisitBodyBloodPressureMax)
+    .nullish(),
+  notes: zod.string().max(createPrenatalVisitBodyNotesMax).nullish(),
+});
+
+/**
+ * @summary Update a prenatal visit entry (e.g. log notes, weight, BP after a visit)
+ */
+export const UpdatePrenatalVisitParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const updatePrenatalVisitBodyWeightMax = 50;
+
+export const updatePrenatalVisitBodyBloodPressureMax = 50;
+
+export const updatePrenatalVisitBodyNotesMax = 1000;
+
+export const UpdatePrenatalVisitBody = zod.object({
+  visitDate: zod.coerce.date().nullish(),
+  weight: zod.string().max(updatePrenatalVisitBodyWeightMax).nullish(),
+  bloodPressure: zod
+    .string()
+    .max(updatePrenatalVisitBodyBloodPressureMax)
+    .nullish(),
+  notes: zod.string().max(updatePrenatalVisitBodyNotesMax).nullish(),
+});
+
+export const UpdatePrenatalVisitResponse = zod.object({
+  id: zod.number(),
+  visitDate: zod.coerce.date(),
+  weight: zod.string().nullish(),
+  bloodPressure: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a prenatal visit entry
+ */
+export const DeletePrenatalVisitParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
  * Returns the authenticated user's saved profile (due date, provider, hospital).
  * @summary Get user profile
  */

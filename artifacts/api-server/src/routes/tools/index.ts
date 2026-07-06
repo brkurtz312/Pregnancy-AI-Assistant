@@ -5,12 +5,15 @@ import {
   symptomLogsTable,
   kickSessionsTable,
   contractionLogsTable,
+  prenatalVisitsTable,
 } from "@workspace/db";
 import {
   CreateSymptomBody,
   CreateKickSessionBody,
   UpdateKickSessionBody,
   CreateContractionBody,
+  CreatePrenatalVisitBody,
+  UpdatePrenatalVisitBody,
 } from "@workspace/api-zod";
 import { requireAuth, type AuthedRequest } from "../../middlewares/auth";
 
@@ -350,6 +353,157 @@ router.delete(
         and(
           eq(contractionLogsTable.id, id),
           eq(contractionLogsTable.userId, userId),
+        ),
+      )
+      .returning();
+
+    if (!deleted.length) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    res.status(204).end();
+  },
+);
+
+// ─── Prenatal Visits ─────────────────────────────────────────────────────────
+
+router.get(
+  "/tools/prenatal-visits",
+  requireAuth,
+  async (req: AuthedRequest, res) => {
+    const userId = req.userId!;
+    const limit = Math.min(Number(req.query.limit) || 50, 100);
+    const offset = Number(req.query.offset) || 0;
+
+    const [items, totalResult] = await Promise.all([
+      db
+        .select()
+        .from(prenatalVisitsTable)
+        .where(eq(prenatalVisitsTable.userId, userId))
+        .orderBy(desc(prenatalVisitsTable.visitDate))
+        .limit(limit)
+        .offset(offset),
+      db
+        .select({ count: count() })
+        .from(prenatalVisitsTable)
+        .where(eq(prenatalVisitsTable.userId, userId)),
+    ]);
+
+    res.json({
+      items: items.map((v) => ({
+        id: v.id,
+        visitDate: v.visitDate.toISOString(),
+        weight: v.weight,
+        bloodPressure: v.bloodPressure,
+        notes: v.notes,
+        createdAt: v.createdAt.toISOString(),
+      })),
+      total: totalResult[0]?.count ?? 0,
+    });
+  },
+);
+
+router.post(
+  "/tools/prenatal-visits",
+  requireAuth,
+  async (req: AuthedRequest, res) => {
+    const parsed = CreatePrenatalVisitBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const userId = req.userId!;
+    const { visitDate, weight, bloodPressure, notes } = parsed.data;
+
+    const [row] = await db
+      .insert(prenatalVisitsTable)
+      .values({
+        userId,
+        visitDate: new Date(visitDate),
+        weight: weight ?? null,
+        bloodPressure: bloodPressure ?? null,
+        notes: notes ?? null,
+      })
+      .returning();
+
+    res.status(201).json({
+      id: row.id,
+      visitDate: row.visitDate.toISOString(),
+      weight: row.weight,
+      bloodPressure: row.bloodPressure,
+      notes: row.notes,
+      createdAt: row.createdAt.toISOString(),
+    });
+  },
+);
+
+router.patch(
+  "/tools/prenatal-visits/:id",
+  requireAuth,
+  async (req: AuthedRequest, res) => {
+    const id = Number(req.params.id);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+    const parsed = UpdatePrenatalVisitBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const userId = req.userId!;
+    const { visitDate, weight, bloodPressure, notes } = parsed.data;
+
+    const updates: Record<string, unknown> = {};
+    if (visitDate !== undefined && visitDate !== null)
+      updates.visitDate = new Date(visitDate);
+    if (weight !== undefined) updates.weight = weight;
+    if (bloodPressure !== undefined) updates.bloodPressure = bloodPressure;
+    if (notes !== undefined) updates.notes = notes;
+
+    const [row] = await db
+      .update(prenatalVisitsTable)
+      .set(updates)
+      .where(
+        and(
+          eq(prenatalVisitsTable.id, id),
+          eq(prenatalVisitsTable.userId, userId),
+        ),
+      )
+      .returning();
+
+    if (!row) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+
+    res.json({
+      id: row.id,
+      visitDate: row.visitDate.toISOString(),
+      weight: row.weight,
+      bloodPressure: row.bloodPressure,
+      notes: row.notes,
+      createdAt: row.createdAt.toISOString(),
+    });
+  },
+);
+
+router.delete(
+  "/tools/prenatal-visits/:id",
+  requireAuth,
+  async (req: AuthedRequest, res) => {
+    const id = Number(req.params.id);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+    const userId = req.userId!;
+    const deleted = await db
+      .delete(prenatalVisitsTable)
+      .where(
+        and(
+          eq(prenatalVisitsTable.id, id),
+          eq(prenatalVisitsTable.userId, userId),
         ),
       )
       .returning();

@@ -599,6 +599,134 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /tools/prenatal-visits:
+    get:
+      operationId: listPrenatalVisits
+      tags: [tools]
+      summary: List prenatal visit entries for the signed-in user
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Prenatal visit list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrenatalVisitList"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      operationId: createPrenatalVisit
+      tags: [tools]
+      summary: Create a prenatal visit entry (upcoming appointment or past visit log)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePrenatalVisitBody"
+      responses:
+        "201":
+          description: Created prenatal visit entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrenatalVisit"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /tools/prenatal-visits/{id}:
+    patch:
+      operationId: updatePrenatalVisit
+      tags: [tools]
+      summary: Update a prenatal visit entry (e.g. log notes, weight, BP after a visit)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePrenatalVisitBody"
+      responses:
+        "200":
+          description: Updated prenatal visit entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrenatalVisit"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deletePrenatalVisit
+      tags: [tools]
+      summary: Delete a prenatal visit entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /profile:
     get:
       operationId: getProfile
@@ -879,6 +1007,71 @@ components:
         notes:
           type: ["string", "null"]
           maxLength: 500
+    PrenatalVisit:
+      type: object
+      properties:
+        id:
+          type: integer
+        visitDate:
+          type: string
+          format: date-time
+        weight:
+          type: ["string", "null"]
+        bloodPressure:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - visitDate
+        - createdAt
+    PrenatalVisitList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PrenatalVisit"
+        total:
+          type: integer
+      required:
+        - items
+        - total
+    CreatePrenatalVisitBody:
+      type: object
+      properties:
+        visitDate:
+          type: string
+          format: date-time
+        weight:
+          type: ["string", "null"]
+          maxLength: 50
+        bloodPressure:
+          type: ["string", "null"]
+          maxLength: 50
+        notes:
+          type: ["string", "null"]
+          maxLength: 1000
+      required:
+        - visitDate
+    UpdatePrenatalVisitBody:
+      type: object
+      properties:
+        visitDate:
+          type: ["string", "null"]
+          format: date-time
+        weight:
+          type: ["string", "null"]
+          maxLength: 50
+        bloodPressure:
+          type: ["string", "null"]
+          maxLength: 50
+        notes:
+          type: ["string", "null"]
+          maxLength: 1000
     Contraction:
       type: object
       properties:

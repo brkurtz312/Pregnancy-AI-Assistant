@@ -170,6 +170,62 @@ export interface UpdateKickSessionBody {
   notes?: string | null;
 }
 
+export interface PrenatalVisit {
+  id: number;
+  visitDate: string;
+  /** @nullable */
+  weight?: string | null;
+  /** @nullable */
+  bloodPressure?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface PrenatalVisitList {
+  items: PrenatalVisit[];
+  total: number;
+}
+
+export interface CreatePrenatalVisitBody {
+  visitDate: string;
+  /**
+   * @maxLength 50
+   * @nullable
+   */
+  weight?: string | null;
+  /**
+   * @maxLength 50
+   * @nullable
+   */
+  bloodPressure?: string | null;
+  /**
+   * @maxLength 1000
+   * @nullable
+   */
+  notes?: string | null;
+}
+
+export interface UpdatePrenatalVisitBody {
+  /** @nullable */
+  visitDate?: string | null;
+  /**
+   * @maxLength 50
+   * @nullable
+   */
+  weight?: string | null;
+  /**
+   * @maxLength 50
+   * @nullable
+   */
+  bloodPressure?: string | null;
+  /**
+   * @maxLength 1000
+   * @nullable
+   */
+  notes?: string | null;
+}
+
 export interface Contraction {
   id: number;
   startedAt: string;
@@ -290,4 +346,16 @@ export type ListContractionsParams = {
    * @maximum 200
    */
   limit?: number;
+};
+
+export type ListPrenatalVisitsParams = {
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: number;
+  /**
+   * @minimum 0
+   */
+  offset?: number;
 };

@@ -6,3 +6,4 @@ export * from "./kick-sessions";
 export * from "./contraction-logs";
 export * from "./user-profiles";
 export * from "./app-config";
+export * from "./prenatal-visits";
