@@ -58,6 +58,49 @@ export default function PrenatalCareScreen() {
               styles.learnCard,
               { backgroundColor: colors.card, borderColor: colors.border },
             ]}
+            onPress={() =>
+              router.push({
+                pathname: "/birth-plan",
+                params: { from: "Prenatal Care" },
+              })
+            }
+          >
+            <View
+              style={[
+                styles.learnIcon,
+                { backgroundColor: colors.primary + "18" },
+              ]}
+            >
+              <Ionicons
+                name="clipboard-outline"
+                size={20}
+                color={colors.primary}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.learnTitle, { color: colors.foreground }]}>
+                Prepare Your Birth Plan
+              </Text>
+              <Text
+                style={[styles.learnSub, { color: colors.mutedForeground }]}
+              >
+                Print a blank worksheet or answer questions to auto-fill one
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={colors.mutedForeground}
+            />
+          </TouchableOpacity>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(120).duration(400)}>
+          <TouchableOpacity
+            style={[
+              styles.learnCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
             onPress={() => router.push("/office-visit")}
           >
             <View
@@ -90,7 +133,7 @@ export default function PrenatalCareScreen() {
           </TouchableOpacity>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(120).duration(400)}>
+        <Animated.View entering={FadeInDown.delay(180).duration(400)}>
           <TouchableOpacity
             style={[
               styles.learnCard,
@@ -133,7 +176,7 @@ export default function PrenatalCareScreen() {
           </TouchableOpacity>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(180).duration(400)}>
+        <Animated.View entering={FadeInDown.delay(240).duration(400)}>
           <TouchableOpacity
             style={[
               styles.learnCard,
@@ -176,7 +219,7 @@ export default function PrenatalCareScreen() {
           </TouchableOpacity>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(240).duration(400)}>
+        <Animated.View entering={FadeInDown.delay(300).duration(400)}>
           <TouchableOpacity
             style={[
               styles.learnCard,

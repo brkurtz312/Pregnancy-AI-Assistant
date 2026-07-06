@@ -766,38 +766,6 @@ function LearnSection() {
           color={colors.mutedForeground}
         />
       </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[
-          styles.learnCard,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-        onPress={() =>
-          router.push({
-            pathname: "/birth-plan",
-            params: { from: "Office Visits" },
-          })
-        }
-      >
-        <View
-          style={[styles.learnIcon, { backgroundColor: colors.primary + "18" }]}
-        >
-          <Ionicons name="clipboard-outline" size={20} color={colors.primary} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.learnTitle, { color: colors.foreground }]}>
-            Prepare Your Birth Plan
-          </Text>
-          <Text style={[styles.learnSub, { color: colors.mutedForeground }]}>
-            Print a blank worksheet or answer questions to auto-fill one
-          </Text>
-        </View>
-        <Ionicons
-          name="chevron-forward"
-          size={18}
-          color={colors.mutedForeground}
-        />
-      </TouchableOpacity>
     </>
   );
 }
