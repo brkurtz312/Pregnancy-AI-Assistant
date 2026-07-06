@@ -303,6 +303,40 @@ export default function PrenatalTestingScreen() {
             mother and baby.
           </Text>
         </Animated.View>
+
+        <Animated.View
+          entering={FadeInDown.delay(420).duration(400)}
+          style={[
+            styles.card,
+            styles.askCard,
+            { backgroundColor: colors.card, borderColor: colors.primary },
+          ]}
+        >
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+            Have a specific question about your testing?
+          </Text>
+          <Text
+            style={[
+              styles.body,
+              { color: colors.mutedForeground, marginBottom: 14 },
+            ]}
+          >
+            Our AI assistant can answer questions about your own prenatal
+            testing timeline and results.
+          </Text>
+          <TouchableOpacity
+            style={[styles.askBtn, { backgroundColor: colors.primary }]}
+            onPress={() =>
+              router.push({
+                pathname: "/ask",
+                params: { returnTo: "/prenatal-testing" },
+              })
+            }
+          >
+            <Ionicons name="chatbubble-ellipses" size={18} color="#fff" />
+            <Text style={styles.askBtnText}>Ask a Question</Text>
+          </TouchableOpacity>
+        </Animated.View>
       </ScrollView>
     </View>
   );
@@ -342,6 +376,22 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
+  },
+  askCard: {
+    borderWidth: 1.5,
+  },
+  askBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 12,
+    paddingVertical: 14,
+  },
+  askBtnText: {
+    color: "#fff",
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
   },
   sectionTitle: {
     fontSize: 17,

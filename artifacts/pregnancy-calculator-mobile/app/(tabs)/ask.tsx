@@ -1,7 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@clerk/expo";
+import { router, useLocalSearchParams, type Href } from "expo-router";
 import React, { useMemo } from "react";
-import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AccountButton } from "@/components/AccountButton";
@@ -19,6 +27,7 @@ export default function AskScreen() {
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const { isSignedIn } = useAuth();
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
 
   const { data: profile } = useGetProfile({
     query: { enabled: !!isSignedIn, queryKey: getGetProfileQueryKey() },
@@ -67,6 +76,24 @@ export default function AskScreen() {
         </View>
 
         <View style={styles.content}>
+          {returnTo && (
+            <TouchableOpacity
+              style={[
+                styles.returnCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+              onPress={() => router.push(returnTo as Href)}
+            >
+              <Ionicons
+                name="arrow-back-circle-outline"
+                size={18}
+                color={colors.primary}
+              />
+              <Text style={[styles.returnText, { color: colors.primary }]}>
+                Back to prenatal testing info
+              </Text>
+            </TouchableOpacity>
+          )}
           {!profile?.dueDate && (
             <View
               style={[
@@ -130,6 +157,18 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   content: { padding: 16, gap: 12 },
+  returnCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+  },
+  returnText: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+  },
   hintCard: {
     flexDirection: "row",
     alignItems: "flex-start",
