@@ -60,7 +60,7 @@ export default function PrenatalCareScreen() {
             ]}
             onPress={() =>
               router.push({
-                pathname: "/birth-plan",
+                pathname: "/choose-ob-provider",
                 params: { from: "Prenatal Care" },
               })
             }
@@ -72,19 +72,19 @@ export default function PrenatalCareScreen() {
               ]}
             >
               <Ionicons
-                name="clipboard-outline"
+                name="people-outline"
                 size={20}
                 color={colors.primary}
               />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.learnTitle, { color: colors.foreground }]}>
-                Prepare Your Birth Plan
+                Choose an OB Provider
               </Text>
               <Text
                 style={[styles.learnSub, { color: colors.mutedForeground }]}
               >
-                Print a blank worksheet or answer questions to auto-fill one
+                Ob-gyns, midwives, and finding the right fit for you
               </Text>
             </View>
             <Ionicons
@@ -141,7 +141,7 @@ export default function PrenatalCareScreen() {
             ]}
             onPress={() =>
               router.push({
-                pathname: "/choose-ob-provider",
+                pathname: "/birth-plan",
                 params: { from: "Prenatal Care" },
               })
             }
@@ -153,19 +153,19 @@ export default function PrenatalCareScreen() {
               ]}
             >
               <Ionicons
-                name="people-outline"
+                name="clipboard-outline"
                 size={20}
                 color={colors.primary}
               />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.learnTitle, { color: colors.foreground }]}>
-                Choose an OB Provider
+                Prepare Your Birth Plan
               </Text>
               <Text
                 style={[styles.learnSub, { color: colors.mutedForeground }]}
               >
-                Ob-gyns, midwives, and finding the right fit for you
+                Print a blank worksheet or answer questions to auto-fill one
               </Text>
             </View>
             <Ionicons
