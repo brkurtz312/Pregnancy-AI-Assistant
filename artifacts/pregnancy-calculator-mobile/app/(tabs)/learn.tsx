@@ -94,15 +94,23 @@ export default function LearnScreen() {
       />
 
       <ResourceCard
+        icon="heart-circle-outline"
+        title="Healthy Pregnancy"
+        description="Travel, work, nutrition, intimacy, medications, and exercise — evidence-based guidance for everyday pregnancy questions."
+        onPress={() => router.push("/healthy-pregnancy")}
+        delay={140}
+      />
+
+      <ResourceCard
         icon="document-text-outline"
         title="Understanding Prenatal Testing"
         description="What to expect and why routine and optional tests matter at each stage."
         onPress={() => router.push("/prenatal-testing")}
-        delay={140}
+        delay={200}
       />
 
       <Animated.View
-        entering={FadeInDown.delay(200).duration(400)}
+        entering={FadeInDown.delay(260).duration(400)}
         style={[
           styles.card,
           styles.externalCard,
@@ -144,7 +152,7 @@ export default function LearnScreen() {
         </View>
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(260).duration(400)}>
+      <Animated.View entering={FadeInDown.delay(320).duration(400)}>
         <Text style={[styles.footerNote, { color: colors.mutedForeground }]}>
           More educational links and resources are on the way.
         </Text>
