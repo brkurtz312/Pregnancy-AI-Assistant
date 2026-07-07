@@ -529,14 +529,12 @@ function QuestionsToAskSection() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.row}>
-        <Text style={[styles.title, { color: colors.foreground }]}>
-          What Questions Do You Want to Ask?
-        </Text>
-        <Text style={[styles.progress, { color: colors.mutedForeground }]}>
-          {selectedCount} selected
-        </Text>
-      </View>
+      <Text style={[styles.title, { color: colors.foreground }]}>
+        What Questions Do You Want to Ask?
+      </Text>
+      <Text style={[styles.progress, { color: colors.mutedForeground }]}>
+        {selectedCount} selected
+      </Text>
       <Text
         style={[
           styles.questionsHint,
@@ -899,6 +897,8 @@ const styles = StyleSheet.create({
   progress: {
     fontSize: 13,
     fontFamily: "Inter_500Medium",
+    marginTop: 2,
+    marginBottom: 8,
   },
   addBtn: {
     flexDirection: "row",
