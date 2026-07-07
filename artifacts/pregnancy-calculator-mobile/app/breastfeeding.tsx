@@ -337,7 +337,11 @@ export default function BreastfeedingScreen() {
                     {r.detail}
                   </Text>
                 </View>
-                <Ionicons name="open-outline" size={16} color={colors.primary} />
+                <Ionicons
+                  name="open-outline"
+                  size={16}
+                  color={colors.primary}
+                />
               </TouchableOpacity>
             ) : (
               <View key={r.name} style={{ marginBottom: 8 }}>
