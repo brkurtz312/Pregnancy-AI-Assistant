@@ -61,6 +61,7 @@ export default function VisitSummaryScreen() {
   const insets = useSafeAreaInsets();
   const { isSignedIn } = useUser();
   const [exporting, setExporting] = useState(false);
+  const [viewing, setViewing] = useState(false);
 
   const { data: profile } = useGetProfile({
     query: {
@@ -239,6 +240,22 @@ export default function VisitSummaryScreen() {
       Alert.alert("Couldn't export", "Please try again.");
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleViewInApp = async () => {
+    try {
+      setViewing(true);
+      const html = buildHtml();
+      const { uri } = await Print.printToFileAsync({ html });
+      router.push({
+        pathname: "/pdf-viewer",
+        params: { uri, title: "Visit Summary" },
+      });
+    } catch {
+      Alert.alert("Couldn't generate PDF", "Please try again.");
+    } finally {
+      setViewing(false);
     }
   };
 
@@ -447,7 +464,7 @@ export default function VisitSummaryScreen() {
         <TouchableOpacity
           style={[styles.exportBtn, { backgroundColor: colors.primary }]}
           onPress={handleExport}
-          disabled={exporting}
+          disabled={exporting || viewing}
         >
           {exporting ? (
             <ActivityIndicator color={colors.primaryForeground} />
@@ -469,6 +486,37 @@ export default function VisitSummaryScreen() {
             </>
           )}
         </TouchableOpacity>
+
+        {Platform.OS !== "web" && (
+          <TouchableOpacity
+            style={[
+              styles.exportBtn,
+              {
+                backgroundColor: colors.card,
+                borderWidth: 1,
+                borderColor: colors.border,
+                marginTop: 10,
+              },
+            ]}
+            onPress={handleViewInApp}
+            disabled={exporting || viewing}
+          >
+            {viewing ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : (
+              <>
+                <Ionicons
+                  name="document-text-outline"
+                  size={18}
+                  color={colors.primary}
+                />
+                <Text style={[styles.exportBtnText, { color: colors.primary }]}>
+                  View PDF in App
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </View>
   );
