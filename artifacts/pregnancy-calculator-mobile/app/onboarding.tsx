@@ -13,7 +13,10 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useUpdateProfile } from "@workspace/api-client-react";
+import {
+  useUpdateProfile,
+  useCreateContact,
+} from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { formatPhone } from "@/lib/phone";
 
@@ -75,12 +78,21 @@ function Field({
   );
 }
 
+type ContactDraft = { firstName: string; role: string; phone: string };
+
 export default function OnboardingScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { isSignedIn } = useAuth();
   const updateMutation = useUpdateProfile();
+  const createContactMutation = useCreateContact();
+
+  const [contacts, setContacts] = useState<ContactDraft[]>([]);
+  const [addingContact, setAddingContact] = useState(false);
+  const [cFirstName, setCFirstName] = useState("");
+  const [cRole, setCRole] = useState("");
+  const [cPhone, setCPhone] = useState("");
 
   const [firstName, setFirstName] = useState("");
   const [zipCode, setZipCode] = useState("");
@@ -96,6 +108,22 @@ export default function OnboardingScreen() {
   const goToApp = useCallback(() => {
     router.replace("/" as Href);
   }, [router]);
+
+  const handleAddContact = useCallback(() => {
+    if (!cFirstName.trim() || !cRole.trim() || !cPhone.trim()) return;
+    setContacts((prev) => [
+      ...prev,
+      { firstName: cFirstName.trim(), role: cRole.trim(), phone: cPhone },
+    ]);
+    setCFirstName("");
+    setCRole("");
+    setCPhone("");
+    setAddingContact(false);
+  }, [cFirstName, cRole, cPhone]);
+
+  const handleRemoveContact = useCallback((idx: number) => {
+    setContacts((prev) => prev.filter((_, i) => i !== idx));
+  }, []);
 
   const handleSave = useCallback(async () => {
     if (!isSignedIn) {
@@ -116,6 +144,13 @@ export default function OnboardingScreen() {
           hospitalPhone: hospitalPhone.trim() || null,
         },
       });
+      await Promise.all(
+        contacts.map((c) =>
+          createContactMutation.mutateAsync({
+            data: { firstName: c.firstName, role: c.role, phone: c.phone },
+          }),
+        ),
+      );
     } finally {
       goToApp();
     }
@@ -130,7 +165,9 @@ export default function OnboardingScreen() {
     hospitalName,
     hospitalAddress,
     hospitalPhone,
+    contacts,
     updateMutation,
+    createContactMutation,
     goToApp,
   ]);
 
@@ -303,6 +340,134 @@ export default function OnboardingScreen() {
           />
         </View>
 
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <SectionHeader icon="call-outline" title="My Calling List" />
+          <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
+            Optional — add people you may want to call during labor or after.
+          </Text>
+
+          {contacts.map((c, idx) => (
+            <View
+              key={idx}
+              style={[styles.contactRow, { borderBottomColor: colors.border }]}
+            >
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[styles.contactName, { color: colors.foreground }]}
+                >
+                  {c.firstName}
+                </Text>
+                <Text
+                  style={[
+                    styles.contactRole,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  {c.role} · {c.phone}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => handleRemoveContact(idx)}
+                style={[
+                  styles.removeBtn,
+                  {
+                    backgroundColor: colors.background,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: colors.destructive,
+                    fontSize: 13,
+                    fontFamily: "Inter_500Medium",
+                  }}
+                >
+                  Remove
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+
+          {addingContact ? (
+            <View style={styles.contactForm}>
+              <Field
+                label="FIRST NAME"
+                value={cFirstName}
+                onChange={setCFirstName}
+                placeholder="Jane"
+              />
+              <Field
+                label="ROLE"
+                value={cRole}
+                onChange={setCRole}
+                placeholder="Support Person, Sister, Friend…"
+              />
+              <Field
+                label="PHONE"
+                value={cPhone}
+                onChange={(v) => setCPhone(formatPhone(v))}
+                placeholder="(555) 000-0000"
+                keyboardType="phone-pad"
+              />
+              <View style={styles.contactFormActions}>
+                <TouchableOpacity
+                  onPress={handleAddContact}
+                  disabled={
+                    !cFirstName.trim() || !cRole.trim() || !cPhone.trim()
+                  }
+                  style={[
+                    styles.contactSaveBtn,
+                    { backgroundColor: colors.primary },
+                    (!cFirstName.trim() || !cRole.trim() || !cPhone.trim()) && {
+                      opacity: 0.5,
+                    },
+                  ]}
+                >
+                  <Text style={styles.contactSaveBtnText}>Add</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    setAddingContact(false);
+                    setCFirstName("");
+                    setCRole("");
+                    setCPhone("");
+                  }}
+                  style={[
+                    styles.contactCancelBtn,
+                    { borderColor: colors.border },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.contactCancelBtnText,
+                      { color: colors.foreground },
+                    ]}
+                  >
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity
+              onPress={() => setAddingContact(true)}
+              style={[styles.addContactBtn, { borderColor: colors.border }]}
+            >
+              <Text
+                style={[styles.addContactBtnText, { color: colors.primary }]}
+              >
+                + Add a person
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
         <TouchableOpacity
           onPress={handleSave}
           disabled={updateMutation.isPending}
@@ -430,6 +595,67 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   skipBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+  },
+  contactRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingBottom: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  contactName: {
+    fontSize: 15,
+    fontFamily: "Inter_500Medium",
+  },
+  contactRole: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    marginTop: 2,
+  },
+  removeBtn: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  contactForm: {
+    gap: 10,
+  },
+  contactFormActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  contactSaveBtn: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 11,
+    alignItems: "center",
+  },
+  contactSaveBtnText: {
+    color: "#fff",
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
+  contactCancelBtn: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 11,
+    alignItems: "center",
+  },
+  contactCancelBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+  },
+  addContactBtn: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  addContactBtnText: {
     fontSize: 14,
     fontFamily: "Inter_500Medium",
   },

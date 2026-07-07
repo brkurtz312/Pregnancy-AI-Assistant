@@ -261,6 +261,54 @@ export interface CreateContractionBody {
   sessionDate: string;
 }
 
+export interface SupportContact {
+  id: string;
+  firstName: string;
+  role: string;
+  phone: string;
+  sortOrder: number;
+}
+
+export interface SupportContactList {
+  items: SupportContact[];
+}
+
+export interface CreateSupportContactBody {
+  /**
+   * @minLength 1
+   * @maxLength 100
+   */
+  firstName: string;
+  /**
+   * @minLength 1
+   * @maxLength 100
+   */
+  role: string;
+  /**
+   * @minLength 1
+   * @maxLength 30
+   */
+  phone: string;
+}
+
+export interface UpdateSupportContactBody {
+  /**
+   * @minLength 1
+   * @maxLength 100
+   */
+  firstName?: string;
+  /**
+   * @minLength 1
+   * @maxLength 100
+   */
+  role?: string;
+  /**
+   * @minLength 1
+   * @maxLength 30
+   */
+  phone?: string;
+}
+
 /**
  * @nullable
  */

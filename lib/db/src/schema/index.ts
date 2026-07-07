@@ -7,3 +7,4 @@ export * from "./contraction-logs";
 export * from "./user-profiles";
 export * from "./app-config";
 export * from "./prenatal-visits";
+export * from "./support-contacts";

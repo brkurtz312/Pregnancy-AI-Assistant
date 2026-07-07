@@ -507,3 +507,68 @@ export const UpdateProfileResponse = zod.object({
   hospitalPhone: zod.string().nullish(),
   hospitalAddress: zod.string().nullish(),
 });
+
+/**
+ * Returns the authenticated user's support calling list.
+ * @summary List support contacts
+ */
+export const ListContactsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      firstName: zod.string(),
+      role: zod.string(),
+      phone: zod.string(),
+      sortOrder: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Add a support contact
+ */
+export const createContactBodyFirstNameMax = 100;
+
+export const createContactBodyRoleMax = 100;
+
+export const createContactBodyPhoneMax = 30;
+
+export const CreateContactBody = zod.object({
+  firstName: zod.string().min(1).max(createContactBodyFirstNameMax),
+  role: zod.string().min(1).max(createContactBodyRoleMax),
+  phone: zod.string().min(1).max(createContactBodyPhoneMax),
+});
+
+/**
+ * @summary Update a support contact
+ */
+export const UpdateContactParams = zod.object({
+  contactId: zod.coerce.string().uuid(),
+});
+
+export const updateContactBodyFirstNameMax = 100;
+
+export const updateContactBodyRoleMax = 100;
+
+export const updateContactBodyPhoneMax = 30;
+
+export const UpdateContactBody = zod.object({
+  firstName: zod.string().min(1).max(updateContactBodyFirstNameMax).optional(),
+  role: zod.string().min(1).max(updateContactBodyRoleMax).optional(),
+  phone: zod.string().min(1).max(updateContactBodyPhoneMax).optional(),
+});
+
+export const UpdateContactResponse = zod.object({
+  id: zod.string().uuid(),
+  firstName: zod.string(),
+  role: zod.string(),
+  phone: zod.string(),
+  sortOrder: zod.number(),
+});
+
+/**
+ * @summary Delete a support contact
+ */
+export const DeleteContactParams = zod.object({
+  contactId: zod.coerce.string().uuid(),
+});

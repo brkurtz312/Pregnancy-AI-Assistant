@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { userProfilesTable } from "@workspace/db";
 import { UpdateProfileBody } from "@workspace/api-zod";
 import { requireAuth, type AuthedRequest } from "../../middlewares/auth";
+import contactsRouter from "./contacts";
 
 const router: IRouter = Router();
 
@@ -110,5 +111,7 @@ router.put("/profile", requireAuth, async (req: AuthedRequest, res) => {
     hospitalAddress: row.hospitalAddress ?? null,
   });
 });
+
+router.use("/profile", contactsRouter);
 
 export default router;

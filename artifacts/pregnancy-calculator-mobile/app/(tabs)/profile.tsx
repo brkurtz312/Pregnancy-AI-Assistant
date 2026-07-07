@@ -17,10 +17,17 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetProfileQueryKey,
   useGetProfile,
   useUpdateProfile,
+  useListContacts,
+  getListContactsQueryKey,
+  useCreateContact,
+  useUpdateContact,
+  useDeleteContact,
+  type SupportContact,
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { usePass } from "@/hooks/usePass";
@@ -177,6 +184,96 @@ export default function ProfileScreen() {
       if (!v) settings.setThemeMode(systemScheme);
     },
     [settings, systemScheme],
+  );
+
+  const queryClient = useQueryClient();
+  const { data: contactsData } = useListContacts({
+    query: { enabled: !!isSignedIn, queryKey: getListContactsQueryKey() },
+  });
+  const contacts = contactsData?.items ?? [];
+  const createContactMutation = useCreateContact();
+  const updateContactMutation = useUpdateContact();
+  const deleteContactMutation = useDeleteContact();
+
+  const [addingContact, setAddingContact] = useState(false);
+  const [editingContactId, setEditingContactId] = useState<string | null>(null);
+  const [cFirstName, setCFirstName] = useState("");
+  const [cRole, setCRole] = useState("");
+  const [cPhone, setCPhone] = useState("");
+
+  const handleCancelContact = useCallback(() => {
+    setAddingContact(false);
+    setEditingContactId(null);
+    setCFirstName("");
+    setCRole("");
+    setCPhone("");
+  }, []);
+
+  const handleEditContact = useCallback((c: SupportContact) => {
+    setEditingContactId(c.id);
+    setCFirstName(c.firstName);
+    setCRole(c.role);
+    setCPhone(formatPhone(c.phone));
+    setAddingContact(false);
+  }, []);
+
+  const handleSaveContact = useCallback(async () => {
+    if (!cFirstName.trim() || !cRole.trim() || !cPhone.trim()) return;
+    if (editingContactId) {
+      await updateContactMutation.mutateAsync({
+        contactId: editingContactId,
+        data: {
+          firstName: cFirstName.trim(),
+          role: cRole.trim(),
+          phone: cPhone,
+        },
+      });
+    } else {
+      await createContactMutation.mutateAsync({
+        data: {
+          firstName: cFirstName.trim(),
+          role: cRole.trim(),
+          phone: cPhone,
+        },
+      });
+    }
+    await queryClient.invalidateQueries({
+      queryKey: getListContactsQueryKey(),
+    });
+    handleCancelContact();
+  }, [
+    editingContactId,
+    cFirstName,
+    cRole,
+    cPhone,
+    updateContactMutation,
+    createContactMutation,
+    queryClient,
+    handleCancelContact,
+  ]);
+
+  const handleDeleteContact = useCallback(
+    (c: SupportContact) => {
+      Alert.alert(
+        "Remove Contact",
+        `Remove ${c.firstName} from your calling list?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Remove",
+            style: "destructive",
+            onPress: async () => {
+              await deleteContactMutation.mutateAsync({ contactId: c.id });
+              await queryClient.invalidateQueries({
+                queryKey: getListContactsQueryKey(),
+              });
+              if (editingContactId === c.id) handleCancelContact();
+            },
+          },
+        ],
+      );
+    },
+    [deleteContactMutation, queryClient, editingContactId, handleCancelContact],
   );
 
   const [firstName, setFirstName] = useState("");
@@ -640,6 +737,355 @@ export default function ProfileScreen() {
             </>
           )}
 
+          {/* My Calling List */}
+          {isSignedIn ? (
+            <View
+              style={[
+                styles.card,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <View style={styles.sectionHeader}>
+                <Ionicons
+                  name="call-outline"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text
+                  style={[styles.sectionTitle, { color: colors.foreground }]}
+                >
+                  My Calling List
+                </Text>
+              </View>
+
+              {contacts.length === 0 && !addingContact && (
+                <Text
+                  style={[styles.emptyHint, { color: colors.mutedForeground }]}
+                >
+                  Add people you may want to call — your support person, family,
+                  or friends.
+                </Text>
+              )}
+
+              {contacts.map((c) =>
+                editingContactId === c.id ? (
+                  <View key={c.id} style={styles.contactForm}>
+                    <View style={styles.fieldWrap}>
+                      <Text
+                        style={[
+                          styles.fieldLabel,
+                          { color: colors.mutedForeground },
+                        ]}
+                      >
+                        FIRST NAME
+                      </Text>
+                      <TextInput
+                        value={cFirstName}
+                        onChangeText={setCFirstName}
+                        placeholder="Jane"
+                        placeholderTextColor={colors.mutedForeground}
+                        style={[
+                          styles.input,
+                          {
+                            color: colors.foreground,
+                            backgroundColor: colors.background,
+                            borderColor: colors.border,
+                          },
+                        ]}
+                      />
+                    </View>
+                    <View style={styles.fieldWrap}>
+                      <Text
+                        style={[
+                          styles.fieldLabel,
+                          { color: colors.mutedForeground },
+                        ]}
+                      >
+                        ROLE
+                      </Text>
+                      <TextInput
+                        value={cRole}
+                        onChangeText={setCRole}
+                        placeholder="Support Person, Sister, Friend…"
+                        placeholderTextColor={colors.mutedForeground}
+                        style={[
+                          styles.input,
+                          {
+                            color: colors.foreground,
+                            backgroundColor: colors.background,
+                            borderColor: colors.border,
+                          },
+                        ]}
+                      />
+                    </View>
+                    <View style={styles.fieldWrap}>
+                      <Text
+                        style={[
+                          styles.fieldLabel,
+                          { color: colors.mutedForeground },
+                        ]}
+                      >
+                        PHONE
+                      </Text>
+                      <TextInput
+                        value={cPhone}
+                        onChangeText={(v) => setCPhone(formatPhone(v))}
+                        placeholder="(555) 000-0000"
+                        placeholderTextColor={colors.mutedForeground}
+                        keyboardType="phone-pad"
+                        style={[
+                          styles.input,
+                          {
+                            color: colors.foreground,
+                            backgroundColor: colors.background,
+                            borderColor: colors.border,
+                          },
+                        ]}
+                      />
+                    </View>
+                    <View style={styles.contactFormActions}>
+                      <TouchableOpacity
+                        onPress={handleSaveContact}
+                        disabled={
+                          updateContactMutation.isPending ||
+                          !cFirstName.trim() ||
+                          !cRole.trim() ||
+                          !cPhone.trim()
+                        }
+                        style={[
+                          styles.contactSaveBtn,
+                          { backgroundColor: colors.primary },
+                          (updateContactMutation.isPending ||
+                            !cFirstName.trim() ||
+                            !cRole.trim() ||
+                            !cPhone.trim()) && { opacity: 0.5 },
+                        ]}
+                      >
+                        <Text style={styles.contactSaveBtnText}>
+                          {updateContactMutation.isPending ? "Saving…" : "Save"}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={handleCancelContact}
+                        style={[
+                          styles.contactCancelBtn,
+                          { borderColor: colors.border },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.contactCancelBtnText,
+                            { color: colors.foreground },
+                          ]}
+                        >
+                          Cancel
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <View
+                    key={c.id}
+                    style={[
+                      styles.contactRow,
+                      { borderBottomColor: colors.border },
+                    ]}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[
+                          styles.contactName,
+                          { color: colors.foreground },
+                        ]}
+                      >
+                        {c.firstName}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.contactRole,
+                          { color: colors.mutedForeground },
+                        ]}
+                      >
+                        {c.role}
+                      </Text>
+                    </View>
+                    <CallButton phone={c.phone} />
+                    <TouchableOpacity
+                      onPress={() => handleEditContact(c)}
+                      style={[
+                        styles.iconBtn,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name="pencil-outline"
+                        size={16}
+                        color={colors.mutedForeground}
+                      />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleDeleteContact(c)}
+                      style={[
+                        styles.iconBtn,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name="trash-outline"
+                        size={16}
+                        color={colors.destructive}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                ),
+              )}
+
+              {addingContact && (
+                <View style={styles.contactForm}>
+                  <View style={styles.fieldWrap}>
+                    <Text
+                      style={[
+                        styles.fieldLabel,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      FIRST NAME
+                    </Text>
+                    <TextInput
+                      value={cFirstName}
+                      onChangeText={setCFirstName}
+                      placeholder="Jane"
+                      placeholderTextColor={colors.mutedForeground}
+                      style={[
+                        styles.input,
+                        {
+                          color: colors.foreground,
+                          backgroundColor: colors.background,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <View style={styles.fieldWrap}>
+                    <Text
+                      style={[
+                        styles.fieldLabel,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      ROLE
+                    </Text>
+                    <TextInput
+                      value={cRole}
+                      onChangeText={setCRole}
+                      placeholder="Support Person, Sister, Friend…"
+                      placeholderTextColor={colors.mutedForeground}
+                      style={[
+                        styles.input,
+                        {
+                          color: colors.foreground,
+                          backgroundColor: colors.background,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <View style={styles.fieldWrap}>
+                    <Text
+                      style={[
+                        styles.fieldLabel,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      PHONE
+                    </Text>
+                    <TextInput
+                      value={cPhone}
+                      onChangeText={(v) => setCPhone(formatPhone(v))}
+                      placeholder="(555) 000-0000"
+                      placeholderTextColor={colors.mutedForeground}
+                      keyboardType="phone-pad"
+                      style={[
+                        styles.input,
+                        {
+                          color: colors.foreground,
+                          backgroundColor: colors.background,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <View style={styles.contactFormActions}>
+                    <TouchableOpacity
+                      onPress={handleSaveContact}
+                      disabled={
+                        createContactMutation.isPending ||
+                        !cFirstName.trim() ||
+                        !cRole.trim() ||
+                        !cPhone.trim()
+                      }
+                      style={[
+                        styles.contactSaveBtn,
+                        { backgroundColor: colors.primary },
+                        (createContactMutation.isPending ||
+                          !cFirstName.trim() ||
+                          !cRole.trim() ||
+                          !cPhone.trim()) && { opacity: 0.5 },
+                      ]}
+                    >
+                      <Text style={styles.contactSaveBtnText}>
+                        {createContactMutation.isPending ? "Saving…" : "Save"}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={handleCancelContact}
+                      style={[
+                        styles.contactCancelBtn,
+                        { borderColor: colors.border },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.contactCancelBtnText,
+                          { color: colors.foreground },
+                        ]}
+                      >
+                        Cancel
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              {!addingContact && editingContactId === null && (
+                <TouchableOpacity
+                  onPress={() => setAddingContact(true)}
+                  style={[styles.addContactBtn, { borderColor: colors.border }]}
+                >
+                  <Ionicons
+                    name="add-circle-outline"
+                    size={18}
+                    color={colors.primary}
+                  />
+                  <Text
+                    style={[
+                      styles.addContactBtnText,
+                      { color: colors.primary },
+                    ]}
+                  >
+                    Add a contact
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : null}
+
           {/* My Settings */}
           <View
             style={[
@@ -991,5 +1437,69 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "Inter_400Regular",
     marginTop: 2,
+  },
+  emptyHint: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 19,
+  },
+  contactRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  contactName: {
+    fontSize: 15,
+    fontFamily: "Inter_500Medium",
+  },
+  contactRole: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    marginTop: 2,
+  },
+  contactForm: {
+    gap: 10,
+  },
+  contactFormActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  contactSaveBtn: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 11,
+    alignItems: "center",
+  },
+  contactSaveBtnText: {
+    color: "#fff",
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
+  contactCancelBtn: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 11,
+    alignItems: "center",
+  },
+  contactCancelBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+  },
+  addContactBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 11,
+    borderStyle: "dashed",
+  },
+  addContactBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
   },
 });
