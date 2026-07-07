@@ -51,11 +51,6 @@ const RESOURCES = [
     detail: "Your rights to job-protected leave for pregnancy and childbirth",
     url: "https://www.dol.gov/agencies/whd/fmla",
   },
-  {
-    name: "March of Dimes: Bedrest During Pregnancy",
-    detail: "What bedrest means and how to manage it",
-    url: "https://www.marchofdimes.org/find-support/topics/pregnancy/bed-rest-during-pregnancy",
-  },
 ];
 
 async function openHandoutPdf(setOpening: (v: boolean) => void) {
