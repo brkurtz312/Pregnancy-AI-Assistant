@@ -54,6 +54,13 @@ const TOPICS = [
       "Benefits of staying active, recommended activities, and warning signs.",
     route: "/hp-exercise",
   },
+  {
+    icon: "body-outline" as const,
+    title: "Body Mechanics",
+    description:
+      "How to lift, sit, sleep, and move safely to prevent back and pelvic pain.",
+    route: "/hp-body-mechanics",
+  },
 ];
 
 export default function HealthyPregnancyScreen() {
