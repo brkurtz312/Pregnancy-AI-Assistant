@@ -73,9 +73,9 @@ export const COMPLICATION_RESOURCES: ComplicationResource[] = [
     url: "https://www.acog.org/womens-health/faqs/gestational-diabetes",
   },
   {
-    name: "ACOG Patient FAQ — Preterm (Premature) Labor and Birth",
-    detail: "acog.org/womens-health/faqs/preterm-premature-labor-and-birth",
-    url: "https://www.acog.org/womens-health/faqs/preterm-premature-labor-and-birth",
+    name: "ACOG Patient FAQ — Preterm Labor and Birth",
+    detail: "acog.org/womens-health/faqs/preterm-labor-and-birth",
+    url: "https://www.acog.org/womens-health/faqs/preterm-labor-and-birth",
   },
   {
     name: "ACOG — Pregnancy Complications (patient hub)",
