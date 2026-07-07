@@ -853,7 +853,9 @@ function ContractionTimerSection() {
       marginTop: 2,
     },
     rule511: {
-      backgroundColor: "#FEF3C7",
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: "#f59e0b",
       borderRadius: 10,
       padding: 12,
       marginBottom: 16,
@@ -864,7 +866,7 @@ function ContractionTimerSection() {
     rule511Text: {
       fontSize: 13,
       fontFamily: "Inter_500Medium",
-      color: "#92400E",
+      color: colors.foreground,
       flex: 1,
     },
     item: {
@@ -964,7 +966,7 @@ function ContractionTimerSection() {
 
       {rule511 && (
         <View style={s.rule511}>
-          <Ionicons name="warning-outline" size={18} color="#92400E" />
+          <Ionicons name="warning-outline" size={18} color="#f59e0b" />
           <Text style={s.rule511Text}>
             5-1-1 pattern detected. Contact your provider.
           </Text>
