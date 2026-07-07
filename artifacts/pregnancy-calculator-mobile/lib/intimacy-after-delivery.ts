@@ -1,6 +1,7 @@
 export interface IadResource {
   name: string;
   detail: string;
+  url?: string;
 }
 
 export const IAD_HIGHLIGHTS: string[] = [
@@ -26,27 +27,33 @@ export const IAD_NATIONAL_RESOURCES: IadResource[] = [
   {
     name: "ACOG Patient FAQ — Your Sexual Health",
     detail: "acog.org/womens-health/faqs/your-sexual-health",
+    url: "https://www.acog.org/womens-health/faqs/your-sexual-health",
   },
   {
     name: "ACOG — A Partner's Guide to Pregnancy",
     detail: "acog.org/womens-health/faqs/a-partners-guide-to-pregnancy",
+    url: "https://www.acog.org/womens-health/faqs/a-partners-guide-to-pregnancy",
   },
   {
     name: "ACOG — Postpartum Birth Control",
     detail: "acog.org/womens-health/faqs/postpartum-birth-control",
+    url: "https://www.acog.org/womens-health/faqs/postpartum-birth-control",
   },
   {
     name: "Postpartum Support International",
     detail:
       'Helpline 1-800-944-4773 · text "HELP" to 800-944-4773 · postpartum.net',
+    url: "https://postpartum.net",
   },
   {
     name: "Find a pelvic floor physical therapist",
     detail: "ptl.womenshealthapta.org",
+    url: "https://ptl.womenshealthapta.org",
   },
   {
     name: "AASECT — find a certified sex therapist",
     detail: "aasect.org/referral-directory",
+    url: "https://www.aasect.org/referral-directory",
   },
   {
     name: "Your ob-gyn office",

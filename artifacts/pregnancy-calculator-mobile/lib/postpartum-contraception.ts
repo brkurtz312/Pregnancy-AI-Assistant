@@ -1,6 +1,7 @@
 export interface PcResource {
   name: string;
   detail: string;
+  url?: string;
 }
 
 export const PC_HIGHLIGHTS: string[] = [
@@ -27,23 +28,28 @@ export const PC_NATIONAL_RESOURCES: PcResource[] = [
   {
     name: "ACOG Patient FAQ — Postpartum Birth Control",
     detail: "acog.org/womens-health/faqs/postpartum-birth-control",
+    url: "https://www.acog.org/womens-health/faqs/postpartum-birth-control",
   },
   {
     name: "ACOG Patient FAQ — Birth Control (all methods)",
     detail: "acog.org/womens-health/faqs/birth-control",
+    url: "https://www.acog.org/womens-health/faqs/birth-control",
   },
   {
     name: "ACOG Patient FAQ — Sterilization for Women and Men",
     detail: "acog.org/womens-health/faqs/sterilization-for-women-and-men",
+    url: "https://www.acog.org/womens-health/faqs/sterilization-for-women-and-men",
   },
   {
     name: "Bedsider — independent method finder",
     detail:
       "bedsider.org — compare methods side by side and find a clinic near you.",
+    url: "https://bedsider.org",
   },
   {
     name: "Reproductive Health National Training Center",
     detail: "rhntc.org",
+    url: "https://rhntc.org",
   },
   {
     name: "Your ob-gyn office",

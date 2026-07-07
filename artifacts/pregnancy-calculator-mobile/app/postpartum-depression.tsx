@@ -6,6 +6,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import * as WebBrowser from "expo-web-browser";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -247,21 +248,52 @@ export default function PostpartumDepressionScreen() {
               If you are in crisis, get help right now
             </Text>
           </View>
-          {PPD_CRISIS_RESOURCES.map((r) => (
-            <View key={r.name} style={{ marginBottom: 6 }}>
-              <Text style={[styles.crisisResourceName, { color: "#c0392b" }]}>
-                {r.name}
-              </Text>
-              <Text
-                style={[
-                  styles.crisisResourceDetail,
-                  { color: colors.foreground },
-                ]}
+          {PPD_CRISIS_RESOURCES.map((r) =>
+            r.url ? (
+              <TouchableOpacity
+                key={r.name}
+                style={styles.resourceItem}
+                onPress={() => WebBrowser.openBrowserAsync(r.url as string)}
               >
-                {r.detail}
-              </Text>
-            </View>
-          ))}
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.crisisResourceName,
+                      styles.resourceLink,
+                      { color: "#c0392b" },
+                    ]}
+                  >
+                    {r.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.crisisResourceDetail,
+                      { color: colors.foreground },
+                    ]}
+                  >
+                    {r.detail}
+                  </Text>
+                </View>
+                <Ionicons name="open-outline" size={16} color="#c0392b" />
+              </TouchableOpacity>
+            ) : (
+              <View key={r.name} style={{ marginBottom: 6 }}>
+                <Text
+                  style={[styles.crisisResourceName, { color: "#c0392b" }]}
+                >
+                  {r.name}
+                </Text>
+                <Text
+                  style={[
+                    styles.crisisResourceDetail,
+                    { color: colors.foreground },
+                  ]}
+                >
+                  {r.detail}
+                </Text>
+              </View>
+            ),
+          )}
           <Text style={[styles.crisisFooter, { color: colors.foreground }]}>
             Please also let your ob-gyn know how you're feeling — do not wait
             for your next appointment. If you are having any thoughts of harming
@@ -554,6 +586,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Inter_700Bold",
     flex: 1,
+  },
+  resourceItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  resourceLink: {
+    textDecorationLine: "underline",
   },
   crisisResourceName: {
     fontSize: 13,

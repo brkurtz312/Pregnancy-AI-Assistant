@@ -49,6 +49,7 @@ export const BF_HIGHLIGHTS: string[] = [
 export interface BfResource {
   name: string;
   detail: string;
+  url?: string;
 }
 
 export const BF_CALLOUT_REASONS: string[] = [
@@ -65,6 +66,7 @@ export const BF_NATIONAL_RESOURCES: BfResource[] = [
   {
     name: "ACOG Patient FAQ — Breastfeeding Your Baby",
     detail: "acog.org/womens-health/faqs/breastfeeding-your-baby",
+    url: "https://www.acog.org/womens-health/faqs/breastfeeding-your-baby",
   },
   {
     name: "National Breastfeeding Helpline (HRSA / Office on Women's Health)",
@@ -74,14 +76,17 @@ export const BF_NATIONAL_RESOURCES: BfResource[] = [
   {
     name: "La Leche League USA",
     detail: "24/7 peer support and local meetings — lllusa.org",
+    url: "https://www.lllusa.org",
   },
   {
     name: "Find an IBCLC (Board-Certified Lactation Consultant)",
     detail: "uslca.org/resources/find-an-ibclc",
+    url: "https://uslca.org/resources/find-an-ibclc",
   },
   {
     name: "LactMed — safety of medications while breastfeeding",
     detail: "ncbi.nlm.nih.gov/books/NBK501922",
+    url: "https://www.ncbi.nlm.nih.gov/books/NBK501922",
   },
 ];
 
@@ -90,21 +95,25 @@ export const BF_LOCAL_DIRECTORIES: BfResource[] = [
     name: "La Leche League — Find a Local Group",
     detail:
       "lllusa.org/find-support — search by your zip code for nearby peer-support meetings and leaders.",
+    url: "https://lllusa.org/find-support",
   },
   {
     name: "Find an IBCLC Near You",
     detail:
       "uslca.org/resources/find-an-ibclc — search the directory by your zip code for a board-certified lactation consultant near you.",
+    url: "https://uslca.org/resources/find-an-ibclc",
   },
   {
     name: "WIC Breastfeeding Support",
     detail:
       "wicbreastfeeding.fns.usda.gov — enter your zip code to find your local WIC office, which offers free breastfeeding support and peer counselors.",
+    url: "https://wicbreastfeeding.fns.usda.gov",
   },
   {
     name: "211",
     detail:
       "Call or text 211, or visit 211.org and enter your zip code for local health, lactation, and family support services.",
+    url: "https://211.org",
   },
 ];
 

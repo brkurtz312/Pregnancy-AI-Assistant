@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -116,21 +117,52 @@ export default function PostpartumDepressionSummaryScreen() {
                 If you are in crisis, get help right now
               </Text>
             </View>
-            {PPD_CRISIS_RESOURCES.map((r) => (
-              <View key={r.name} style={{ marginBottom: 6 }}>
-                <Text style={[styles.crisisResourceName, { color: "#c0392b" }]}>
-                  {r.name}
-                </Text>
-                <Text
-                  style={[
-                    styles.crisisResourceDetail,
-                    { color: colors.foreground },
-                  ]}
+            {PPD_CRISIS_RESOURCES.map((r) =>
+              r.url ? (
+                <TouchableOpacity
+                  key={r.name}
+                  style={styles.resourceItem}
+                  onPress={() => WebBrowser.openBrowserAsync(r.url as string)}
                 >
-                  {r.detail}
-                </Text>
-              </View>
-            ))}
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[
+                        styles.crisisResourceName,
+                        styles.resourceLink,
+                        { color: "#c0392b" },
+                      ]}
+                    >
+                      {r.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.crisisResourceDetail,
+                        { color: colors.foreground },
+                      ]}
+                    >
+                      {r.detail}
+                    </Text>
+                  </View>
+                  <Ionicons name="open-outline" size={16} color="#c0392b" />
+                </TouchableOpacity>
+              ) : (
+                <View key={r.name} style={{ marginBottom: 6 }}>
+                  <Text
+                    style={[styles.crisisResourceName, { color: "#c0392b" }]}
+                  >
+                    {r.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.crisisResourceDetail,
+                      { color: colors.foreground },
+                    ]}
+                  >
+                    {r.detail}
+                  </Text>
+                </View>
+              ),
+            )}
             <Text style={[styles.crisisFooter, { color: colors.foreground }]}>
               Please also let your ob-gyn know how you're feeling. Don't
               hesitate to go to the nearest hospital if you're having any
@@ -194,23 +226,56 @@ export default function PostpartumDepressionSummaryScreen() {
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
               National support
             </Text>
-            {PPD_NATIONAL_RESOURCES.map((r) => (
-              <View key={r.name} style={{ marginBottom: 8 }}>
-                <Text
-                  style={[styles.resourceName, { color: colors.foreground }]}
+            {PPD_NATIONAL_RESOURCES.map((r) =>
+              r.url ? (
+                <TouchableOpacity
+                  key={r.name}
+                  style={styles.resourceItem}
+                  onPress={() => WebBrowser.openBrowserAsync(r.url as string)}
                 >
-                  {r.name}
-                </Text>
-                <Text
-                  style={[
-                    styles.resourceDetail,
-                    { color: colors.mutedForeground },
-                  ]}
-                >
-                  {r.detail}
-                </Text>
-              </View>
-            ))}
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[
+                        styles.resourceName,
+                        styles.resourceLink,
+                        { color: colors.primary },
+                      ]}
+                    >
+                      {r.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.resourceDetail,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      {r.detail}
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name="open-outline"
+                    size={16}
+                    color={colors.primary}
+                  />
+                </TouchableOpacity>
+              ) : (
+                <View key={r.name} style={{ marginBottom: 8 }}>
+                  <Text
+                    style={[styles.resourceName, { color: colors.foreground }]}
+                  >
+                    {r.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.resourceDetail,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    {r.detail}
+                  </Text>
+                </View>
+              ),
+            )}
           </View>
 
           {checkin.wantsResources === "yes" && (
@@ -234,23 +299,59 @@ export default function PostpartumDepressionSummaryScreen() {
                 {checkin.zip ? ` (${checkin.zip})` : ""} for support groups,
                 therapists, and low-cost clinics near you.
               </Text>
-              {PPD_LOCAL_DIRECTORIES.map((r) => (
-                <View key={r.name} style={{ marginBottom: 8 }}>
-                  <Text
-                    style={[styles.resourceName, { color: colors.foreground }]}
+              {PPD_LOCAL_DIRECTORIES.map((r) =>
+                r.url ? (
+                  <TouchableOpacity
+                    key={r.name}
+                    style={styles.resourceItem}
+                    onPress={() => WebBrowser.openBrowserAsync(r.url as string)}
                   >
-                    {r.name}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.resourceDetail,
-                      { color: colors.mutedForeground },
-                    ]}
-                  >
-                    {r.detail}
-                  </Text>
-                </View>
-              ))}
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[
+                          styles.resourceName,
+                          styles.resourceLink,
+                          { color: colors.primary },
+                        ]}
+                      >
+                        {r.name}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.resourceDetail,
+                          { color: colors.mutedForeground },
+                        ]}
+                      >
+                        {r.detail}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="open-outline"
+                      size={16}
+                      color={colors.primary}
+                    />
+                  </TouchableOpacity>
+                ) : (
+                  <View key={r.name} style={{ marginBottom: 8 }}>
+                    <Text
+                      style={[
+                        styles.resourceName,
+                        { color: colors.foreground },
+                      ]}
+                    >
+                      {r.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.resourceDetail,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      {r.detail}
+                    </Text>
+                  </View>
+                ),
+              )}
             </View>
           )}
 
@@ -393,6 +494,15 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontFamily: "Inter_400Regular",
     lineHeight: 20,
+  },
+  resourceItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  resourceLink: {
+    textDecorationLine: "underline",
   },
   resourceName: {
     fontSize: 14,

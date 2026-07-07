@@ -5,6 +5,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import * as WebBrowser from "expo-web-browser";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -221,21 +222,52 @@ export default function IntimacyAfterDeliveryScreen() {
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
             Trusted resources
           </Text>
-          {IAD_NATIONAL_RESOURCES.map((r) => (
-            <View key={r.name} style={{ marginBottom: 8 }}>
-              <Text style={[styles.resourceName, { color: colors.foreground }]}>
-                {r.name}
-              </Text>
-              <Text
-                style={[
-                  styles.resourceDetail,
-                  { color: colors.mutedForeground },
-                ]}
+          {IAD_NATIONAL_RESOURCES.map((r) =>
+            r.url ? (
+              <TouchableOpacity
+                key={r.name}
+                style={styles.resourceItem}
+                onPress={() => WebBrowser.openBrowserAsync(r.url as string)}
               >
-                {r.detail}
-              </Text>
-            </View>
-          ))}
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.resourceName,
+                      styles.resourceLink,
+                      { color: colors.primary },
+                    ]}
+                  >
+                    {r.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.resourceDetail,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    {r.detail}
+                  </Text>
+                </View>
+                <Ionicons name="open-outline" size={16} color={colors.primary} />
+              </TouchableOpacity>
+            ) : (
+              <View key={r.name} style={{ marginBottom: 8 }}>
+                <Text
+                  style={[styles.resourceName, { color: colors.foreground }]}
+                >
+                  {r.name}
+                </Text>
+                <Text
+                  style={[
+                    styles.resourceDetail,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  {r.detail}
+                </Text>
+              </View>
+            ),
+          )}
         </Animated.View>
 
         <TouchableOpacity
@@ -388,6 +420,15 @@ const styles = StyleSheet.create({
   pdfBtnText: {
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
+  },
+  resourceItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  resourceLink: {
+    textDecorationLine: "underline",
   },
   resourceName: {
     fontSize: 14,

@@ -49,6 +49,7 @@ export const PPD_HIGHLIGHTS: string[] = [
 export interface PpdResource {
   name: string;
   detail: string;
+  url?: string;
 }
 
 export const PPD_CRISIS_RESOURCES: PpdResource[] = [
@@ -59,15 +60,18 @@ export const PPD_CRISIS_RESOURCES: PpdResource[] = [
   {
     name: "988 Suicide & Crisis Lifeline",
     detail: "Call or text 988 — free, confidential, 24/7, English & Spanish.",
+    url: "https://988lifeline.org",
   },
   {
     name: "Postpartum Support International (PSI) HelpLine",
     detail:
       'Call 1-800-944-4773, or text "HELP" to 800-944-4773 (English) or 971-203-7773 (Spanish).',
+    url: "https://postpartum.net",
   },
   {
     name: "National Maternal Mental Health Hotline",
     detail: "Call or text 1-833-TLC-MAMA (1-833-852-6262) — free, 24/7.",
+    url: "https://mchb.hrsa.gov/programs-impact/programs/mental-health/national-maternal-mental-health-hotline",
   },
 ];
 
@@ -75,15 +79,18 @@ export const PPD_NATIONAL_RESOURCES: PpdResource[] = [
   {
     name: "ACOG — Postpartum Depression Patient FAQ",
     detail: "acog.org/womens-health/faqs/postpartum-depression",
+    url: "https://www.acog.org/womens-health/faqs/postpartum-depression",
   },
   {
     name: "Edinburgh Postnatal Depression Scale (EPDS) screening",
     detail:
       "A short, validated 10-question screening tool. Take it online and bring your score to your visit: postpartum.net/professionals/screening",
+    url: "https://postpartum.net/professionals/screening",
   },
   {
     name: "Postpartum Support International — Get Help",
     detail: "postpartum.net/get-help",
+    url: "https://postpartum.net/get-help",
   },
 ];
 
@@ -92,21 +99,25 @@ export const PPD_LOCAL_DIRECTORIES: PpdResource[] = [
     name: "PSI Local Support Directory",
     detail:
       "psidirectory.com — search by your zip code for local support groups, therapists, and psychiatrists who specialize in perinatal mental health.",
+    url: "https://psidirectory.com",
   },
   {
     name: "SAMHSA FindTreatment.gov",
     detail:
       "findtreatment.gov — federal treatment locator; enter your zip code to find nearby mental health providers.",
+    url: "https://findtreatment.gov",
   },
   {
     name: "HRSA Find a Health Center",
     detail:
       "findahealthcenter.hrsa.gov — enter your zip code to find low-cost/sliding-scale clinics near you.",
+    url: "https://findahealthcenter.hrsa.gov",
   },
   {
     name: "211",
     detail:
       "Call or text 211, or visit 211.org and enter your zip code for local health, housing, and support services.",
+    url: "https://211.org",
   },
 ];
 
