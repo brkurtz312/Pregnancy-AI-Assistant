@@ -55,7 +55,8 @@ const RESOURCES = [
   },
   {
     name: "SAMHSA Helpline",
-    detail: "Free, confidential treatment referral and information: 1-800-662-4357",
+    detail:
+      "Free, confidential treatment referral and information: 1-800-662-4357",
     url: "https://www.samhsa.gov/find-help/national-helpline",
   },
   {
@@ -82,7 +83,10 @@ async function openHandoutPdf(setOpening: (v: boolean) => void) {
           UTI: "com.adobe.pdf",
         });
       } else {
-        Alert.alert("Can't open PDF", "Viewing files isn't available on this device.");
+        Alert.alert(
+          "Can't open PDF",
+          "Viewing files isn't available on this device.",
+        );
       }
       return;
     }
@@ -91,7 +95,10 @@ async function openHandoutPdf(setOpening: (v: boolean) => void) {
       params: { uri: destUri, title: HANDOUT_TITLE, shareTitle: HANDOUT_TITLE },
     });
   } catch {
-    Alert.alert("Can't open PDF", "Something went wrong opening the handout. Please try again.");
+    Alert.alert(
+      "Can't open PDF",
+      "Something went wrong opening the handout. Please try again.",
+    );
   } finally {
     setOpening(false);
   }
@@ -140,12 +147,15 @@ export default function HpMedicationsScreen() {
 
         <Animated.View
           entering={FadeInDown.delay(40).duration(400)}
-          style={[styles.reassureBox, { backgroundColor: colors.primary + "12" }]}
+          style={[
+            styles.reassureBox,
+            { backgroundColor: colors.primary + "12" },
+          ]}
         >
           <Ionicons name="flask" size={18} color={colors.primary} />
           <Text style={[styles.reassureText, { color: colors.foreground }]}>
-            Many medications are safe during pregnancy, but some are not. When in
-            doubt, always ask your provider before taking anything — even
+            Many medications are safe during pregnancy, but some are not. When
+            in doubt, always ask your provider before taking anything — even
             vitamins or herbal products.
           </Text>
         </Animated.View>
@@ -165,7 +175,9 @@ export default function HpMedicationsScreen() {
           </View>
           {AVOID_COMPLETELY.map((item) => (
             <View key={item} style={styles.calloutRow}>
-              <Text style={[styles.calloutBullet, { color: "#c0392b" }]}>•</Text>
+              <Text style={[styles.calloutBullet, { color: "#c0392b" }]}>
+                •
+              </Text>
               <Text style={[styles.calloutText, { color: colors.foreground }]}>
                 {item}
               </Text>
@@ -175,7 +187,10 @@ export default function HpMedicationsScreen() {
 
         <Animated.View
           entering={FadeInDown.delay(110).duration(400)}
-          style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
         >
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
             What to know
@@ -183,7 +198,12 @@ export default function HpMedicationsScreen() {
           {HIGHLIGHTS.map((h, i) => (
             <View key={i} style={styles.highlightRow}>
               <Text style={[styles.bullet, { color: colors.primary }]}>•</Text>
-              <Text style={[styles.highlightText, { color: colors.mutedForeground }]}>
+              <Text
+                style={[
+                  styles.highlightText,
+                  { color: colors.mutedForeground },
+                ]}
+              >
                 {h}
               </Text>
             </View>
@@ -199,7 +219,11 @@ export default function HpMedicationsScreen() {
             {opening ? (
               <ActivityIndicator size="small" color={colors.primary} />
             ) : (
-              <Ionicons name="document-text-outline" size={18} color={colors.primary} />
+              <Ionicons
+                name="document-text-outline"
+                size={18}
+                color={colors.primary}
+              />
             )}
             <Text style={[styles.pdfBtnText, { color: colors.primary }]}>
               View Full Handout (PDF)
@@ -209,7 +233,10 @@ export default function HpMedicationsScreen() {
 
         <Animated.View
           entering={FadeInDown.delay(150).duration(400)}
-          style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
         >
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
             Trusted resources
@@ -221,10 +248,21 @@ export default function HpMedicationsScreen() {
               onPress={() => WebBrowser.openBrowserAsync(r.url)}
             >
               <View style={{ flex: 1 }}>
-                <Text style={[styles.resourceName, styles.resourceLink, { color: colors.primary }]}>
+                <Text
+                  style={[
+                    styles.resourceName,
+                    styles.resourceLink,
+                    { color: colors.primary },
+                  ]}
+                >
                   {r.name}
                 </Text>
-                <Text style={[styles.resourceDetail, { color: colors.mutedForeground }]}>
+                <Text
+                  style={[
+                    styles.resourceDetail,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
                   {r.detail}
                 </Text>
               </View>
@@ -260,18 +298,47 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 16,
   },
-  reassureText: { flex: 1, fontSize: 13.5, fontFamily: "Inter_500Medium", lineHeight: 19 },
-  calloutBox: { borderRadius: 16, padding: 14, borderWidth: 1.5, marginBottom: 16 },
-  calloutHeaderRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
+  reassureText: {
+    flex: 1,
+    fontSize: 13.5,
+    fontFamily: "Inter_500Medium",
+    lineHeight: 19,
+  },
+  calloutBox: {
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1.5,
+    marginBottom: 16,
+  },
+  calloutHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 10,
+  },
   calloutTitle: { fontSize: 15, fontFamily: "Inter_700Bold", flex: 1 },
   calloutRow: { flexDirection: "row", gap: 6, marginBottom: 4 },
   calloutBullet: { fontSize: 13, fontFamily: "Inter_700Bold", lineHeight: 19 },
-  calloutText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
+  calloutText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 19,
+  },
   card: { borderRadius: 18, padding: 16, marginBottom: 16, borderWidth: 1 },
-  sectionTitle: { fontSize: 16, fontFamily: "Inter_600SemiBold", marginBottom: 10 },
+  sectionTitle: {
+    fontSize: 16,
+    fontFamily: "Inter_600SemiBold",
+    marginBottom: 10,
+  },
   highlightRow: { flexDirection: "row", gap: 8, marginBottom: 8 },
   bullet: { fontSize: 14, fontFamily: "Inter_700Bold", lineHeight: 20 },
-  highlightText: { flex: 1, fontSize: 13.5, fontFamily: "Inter_400Regular", lineHeight: 20 },
+  highlightText: {
+    flex: 1,
+    fontSize: 13.5,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 20,
+  },
   pdfBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -283,8 +350,21 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   pdfBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
-  resourceItem: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
-  resourceName: { fontSize: 14, fontFamily: "Inter_600SemiBold", marginBottom: 2 },
+  resourceItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  resourceName: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    marginBottom: 2,
+  },
   resourceLink: { textDecorationLine: "underline" },
-  resourceDetail: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 18 },
+  resourceDetail: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 18,
+  },
 });

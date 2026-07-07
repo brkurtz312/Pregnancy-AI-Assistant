@@ -28,7 +28,7 @@ const HIGHLIGHTS = [
   "Jobs that involve heavy lifting, prolonged standing, exposure to chemicals, or significant physical hazards may require modifications as pregnancy progresses.",
   "Talk to your employer early about possible accommodations — lighter duties, more frequent breaks, or remote work options.",
   "The Family and Medical Leave Act (FMLA) may protect your job if you need to reduce hours or take leave for a pregnancy-related condition.",
-  "\"Bedrest\" is not a single prescription — it ranges from simply cutting back on activity to strict bed rest in a hospital setting, depending on your condition.",
+  '"Bedrest" is not a single prescription — it ranges from simply cutting back on activity to strict bed rest in a hospital setting, depending on your condition.',
   "Research has not shown that routine bedrest prevents preterm birth or other complications. Your provider will only recommend it if your specific situation calls for it.",
   "If prescribed activity restrictions, ask for specific details: which activities are allowed, how much walking is okay, and whether you can work from home.",
 ];
@@ -75,7 +75,10 @@ async function openHandoutPdf(setOpening: (v: boolean) => void) {
           UTI: "com.adobe.pdf",
         });
       } else {
-        Alert.alert("Can't open PDF", "Viewing files isn't available on this device.");
+        Alert.alert(
+          "Can't open PDF",
+          "Viewing files isn't available on this device.",
+        );
       }
       return;
     }
@@ -84,7 +87,10 @@ async function openHandoutPdf(setOpening: (v: boolean) => void) {
       params: { uri: destUri, title: HANDOUT_TITLE, shareTitle: HANDOUT_TITLE },
     });
   } catch {
-    Alert.alert("Can't open PDF", "Something went wrong opening the handout. Please try again.");
+    Alert.alert(
+      "Can't open PDF",
+      "Something went wrong opening the handout. Please try again.",
+    );
   } finally {
     setOpening(false);
   }
@@ -133,7 +139,10 @@ export default function HpWorkBedrestScreen() {
 
         <Animated.View
           entering={FadeInDown.delay(40).duration(400)}
-          style={[styles.reassureBox, { backgroundColor: colors.primary + "12" }]}
+          style={[
+            styles.reassureBox,
+            { backgroundColor: colors.primary + "12" },
+          ]}
         >
           <Ionicons name="briefcase" size={18} color={colors.primary} />
           <Text style={[styles.reassureText, { color: colors.foreground }]}>
@@ -158,7 +167,9 @@ export default function HpWorkBedrestScreen() {
           </View>
           {TALK_TO_PROVIDER.map((reason) => (
             <View key={reason} style={styles.calloutRow}>
-              <Text style={[styles.calloutBullet, { color: "#4a90b8" }]}>•</Text>
+              <Text style={[styles.calloutBullet, { color: "#4a90b8" }]}>
+                •
+              </Text>
               <Text style={[styles.calloutText, { color: colors.foreground }]}>
                 {reason}
               </Text>
@@ -168,7 +179,10 @@ export default function HpWorkBedrestScreen() {
 
         <Animated.View
           entering={FadeInDown.delay(110).duration(400)}
-          style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
         >
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
             What to know
@@ -176,7 +190,12 @@ export default function HpWorkBedrestScreen() {
           {HIGHLIGHTS.map((h, i) => (
             <View key={i} style={styles.highlightRow}>
               <Text style={[styles.bullet, { color: colors.primary }]}>•</Text>
-              <Text style={[styles.highlightText, { color: colors.mutedForeground }]}>
+              <Text
+                style={[
+                  styles.highlightText,
+                  { color: colors.mutedForeground },
+                ]}
+              >
                 {h}
               </Text>
             </View>
@@ -192,7 +211,11 @@ export default function HpWorkBedrestScreen() {
             {opening ? (
               <ActivityIndicator size="small" color={colors.primary} />
             ) : (
-              <Ionicons name="document-text-outline" size={18} color={colors.primary} />
+              <Ionicons
+                name="document-text-outline"
+                size={18}
+                color={colors.primary}
+              />
             )}
             <Text style={[styles.pdfBtnText, { color: colors.primary }]}>
               View Full Handout (PDF)
@@ -202,7 +225,10 @@ export default function HpWorkBedrestScreen() {
 
         <Animated.View
           entering={FadeInDown.delay(150).duration(400)}
-          style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
         >
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
             Trusted resources
@@ -214,10 +240,21 @@ export default function HpWorkBedrestScreen() {
               onPress={() => WebBrowser.openBrowserAsync(r.url)}
             >
               <View style={{ flex: 1 }}>
-                <Text style={[styles.resourceName, styles.resourceLink, { color: colors.primary }]}>
+                <Text
+                  style={[
+                    styles.resourceName,
+                    styles.resourceLink,
+                    { color: colors.primary },
+                  ]}
+                >
                   {r.name}
                 </Text>
-                <Text style={[styles.resourceDetail, { color: colors.mutedForeground }]}>
+                <Text
+                  style={[
+                    styles.resourceDetail,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
                   {r.detail}
                 </Text>
               </View>
@@ -253,18 +290,47 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 16,
   },
-  reassureText: { flex: 1, fontSize: 13.5, fontFamily: "Inter_500Medium", lineHeight: 19 },
-  calloutBox: { borderRadius: 16, padding: 14, borderWidth: 1.5, marginBottom: 16 },
-  calloutHeaderRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
+  reassureText: {
+    flex: 1,
+    fontSize: 13.5,
+    fontFamily: "Inter_500Medium",
+    lineHeight: 19,
+  },
+  calloutBox: {
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1.5,
+    marginBottom: 16,
+  },
+  calloutHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 10,
+  },
   calloutTitle: { fontSize: 15, fontFamily: "Inter_700Bold", flex: 1 },
   calloutRow: { flexDirection: "row", gap: 6, marginBottom: 4 },
   calloutBullet: { fontSize: 13, fontFamily: "Inter_700Bold", lineHeight: 19 },
-  calloutText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
+  calloutText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 19,
+  },
   card: { borderRadius: 18, padding: 16, marginBottom: 16, borderWidth: 1 },
-  sectionTitle: { fontSize: 16, fontFamily: "Inter_600SemiBold", marginBottom: 10 },
+  sectionTitle: {
+    fontSize: 16,
+    fontFamily: "Inter_600SemiBold",
+    marginBottom: 10,
+  },
   highlightRow: { flexDirection: "row", gap: 8, marginBottom: 8 },
   bullet: { fontSize: 14, fontFamily: "Inter_700Bold", lineHeight: 20 },
-  highlightText: { flex: 1, fontSize: 13.5, fontFamily: "Inter_400Regular", lineHeight: 20 },
+  highlightText: {
+    flex: 1,
+    fontSize: 13.5,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 20,
+  },
   pdfBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -276,8 +342,21 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   pdfBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
-  resourceItem: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
-  resourceName: { fontSize: 14, fontFamily: "Inter_600SemiBold", marginBottom: 2 },
+  resourceItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  resourceName: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    marginBottom: 2,
+  },
   resourceLink: { textDecorationLine: "underline" },
-  resourceDetail: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 18 },
+  resourceDetail: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 18,
+  },
 });

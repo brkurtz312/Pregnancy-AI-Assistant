@@ -30,8 +30,7 @@ const TOPICS = [
   {
     icon: "nutrition-outline" as const,
     title: "Nutrition & Weight Gain",
-    description:
-      "Recommended weight gain, key nutrients, and foods to avoid.",
+    description: "Recommended weight gain, key nutrients, and foods to avoid.",
     route: "/hp-nutrition",
   },
   {
@@ -107,7 +106,9 @@ export default function HealthyPregnancyScreen() {
                 styles.card,
                 { backgroundColor: colors.card, borderColor: colors.border },
               ]}
-              onPress={() => router.push(topic.route as any)}
+              onPress={() =>
+                router.push(topic.route as Parameters<typeof router.push>[0])
+              }
               activeOpacity={0.8}
             >
               <View
@@ -139,10 +140,7 @@ export default function HealthyPregnancyScreen() {
 
         <Animated.View
           entering={FadeInDown.delay(440).duration(400)}
-          style={[
-            styles.noteBox,
-            { backgroundColor: colors.primary + "10" },
-          ]}
+          style={[styles.noteBox, { backgroundColor: colors.primary + "10" }]}
         >
           <Ionicons
             name="information-circle-outline"
