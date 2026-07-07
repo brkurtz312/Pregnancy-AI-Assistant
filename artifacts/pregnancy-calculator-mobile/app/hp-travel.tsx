@@ -55,7 +55,7 @@ const RESOURCES = [
   {
     name: "CDC: Zika Virus and Pregnancy",
     detail: "Current Zika travel notices and pregnancy guidance",
-    url: "https://www.cdc.gov/zika/pregnancy/index.html",
+    url: "https://www.cdc.gov/zika/hcp/clinical-pregnant/index.html",
   },
 ];
 
