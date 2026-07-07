@@ -48,19 +48,6 @@ function formatDateTime(iso: string) {
   );
 }
 
-function formatCountdown(target: Date) {
-  const ms = target.getTime() - Date.now();
-  if (ms <= 0) return "Happening now";
-  const days = Math.floor(ms / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((ms / (1000 * 60 * 60)) % 24);
-  if (days > 0) {
-    return `In ${days} day${days === 1 ? "" : "s"}${hours > 0 ? ` ${hours}h` : ""}`;
-  }
-  if (hours > 0) return `In ${hours} hour${hours === 1 ? "" : "s"}`;
-  const minutes = Math.max(1, Math.floor(ms / (1000 * 60)));
-  return `In ${minutes} minute${minutes === 1 ? "" : "s"}`;
-}
-
 // ─── Date/Time Field ─────────────────────────────────────────────────────────
 
 function DateTimeField({
@@ -405,99 +392,6 @@ function VisitModal({
   );
 }
 
-// ─── Next Appointment Section ────────────────────────────────────────────────
-
-function NextAppointmentSection({
-  next,
-  onAdd,
-  onEdit,
-  onDelete,
-}: {
-  next: PrenatalVisit | null;
-  onAdd: () => void;
-  onEdit: (v: PrenatalVisit) => void;
-  onDelete: (id: number) => void;
-}) {
-  const colors = useColors();
-  const [, forceTick] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => forceTick((n) => n + 1), 60000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <View style={styles.container}>
-      <View style={styles.row}>
-        <Text style={[styles.title, { color: colors.foreground }]}>
-          Next Appointment
-        </Text>
-        {next && (
-          <TouchableOpacity
-            style={[styles.addBtn, { backgroundColor: colors.primary }]}
-            onPress={onAdd}
-          >
-            <Ionicons name="add" size={14} color={colors.primaryForeground} />
-            <Text
-              style={[styles.addBtnText, { color: colors.primaryForeground }]}
-            >
-              New
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {next ? (
-        <View
-          style={[
-            styles.nextCard,
-            {
-              backgroundColor: colors.primary + "18",
-              borderColor: colors.primary,
-            },
-          ]}
-        >
-          <Text style={[styles.countdown, { color: colors.primary }]}>
-            {formatCountdown(new Date(next.visitDate))}
-          </Text>
-          <Text style={[styles.nextDate, { color: colors.foreground }]}>
-            {formatDateTime(next.visitDate)}
-          </Text>
-          <View style={styles.nextActions}>
-            <TouchableOpacity
-              style={[styles.smallBtn, { borderColor: colors.border }]}
-              onPress={() => onEdit(next)}
-            >
-              <Text style={[styles.smallBtnText, { color: colors.foreground }]}>
-                Reschedule
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.smallBtn, { borderColor: colors.border }]}
-              onPress={() => onDelete(next.id)}
-            >
-              <Text style={[styles.smallBtnText, { color: colors.foreground }]}>
-                Cancel
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : (
-        <TouchableOpacity
-          style={[styles.startBtn, { backgroundColor: colors.primary }]}
-          onPress={onAdd}
-        >
-          <Text
-            style={[styles.startBtnText, { color: colors.primaryForeground }]}
-          >
-            Schedule an Appointment
-          </Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-}
-
 // ─── Appointment Log Section ─────────────────────────────────────────────────
 
 function AppointmentLogSection({
@@ -790,15 +684,6 @@ export default function OfficeVisitScreen() {
 
   const items = useMemo(() => data?.items ?? [], [data?.items]);
   const now = Date.now();
-  const next = useMemo(() => {
-    const upcoming = items
-      .filter((v) => new Date(v.visitDate).getTime() > now)
-      .sort(
-        (a, b) =>
-          new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime(),
-      );
-    return upcoming[0] ?? null;
-  }, [items, now]);
   const past = useMemo(
     () => items.filter((v) => new Date(v.visitDate).getTime() <= now),
     [items, now],
@@ -920,37 +805,20 @@ export default function OfficeVisitScreen() {
         {isLoading && !data ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
         ) : (
-          <>
-            <Animated.View
-              entering={FadeInDown.delay(80).duration(400)}
-              style={[
-                styles.card,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-            >
-              <NextAppointmentSection
-                next={next}
-                onAdd={openAdd}
-                onEdit={openEdit}
-                onDelete={handleDelete}
-              />
-            </Animated.View>
-
-            <Animated.View
-              entering={FadeInDown.delay(160).duration(400)}
-              style={[
-                styles.card,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-            >
-              <AppointmentLogSection
-                past={past}
-                onAdd={openAdd}
-                onEdit={openEdit}
-                onDelete={handleDelete}
-              />
-            </Animated.View>
-          </>
+          <Animated.View
+            entering={FadeInDown.delay(80).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <AppointmentLogSection
+              past={past}
+              onAdd={openAdd}
+              onEdit={openEdit}
+              onDelete={handleDelete}
+            />
+          </Animated.View>
         )}
 
         <Animated.View
@@ -1050,11 +918,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingVertical: 16,
   },
-  nextCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 16,
-  },
   learnCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -1079,39 +942,6 @@ const styles = StyleSheet.create({
   learnSub: {
     fontSize: 13,
     fontFamily: "Inter_400Regular",
-  },
-  countdown: {
-    fontSize: 20,
-    fontFamily: "Inter_700Bold",
-    marginBottom: 4,
-  },
-  nextDate: {
-    fontSize: 14,
-    fontFamily: "Inter_500Medium",
-    marginBottom: 12,
-  },
-  nextActions: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  smallBtn: {
-    borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-  },
-  smallBtnText: {
-    fontSize: 13,
-    fontFamily: "Inter_500Medium",
-  },
-  startBtn: {
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  startBtnText: {
-    fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
   },
   item: {
     borderRadius: 12,
