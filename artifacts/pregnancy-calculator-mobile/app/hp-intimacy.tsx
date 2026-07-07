@@ -45,7 +45,7 @@ const RESOURCES = [
   {
     name: "ACOG: Sex During Pregnancy",
     detail: "Evidence-based guidance on intimacy throughout pregnancy",
-    url: "https://www.acog.org/womens-health/faqs/sex-during-pregnancy",
+    url: "https://www.acog.org/womens-health/experts-and-stories/ask-acog/is-it-safe-to-have-sex-during-pregnancy",
   },
   {
     name: "March of Dimes: Sex During Pregnancy",
