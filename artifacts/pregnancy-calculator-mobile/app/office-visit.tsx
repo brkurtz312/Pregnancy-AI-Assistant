@@ -633,7 +633,7 @@ function LearnSection() {
           styles.learnCard,
           { backgroundColor: colors.card, borderColor: colors.border },
         ]}
-        onPress={() => router.push("/prenatal-testing")}
+        onPress={() => router.push("/prenatal-testing-hub")}
       >
         <View
           style={[styles.learnIcon, { backgroundColor: colors.primary + "18" }]}
@@ -646,10 +646,10 @@ function LearnSection() {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={[styles.learnTitle, { color: colors.foreground }]}>
-            Understanding Prenatal Testing
+            Prenatal Testing
           </Text>
           <Text style={[styles.learnSub, { color: colors.mutedForeground }]}>
-            What to expect and why these tests matter
+            Tests and screenings offered throughout your pregnancy
           </Text>
         </View>
         <Ionicons
