@@ -136,11 +136,20 @@ function InAppPdf({
   backgroundColor: string;
 }) {
   const { WebView } = require("react-native-webview");
+  // Derive the directory portion for allowingReadAccessToURL (iOS requires
+  // this to be set to the parent directory of the file, otherwise WebKit's
+  // sandbox blocks local file:// loads entirely, producing a blank spinner).
+  const dirUri = uri.substring(0, uri.lastIndexOf("/") + 1);
   return (
     <View style={{ flex: 1 }}>
       <WebView
         source={{ uri }}
-        style={{ flex: 1 }}
+        style={{ flex: 1, backgroundColor: "transparent" }}
+        originWhitelist={["file://*", "about:*"]}
+        allowFileAccess={true}
+        allowFileAccessFromFileURLs={true}
+        allowUniversalAccessFromFileURLs={true}
+        allowingReadAccessToURL={dirUri}
         onLoadEnd={() => setLoading(false)}
         onError={() => setLoading(false)}
       />
