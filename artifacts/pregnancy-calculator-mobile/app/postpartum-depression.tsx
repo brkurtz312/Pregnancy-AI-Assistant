@@ -240,7 +240,10 @@ export default function PostpartumDepressionScreen() {
 
         <Animated.View
           entering={FadeInDown.delay(40).duration(400)}
-          style={[styles.crisisBox, { borderColor: "#c0392b" }]}
+          style={[
+            styles.crisisBox,
+            { borderColor: "#c0392b", backgroundColor: colors.card },
+          ]}
         >
           <View style={styles.crisisHeaderRow}>
             <Ionicons name="warning" size={20} color="#c0392b" />
@@ -572,7 +575,6 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1.5,
     marginBottom: 16,
-    backgroundColor: "#fdf1f0",
   },
   crisisHeaderRow: {
     flexDirection: "row",

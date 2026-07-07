@@ -159,7 +159,10 @@ export default function CesareanBirthScreen() {
 
         <Animated.View
           entering={FadeInDown.delay(70).duration(400)}
-          style={[styles.calloutBox, { borderColor: "#b5474a" }]}
+          style={[
+            styles.calloutBox,
+            { borderColor: "#b5474a", backgroundColor: colors.card },
+          ]}
         >
           <View style={styles.calloutHeaderRow}>
             <Ionicons name="alert-circle" size={20} color="#b5474a" />
@@ -363,7 +366,6 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1.5,
     marginBottom: 16,
-    backgroundColor: "#faeeee",
   },
   calloutHeaderRow: {
     flexDirection: "row",

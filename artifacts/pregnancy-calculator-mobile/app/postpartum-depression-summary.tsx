@@ -110,7 +110,12 @@ export default function PostpartumDepressionSummaryScreen() {
             Postpartum depression — based on ACOG guidance
           </Text>
 
-          <View style={[styles.crisisBox, { borderColor: "#c0392b" }]}>
+          <View
+            style={[
+              styles.crisisBox,
+              { borderColor: "#c0392b", backgroundColor: colors.card },
+            ]}
+          >
             <View style={styles.crisisHeaderRow}>
               <Ionicons name="warning" size={20} color="#c0392b" />
               <Text style={[styles.crisisTitle, { color: "#c0392b" }]}>
@@ -435,7 +440,6 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1.5,
     marginBottom: 16,
-    backgroundColor: "#fdf1f0",
   },
   crisisHeaderRow: {
     flexDirection: "row",

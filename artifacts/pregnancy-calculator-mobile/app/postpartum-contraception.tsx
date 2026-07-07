@@ -137,7 +137,10 @@ export default function PostpartumContraceptionScreen() {
 
         <Animated.View
           entering={FadeInDown.delay(40).duration(400)}
-          style={[styles.calloutBox, { borderColor: "#6a4fa0" }]}
+          style={[
+            styles.calloutBox,
+            { borderColor: "#6a4fa0", backgroundColor: colors.card },
+          ]}
         >
           <View style={styles.calloutHeaderRow}>
             <Ionicons name="alert-circle" size={20} color="#6a4fa0" />
@@ -327,7 +330,6 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1.5,
     marginBottom: 16,
-    backgroundColor: "#f4f0fb",
   },
   calloutHeaderRow: {
     flexDirection: "row",

@@ -240,7 +240,10 @@ export default function BreastfeedingScreen() {
 
         <Animated.View
           entering={FadeInDown.delay(40).duration(400)}
-          style={[styles.calloutBox, { borderColor: "#b5651d" }]}
+          style={[
+            styles.calloutBox,
+            { borderColor: "#b5651d", backgroundColor: colors.card },
+          ]}
         >
           <View style={styles.calloutHeaderRow}>
             <Ionicons name="alert-circle" size={20} color="#b5651d" />
@@ -548,7 +551,6 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1.5,
     marginBottom: 16,
-    backgroundColor: "#fdf3ea",
   },
   calloutHeaderRow: {
     flexDirection: "row",

@@ -160,7 +160,10 @@ export default function LaborPainManagementScreen() {
 
         <Animated.View
           entering={FadeInDown.delay(70).duration(400)}
-          style={[styles.calloutBox, { borderColor: "#8a5fb3" }]}
+          style={[
+            styles.calloutBox,
+            { borderColor: "#8a5fb3", backgroundColor: colors.card },
+          ]}
         >
           <View style={styles.calloutHeaderRow}>
             <Ionicons name="alert-circle" size={20} color="#8a5fb3" />
@@ -364,7 +367,6 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1.5,
     marginBottom: 16,
-    backgroundColor: "#f3eefa",
   },
   calloutHeaderRow: {
     flexDirection: "row",

@@ -159,7 +159,10 @@ export default function LaborNaturalInducedScreen() {
 
         <Animated.View
           entering={FadeInDown.delay(70).duration(400)}
-          style={[styles.calloutBox, { borderColor: "#3a6ea5" }]}
+          style={[
+            styles.calloutBox,
+            { borderColor: "#3a6ea5", backgroundColor: colors.card },
+          ]}
         >
           <View style={styles.calloutHeaderRow}>
             <Ionicons name="alert-circle" size={20} color="#3a6ea5" />
@@ -363,7 +366,6 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1.5,
     marginBottom: 16,
-    backgroundColor: "#eef4fa",
   },
   calloutHeaderRow: {
     flexDirection: "row",

@@ -151,7 +151,10 @@ export default function IntimacyAfterDeliveryScreen() {
 
         <Animated.View
           entering={FadeInDown.delay(70).duration(400)}
-          style={[styles.calloutBox, { borderColor: "#b5548a" }]}
+          style={[
+            styles.calloutBox,
+            { borderColor: "#b5548a", backgroundColor: colors.card },
+          ]}
         >
           <View style={styles.calloutHeaderRow}>
             <Ionicons name="alert-circle" size={20} color="#b5548a" />
@@ -355,7 +358,6 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1.5,
     marginBottom: 16,
-    backgroundColor: "#fbeff5",
   },
   calloutHeaderRow: {
     flexDirection: "row",
