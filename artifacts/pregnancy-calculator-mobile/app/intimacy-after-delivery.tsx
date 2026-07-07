@@ -19,6 +19,7 @@ import {
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { AskCard } from "@/components/AskCard";
 import {
   IAD_HIGHLIGHTS,
   IAD_CALLOUT_REASONS,
@@ -262,6 +263,7 @@ export default function IntimacyAfterDeliveryScreen() {
             </>
           )}
         </TouchableOpacity>
+        <AskCard returnTo="/intimacy-after-delivery" />
       </ScrollView>
     </View>
   );

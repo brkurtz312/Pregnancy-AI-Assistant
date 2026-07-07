@@ -19,6 +19,7 @@ import {
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { AskCard } from "@/components/AskCard";
 import {
   PC_HIGHLIGHTS,
   PC_CALLOUT_REASONS,
@@ -248,6 +249,7 @@ export default function PostpartumContraceptionScreen() {
             </>
           )}
         </TouchableOpacity>
+        <AskCard returnTo="/postpartum-contraception" />
       </ScrollView>
     </View>
   );

@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { FETAL_STAGES } from "@/constants/fetalStages";
 import { MATERNAL_STAGES } from "@/constants/maternalStages";
 import { ClinicalDrawer } from "@/components/ClinicalDrawer";
+import { AskCard } from "@/components/AskCard";
 
 const ACCENT = "#4ecdc4";
 const BG = "#07090f";
@@ -310,6 +311,7 @@ export default function DevelopmentScreen() {
             <Text style={styles.navBtnText}>Next →</Text>
           </TouchableOpacity>
         </View>
+        <AskCard returnTo="/development" />
       </ScrollView>
     </SafeAreaView>
   );

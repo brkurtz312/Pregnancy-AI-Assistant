@@ -20,6 +20,7 @@ import {
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { AskCard } from "@/components/AskCard";
 import {
   COMPLICATION_HANDOUTS,
   COMPLICATION_HIGHLIGHTS,
@@ -332,6 +333,7 @@ export default function PregnancyComplicationsScreen() {
             </>
           )}
         </TouchableOpacity>
+        <AskCard returnTo="/pregnancy-complications" />
       </ScrollView>
     </View>
   );

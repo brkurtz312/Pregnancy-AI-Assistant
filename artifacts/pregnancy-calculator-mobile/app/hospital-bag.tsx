@@ -18,6 +18,7 @@ import {
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { AskCard } from "@/components/AskCard";
 import {
   buildHospitalBagHtml,
   countChecked,
@@ -372,6 +373,7 @@ export default function HospitalBagScreen() {
           Your checked items are saved automatically, so you can keep coming
           back to this list right up until you head to the hospital.
         </Text>
+        <AskCard returnTo="/hospital-bag" />
       </ScrollView>
     </View>
   );

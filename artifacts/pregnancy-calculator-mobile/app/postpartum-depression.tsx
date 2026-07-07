@@ -26,6 +26,7 @@ import {
   useUpdateProfile,
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
+import { AskCard } from "@/components/AskCard";
 import {
   PPD_HIGHLIGHTS,
   PPD_CRISIS_RESOURCES,
@@ -499,6 +500,7 @@ export default function PostpartumDepressionScreen() {
             )}
           </>
         )}
+        <AskCard returnTo="/postpartum-depression" />
       </ScrollView>
     </View>
   );

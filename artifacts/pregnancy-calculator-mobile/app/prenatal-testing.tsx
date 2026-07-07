@@ -18,6 +18,7 @@ import {
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { AskCard } from "@/components/AskCard";
 import {
   TEST_CATEGORIES,
   FAQS,
@@ -317,39 +318,7 @@ export default function PrenatalTestingScreen() {
           ))}
         </Animated.View>
 
-        <Animated.View
-          entering={FadeInDown.delay(320).duration(400)}
-          style={[
-            styles.card,
-            styles.askCard,
-            { backgroundColor: colors.card, borderColor: colors.primary },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            Have a specific question about your testing?
-          </Text>
-          <Text
-            style={[
-              styles.body,
-              { color: colors.mutedForeground, marginBottom: 14 },
-            ]}
-          >
-            Our AI assistant can answer questions about your own prenatal
-            testing timeline and results.
-          </Text>
-          <TouchableOpacity
-            style={[styles.askBtn, { backgroundColor: colors.primary }]}
-            onPress={() =>
-              router.push({
-                pathname: "/ask",
-                params: { returnTo: "/prenatal-testing" },
-              })
-            }
-          >
-            <Ionicons name="chatbubble-ellipses" size={18} color="#fff" />
-            <Text style={styles.askBtnText}>Ask a Question</Text>
-          </TouchableOpacity>
-        </Animated.View>
+        <AskCard returnTo="/prenatal-testing" />
 
         <Animated.View
           entering={FadeInDown.delay(360).duration(400)}

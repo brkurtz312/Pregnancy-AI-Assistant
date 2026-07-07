@@ -27,6 +27,7 @@ import {
   useUpdateProfile,
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
+import { AskCard } from "@/components/AskCard";
 import {
   CHILDBIRTH_METHOD_HIGHLIGHTS,
   CHILDBIRTH_PREP_HANDOUT,
@@ -534,6 +535,7 @@ export default function ChildbirthPreparationScreen() {
             </>
           )}
         </TouchableOpacity>
+        <AskCard returnTo="/childbirth-preparation" />
       </ScrollView>
     </View>
   );

@@ -11,6 +11,7 @@ import {
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { AskCard } from "@/components/AskCard";
 
 export default function LaborDeliveryScreen() {
   const colors = useColors();
@@ -255,6 +256,7 @@ export default function LaborDeliveryScreen() {
             />
           </TouchableOpacity>
         </Animated.View>
+        <AskCard returnTo="/labor-delivery" />
       </ScrollView>
     </View>
   );

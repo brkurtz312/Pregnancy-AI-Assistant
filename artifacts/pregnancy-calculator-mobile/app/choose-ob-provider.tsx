@@ -20,6 +20,7 @@ import {
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { AskCard } from "@/components/AskCard";
 import {
   OB_PROVIDER_HIGHLIGHTS,
   OB_PROVIDER_QUESTIONS,
@@ -306,6 +307,7 @@ export default function ChooseObProviderScreen() {
             </>
           )}
         </TouchableOpacity>
+        <AskCard returnTo="/choose-ob-provider" />
       </ScrollView>
     </View>
   );

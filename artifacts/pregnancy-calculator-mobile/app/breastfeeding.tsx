@@ -26,6 +26,7 @@ import {
   useUpdateProfile,
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
+import { AskCard } from "@/components/AskCard";
 import {
   BF_HIGHLIGHTS,
   BF_CALLOUT_REASONS,
@@ -469,6 +470,7 @@ export default function BreastfeedingScreen() {
             )}
           </>
         )}
+        <AskCard returnTo="/breastfeeding" />
       </ScrollView>
     </View>
   );

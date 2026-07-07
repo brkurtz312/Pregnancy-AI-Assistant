@@ -16,6 +16,7 @@ import {
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { AskCard } from "@/components/AskCard";
 import { SUPPORT_PERSON_VOL_2 } from "@/lib/support-person-survival";
 
 const PDF_ASSET = require("@/assets/docs/support-person-vol2.pdf");
@@ -148,6 +149,7 @@ export default function SupportPersonVol2Screen() {
             Read "Can We Do This?" (PDF)
           </Text>
         </TouchableOpacity>
+        <AskCard returnTo="/support-person-vol2" />
       </ScrollView>
     </View>
   );

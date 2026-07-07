@@ -20,6 +20,7 @@ import {
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { AskCard } from "@/components/AskCard";
 import {
   PAIN_HIGHLIGHTS,
   PAIN_TALK_EARLY,
@@ -307,6 +308,7 @@ export default function LaborPainManagementScreen() {
             </>
           )}
         </TouchableOpacity>
+        <AskCard returnTo="/labor-pain-management" />
       </ScrollView>
     </View>
   );
