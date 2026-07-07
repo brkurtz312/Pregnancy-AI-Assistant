@@ -28,6 +28,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ErrorFallback } from "@/components/ErrorFallback";
 import { SubscriptionProvider } from "@/lib/revenuecat";
+import { SettingsProvider } from "@/contexts/SettingsContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -344,11 +345,13 @@ function RootLayout() {
             <QueryClientProvider client={queryClient}>
               <AuthTokenBridge />
               <SubscriptionProvider>
-                <GestureHandlerRootView style={{ flex: 1 }}>
-                  <KeyboardProvider>
-                    <RootLayoutNav />
-                  </KeyboardProvider>
-                </GestureHandlerRootView>
+                <SettingsProvider>
+                  <GestureHandlerRootView style={{ flex: 1 }}>
+                    <KeyboardProvider>
+                      <RootLayoutNav />
+                    </KeyboardProvider>
+                  </GestureHandlerRootView>
+                </SettingsProvider>
               </SubscriptionProvider>
             </QueryClientProvider>
           </ClerkProvider>

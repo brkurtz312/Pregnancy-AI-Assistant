@@ -4,6 +4,7 @@ import DateTimePicker, {
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@clerk/expo";
 import * as Haptics from "expo-haptics";
+import * as haptics from "@/lib/haptics";
 import { useRouter } from "expo-router";
 import React, { useState, useEffect, useRef } from "react";
 import {
@@ -135,7 +136,7 @@ function DatePickerField({
           { borderColor: colors.border, backgroundColor: colors.card },
         ]}
         onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          haptics.impact(Haptics.ImpactFeedbackStyle.Light);
           setShowPicker(true);
         }}
         testID="date-picker-button"
@@ -243,7 +244,7 @@ function Stepper({
         <TouchableOpacity
           style={[styles.stepperBtn, { borderRightColor: colors.border }]}
           onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            haptics.impact(Haptics.ImpactFeedbackStyle.Light);
             if (value > min) onChange(value - 1);
           }}
           disabled={value <= min}
@@ -260,7 +261,7 @@ function Stepper({
         <TouchableOpacity
           style={[styles.stepperBtn, { borderLeftColor: colors.border }]}
           onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            haptics.impact(Haptics.ImpactFeedbackStyle.Light);
             if (value < max) onChange(value + 1);
           }}
           disabled={value >= max}
@@ -458,7 +459,7 @@ function ResultsView({ results }: { results: PregnancyResults }) {
           </View>
           <TouchableOpacity
             onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              haptics.impact(Haptics.ImpactFeedbackStyle.Light);
               setImageFullscreen(true);
             }}
             activeOpacity={0.85}
@@ -577,7 +578,7 @@ export default function CalculatorScreen() {
     setError(null);
     if (!date) {
       setError("Please select a date to continue.");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      haptics.notification(Haptics.NotificationFeedbackType.Warning);
       return;
     }
     try {
@@ -588,7 +589,7 @@ export default function CalculatorScreen() {
       else r = calculateByUltrasound(date, usWeeks, usDays);
 
       setResults(r);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      haptics.notification(Haptics.NotificationFeedbackType.Success);
       // Save the EDD to the user's profile so it auto-loads next time
       updateProfileMutation.mutate({
         data: { dueDate: r.edd.toISOString().slice(0, 10) },
@@ -604,7 +605,7 @@ export default function CalculatorScreen() {
     setError(null);
     setUsWeeks(10);
     setUsDays(0);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    haptics.impact(Haptics.ImpactFeedbackStyle.Light);
   }
 
   const topPad = isWeb ? 67 : insets.top;
@@ -703,7 +704,7 @@ export default function CalculatorScreen() {
                         setMethod(m.id);
                         setResults(null);
                         setError(null);
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        haptics.impact(Haptics.ImpactFeedbackStyle.Light);
                       }}
                       testID={`method-${m.id}`}
                     >

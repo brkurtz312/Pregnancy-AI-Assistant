@@ -9,9 +9,11 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
+  useColorScheme,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -23,6 +25,8 @@ import {
 import { useColors } from "@/hooks/useColors";
 import { usePass } from "@/hooks/usePass";
 import { formatPhone } from "@/lib/phone";
+import { useSettings } from "@/contexts/SettingsContext";
+import type { ThemeMode } from "@/contexts/SettingsContext";
 
 function CallButton({ phone }: { phone: string }) {
   const colors = useColors();
@@ -161,6 +165,19 @@ export default function ProfileScreen() {
   });
   const updateMutation = useUpdateProfile();
   const { hasPass, redeemCode, isRedeeming } = usePass();
+  const settings = useSettings();
+  const systemScheme = (useColorScheme() ?? "light") as ThemeMode;
+  const effectiveMode: ThemeMode = settings.themeAuto
+    ? systemScheme
+    : settings.themeMode;
+
+  const handleThemeAutoChange = useCallback(
+    (v: boolean) => {
+      settings.setThemeAuto(v);
+      if (!v) settings.setThemeMode(systemScheme);
+    },
+    [settings, systemScheme],
+  );
 
   const [firstName, setFirstName] = useState("");
   const [zipCode, setZipCode] = useState("");
@@ -622,6 +639,151 @@ export default function ProfileScreen() {
               )}
             </>
           )}
+
+          {/* My Settings */}
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <View style={styles.sectionHeader}>
+              <Ionicons
+                name="settings-outline"
+                size={20}
+                color={colors.primary}
+              />
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+                My Settings
+              </Text>
+            </View>
+
+            <Text
+              style={[styles.fieldLabel, { color: colors.mutedForeground }]}
+            >
+              APPEARANCE
+            </Text>
+
+            <View style={styles.settingRow}>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[styles.settingLabel, { color: colors.foreground }]}
+                >
+                  Auto Light/Dark Mode
+                </Text>
+                <Text
+                  style={[
+                    styles.settingHint,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  Follows your device setting
+                </Text>
+              </View>
+              <Switch
+                value={settings.themeAuto}
+                onValueChange={handleThemeAutoChange}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor="#fff"
+              />
+            </View>
+
+            <View
+              style={[
+                styles.fieldWrap,
+                { opacity: settings.themeAuto ? 0.4 : 1 },
+              ]}
+            >
+              <Text
+                style={[styles.fieldLabel, { color: colors.mutedForeground }]}
+              >
+                CURRENT MODE
+              </Text>
+              <View style={styles.toggleRow}>
+                {[
+                  {
+                    key: "light" as ThemeMode,
+                    label: "Light",
+                    icon: "sunny-outline" as const,
+                  },
+                  {
+                    key: "dark" as ThemeMode,
+                    label: "Dark",
+                    icon: "moon-outline" as const,
+                  },
+                ].map((opt) => {
+                  const active = effectiveMode === opt.key;
+                  return (
+                    <TouchableOpacity
+                      key={opt.key}
+                      onPress={() => {
+                        if (!settings.themeAuto) settings.setThemeMode(opt.key);
+                      }}
+                      disabled={settings.themeAuto}
+                      style={[
+                        styles.toggleBtn,
+                        {
+                          flexDirection: "row",
+                          gap: 6,
+                          backgroundColor: active
+                            ? colors.primary
+                            : colors.background,
+                          borderColor: active ? colors.primary : colors.border,
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name={opt.icon}
+                        size={14}
+                        color={active ? "#fff" : colors.mutedForeground}
+                      />
+                      <Text
+                        style={[
+                          styles.toggleBtnText,
+                          { color: active ? "#fff" : colors.foreground },
+                        ]}
+                      >
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            <Text
+              style={[
+                styles.fieldLabel,
+                { color: colors.mutedForeground, marginTop: 4 },
+              ]}
+            >
+              HAPTIC FEEDBACK
+            </Text>
+
+            <View style={styles.settingRow}>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[styles.settingLabel, { color: colors.foreground }]}
+                >
+                  Vibration on Interactions
+                </Text>
+                <Text
+                  style={[
+                    styles.settingHint,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  Contraction timer, kick counter & more
+                </Text>
+              </View>
+              <Switch
+                value={settings.hapticsEnabled}
+                onValueChange={settings.setHapticsEnabled}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor="#fff"
+              />
+            </View>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -815,5 +977,19 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontFamily: "Inter_600SemiBold",
+  },
+  settingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  settingLabel: {
+    fontSize: 15,
+    fontFamily: "Inter_500Medium",
+  },
+  settingHint: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    marginTop: 2,
   },
 });

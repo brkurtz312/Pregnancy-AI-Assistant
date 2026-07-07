@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useUser } from "@clerk/expo";
 import * as Haptics from "expo-haptics";
+import * as haptics from "@/lib/haptics";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   ActivityIndicator,
@@ -440,14 +441,14 @@ function KickCounterSection() {
     setKickCount(0);
     setSessionStart(now);
     setElapsed(0);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    haptics.impact(Haptics.ImpactFeedbackStyle.Light);
   }, [createMutation]);
 
   const handleKick = useCallback(async () => {
     if (!activeSessionId) return;
     const next = kickCount + 1;
     setKickCount(next);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    haptics.impact(Haptics.ImpactFeedbackStyle.Medium);
     await updateMutation.mutateAsync({
       id: activeSessionId,
       data: { kickCount: next },
@@ -703,7 +704,7 @@ function ContractionTimerSection() {
       setStartTime(now);
       setContracting(true);
       setElapsed(0);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      haptics.impact(Haptics.ImpactFeedbackStyle.Heavy);
     } else {
       const endTime = new Date();
       const duration = Math.round(
@@ -721,7 +722,7 @@ function ContractionTimerSection() {
       setContracting(false);
       setStartTime(null);
       setElapsed(0);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      haptics.notification(Haptics.NotificationFeedbackType.Success);
 
       await createMutation.mutateAsync({
         data: {
