@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useUpdateProfile } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
+import { formatPhone } from "@/lib/phone";
 
 type DeliveryCenterType = "hospital" | "birthing_center";
 
@@ -225,7 +226,7 @@ export default function OnboardingScreen() {
           <Field
             label="PHONE"
             value={providerPhone}
-            onChange={setProviderPhone}
+            onChange={(v) => setProviderPhone(formatPhone(v))}
             placeholder="(555) 000-0000"
             keyboardType="phone-pad"
           />
@@ -296,7 +297,7 @@ export default function OnboardingScreen() {
           <Field
             label="PHONE"
             value={hospitalPhone}
-            onChange={setHospitalPhone}
+            onChange={(v) => setHospitalPhone(formatPhone(v))}
             placeholder="(555) 000-0000"
             keyboardType="phone-pad"
           />

@@ -22,11 +22,12 @@ import {
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { usePass } from "@/hooks/usePass";
+import { formatPhone } from "@/lib/phone";
 
 function CallButton({ phone }: { phone: string }) {
   const colors = useColors();
   const handleCall = useCallback(() => {
-    Linking.openURL(`tel:${phone}`);
+    Linking.openURL(`tel:${phone.replace(/\D/g, "")}`);
   }, [phone]);
   return (
     <TouchableOpacity
@@ -198,7 +199,7 @@ export default function ProfileScreen() {
       setFirstName(profile.firstName ?? "");
       setZipCode(profile.zipCode ?? "");
       setProviderName(profile.providerName ?? "");
-      setProviderPhone(profile.providerPhone ?? "");
+      setProviderPhone(formatPhone(profile.providerPhone ?? ""));
       setProviderAddress(profile.providerAddress ?? "");
       setDeliveryCenterType(
         profile.deliveryCenterType === "birthing_center"
@@ -206,7 +207,7 @@ export default function ProfileScreen() {
           : "hospital",
       );
       setHospitalName(profile.hospitalName ?? "");
-      setHospitalPhone(profile.hospitalPhone ?? "");
+      setHospitalPhone(formatPhone(profile.hospitalPhone ?? ""));
       setHospitalAddress(profile.hospitalAddress ?? "");
     }
   }, [profile]);
@@ -386,7 +387,7 @@ export default function ProfileScreen() {
                 <Field
                   label="PHONE"
                   value={providerPhone}
-                  onChange={setProviderPhone}
+                  onChange={(v) => setProviderPhone(formatPhone(v))}
                   placeholder="(555) 000-0000"
                   keyboardType="phone-pad"
                   suffix={
@@ -483,7 +484,7 @@ export default function ProfileScreen() {
                 <Field
                   label="PHONE"
                   value={hospitalPhone}
-                  onChange={setHospitalPhone}
+                  onChange={(v) => setHospitalPhone(formatPhone(v))}
                   placeholder="(555) 000-0000"
                   keyboardType="phone-pad"
                   suffix={
