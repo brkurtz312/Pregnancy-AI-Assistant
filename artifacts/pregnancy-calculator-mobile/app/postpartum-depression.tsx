@@ -278,9 +278,7 @@ export default function PostpartumDepressionScreen() {
               </TouchableOpacity>
             ) : (
               <View key={r.name} style={{ marginBottom: 6 }}>
-                <Text
-                  style={[styles.crisisResourceName, { color: "#c0392b" }]}
-                >
+                <Text style={[styles.crisisResourceName, { color: "#c0392b" }]}>
                   {r.name}
                 </Text>
                 <Text
