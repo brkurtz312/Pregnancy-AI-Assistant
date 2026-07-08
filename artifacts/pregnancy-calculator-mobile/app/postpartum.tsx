@@ -61,6 +61,49 @@ export default function PostpartumScreen() {
             ]}
             onPress={() =>
               router.push({
+                pathname: "/postpartum-recovery",
+                params: { from: "Postpartum" },
+              })
+            }
+          >
+            <View
+              style={[
+                styles.learnIcon,
+                { backgroundColor: colors.primary + "18" },
+              ]}
+            >
+              <Ionicons
+                name="medkit-outline"
+                size={20}
+                color={colors.primary}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.learnTitle, { color: colors.foreground }]}>
+                Postpartum Recovery
+              </Text>
+              <Text
+                style={[styles.learnSub, { color: colors.mutedForeground }]}
+              >
+                Week by week — what to expect and how to get through it
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={colors.mutedForeground}
+            />
+          </TouchableOpacity>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(90).duration(400)}>
+          <TouchableOpacity
+            style={[
+              styles.learnCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+            onPress={() =>
+              router.push({
                 pathname: "/breastfeeding",
                 params: { from: "Postpartum" },
               })
@@ -92,7 +135,7 @@ export default function PostpartumScreen() {
           </TouchableOpacity>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(90).duration(400)}>
+        <Animated.View entering={FadeInDown.delay(120).duration(400)}>
           <TouchableOpacity
             style={[
               styles.learnCard,
