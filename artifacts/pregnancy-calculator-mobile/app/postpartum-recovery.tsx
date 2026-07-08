@@ -47,9 +47,9 @@ const CALL_ER = [
 
 const RESOURCES = [
   {
-    name: "ACOG — Postpartum Birth Recovery",
-    detail: "Patient FAQ covering the first weeks after delivery",
-    url: "https://www.acog.org/womens-health/faqs/postpartum-birth-recovery",
+    name: "ACOG Explains: Postpartum Recovery",
+    detail: "Video guide to the first weeks after delivery",
+    url: "https://www.acog.org/womens-health/videos/postpartum-recovery",
   },
   {
     name: "ACOG — Optimizing Postpartum Care",
