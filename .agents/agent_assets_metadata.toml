@@ -215,3 +215,39 @@ id = "BW61TP1jVw5cQmklIaCiR"
 uri = "file://exports/appstore-screenshot-1290x2796.png"
 type = "image"
 title = "App Store screenshot — 1290×2796 (alpha removed)"
+
+[[outputs]]
+id = "dw7fAa-0onf-eS1J03-gt"
+uri = "file://screenshots/01-home.jpg"
+type = "image"
+title = "1. Home / Due Date Dashboard"
+
+[[outputs]]
+id = "QscNbbKtgMjCutQIMiu4s"
+uri = "file://screenshots/02-ask.jpg"
+type = "image"
+title = "2. Ask a Question (AI)"
+
+[[outputs]]
+id = "kjX_E1q29BK0iryc1L21v"
+uri = "file://screenshots/03-learn.jpg"
+type = "image"
+title = "3. Learn"
+
+[[outputs]]
+id = "6gT7YF8TSa4ZiPI10QKNj"
+uri = "file://screenshots/04-video-vault.jpg"
+type = "image"
+title = "4. Video Vault"
+
+[[outputs]]
+id = "_EjZIzLDhC7hnANSamkEt"
+uri = "file://screenshots/05-tools.jpg"
+type = "image"
+title = "5. Pregnancy Tools"
+
+[[outputs]]
+id = "HiftHCitjKaBrKP3AS2Ln"
+uri = "file://screenshots/06-get-ready.jpg"
+type = "image"
+title = "6. Get Ready"
