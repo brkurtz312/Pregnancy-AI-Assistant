@@ -251,3 +251,15 @@ id = "HiftHCitjKaBrKP3AS2Ln"
 uri = "file://screenshots/06-get-ready.jpg"
 type = "image"
 title = "6. Get Ready"
+
+[[outputs]]
+id = "RLdqC7pwdjdWmEnBzJBs0"
+uri = "file://screenshots/07-beginning-of-life.jpg"
+type = "image"
+title = "The Beginning of Life (Fetal view)"
+
+[[outputs]]
+id = "loxzuQqSfnAH1u-4702ET"
+uri = "file://screenshots/08-maternal-body.jpg"
+type = "image"
+title = "The Maternal Body (Maternal view)"
