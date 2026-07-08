@@ -101,6 +101,14 @@ export default function LearnScreen() {
         delay={140}
       />
 
+      <ResourceCard
+        icon="play-circle-outline"
+        title="Video Vault"
+        description="100+ trusted videos from ACOG, CDC, AAP, NICHD, and more — organized by topic, from fetal development to newborn safe sleep."
+        onPress={() => router.push("/video-vault")}
+        delay={200}
+      />
+
       <Animated.View
         entering={FadeInDown.delay(260).duration(400)}
         style={[
