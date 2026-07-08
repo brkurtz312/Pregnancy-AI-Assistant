@@ -8,7 +8,7 @@
 - [Pass purchase + AI free-limit e2e testing](pass-gating-e2e-testing.md) — gating 403 sits behind isAnthropicConfigured 503; seed ai_usage via DB to test limits cheaply; Stripe test card works.
 - [RevenueCat ASC product sync](revenuecat-asc-sync.md) — verify live RC state (check-revenuecat script), not stale seed constants; generic "Failed to sync products" is the Replit→Apple layer, not our code.
 - [Apple burns IAP product IDs](apple-iap-product-id-burned.md) — IDs reserved forever once used; need a new id + new RC product (store_identifier immutable), no app rebuild.
-- [EAS build git restriction in main agent](eas-build-git-restriction.md) — EAS CLI writes to .git/index.lock; Replit blocks all .git/ writes in the agent. User must run `eas build` manually from the Shell tab.
+- iOS App Store submission is handled entirely by Replit's "Expo Launch" via the Publish button — never run/suggest EAS CLI (`eas build`/`submit`) manually, current expo skill forbids it outright.
 - [Clerk mobile 401s: AuthTokenBridge race condition](clerk-mobile-auth-bridge.md) — useEffect([getToken]) re-runs every render and loses to React Query; fix: useSession + useRef updated synchronously each render, getter registered once on mount.
 - [Expo web preview e2e testing blocked by Clerk OAuth](expo-web-e2e-clerk-block.md) — runTest (even with testClerkAuth) can't get past Clerk's web sign-in on Expo's web build; verify via typecheck+unit tests+manual screenshot of public screens instead.
 - [expo-modules-autolinking hoisting](expo-modules-autolinking-hoisting.md) — must be a direct dep pinned to expo's transitive version, or EAS build entitlements resolution fails; typecheck/tests don't catch this, check node_modules hoisting.
