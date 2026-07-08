@@ -621,47 +621,6 @@ function QuestionsToAskSection() {
   );
 }
 
-// ─── Learn Section ───────────────────────────────────────────────────────────
-
-function LearnSection() {
-  const colors = useColors();
-
-  return (
-    <>
-      <TouchableOpacity
-        style={[
-          styles.learnCard,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-        onPress={() => router.push("/prenatal-testing-hub")}
-      >
-        <View
-          style={[styles.learnIcon, { backgroundColor: colors.primary + "18" }]}
-        >
-          <Ionicons
-            name="document-text-outline"
-            size={20}
-            color={colors.primary}
-          />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.learnTitle, { color: colors.foreground }]}>
-            Prenatal Testing
-          </Text>
-          <Text style={[styles.learnSub, { color: colors.mutedForeground }]}>
-            Tests and screenings offered throughout your pregnancy
-          </Text>
-        </View>
-        <Ionicons
-          name="chevron-forward"
-          size={18}
-          color={colors.mutedForeground}
-        />
-      </TouchableOpacity>
-    </>
-  );
-}
-
 // ─── Main Office Visit Screen ────────────────────────────────────────────────
 
 export default function OfficeVisitScreen() {
@@ -829,10 +788,6 @@ export default function OfficeVisitScreen() {
           <QuestionsToAskSection />
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(300).duration(400)}>
-          <LearnSection />
-        </Animated.View>
-
         <VisitModal
           visible={modalVisible}
           onClose={() => {
@@ -917,31 +872,6 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     textAlign: "center",
     paddingVertical: 16,
-  },
-  learnCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderRadius: 18,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-  },
-  learnIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  learnTitle: {
-    fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
-    marginBottom: 2,
-  },
-  learnSub: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
   },
   item: {
     borderRadius: 12,

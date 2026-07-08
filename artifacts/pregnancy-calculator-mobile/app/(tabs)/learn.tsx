@@ -101,14 +101,6 @@ export default function LearnScreen() {
         delay={140}
       />
 
-      <ResourceCard
-        icon="document-text-outline"
-        title="Understanding Prenatal Testing"
-        description="What to expect and why routine and optional tests matter at each stage."
-        onPress={() => router.push("/prenatal-testing")}
-        delay={200}
-      />
-
       <Animated.View
         entering={FadeInDown.delay(260).duration(400)}
         style={[
