@@ -27,6 +27,16 @@ export interface WhatsNewEntry {
  * the build before it reaches the App Store.
  */
 export const WHATS_NEW: Record<string, WhatsNewEntry> = {
+  "1.0.5": {
+    headline: "What's new in this update",
+    items: [
+      {
+        icon: "play-circle-outline",
+        title: "New: Video Vault",
+        body: "Browse a curated library of trusted pregnancy and newborn education videos from ACOG, AAP, CDC, and other leading health organizations, organized by topic.",
+      },
+    ],
+  },
   "1.0.4": {
     headline: "What's new in this update",
     items: [
