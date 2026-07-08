@@ -78,9 +78,9 @@ export const COMPLICATION_RESOURCES: ComplicationResource[] = [
     url: "https://www.acog.org/womens-health/faqs/preterm-labor-and-birth",
   },
   {
-    name: "ACOG — Pregnancy Complications (patient hub)",
-    detail: "acog.org/womens-health/pregnancy/pregnancy-complications",
-    url: "https://www.acog.org/womens-health/pregnancy/pregnancy-complications",
+    name: "ACOG — Women's Health Topics",
+    detail: "acog.org/womens-health",
+    url: "https://www.acog.org/womens-health",
   },
   {
     name: "Your ob-gyn office",
