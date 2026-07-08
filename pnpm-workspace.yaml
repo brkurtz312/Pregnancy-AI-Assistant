@@ -112,6 +112,7 @@ overrides:
   lightningcss>lightningcss-win32-x64-msvc: "-"
   lodash: 4.18.1
   markdown-it: 14.2.0
+  minimatch@10>brace-expansion: ^5.0.7
   path-to-regexp: 8.4.2
   picomatch: 4.0.4
   postcss: 8.5.15
