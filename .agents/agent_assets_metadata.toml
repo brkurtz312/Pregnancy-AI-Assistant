@@ -263,3 +263,51 @@ id = "loxzuQqSfnAH1u-4702ET"
 uri = "file://screenshots/08-maternal-body.jpg"
 type = "image"
 title = "The Maternal Body (Maternal view)"
+
+[[outputs]]
+id = "UOaZSe0xEKISCjL94pfMn"
+uri = "file://screenshots/app-store-6.9/01-home.jpg"
+type = "image"
+title = "1. Home / Due Date Dashboard"
+
+[[outputs]]
+id = "GDuW1Z-QAmFs-RK49mVMF"
+uri = "file://screenshots/app-store-6.9/02-ask.jpg"
+type = "image"
+title = "2. Ask a Question (AI)"
+
+[[outputs]]
+id = "vpNYLLglmRsM3aj35SBEc"
+uri = "file://screenshots/app-store-6.9/03-learn.jpg"
+type = "image"
+title = "3. Learn"
+
+[[outputs]]
+id = "6CfY7Ne2XYXnKABco1CzO"
+uri = "file://screenshots/app-store-6.9/04-video-vault.jpg"
+type = "image"
+title = "4. Video Vault"
+
+[[outputs]]
+id = "xGHwIxHD0E4ms7Y6tDC8Z"
+uri = "file://screenshots/app-store-6.9/05-tools.jpg"
+type = "image"
+title = "5. Pregnancy Tools"
+
+[[outputs]]
+id = "MH-kyF7ZPfw9e8bKkqigC"
+uri = "file://screenshots/app-store-6.9/06-get-ready.jpg"
+type = "image"
+title = "6. Get Ready"
+
+[[outputs]]
+id = "PTB83paTk6PPb05ntYFqB"
+uri = "file://screenshots/app-store-6.9/07-beginning-of-life.jpg"
+type = "image"
+title = "7. The Beginning of Life"
+
+[[outputs]]
+id = "mtMKf_61U_YqO_RVK_gPl"
+uri = "file://screenshots/app-store-6.9/08-maternal-body.jpg"
+type = "image"
+title = "8. The Maternal Body"
