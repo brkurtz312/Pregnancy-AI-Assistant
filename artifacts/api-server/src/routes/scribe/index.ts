@@ -17,7 +17,8 @@ const upload = multer({
   limits: { fileSize: 25 * 1024 * 1024 },
 });
 
-const UNAVAILABLE = "The scribe service is not available right now. Please try again later.";
+const UNAVAILABLE =
+  "The scribe service is not available right now. Please try again later.";
 
 const SOAP_SYSTEM = `You are a medical scribe assistant. Given a transcript of a clinical encounter, produce a structured SOAP note.
 
@@ -56,7 +57,9 @@ router.post(
   upload.single("audio"),
   async (req: AuthedRequest, res): Promise<void> => {
     if (!req.file) {
-      res.status(400).json({ error: "No audio file provided. Upload audio as the 'audio' field." });
+      res.status(400).json({
+        error: "No audio file provided. Upload audio as the 'audio' field.",
+      });
       return;
     }
 
@@ -65,14 +68,18 @@ router.post(
       const transcript = await speechToText(buffer, format);
 
       if (!transcript.trim()) {
-        res.status(422).json({ error: "No speech detected in the audio. Please try again." });
+        res.status(422).json({
+          error: "No speech detected in the audio. Please try again.",
+        });
         return;
       }
 
       res.json({ transcript });
     } catch (err) {
       req.log.error({ err }, "scribe transcribe failed");
-      res.status(502).json({ error: "Transcription failed. Please try again." });
+      res
+        .status(502)
+        .json({ error: "Transcription failed. Please try again." });
     }
   },
 );
@@ -81,9 +88,16 @@ router.post(
   "/scribe/generate-note",
   requireAuth,
   async (req: AuthedRequest, res): Promise<void> => {
-    const { transcript, mode } = req.body as { transcript?: string; mode?: string };
+    const { transcript, mode } = req.body as {
+      transcript?: string;
+      mode?: string;
+    };
 
-    if (!transcript || typeof transcript !== "string" || transcript.trim().length < 10) {
+    if (
+      !transcript ||
+      typeof transcript !== "string" ||
+      transcript.trim().length < 10
+    ) {
       res.status(400).json({ error: "A transcript is required." });
       return;
     }
@@ -114,7 +128,9 @@ router.post(
       });
 
       const raw = message.content
-        .filter((b): b is Extract<typeof b, { type: "text" }> => b.type === "text")
+        .filter(
+          (b): b is Extract<typeof b, { type: "text" }> => b.type === "text",
+        )
         .map((b) => b.text)
         .join("")
         .trim();
@@ -123,15 +139,22 @@ router.post(
       try {
         parsed = JSON.parse(raw);
       } catch {
-        req.log.warn({ raw }, "scribe generate-note: failed to parse JSON from model");
-        res.status(502).json({ error: "The model returned an unexpected response. Please try again." });
+        req.log.warn(
+          { raw },
+          "scribe generate-note: failed to parse JSON from model",
+        );
+        res.status(502).json({
+          error: "The model returned an unexpected response. Please try again.",
+        });
         return;
       }
 
       res.json({ mode, note: parsed });
     } catch (err) {
       req.log.error({ err }, "scribe generate-note failed");
-      res.status(502).json({ error: "Note generation failed. Please try again." });
+      res
+        .status(502)
+        .json({ error: "Note generation failed. Please try again." });
     }
   },
 );

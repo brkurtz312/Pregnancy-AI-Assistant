@@ -1065,16 +1065,31 @@ export default function ToolsScreen() {
           activeOpacity={0.85}
         >
           <View style={styles.scribeCardInner}>
-            <Ionicons name="mic-circle-outline" size={28} color={colors.primary ?? "#e86cad"} />
+            <Ionicons
+              name="mic-circle-outline"
+              size={28}
+              color={colors.primary ?? "#e86cad"}
+            />
             <View style={styles.scribeCardText}>
-              <Text style={[styles.scribeCardTitle, { color: colors.foreground }]}>
+              <Text
+                style={[styles.scribeCardTitle, { color: colors.foreground }]}
+              >
                 Medical Scribe
               </Text>
-              <Text style={[styles.scribeCardSub, { color: colors.mutedForeground }]}>
+              <Text
+                style={[
+                  styles.scribeCardSub,
+                  { color: colors.mutedForeground },
+                ]}
+              >
                 Record an encounter · draft SOAP note or patient summary
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={colors.mutedForeground}
+            />
           </View>
         </TouchableOpacity>
       </Animated.View>

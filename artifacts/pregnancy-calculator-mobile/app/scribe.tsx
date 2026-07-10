@@ -79,7 +79,7 @@ export default function ScribeScreen() {
       );
       recordingRef.current = recording;
       setPhase("recording");
-    } catch (err) {
+    } catch {
       setError("Could not start recording. Please try again.");
     }
   }, []);
@@ -141,7 +141,8 @@ export default function ScribeScreen() {
         setNote(data.note);
         setPhase("done");
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "Note generation failed";
+        const msg =
+          err instanceof Error ? err.message : "Note generation failed";
         setError(msg);
         setPhase("transcribed");
       }
@@ -180,7 +181,9 @@ export default function ScribeScreen() {
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
         <Ionicons name="chevron-back" size={22} color={colors.foreground} />
-        <Text style={[styles.backText, { color: colors.foreground }]}>Tools</Text>
+        <Text style={[styles.backText, { color: colors.foreground }]}>
+          Tools
+        </Text>
       </TouchableOpacity>
 
       <ScrollView
@@ -189,9 +192,12 @@ export default function ScribeScreen() {
       >
         <View style={styles.header}>
           <Ionicons name="mic-circle-outline" size={40} color={ACCENT} />
-          <Text style={[styles.title, { color: colors.foreground }]}>Medical Scribe</Text>
+          <Text style={[styles.title, { color: colors.foreground }]}>
+            Medical Scribe
+          </Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            Record a patient encounter and generate a draft SOAP note or patient summary.
+            Record a patient encounter and generate a draft SOAP note or patient
+            summary.
           </Text>
         </View>
 
@@ -201,11 +207,22 @@ export default function ScribeScreen() {
             { backgroundColor: colors.card, borderColor: colors.border },
           ]}
         >
-          <View style={[styles.disclaimer, { backgroundColor: colors.muted ?? "#f5f5f5" }]}>
-            <Ionicons name="information-circle-outline" size={16} color={colors.mutedForeground} />
-            <Text style={[styles.disclaimerText, { color: colors.mutedForeground }]}>
-              All output is a draft for clinician review. Not a medical record. Obtain patient
-              consent before recording.
+          <View
+            style={[
+              styles.disclaimer,
+              { backgroundColor: colors.muted ?? "#f5f5f5" },
+            ]}
+          >
+            <Ionicons
+              name="information-circle-outline"
+              size={16}
+              color={colors.mutedForeground}
+            />
+            <Text
+              style={[styles.disclaimerText, { color: colors.mutedForeground }]}
+            >
+              All output is a draft for clinician review. Not a medical record.
+              Obtain patient consent before recording.
             </Text>
           </View>
 
@@ -240,18 +257,26 @@ export default function ScribeScreen() {
           {(phase === "transcribing" || phase === "generating") && (
             <View style={styles.loadingState}>
               <ActivityIndicator size="large" color={ACCENT} />
-              <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
-                {phase === "transcribing" ? "Transcribing audio…" : "Generating note…"}
+              <Text
+                style={[styles.loadingText, { color: colors.mutedForeground }]}
+              >
+                {phase === "transcribing"
+                  ? "Transcribing audio…"
+                  : "Generating note…"}
               </Text>
             </View>
           )}
 
           {(phase === "transcribed" || phase === "done") && (
             <View style={styles.transcriptSection}>
-              <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+              <Text
+                style={[styles.sectionLabel, { color: colors.mutedForeground }]}
+              >
                 TRANSCRIPT
               </Text>
-              <Text style={[styles.transcriptText, { color: colors.foreground }]}>
+              <Text
+                style={[styles.transcriptText, { color: colors.foreground }]}
+              >
                 {transcript}
               </Text>
               {phase === "transcribed" && (
@@ -261,11 +286,18 @@ export default function ScribeScreen() {
                     onPress={() => generateNote("soap")}
                     activeOpacity={0.85}
                   >
-                    <Ionicons name="document-text-outline" size={18} color="#fff" />
+                    <Ionicons
+                      name="document-text-outline"
+                      size={18}
+                      color="#fff"
+                    />
                     <Text style={styles.modeBtnText}>SOAP Note</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.modeBtn, { backgroundColor: colors.secondary ?? "#6b7280" }]}
+                    style={[
+                      styles.modeBtn,
+                      { backgroundColor: colors.secondary ?? "#6b7280" },
+                    ]}
                     onPress={() => generateNote("summary")}
                     activeOpacity={0.85}
                   >
@@ -286,19 +318,31 @@ export default function ScribeScreen() {
             ]}
           >
             <View style={styles.noteHeader}>
-              <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-                {noteMode === "soap" ? "SOAP NOTE — DRAFT" : "PATIENT SUMMARY — DRAFT"}
+              <Text
+                style={[styles.sectionLabel, { color: colors.mutedForeground }]}
+              >
+                {noteMode === "soap"
+                  ? "SOAP NOTE — DRAFT"
+                  : "PATIENT SUMMARY — DRAFT"}
               </Text>
-              <TouchableOpacity onPress={copyToClipboard} style={styles.copyBtn}>
+              <TouchableOpacity
+                onPress={copyToClipboard}
+                style={styles.copyBtn}
+              >
                 <Ionicons name="copy-outline" size={18} color={ACCENT} />
-                <Text style={[styles.copyBtnText, { color: ACCENT }]}>Copy</Text>
+                <Text style={[styles.copyBtnText, { color: ACCENT }]}>
+                  Copy
+                </Text>
               </TouchableOpacity>
             </View>
 
             {noteMode === "soap" ? (
               <SoapNoteView note={note as SoapNote} colors={colors} />
             ) : (
-              <PatientSummaryView note={note as PatientSummary} colors={colors} />
+              <PatientSummaryView
+                note={note as PatientSummary}
+                colors={colors}
+              />
             )}
 
             <View style={styles.noteActions}>
@@ -309,8 +353,15 @@ export default function ScribeScreen() {
                 }
                 activeOpacity={0.8}
               >
-                <Text style={[styles.secondaryBtnText, { color: colors.foreground }]}>
-                  {noteMode === "soap" ? "Also generate patient summary" : "Also generate SOAP note"}
+                <Text
+                  style={[
+                    styles.secondaryBtnText,
+                    { color: colors.foreground },
+                  ]}
+                >
+                  {noteMode === "soap"
+                    ? "Also generate patient summary"
+                    : "Also generate SOAP note"}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -318,8 +369,17 @@ export default function ScribeScreen() {
                 onPress={reset}
                 activeOpacity={0.8}
               >
-                <Ionicons name="refresh-outline" size={16} color={colors.mutedForeground} />
-                <Text style={[styles.secondaryBtnText, { color: colors.mutedForeground }]}>
+                <Ionicons
+                  name="refresh-outline"
+                  size={16}
+                  color={colors.mutedForeground}
+                />
+                <Text
+                  style={[
+                    styles.secondaryBtnText,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
                   New recording
                 </Text>
               </TouchableOpacity>
@@ -328,9 +388,16 @@ export default function ScribeScreen() {
         )}
 
         {error && (
-          <View style={[styles.errorBox, { backgroundColor: "#fef2f2", borderColor: "#fca5a5" }]}>
+          <View
+            style={[
+              styles.errorBox,
+              { backgroundColor: "#fef2f2", borderColor: "#fca5a5" },
+            ]}
+          >
             <Ionicons name="alert-circle-outline" size={18} color="#ef4444" />
-            <Text style={[styles.errorText, { color: "#b91c1c" }]}>{error}</Text>
+            <Text style={[styles.errorText, { color: "#b91c1c" }]}>
+              {error}
+            </Text>
           </View>
         )}
       </ScrollView>
@@ -355,8 +422,14 @@ function SoapNoteView({
     <View style={styles.noteBody}>
       {sections.map(({ label, key }) => (
         <View key={key} style={styles.noteSection}>
-          <Text style={[styles.noteSectionLabel, { color: colors.mutedForeground }]}>{label}</Text>
-          <Text style={[styles.noteSectionText, { color: colors.foreground }]}>{note[key]}</Text>
+          <Text
+            style={[styles.noteSectionLabel, { color: colors.mutedForeground }]}
+          >
+            {label}
+          </Text>
+          <Text style={[styles.noteSectionText, { color: colors.foreground }]}>
+            {note[key]}
+          </Text>
         </View>
       ))}
     </View>
@@ -372,9 +445,13 @@ function PatientSummaryView({
 }) {
   return (
     <View style={styles.noteBody}>
-      <Text style={[styles.summaryHeadline, { color: colors.foreground }]}>{note.headline}</Text>
+      <Text style={[styles.summaryHeadline, { color: colors.foreground }]}>
+        {note.headline}
+      </Text>
       <View style={styles.noteSection}>
-        <Text style={[styles.noteSectionLabel, { color: colors.mutedForeground }]}>
+        <Text
+          style={[styles.noteSectionLabel, { color: colors.mutedForeground }]}
+        >
           What We Discussed
         </Text>
         <Text style={[styles.noteSectionText, { color: colors.foreground }]}>
@@ -383,7 +460,9 @@ function PatientSummaryView({
       </View>
       {(note.nextSteps ?? []).length > 0 && (
         <View style={styles.noteSection}>
-          <Text style={[styles.noteSectionLabel, { color: colors.mutedForeground }]}>
+          <Text
+            style={[styles.noteSectionLabel, { color: colors.mutedForeground }]}
+          >
             Next Steps
           </Text>
           {(note.nextSteps ?? []).map((step, i) => (
@@ -400,7 +479,10 @@ function PatientSummaryView({
         <View
           style={[
             styles.rememberBox,
-            { backgroundColor: colors.muted ?? "#f5f5f5", borderColor: colors.border },
+            {
+              backgroundColor: colors.muted ?? "#f5f5f5",
+              borderColor: colors.border,
+            },
           ]}
         >
           <Text style={[styles.rememberText, { color: colors.foreground }]}>
@@ -440,7 +522,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "flex-start",
   },
-  disclaimerText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18 },
+  disclaimerText: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 18,
+  },
   recordBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -449,7 +536,11 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 14,
   },
-  recordBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_600SemiBold" },
+  recordBtnText: {
+    color: "#fff",
+    fontSize: 16,
+    fontFamily: "Inter_600SemiBold",
+  },
   recordingState: { alignItems: "center", gap: 16, paddingVertical: 8 },
   pulse: {
     width: 80,
@@ -476,7 +567,11 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: "uppercase",
   },
-  transcriptText: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22 },
+  transcriptText: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 22,
+  },
   modeRow: { flexDirection: "row", gap: 10 },
   modeBtn: {
     flex: 1,
@@ -503,10 +598,22 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     textTransform: "uppercase",
   },
-  noteSectionText: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22 },
-  summaryHeadline: { fontSize: 16, fontFamily: "Inter_600SemiBold", lineHeight: 24 },
+  noteSectionText: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 22,
+  },
+  summaryHeadline: {
+    fontSize: 16,
+    fontFamily: "Inter_600SemiBold",
+    lineHeight: 24,
+  },
   rememberBox: { borderRadius: 10, borderWidth: 1, padding: 12 },
-  rememberText: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22 },
+  rememberText: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 22,
+  },
   noteActions: { gap: 10 },
   secondaryBtn: {
     flexDirection: "row",
@@ -526,5 +633,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: "flex-start",
   },
-  errorText: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
+  errorText: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 20,
+  },
 });
