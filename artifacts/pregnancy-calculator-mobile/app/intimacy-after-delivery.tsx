@@ -40,18 +40,29 @@ async function openHandoutPdf() {
     }
     const destUri = `${FileSystem.cacheDirectory}intimacy-after-delivery.pdf`;
     await FileSystem.copyAsync({ from: sourceUri, to: destUri });
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(destUri, {
-        mimeType: "application/pdf",
-        dialogTitle: "Intimacy After Delivery (ACOG)",
-        UTI: "com.adobe.pdf",
-      });
-    } else {
-      Alert.alert(
-        "Can't open PDF",
-        "Viewing files isn't available on this device.",
-      );
+    if (Platform.OS === "web") {
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(destUri, {
+          mimeType: "application/pdf",
+          dialogTitle: "Intimacy After Delivery",
+          UTI: "com.adobe.pdf",
+        });
+      } else {
+        Alert.alert(
+          "Can't open PDF",
+          "Viewing files isn't available on this device.",
+        );
+      }
+      return;
     }
+    router.push({
+      pathname: "/pdf-viewer",
+      params: {
+        uri: destUri,
+        title: "Intimacy After Delivery",
+        shareTitle: "Intimacy After Delivery",
+      },
+    });
   } catch {
     Alert.alert(
       "Can't open PDF",

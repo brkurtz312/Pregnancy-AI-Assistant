@@ -40,18 +40,29 @@ async function openHandoutPdf() {
     }
     const destUri = `${FileSystem.cacheDirectory}postpartum-contraception.pdf`;
     await FileSystem.copyAsync({ from: sourceUri, to: destUri });
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(destUri, {
-        mimeType: "application/pdf",
-        dialogTitle: "Birth Control After Your Baby (ACOG)",
-        UTI: "com.adobe.pdf",
-      });
-    } else {
-      Alert.alert(
-        "Can't open PDF",
-        "Viewing files isn't available on this device.",
-      );
+    if (Platform.OS === "web") {
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(destUri, {
+          mimeType: "application/pdf",
+          dialogTitle: "Birth Control After Your Baby",
+          UTI: "com.adobe.pdf",
+        });
+      } else {
+        Alert.alert(
+          "Can't open PDF",
+          "Viewing files isn't available on this device.",
+        );
+      }
+      return;
     }
+    router.push({
+      pathname: "/pdf-viewer",
+      params: {
+        uri: destUri,
+        title: "Birth Control After Your Baby",
+        shareTitle: "Birth Control After Your Baby",
+      },
+    });
   } catch {
     Alert.alert(
       "Can't open PDF",

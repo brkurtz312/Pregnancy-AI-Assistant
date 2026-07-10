@@ -51,18 +51,29 @@ async function openHandoutPdf() {
     }
     const destUri = `${FileSystem.cacheDirectory}postpartum-depression.pdf`;
     await FileSystem.copyAsync({ from: sourceUri, to: destUri });
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(destUri, {
-        mimeType: "application/pdf",
-        dialogTitle: "Postpartum Depression (ACOG)",
-        UTI: "com.adobe.pdf",
-      });
-    } else {
-      Alert.alert(
-        "Can't open PDF",
-        "Viewing files isn't available on this device.",
-      );
+    if (Platform.OS === "web") {
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(destUri, {
+          mimeType: "application/pdf",
+          dialogTitle: "Postpartum Depression",
+          UTI: "com.adobe.pdf",
+        });
+      } else {
+        Alert.alert(
+          "Can't open PDF",
+          "Viewing files isn't available on this device.",
+        );
+      }
+      return;
     }
+    router.push({
+      pathname: "/pdf-viewer",
+      params: {
+        uri: destUri,
+        title: "Postpartum Depression",
+        shareTitle: "Postpartum Depression",
+      },
+    });
   } catch {
     Alert.alert(
       "Can't open PDF",
