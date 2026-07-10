@@ -35,8 +35,16 @@ import {
   loadPpdCheckin,
   savePpdCheckin,
   markPpdSummaryGenerated,
+  PHQ9_QUESTIONS,
+  PHQ9_OPTIONS,
+  loadPhq9Answers,
+  savePhq9Answers,
+  scorePhq9,
+  phq9Complete,
+  getPhq9Category,
   type PpdCheckin,
   type YesNo,
+  type Phq9Answers,
 } from "@/lib/postpartum-depression";
 
 const PDF_ASSET = require("@/assets/docs/postpartum-depression.pdf");
@@ -151,12 +159,35 @@ export default function PostpartumDepressionScreen() {
   const [generated, setGenerated] = useState(false);
   const [zipError, setZipError] = useState<string | null>(null);
 
+  const [phq9Answers, setPhq9Answers] = useState<Phq9Answers>(
+    Array<undefined>(9).fill(undefined),
+  );
+  const [phq9Started, setPhq9Started] = useState(false);
+
   useEffect(() => {
-    loadPpdCheckin().then((c) => {
+    Promise.all([loadPpdCheckin(), loadPhq9Answers()]).then(([c, phq9]) => {
       setCheckin(c);
       setGenerated(!!c.generatedAt);
+      setPhq9Answers(phq9);
+      if (phq9.some((a) => a !== undefined)) setPhq9Started(true);
       setLoaded(true);
     });
+  }, []);
+
+  const handlePhq9Change = useCallback((index: number, value: number) => {
+    setPhq9Answers((prev) => {
+      const next = [...prev];
+      next[index] = value;
+      savePhq9Answers(next);
+      return next;
+    });
+    Haptics.selectionAsync();
+  }, []);
+
+  const handlePhq9Reset = useCallback(() => {
+    const blank = Array<undefined>(9).fill(undefined);
+    setPhq9Answers(blank);
+    savePhq9Answers(blank);
   }, []);
 
   const updateCheckin = useCallback((patch: Partial<PpdCheckin>) => {
@@ -360,8 +391,345 @@ export default function PostpartumDepressionScreen() {
 
         {loaded && (
           <>
+            {/* ── PHQ-9 Screening ── */}
             <Animated.View
               entering={FadeInDown.delay(120).duration(400)}
+              style={[
+                styles.card,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <View style={styles.phq9HeaderRow}>
+                <Ionicons
+                  name="clipboard-outline"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    { color: colors.foreground, flex: 1, marginBottom: 0 },
+                  ]}
+                >
+                  PHQ-9 Depression Screening
+                </Text>
+              </View>
+
+              <Text
+                style={[styles.phq9Intro, { color: colors.mutedForeground }]}
+              >
+                The PHQ-9 is a validated 9-question tool used by healthcare
+                providers to screen for depression. Answer each question based
+                on how often you have been bothered by each problem{" "}
+                <Text style={{ fontFamily: "Inter_600SemiBold" }}>
+                  over the last 2 weeks
+                </Text>
+                .
+              </Text>
+              <Text
+                style={[
+                  styles.phq9Disclaimer,
+                  { color: colors.mutedForeground },
+                ]}
+              >
+                This is a screening tool — not a diagnosis. Always share your
+                results with your ob-gyn.
+              </Text>
+
+              {!phq9Started ? (
+                <TouchableOpacity
+                  style={[
+                    styles.phq9StartBtn,
+                    { backgroundColor: colors.primary },
+                  ]}
+                  onPress={() => setPhq9Started(true)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name="play-circle-outline"
+                    size={18}
+                    color={colors.primaryForeground}
+                  />
+                  <Text
+                    style={[
+                      styles.phq9StartBtnText,
+                      { color: colors.primaryForeground },
+                    ]}
+                  >
+                    Start Screening
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <>
+                  {/* Progress */}
+                  <View style={styles.phq9ProgressRow}>
+                    <Text
+                      style={[
+                        styles.phq9ProgressText,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      {phq9Answers.filter((a) => a !== undefined).length} of 9
+                      answered
+                    </Text>
+                    <TouchableOpacity onPress={handlePhq9Reset}>
+                      <Text
+                        style={[
+                          styles.phq9ResetText,
+                          { color: colors.mutedForeground },
+                        ]}
+                      >
+                        Reset
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Questions */}
+                  {PHQ9_QUESTIONS.map((q, qi) => (
+                    <View
+                      key={qi}
+                      style={[
+                        styles.phq9QuestionCard,
+                        {
+                          backgroundColor: colors.background,
+                          borderColor:
+                            phq9Answers[qi] !== undefined
+                              ? colors.primary + "55"
+                              : colors.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.phq9QuestionNum,
+                          { color: colors.primary },
+                        ]}
+                      >
+                        {qi + 1}.
+                      </Text>
+                      <Text
+                        style={[
+                          styles.phq9QuestionText,
+                          { color: colors.foreground },
+                        ]}
+                      >
+                        {q}
+                      </Text>
+                      <View style={styles.phq9OptionsGrid}>
+                        {PHQ9_OPTIONS.map((opt) => {
+                          const selected = phq9Answers[qi] === opt.value;
+                          return (
+                            <TouchableOpacity
+                              key={opt.value}
+                              style={[
+                                styles.phq9OptionBtn,
+                                {
+                                  borderColor: selected
+                                    ? colors.primary
+                                    : colors.border,
+                                  backgroundColor: selected
+                                    ? colors.primary + "18"
+                                    : colors.card,
+                                },
+                              ]}
+                              onPress={() => handlePhq9Change(qi, opt.value)}
+                              activeOpacity={0.7}
+                            >
+                              <Text
+                                style={[
+                                  styles.phq9OptionScore,
+                                  {
+                                    color: selected
+                                      ? colors.primary
+                                      : colors.mutedForeground,
+                                  },
+                                ]}
+                              >
+                                {opt.value}
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.phq9OptionLabel,
+                                  {
+                                    color: selected
+                                      ? colors.primary
+                                      : colors.foreground,
+                                    fontFamily: selected
+                                      ? "Inter_600SemiBold"
+                                      : "Inter_400Regular",
+                                  },
+                                ]}
+                              >
+                                {opt.label}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                      {/* Safety note for Q9 */}
+                      {qi === 8 &&
+                        phq9Answers[8] !== undefined &&
+                        phq9Answers[8]! > 0 && (
+                          <View
+                            style={[
+                              styles.phq9SafetyBox,
+                              {
+                                backgroundColor: "#fdf1f0",
+                                borderColor: "#c0392b",
+                              },
+                            ]}
+                          >
+                            <Ionicons
+                              name="warning-outline"
+                              size={16}
+                              color="#c0392b"
+                            />
+                            <Text
+                              style={[
+                                styles.phq9SafetyText,
+                                { color: "#c0392b" },
+                              ]}
+                            >
+                              If you are having thoughts of harming yourself or
+                              your baby, please call 988 or 911, or go to the
+                              nearest emergency room right now.
+                            </Text>
+                          </View>
+                        )}
+                    </View>
+                  ))}
+
+                  {/* Results */}
+                  {phq9Complete(phq9Answers) &&
+                    (() => {
+                      const score = scorePhq9(phq9Answers);
+                      const cat = getPhq9Category(score);
+                      return (
+                        <View
+                          style={[
+                            styles.phq9ResultCard,
+                            {
+                              borderColor: cat.color,
+                              backgroundColor: cat.color + "12",
+                            },
+                          ]}
+                        >
+                          <View style={styles.phq9ResultHeaderRow}>
+                            <Ionicons
+                              name="bar-chart-outline"
+                              size={20}
+                              color={cat.color}
+                            />
+                            <Text
+                              style={[
+                                styles.phq9ResultTitle,
+                                { color: cat.color },
+                              ]}
+                            >
+                              Your Score: {score} / 27
+                            </Text>
+                          </View>
+                          <Text
+                            style={[
+                              styles.phq9ResultLabel,
+                              { color: cat.color },
+                            ]}
+                          >
+                            {cat.label}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.phq9ResultRec,
+                              { color: colors.foreground },
+                            ]}
+                          >
+                            {cat.recommendation}
+                          </Text>
+                          <View
+                            style={[
+                              styles.phq9ActionRow,
+                              { backgroundColor: cat.color + "20" },
+                            ]}
+                          >
+                            <Ionicons
+                              name="arrow-forward-circle-outline"
+                              size={16}
+                              color={cat.color}
+                            />
+                            <Text
+                              style={[
+                                styles.phq9ActionText,
+                                { color: cat.color },
+                              ]}
+                            >
+                              {cat.action}
+                            </Text>
+                          </View>
+                          <View style={styles.phq9ScoreGuide}>
+                            <Text
+                              style={[
+                                styles.phq9ScoreGuideTitle,
+                                { color: colors.mutedForeground },
+                              ]}
+                            >
+                              Score guide
+                            </Text>
+                            {[
+                              {
+                                range: "0–4",
+                                label: "Minimal or none",
+                                color: "#27ae60",
+                              },
+                              { range: "5–9", label: "Mild", color: "#f39c12" },
+                              {
+                                range: "10–14",
+                                label: "Moderate",
+                                color: "#e67e22",
+                              },
+                              {
+                                range: "15–19",
+                                label: "Moderately severe",
+                                color: "#e74c3c",
+                              },
+                              {
+                                range: "20–27",
+                                label: "Severe",
+                                color: "#c0392b",
+                              },
+                            ].map((row) => (
+                              <View key={row.range} style={styles.phq9ScoreRow}>
+                                <View
+                                  style={[
+                                    styles.phq9ScoreDot,
+                                    { backgroundColor: row.color },
+                                  ]}
+                                />
+                                <Text
+                                  style={[
+                                    styles.phq9ScoreRangeText,
+                                    { color: colors.mutedForeground },
+                                  ]}
+                                >
+                                  <Text
+                                    style={{ fontFamily: "Inter_600SemiBold" }}
+                                  >
+                                    {row.range}
+                                  </Text>{" "}
+                                  — {row.label}
+                                </Text>
+                              </View>
+                            ))}
+                          </View>
+                        </View>
+                      );
+                    })()}
+                </>
+              )}
+            </Animated.View>
+
+            {/* ── Concerned check-in ── */}
+            <Animated.View
+              entering={FadeInDown.delay(160).duration(400)}
               style={[
                 styles.card,
                 { backgroundColor: colors.card, borderColor: colors.border },
@@ -744,5 +1112,174 @@ const styles = StyleSheet.create({
   viewBtnText: {
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
+  },
+  phq9HeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 10,
+  },
+  phq9Intro: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 19,
+    marginBottom: 6,
+  },
+  phq9Disclaimer: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    fontStyle: "italic",
+    lineHeight: 17,
+    marginBottom: 14,
+  },
+  phq9StartBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 12,
+    paddingVertical: 14,
+  },
+  phq9StartBtnText: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+  },
+  phq9ProgressRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  phq9ProgressText: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+  },
+  phq9ResetText: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+    textDecorationLine: "underline",
+  },
+  phq9QuestionCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    marginBottom: 10,
+  },
+  phq9QuestionNum: {
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+    marginBottom: 2,
+  },
+  phq9QuestionText: {
+    fontSize: 13.5,
+    fontFamily: "Inter_500Medium",
+    lineHeight: 19,
+    marginBottom: 10,
+  },
+  phq9OptionsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  phq9OptionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    minWidth: "47%",
+    flexGrow: 1,
+  },
+  phq9OptionScore: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    minWidth: 14,
+  },
+  phq9OptionLabel: {
+    fontSize: 12,
+    lineHeight: 16,
+    flexShrink: 1,
+  },
+  phq9SafetyBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 10,
+    marginTop: 10,
+  },
+  phq9SafetyText: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+    lineHeight: 17,
+  },
+  phq9ResultCard: {
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 14,
+    marginTop: 6,
+  },
+  phq9ResultHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 4,
+  },
+  phq9ResultTitle: {
+    fontSize: 17,
+    fontFamily: "Inter_700Bold",
+  },
+  phq9ResultLabel: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    marginBottom: 10,
+  },
+  phq9ResultRec: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 19,
+    marginBottom: 12,
+  },
+  phq9ActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 14,
+  },
+  phq9ActionText: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    flex: 1,
+    lineHeight: 18,
+  },
+  phq9ScoreGuide: {
+    gap: 4,
+  },
+  phq9ScoreGuideTitle: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+    marginBottom: 4,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  phq9ScoreRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  phq9ScoreDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  phq9ScoreRangeText: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
   },
 });
