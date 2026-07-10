@@ -788,6 +788,50 @@ export default function OfficeVisitScreen() {
           <QuestionsToAskSection />
         </Animated.View>
 
+        <Animated.View
+          entering={FadeInDown.delay(320).duration(400)}
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <View style={styles.scribeIntro}>
+            <View style={styles.scribeTitleRow}>
+              <Ionicons
+                name="mic-circle-outline"
+                size={22}
+                color={colors.primary}
+              />
+              <Text style={[styles.title, { color: colors.foreground }]}>
+                Visit Notes Scribe
+              </Text>
+            </View>
+            <Text style={[styles.scribeDesc, { color: colors.mutedForeground }]}>
+              Record your appointment and get a plain-language summary of what
+              was discussed, your next steps, and what to remember — all in
+              your own words.
+            </Text>
+            <TouchableOpacity
+              style={[styles.summaryBtn, { backgroundColor: colors.primary }]}
+              onPress={() => router.push("/scribe")}
+            >
+              <Ionicons
+                name="mic-outline"
+                size={18}
+                color={colors.primaryForeground}
+              />
+              <Text
+                style={[
+                  styles.summaryBtnText,
+                  { color: colors.primaryForeground },
+                ]}
+              >
+                Record My Visit
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+
         <VisitModal
           visible={modalVisible}
           onClose={() => {
@@ -1002,5 +1046,18 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
+  },
+  scribeIntro: {
+    gap: 12,
+  },
+  scribeTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  scribeDesc: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 21,
   },
 });

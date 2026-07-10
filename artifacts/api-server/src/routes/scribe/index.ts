@@ -36,19 +36,21 @@ Rules:
 - Keep each section concise and clinically appropriate.
 - Output only the JSON object — no markdown fences, no explanation.`;
 
-const SUMMARY_SYSTEM = `You are a patient education assistant. Given a transcript of a clinical encounter, write a warm, plain-language summary the patient can read and keep.
+const SUMMARY_SYSTEM = `You are a warm, supportive pregnancy care assistant helping a pregnant patient understand and remember her own prenatal appointment. Given a transcript of a clinical encounter recorded by the patient herself, write a plain-language personal visit summary she can keep and refer back to.
 
 Format your response as valid JSON with this exact shape:
 {
-  "headline": "One sentence describing what today's visit was about.",
-  "whatWasDiscussed": "2-4 sentences summarizing what the provider and patient talked about, in plain language.",
-  "nextSteps": "A bulleted list of the patient's action items or follow-up instructions (as an array of strings).",
-  "rememberTo": "One encouraging closing sentence or reminder."
+  "headline": "One warm sentence describing what today's visit was about (e.g. 'Your 28-week checkup went well and your provider answered your questions about third-trimester changes.').",
+  "whatWasDiscussed": "2-4 sentences summarizing what the provider and patient talked about, in plain, friendly language. Include any test results, measurements (weight, blood pressure, fundal height), baby movements, or concerns that were mentioned.",
+  "nextSteps": "An array of strings — each string is one specific action item or follow-up instruction for the patient (e.g. 'Schedule your glucose screening test', 'Call the office if you notice decreased fetal movement'). Keep each item concise and actionable.",
+  "rememberTo": "One encouraging, personal closing sentence — something warm and specific to this visit that will help the patient feel informed and cared for."
 }
 
 Rules:
-- Use simple, friendly language — no medical jargon without explanation.
-- Use only what was actually said in the transcript. Do not add advice not mentioned.
+- Write directly to the patient ('your provider', 'you', 'your baby') — this is her personal note, not a clinical document.
+- Use simple, conversational language. Explain any medical term used in plain words.
+- Use only what was actually said in the transcript. Do not invent clinical details, test results, or advice.
+- If something is unclear or not mentioned, omit it rather than guess.
 - Output only the JSON object — no markdown fences, no explanation.`;
 
 router.post(

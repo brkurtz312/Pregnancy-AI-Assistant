@@ -29,15 +29,6 @@ type Phase =
   | "generating"
   | "done";
 
-type NoteMode = "soap" | "summary";
-
-interface SoapNote {
-  subjective: string;
-  objective: string;
-  assessment: string;
-  plan: string;
-}
-
 interface PatientSummary {
   headline: string;
   whatWasDiscussed: string;
@@ -51,8 +42,7 @@ export default function ScribeScreen() {
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [transcript, setTranscript] = useState("");
-  const [note, setNote] = useState<SoapNote | PatientSummary | null>(null);
-  const [noteMode, setNoteMode] = useState<NoteMode>("soap");
+  const [note, setNote] = useState<PatientSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const recordingRef = useRef<Audio.Recording | null>(null);
@@ -66,7 +56,7 @@ export default function ScribeScreen() {
       if (!granted) {
         Alert.alert(
           "Microphone access needed",
-          "Please allow microphone access in Settings to use Medical Scribe.",
+          "Please allow microphone access in Settings to record your appointment.",
         );
         return;
       }
@@ -120,49 +110,38 @@ export default function ScribeScreen() {
     }
   }, [getToken]);
 
-  const generateNote = useCallback(
-    async (mode: NoteMode) => {
-      setNoteMode(mode);
-      setNote(null);
-      setError(null);
-      setPhase("generating");
-      try {
-        const token = await getToken();
-        const res = await fetch(`${apiBase}/api/scribe/generate-note`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ transcript, mode }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Note generation failed");
-        setNote(data.note);
-        setPhase("done");
-      } catch (err: unknown) {
-        const msg =
-          err instanceof Error ? err.message : "Note generation failed";
-        setError(msg);
-        setPhase("transcribed");
-      }
-    },
-    [transcript, getToken],
-  );
+  const generateSummary = useCallback(async () => {
+    setNote(null);
+    setError(null);
+    setPhase("generating");
+    try {
+      const token = await getToken();
+      const res = await fetch(`${apiBase}/api/scribe/generate-note`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ transcript, mode: "summary" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Summary generation failed");
+      setNote(data.note as PatientSummary);
+      setPhase("done");
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : "Summary generation failed";
+      setError(msg);
+      setPhase("transcribed");
+    }
+  }, [transcript, getToken]);
 
   const copyToClipboard = useCallback(() => {
     if (!note) return;
-    let text = "";
-    if (noteMode === "soap") {
-      const s = note as SoapNote;
-      text = `SOAP NOTE — DRAFT FOR CLINICIAN REVIEW\n\nSubjective:\n${s.subjective}\n\nObjective:\n${s.objective}\n\nAssessment:\n${s.assessment}\n\nPlan:\n${s.plan}`;
-    } else {
-      const s = note as PatientSummary;
-      text = `${s.headline}\n\nWhat We Discussed:\n${s.whatWasDiscussed}\n\nNext Steps:\n${(s.nextSteps ?? []).map((x) => `• ${x}`).join("\n")}\n\n${s.rememberTo}`;
-    }
+    const text = `${note.headline}\n\nWhat Was Discussed:\n${note.whatWasDiscussed}\n\nNext Steps:\n${(note.nextSteps ?? []).map((x) => `• ${x}`).join("\n")}\n\n${note.rememberTo}`;
     void Clipboard.setStringAsync(text);
-    Alert.alert("Copied", "Note copied to clipboard.");
-  }, [note, noteMode]);
+    Alert.alert("Copied", "Your visit summary has been copied to clipboard.");
+  }, [note]);
 
   const reset = useCallback(() => {
     setPhase("idle");
@@ -182,7 +161,7 @@ export default function ScribeScreen() {
       >
         <Ionicons name="chevron-back" size={22} color={colors.foreground} />
         <Text style={[styles.backText, { color: colors.foreground }]}>
-          Tools
+          Office Visits
         </Text>
       </TouchableOpacity>
 
@@ -191,13 +170,14 @@ export default function ScribeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Ionicons name="mic-circle-outline" size={40} color={ACCENT} />
+          <Ionicons name="mic-circle-outline" size={44} color={ACCENT} />
           <Text style={[styles.title, { color: colors.foreground }]}>
-            Medical Scribe
+            Visit Notes Scribe
           </Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            Record a patient encounter and generate a draft SOAP note or patient
-            summary.
+            Record your appointment and get a plain-language summary of what was
+            discussed, your next steps, and what to remember — in your own
+            words.
           </Text>
         </View>
 
@@ -209,7 +189,7 @@ export default function ScribeScreen() {
         >
           <View
             style={[
-              styles.disclaimer,
+              styles.infoBox,
               { backgroundColor: colors.muted ?? "#f5f5f5" },
             ]}
           >
@@ -219,10 +199,10 @@ export default function ScribeScreen() {
               color={colors.mutedForeground}
             />
             <Text
-              style={[styles.disclaimerText, { color: colors.mutedForeground }]}
+              style={[styles.infoText, { color: colors.mutedForeground }]}
             >
-              All output is a draft for clinician review. Not a medical record.
-              Obtain patient consent before recording.
+              Keep this screen open during your visit. Your recording stays on
+              your device and is only used to create your personal summary.
             </Text>
           </View>
 
@@ -261,8 +241,8 @@ export default function ScribeScreen() {
                 style={[styles.loadingText, { color: colors.mutedForeground }]}
               >
                 {phase === "transcribing"
-                  ? "Transcribing audio…"
-                  : "Generating note…"}
+                  ? "Transcribing your recording…"
+                  : "Creating your visit summary…"}
               </Text>
             </View>
           )}
@@ -272,7 +252,7 @@ export default function ScribeScreen() {
               <Text
                 style={[styles.sectionLabel, { color: colors.mutedForeground }]}
               >
-                TRANSCRIPT
+                WHAT WAS RECORDED
               </Text>
               <Text
                 style={[styles.transcriptText, { color: colors.foreground }]}
@@ -280,31 +260,16 @@ export default function ScribeScreen() {
                 {transcript}
               </Text>
               {phase === "transcribed" && (
-                <View style={styles.modeRow}>
-                  <TouchableOpacity
-                    style={[styles.modeBtn, { backgroundColor: ACCENT }]}
-                    onPress={() => generateNote("soap")}
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons
-                      name="document-text-outline"
-                      size={18}
-                      color="#fff"
-                    />
-                    <Text style={styles.modeBtnText}>SOAP Note</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.modeBtn,
-                      { backgroundColor: colors.secondary ?? "#6b7280" },
-                    ]}
-                    onPress={() => generateNote("summary")}
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons name="person-outline" size={18} color="#fff" />
-                    <Text style={styles.modeBtnText}>Patient Summary</Text>
-                  </TouchableOpacity>
-                </View>
+                <TouchableOpacity
+                  style={[styles.generateBtn, { backgroundColor: ACCENT }]}
+                  onPress={generateSummary}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="sparkles-outline" size={18} color="#fff" />
+                  <Text style={styles.generateBtnText}>
+                    Create My Visit Summary
+                  </Text>
+                </TouchableOpacity>
               )}
             </View>
           )}
@@ -321,9 +286,7 @@ export default function ScribeScreen() {
               <Text
                 style={[styles.sectionLabel, { color: colors.mutedForeground }]}
               >
-                {noteMode === "soap"
-                  ? "SOAP NOTE — DRAFT"
-                  : "PATIENT SUMMARY — DRAFT"}
+                MY VISIT SUMMARY
               </Text>
               <TouchableOpacity
                 onPress={copyToClipboard}
@@ -336,54 +299,47 @@ export default function ScribeScreen() {
               </TouchableOpacity>
             </View>
 
-            {noteMode === "soap" ? (
-              <SoapNoteView note={note as SoapNote} colors={colors} />
-            ) : (
-              <PatientSummaryView
-                note={note as PatientSummary}
-                colors={colors}
-              />
-            )}
+            <PatientSummaryView note={note} colors={colors} />
 
-            <View style={styles.noteActions}>
-              <TouchableOpacity
-                style={[styles.secondaryBtn, { borderColor: colors.border }]}
-                onPress={() =>
-                  generateNote(noteMode === "soap" ? "summary" : "soap")
-                }
-                activeOpacity={0.8}
+            <View
+              style={[
+                styles.disclaimer,
+                { backgroundColor: colors.muted ?? "#f5f5f5" },
+              ]}
+            >
+              <Ionicons
+                name="heart-outline"
+                size={15}
+                color={colors.mutedForeground}
+              />
+              <Text
+                style={[
+                  styles.disclaimerText,
+                  { color: colors.mutedForeground },
+                ]}
               >
-                <Text
-                  style={[
-                    styles.secondaryBtnText,
-                    { color: colors.foreground },
-                  ]}
-                >
-                  {noteMode === "soap"
-                    ? "Also generate patient summary"
-                    : "Also generate SOAP note"}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.secondaryBtn, { borderColor: colors.border }]}
-                onPress={reset}
-                activeOpacity={0.8}
-              >
-                <Ionicons
-                  name="refresh-outline"
-                  size={16}
-                  color={colors.mutedForeground}
-                />
-                <Text
-                  style={[
-                    styles.secondaryBtnText,
-                    { color: colors.mutedForeground },
-                  ]}
-                >
-                  New recording
-                </Text>
-              </TouchableOpacity>
+                This is a personal note to help you remember your visit — not a
+                medical record. Always check with your provider if anything is
+                unclear.
+              </Text>
             </View>
+
+            <TouchableOpacity
+              style={[styles.resetBtn, { borderColor: colors.border }]}
+              onPress={reset}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="refresh-outline"
+                size={16}
+                color={colors.mutedForeground}
+              />
+              <Text
+                style={[styles.resetBtnText, { color: colors.mutedForeground }]}
+              >
+                Record another visit
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -405,37 +361,6 @@ export default function ScribeScreen() {
   );
 }
 
-function SoapNoteView({
-  note,
-  colors,
-}: {
-  note: SoapNote;
-  colors: ReturnType<typeof useColors>;
-}) {
-  const sections: { label: string; key: keyof SoapNote }[] = [
-    { label: "Subjective", key: "subjective" },
-    { label: "Objective", key: "objective" },
-    { label: "Assessment", key: "assessment" },
-    { label: "Plan", key: "plan" },
-  ];
-  return (
-    <View style={styles.noteBody}>
-      {sections.map(({ label, key }) => (
-        <View key={key} style={styles.noteSection}>
-          <Text
-            style={[styles.noteSectionLabel, { color: colors.mutedForeground }]}
-          >
-            {label}
-          </Text>
-          <Text style={[styles.noteSectionText, { color: colors.foreground }]}>
-            {note[key]}
-          </Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
 function PatientSummaryView({
   note,
   colors,
@@ -452,7 +377,7 @@ function PatientSummaryView({
         <Text
           style={[styles.noteSectionLabel, { color: colors.mutedForeground }]}
         >
-          What We Discussed
+          What Was Discussed
         </Text>
         <Text style={[styles.noteSectionText, { color: colors.foreground }]}>
           {note.whatWasDiscussed}
@@ -463,15 +388,17 @@ function PatientSummaryView({
           <Text
             style={[styles.noteSectionLabel, { color: colors.mutedForeground }]}
           >
-            Next Steps
+            Your Next Steps
           </Text>
           {(note.nextSteps ?? []).map((step, i) => (
-            <Text
-              key={i}
-              style={[styles.noteSectionText, { color: colors.foreground }]}
-            >
-              • {step}
-            </Text>
+            <View key={i} style={styles.stepRow}>
+              <Text style={[styles.stepBullet, { color: colors.primary }]}>
+                •
+              </Text>
+              <Text style={[styles.noteSectionText, { color: colors.foreground }]}>
+                {step}
+              </Text>
+            </View>
           ))}
         </View>
       )}
@@ -480,8 +407,8 @@ function PatientSummaryView({
           style={[
             styles.rememberBox,
             {
-              backgroundColor: colors.muted ?? "#f5f5f5",
-              borderColor: colors.border,
+              backgroundColor: (colors.primary ?? "#e86cad") + "15",
+              borderColor: (colors.primary ?? "#e86cad") + "40",
             },
           ]}
         >
@@ -506,27 +433,28 @@ const styles = StyleSheet.create({
   },
   backText: { fontSize: 16, fontFamily: "Inter_500Medium" },
   scroll: { padding: 16, gap: 16, paddingBottom: 48 },
-  header: { alignItems: "center", gap: 8, paddingVertical: 8 },
+  header: { alignItems: "center", gap: 10, paddingVertical: 8 },
   title: { fontSize: 24, fontFamily: "Inter_700Bold" },
   subtitle: {
     fontSize: 14,
     fontFamily: "Inter_400Regular",
     textAlign: "center",
     lineHeight: 22,
+    paddingHorizontal: 8,
   },
   card: { borderRadius: 18, borderWidth: 1, padding: 16, gap: 16 },
-  disclaimer: {
+  infoBox: {
     flexDirection: "row",
     gap: 8,
     padding: 12,
     borderRadius: 10,
     alignItems: "flex-start",
   },
-  disclaimerText: {
+  infoText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: "Inter_400Regular",
-    lineHeight: 18,
+    lineHeight: 19,
   },
   recordBtn: {
     flexDirection: "row",
@@ -572,17 +500,19 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     lineHeight: 22,
   },
-  modeRow: { flexDirection: "row", gap: 10 },
-  modeBtn: {
-    flex: 1,
+  generateBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    paddingVertical: 12,
+    gap: 8,
+    paddingVertical: 14,
     borderRadius: 12,
   },
-  modeBtnText: { color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  generateBtnText: {
+    color: "#fff",
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+  },
   noteHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -591,7 +521,7 @@ const styles = StyleSheet.create({
   copyBtn: { flexDirection: "row", alignItems: "center", gap: 4 },
   copyBtnText: { fontSize: 14, fontFamily: "Inter_500Medium" },
   noteBody: { gap: 14 },
-  noteSection: { gap: 4 },
+  noteSection: { gap: 6 },
   noteSectionLabel: {
     fontSize: 11,
     fontFamily: "Inter_600SemiBold",
@@ -602,11 +532,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_400Regular",
     lineHeight: 22,
+    flex: 1,
   },
-  summaryHeadline: {
+  stepRow: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "flex-start",
+  },
+  stepBullet: {
     fontSize: 16,
     fontFamily: "Inter_600SemiBold",
-    lineHeight: 24,
+    lineHeight: 22,
+  },
+  summaryHeadline: {
+    fontSize: 17,
+    fontFamily: "Inter_600SemiBold",
+    lineHeight: 25,
   },
   rememberBox: { borderRadius: 10, borderWidth: 1, padding: 12 },
   rememberText: {
@@ -614,8 +555,20 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     lineHeight: 22,
   },
-  noteActions: { gap: 10 },
-  secondaryBtn: {
+  disclaimer: {
+    flexDirection: "row",
+    gap: 8,
+    padding: 12,
+    borderRadius: 10,
+    alignItems: "flex-start",
+  },
+  disclaimerText: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 18,
+  },
+  resetBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -624,7 +577,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
-  secondaryBtnText: { fontSize: 14, fontFamily: "Inter_500Medium" },
+  resetBtnText: { fontSize: 14, fontFamily: "Inter_500Medium" },
   errorBox: {
     flexDirection: "row",
     gap: 8,
