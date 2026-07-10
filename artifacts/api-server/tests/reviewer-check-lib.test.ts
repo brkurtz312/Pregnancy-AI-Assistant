@@ -1,55 +1,27 @@
 /**
  * Unit tests for runReviewerPassCheck (src/lib/reviewer-check.ts).
  *
- * These tests mock @workspace/db at the query level so the actual
- * healing/upsert logic is exercised and any DB-write regressions are caught.
+ * The check now verifies system readiness (access code configured, Clerk key
+ * present, Clerk API reachable) rather than inspecting a single demo user row.
  */
-import { describe, it, expect, beforeEach, afterAll, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 // ---------------------------------------------------------------------------
-// DB mock — chained query builder at select / update / insert granularity
+// DB mock — only getConfig (appConfigTable select) is called now
 // ---------------------------------------------------------------------------
 
 const dbSelectImpl = vi.fn();
-const dbUpdateSet = vi.fn();
-const dbUpdateWhere = vi.fn(async () => undefined);
-const dbInsertValues = vi.fn();
-const dbInsertOnConflictDoUpdate = vi.fn(async () => undefined);
 
 vi.mock("@workspace/db", () => {
   const appConfigTable = { key: "key" };
-  const usersTable = {
-    id: "id",
-    hasPass: "hasPass",
-    passPurchasedAt: "passPurchasedAt",
-    updatedAt: "updatedAt",
-  };
 
   return {
     appConfigTable,
-    usersTable,
     db: {
       select: (_projection?: unknown) => ({
         from: (_table: unknown) => ({
           where: (_cond: unknown) => dbSelectImpl(),
         }),
-      }),
-      update: (_table: unknown) => ({
-        set: (payload: unknown) => {
-          dbUpdateSet(payload);
-          return {
-            where: (cond: unknown) => dbUpdateWhere(cond),
-          };
-        },
-      }),
-      insert: (_table: unknown) => ({
-        values: (payload: unknown) => {
-          dbInsertValues(payload);
-          return {
-            onConflictDoUpdate: (opts: unknown) =>
-              dbInsertOnConflictDoUpdate(opts),
-          };
-        },
       }),
     },
   };
@@ -60,34 +32,38 @@ vi.mock("../src/lib/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-// Prevent sendAlert from making real HTTP calls
-vi.stubGlobal(
-  "fetch",
-  vi.fn(async () => ({ ok: true, text: async () => "" })),
+const fetchMock = vi.fn(async () =>
+  Promise.resolve({ ok: true, status: 200, text: async () => "" } as Response),
 );
+vi.stubGlobal("fetch", fetchMock);
 
 import { runReviewerPassCheck } from "../src/lib/reviewer-check";
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Env snapshot helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Set up dbSelectImpl to return sequential results per call.
- *   call 1 → appConfigTable row for reviewer_demo_user_id
- *   call 2 → usersTable row for the demo user
- */
-function setupDbSelects(configRow: unknown[], userRow: unknown[]): void {
-  dbSelectImpl.mockResolvedValueOnce(configRow).mockResolvedValueOnce(userRow);
-}
-
-const ORIGINAL_DEMO_USER_ID = process.env.REVIEWER_DEMO_USER_ID;
-const DEMO_USER_ID = "user_demo_test_123";
+const ORIGINAL_CLERK_KEY = process.env.CLERK_SECRET_KEY;
+const ORIGINAL_DEV_CODE = process.env.DEV_ACCESS_CODE;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Pin the demo user ID via env so getConfig() returning [] still resolves it
-  process.env.REVIEWER_DEMO_USER_ID = DEMO_USER_ID;
+  dbSelectImpl.mockResolvedValue([]); // getConfig returns null by default
+  fetchMock.mockResolvedValue({
+    ok: true,
+    status: 200,
+    text: async () => "",
+  } as Response);
+  // Set up a working environment by default
+  process.env.CLERK_SECRET_KEY = "sk_test_fake_clerk_key";
+  process.env.DEV_ACCESS_CODE = "test-code-123";
+});
+
+afterEach(() => {
+  if (ORIGINAL_CLERK_KEY === undefined) delete process.env.CLERK_SECRET_KEY;
+  else process.env.CLERK_SECRET_KEY = ORIGINAL_CLERK_KEY;
+  if (ORIGINAL_DEV_CODE === undefined) delete process.env.DEV_ACCESS_CODE;
+  else process.env.DEV_ACCESS_CODE = ORIGINAL_DEV_CODE;
 });
 
 // ---------------------------------------------------------------------------
@@ -95,129 +71,77 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("runReviewerPassCheck", () => {
-  describe("healthy account (hasPass = true)", () => {
-    it("returns { ok: true, healed: false } and makes no DB writes", async () => {
-      setupDbSelects(
-        [], // appConfigTable → no DB override; env REVIEWER_DEMO_USER_ID is used
-        [{ hasPass: true }],
-      );
-
+  describe("healthy system", () => {
+    it("returns { ok: true } when code, key, and Clerk API are all good", async () => {
       const result = await runReviewerPassCheck();
 
       expect(result.ok).toBe(true);
-      expect(result.healed).toBe(false);
-      expect(result.demoUserId).toBe(DEMO_USER_ID);
       expect(result.reason).toBeUndefined();
       expect(result.timestamp).toBeTruthy();
 
-      // No writes should occur for a healthy account
-      expect(dbUpdateSet).not.toHaveBeenCalled();
-      expect(dbInsertValues).not.toHaveBeenCalled();
+      // Should call Clerk API to verify connectivity
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [url] = fetchMock.mock.calls[0] as [string];
+      expect(url).toContain("clerk.com");
     });
-  });
 
-  describe("revoked pass (hasPass = false)", () => {
-    it("returns { ok: false, healed: true, reason: 'pass_revoked' } and updates the DB row", async () => {
-      setupDbSelects([], [{ hasPass: false }]);
-
-      const result = await runReviewerPassCheck();
-
-      expect(result.ok).toBe(false);
-      expect(result.healed).toBe(true);
-      expect(result.reason).toBe("pass_revoked");
-      expect(result.demoUserId).toBe(DEMO_USER_ID);
-
-      // DB update must set hasPass to true (the actual set payload contains
-      // drizzle sql expressions for other fields — we only verify hasPass)
-      expect(dbUpdateSet).toHaveBeenCalledTimes(1);
-      const setPayload = dbUpdateSet.mock.calls[0][0] as Record<
-        string,
-        unknown
-      >;
-      expect(setPayload.hasPass).toBe(true);
-
-      // where() must have been called to scope the update to the right user
-      expect(dbUpdateWhere).toHaveBeenCalledTimes(1);
-
-      // No insert should occur — only an update
-      expect(dbInsertValues).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("missing demo account (user row not found)", () => {
-    it("returns { ok: false, healed: true, reason: 'user_missing' } and upserts the user row", async () => {
-      setupDbSelects(
-        [], // no app_config row
-        [], // no user row → user is missing
-      );
-
-      const result = await runReviewerPassCheck();
-
-      expect(result.ok).toBe(false);
-      expect(result.healed).toBe(true);
-      expect(result.reason).toBe("user_missing");
-      expect(result.demoUserId).toBe(DEMO_USER_ID);
-
-      // An insert (upsert) must have been performed with hasPass: true
-      expect(dbInsertValues).toHaveBeenCalledTimes(1);
-      const insertPayload = dbInsertValues.mock.calls[0][0] as Record<
-        string,
-        unknown
-      >;
-      expect(insertPayload.id).toBe(DEMO_USER_ID);
-      expect(insertPayload.hasPass).toBe(true);
-
-      // onConflictDoUpdate must also be called (this is the "upsert" path)
-      expect(dbInsertOnConflictDoUpdate).toHaveBeenCalledTimes(1);
-
-      // No plain update should occur
-      expect(dbUpdateSet).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("demo user ID resolution priority", () => {
-    it("uses the DB app_config value over the env var when both are set", async () => {
-      const DB_CONFIGURED_ID = "user_from_db_config";
-      // First select returns the DB-configured demo user ID
-      dbSelectImpl
-        .mockResolvedValueOnce([{ value: DB_CONFIGURED_ID }])
-        .mockResolvedValueOnce([{ hasPass: true }]);
+    it("prefers access code from app_config DB over env var", async () => {
+      dbSelectImpl.mockResolvedValueOnce([{ value: "db-access-code" }]);
 
       const result = await runReviewerPassCheck();
 
       expect(result.ok).toBe(true);
-      expect(result.demoUserId).toBe(DB_CONFIGURED_ID);
-    });
-
-    afterAll(() => {
-      if (ORIGINAL_DEMO_USER_ID === undefined)
-        delete process.env.REVIEWER_DEMO_USER_ID;
-      else process.env.REVIEWER_DEMO_USER_ID = ORIGINAL_DEMO_USER_ID;
     });
   });
 
-  describe("alert side effects", () => {
-    it("calls fetch (sendAlert) when the pass is revoked", async () => {
-      setupDbSelects([], [{ hasPass: false }]);
-      // Set an alert channel so sendAlert fires
-      const ORIGINAL = process.env.ALERT_SLACK_WEBHOOK_URL;
-      process.env.ALERT_SLACK_WEBHOOK_URL =
-        "https://hooks.slack.com/test-webhook";
+  describe("no access code configured", () => {
+    it("returns { ok: false, reason: 'no_access_code' } when no code is set", async () => {
+      dbSelectImpl.mockResolvedValue([]); // no DB row
+      delete process.env.DEV_ACCESS_CODE;
+      delete process.env.REVIEWER_ACCESS_CODE;
 
-      await runReviewerPassCheck();
+      const result = await runReviewerPassCheck();
 
-      expect(fetch).toHaveBeenCalled();
+      expect(result.ok).toBe(false);
+      expect(result.reason).toBe("no_access_code");
+      // Should not reach Clerk API check
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
 
-      if (ORIGINAL === undefined) delete process.env.ALERT_SLACK_WEBHOOK_URL;
-      else process.env.ALERT_SLACK_WEBHOOK_URL = ORIGINAL;
+  describe("no Clerk secret key", () => {
+    it("returns { ok: false, reason: 'no_clerk_key' } when CLERK_SECRET_KEY is absent", async () => {
+      delete process.env.CLERK_SECRET_KEY;
+
+      const result = await runReviewerPassCheck();
+
+      expect(result.ok).toBe(false);
+      expect(result.reason).toBe("no_clerk_key");
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Clerk API unreachable", () => {
+    it("returns { ok: false, reason: 'clerk_unreachable' } when Clerk returns non-OK", async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: async () => "Unauthorized",
+      } as Response);
+
+      const result = await runReviewerPassCheck();
+
+      expect(result.ok).toBe(false);
+      expect(result.reason).toBe("clerk_unreachable");
     });
 
-    it("does NOT call fetch when the pass is healthy", async () => {
-      setupDbSelects([], [{ hasPass: true }]);
+    it("returns { ok: false, reason: 'clerk_unreachable' } when fetch throws", async () => {
+      fetchMock.mockRejectedValueOnce(new Error("Network error"));
 
-      await runReviewerPassCheck();
+      const result = await runReviewerPassCheck();
 
-      expect(fetch).not.toHaveBeenCalled();
+      expect(result.ok).toBe(false);
+      expect(result.reason).toBe("clerk_unreachable");
     });
   });
 });

@@ -6,7 +6,7 @@ import { reviewerSignInLimiter } from "../lib/rate-limit";
 
 const router: IRouter = Router();
 
-const DEMO_EMAIL = "appreview@pregnancy-assistant.com";
+const REVIEWER_EMAIL_DOMAIN = "pregnancy-assistant.com";
 const CLERK_API = "https://api.clerk.com/v1";
 
 async function getConfig(key: string): Promise<string | null> {
@@ -21,20 +21,6 @@ async function getConfig(key: string): Promise<string | null> {
   }
 }
 
-async function upsertConfig(key: string, value: string): Promise<void> {
-  try {
-    await db
-      .insert(appConfigTable)
-      .values({ key, value })
-      .onConflictDoUpdate({
-        target: appConfigTable.key,
-        set: { value, updatedAt: sql`now()` },
-      });
-  } catch {
-    // non-fatal — best effort
-  }
-}
-
 function codesMatch(a: string, b: string): boolean {
   try {
     const ba = Buffer.from(a);
@@ -46,85 +32,83 @@ function codesMatch(a: string, b: string): boolean {
 }
 
 /**
- * Finds the reviewer demo user by email in Clerk, creating them if absent.
- * Works regardless of which Clerk instance (test vs live) the server is using.
- * Returns the Clerk user id, or null on any error.
+ * Creates a brand-new isolated Clerk user for this reviewer session,
+ * grants them the pass in our DB, and returns a sign-in token.
+ *
+ * Each call to this function produces a unique account so that reviewers
+ * and developers never share data with one another.
  */
-async function ensureDemoUser(
+async function createReviewerSession(
   clerkKey: string,
   log: {
     error: (obj: object, msg: string) => void;
     info: (obj: object, msg: string) => void;
   },
 ): Promise<string | null> {
+  const uniqueId = randomBytes(8).toString("hex");
+  const email = `reviewer+${uniqueId}@${REVIEWER_EMAIL_DOMAIN}`;
+
   const headers = {
     Authorization: `Bearer ${clerkKey}`,
     "Content-Type": "application/json",
   };
 
-  try {
-    // 1. Look for the user by email
-    const searchRes = await fetch(
-      `${CLERK_API}/users?email_address=${encodeURIComponent(DEMO_EMAIL)}&limit=1`,
-      { headers },
+  // Create a fresh Clerk user for this session
+  const createRes = await fetch(`${CLERK_API}/users`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      email_address: [email],
+      password: randomBytes(24).toString("base64url"),
+      skip_password_checks: true,
+      email_address_verified: true,
+    }),
+  });
+
+  if (!createRes.ok) {
+    const body = await createRes.text().catch(() => "(unreadable)");
+    log.error(
+      { status: createRes.status, body },
+      "Clerk reviewer user creation failed",
     );
-    if (!searchRes.ok) {
-      log.error({ status: searchRes.status }, "Clerk user search failed");
-      return null;
-    }
-    const found = (await searchRes.json()) as Array<{
-      id: string;
-      email_addresses?: Array<{ id: string }>;
-    }>;
-
-    let userId: string;
-
-    if (found.length > 0) {
-      userId = found[0].id;
-      log.info({ userId }, "Found existing reviewer demo user in Clerk");
-    } else {
-      // 2. Create the user if not found
-      log.info({}, "Reviewer demo user not in Clerk — creating");
-      // The reviewer never logs in with a password — access is always granted
-      // via a freshly issued Clerk sign-in token — so generate a random,
-      // never-persisted password purely to satisfy Clerk's user-creation API.
-      const randomPassword = randomBytes(24).toString("base64url");
-      const createRes = await fetch(`${CLERK_API}/users`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          email_address: [DEMO_EMAIL],
-          password: randomPassword,
-          skip_password_checks: true,
-          email_address_verified: true,
-        }),
-      });
-      if (!createRes.ok) {
-        log.error({ status: createRes.status }, "Clerk user creation failed");
-        return null;
-      }
-      const created = (await createRes.json()) as { id: string };
-      userId = created.id;
-      log.info({ userId }, "Created reviewer demo user in Clerk");
-    }
-
-    // 3. Ensure the user has the pass in our DB
-    await db
-      .insert(usersTable)
-      .values({ id: userId, email: DEMO_EMAIL, hasPass: true })
-      .onConflictDoUpdate({
-        target: usersTable.id,
-        set: { hasPass: true },
-      });
-
-    // 4. Persist user id to app_config so future calls skip the lookup
-    await upsertConfig("reviewer_demo_user_id", userId);
-
-    return userId;
-  } catch (err) {
-    log.error({ err }, "ensureDemoUser threw");
     return null;
   }
+
+  const created = (await createRes.json()) as { id: string };
+  const userId = created.id;
+  log.info({ userId, email }, "Created isolated reviewer session in Clerk");
+
+  // Grant the pass immediately in our DB
+  await db
+    .insert(usersTable)
+    .values({ id: userId, email, hasPass: true })
+    .onConflictDoUpdate({
+      target: usersTable.id,
+      set: {
+        hasPass: true,
+        passPurchasedAt: sql`COALESCE(${usersTable.passPurchasedAt}, now())`,
+        updatedAt: sql`now()`,
+      },
+    });
+
+  // Issue a short-lived sign-in token
+  const tokenRes = await fetch(`${CLERK_API}/sign_in_tokens`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ user_id: userId, expires_in_seconds: 3600 }),
+  });
+
+  if (!tokenRes.ok) {
+    const body = await tokenRes.text().catch(() => "(unreadable)");
+    log.error(
+      { status: tokenRes.status, body },
+      "Clerk sign_in_tokens failed for reviewer session",
+    );
+    return null;
+  }
+
+  const data = (await tokenRes.json()) as { token: string };
+  return data.token;
 }
 
 router.post(
@@ -158,59 +142,13 @@ router.post(
       return;
     }
 
-    // Resolve the demo user — prefer cached DB id, but verify it works.
-    // If the id is stale (different Clerk instance) fall through to self-heal.
-    const dbUserId = await getConfig("reviewer_demo_user_id");
-    const demoUserId = dbUserId ?? process.env.REVIEWER_DEMO_USER_ID;
-
-    const headers = {
-      Authorization: `Bearer ${clerkKey}`,
-      "Content-Type": "application/json",
-    };
-
-    // Try issuing a token with the cached id first (fast path)
-    if (demoUserId) {
-      const tokenRes = await fetch(`${CLERK_API}/sign_in_tokens`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ user_id: demoUserId, expires_in_seconds: 3600 }),
-      });
-      if (tokenRes.ok) {
-        const data = (await tokenRes.json()) as { token: string };
-        res.json({ token: data.token });
-        return;
-      }
-      req.log.warn(
-        { userId: demoUserId, status: tokenRes.status },
-        "Cached demo user id rejected by Clerk — self-healing",
-      );
-    }
-
-    // Slow path: find or create the user by email
-    const healedUserId = await ensureDemoUser(clerkKey, req.log);
-    if (!healedUserId) {
+    const token = await createReviewerSession(clerkKey, req.log);
+    if (!token) {
       res.status(502).json({ error: "Token generation failed" });
       return;
     }
 
-    const tokenRes = await fetch(`${CLERK_API}/sign_in_tokens`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ user_id: healedUserId, expires_in_seconds: 3600 }),
-    });
-
-    if (!tokenRes.ok) {
-      const body = await tokenRes.text().catch(() => "(unreadable)");
-      req.log.error(
-        { status: tokenRes.status, body },
-        "Clerk sign_in_tokens failed after self-heal",
-      );
-      res.status(502).json({ error: "Token generation failed" });
-      return;
-    }
-
-    const data = (await tokenRes.json()) as { token: string };
-    res.json({ token: data.token });
+    res.json({ token });
   },
 );
 

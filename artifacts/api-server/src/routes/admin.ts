@@ -29,10 +29,17 @@ function resolveAdminToken(): string | null {
 /**
  * POST /api/admin/reviewer-check
  *
- * Runs the Apple reviewer demo account pass health check against the database
- * this server is connected to. In production that is the production DATABASE_URL,
- * so this endpoint is the canonical way to verify (and auto-heal) the reviewer
- * pass in the live environment.
+ * Verifies the reviewer sign-in system is fully operational against the
+ * database and Clerk instance this server is connected to.
+ *
+ * Checks (in order):
+ *   1. A reviewer access code is configured (app_config or env)
+ *   2. CLERK_SECRET_KEY is present
+ *   3. The Clerk API is reachable with that key
+ *
+ * Each reviewer sign-in creates a unique isolated Clerk account, so there is
+ * no single "demo user" to verify — a passing system check means any reviewer
+ * who enters the code will get a fresh working account.
  *
  * Auth: Bearer token in the Authorization header, matched against the
  * dedicated ADMIN_CHECK_TOKEN env var. Does NOT accept REVIEWER_ACCESS_CODE
@@ -40,8 +47,8 @@ function resolveAdminToken(): string | null {
  * Apple in App Review notes and must never grant admin-level access.
  *
  * Responses:
- *   200 { ok: true,  demoUserId, healed: false, timestamp }  — pass is healthy
- *   200 { ok: false, demoUserId, reason, healed: true, timestamp } — was broken, auto-healed
+ *   200 { ok: true,  timestamp }                      — system is healthy
+ *   200 { ok: false, reason, timestamp }              — system check failed
  *   401  — missing or invalid token
  *   503  — no admin token configured on the server
  */

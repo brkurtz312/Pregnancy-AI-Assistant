@@ -1,35 +1,35 @@
 /**
- * Health check: verifies the Apple reviewer demo account always holds the Full
- * Pregnancy Pass. If the pass flag is missing, the script auto-heals by
- * re-granting it and exits with a non-zero code so the failure is visible in
- * logs and the calling workflow's console.
+ * Health check: verifies that the reviewer sign-in system is fully operational.
  *
- * When a failure is detected the script also sends an outbound alert so the
- * team is notified immediately. Configure at least one of:
+ * Since each reviewer sign-in now creates a unique isolated Clerk account,
+ * there is no single "demo user" to monitor. Instead this script checks the
+ * three things that must be true for a reviewer to sign in successfully:
+ *
+ *   1. A reviewer access code is configured (DB app_config or env var)
+ *   2. CLERK_SECRET_KEY is present
+ *   3. The Clerk API is reachable with that key
+ *
+ * If any check fails the script exits non-zero so the calling workflow's
+ * console shows a visible failure. Configure alert channels with:
  *
  *   alert_slack_webhook_url (app_config row) or ALERT_SLACK_WEBHOOK_URL (env)
  *   alert_resend_api_key + alert_email (app_config rows) or
- *     RESEND_API_KEY + ALERT_EMAIL (env) — sends an email via Resend
- *
- * app_config rows take precedence over env vars. Manage them with:
- *   pnpm --filter @workspace/scripts run set-alert-config
- *
- * alert_from_email (app_config) / ALERT_FROM_EMAIL (env) optionally overrides
- * the sender address (defaults to "alerts@notifications.pregnancyassistant.app").
+ *     RESEND_API_KEY + ALERT_EMAIL (env)
  *
  * Meant to be called on a schedule (e.g. every hour from the
- * "Reviewer Pass Health Check" workflow). It is also safe to run manually:
+ * "Reviewer Pass Health Check" workflow). Also safe to run manually:
  *
  *   pnpm --filter @workspace/scripts run check-reviewer-pass
  *
  * Requires:
- *   DATABASE_URL  — provided automatically by Replit
+ *   DATABASE_URL     — provided automatically by Replit
+ *   CLERK_SECRET_KEY — must be set for reviewer sign-in to work
  */
 
-import { db, appConfigTable, usersTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { db, appConfigTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
-const FALLBACK_DEMO_USER_ID = "user_3FbMbELUGoggA6nXU8lht1GWJOJ";
+const CLERK_API = "https://api.clerk.com/v1";
 
 async function getConfig(key: string): Promise<string | null> {
   const [row] = await db
@@ -40,30 +40,28 @@ async function getConfig(key: string): Promise<string | null> {
 }
 
 interface AlertPayload {
-  demoUserId: string;
   timestamp: string;
-  reason: "user_missing" | "pass_revoked";
+  reason: "no_access_code" | "no_clerk_key" | "clerk_unreachable";
 }
 
 export async function sendAlert(payload: AlertPayload): Promise<void> {
-  const { demoUserId, timestamp, reason } = payload;
+  const { timestamp, reason } = payload;
 
   const title =
-    reason === "user_missing"
-      ? "❌ Reviewer demo account missing from DB"
-      : "❌ Reviewer pass revoked (hasPass = false)";
+    reason === "no_access_code"
+      ? "❌ Reviewer access code not configured"
+      : reason === "no_clerk_key"
+        ? "❌ CLERK_SECRET_KEY missing — reviewer sign-in will fail"
+        : "❌ Clerk API unreachable — reviewer sign-in will fail";
 
   const body = [
     title,
-    `Demo user ID : ${demoUserId}`,
     `UTC timestamp : ${timestamp}`,
-    `Action taken  : Pass auto-healed (hasPass set to true)`,
-    `Next steps    : Investigate why the pass was cleared (Stripe webhook? DB migration? test script?).`,
-    `                Check the DB row for ${demoUserId} and the workflow console for context.`,
+    `Reason        : ${reason}`,
+    `Impact        : Reviewers and developers cannot sign in with the access code.`,
+    `Next steps    : Check Clerk configuration and environment secrets.`,
   ].join("\n");
 
-  // app_config rows take precedence over env vars so the team can change alert
-  // destinations from the DB without redeploying.
   const slackWebhookUrl =
     (await getConfig("alert_slack_webhook_url")) ??
     process.env.ALERT_SLACK_WEBHOOK_URL;
@@ -89,10 +87,10 @@ export async function sendAlert(payload: AlertPayload): Promise<void> {
               type: "mrkdwn",
               text: [
                 `*${title}*`,
-                `• *Demo user ID:* \`${demoUserId}\``,
                 `• *UTC timestamp:* ${timestamp}`,
-                `• *Action:* Pass auto-healed (\`hasPass\` set to \`true\`)`,
-                `• *Next steps:* Investigate why the pass was cleared (Stripe webhook? DB migration? test script?).`,
+                `• *Reason:* \`${reason}\``,
+                `• *Impact:* Reviewers and developers cannot sign in with the access code.`,
+                `• *Next steps:* Check Clerk configuration and environment secrets.`,
               ].join("\n"),
             },
           },
@@ -179,73 +177,61 @@ export async function main() {
   const timestamp = new Date().toISOString();
   console.log(`\n[${timestamp}] ── Reviewer pass health check ──`);
 
-  const dbUserId = await getConfig("reviewer_demo_user_id");
-  const demoUserId =
-    dbUserId ?? process.env.REVIEWER_DEMO_USER_ID ?? FALLBACK_DEMO_USER_ID;
+  // 1. Verify access code is configured
+  const dbCode = await getConfig("reviewer_access_code");
+  const accessCode =
+    dbCode ?? process.env.REVIEWER_ACCESS_CODE ?? process.env.DEV_ACCESS_CODE;
 
-  if (!dbUserId && !process.env.REVIEWER_DEMO_USER_ID) {
-    console.warn(
-      "⚠️  reviewer_demo_user_id not found in DB or env — using hardcoded fallback.",
-    );
-    console.warn(
-      "   Run: pnpm --filter @workspace/scripts run create-review-account\n",
-    );
-  }
-
-  console.log(`   Demo user ID: ${demoUserId}`);
-
-  const [user] = await db
-    .select({ hasPass: usersTable.hasPass })
-    .from(usersTable)
-    .where(eq(usersTable.id, demoUserId));
-
-  if (!user) {
+  if (!accessCode) {
     console.error(
-      `\n❌ ALERT: Demo user ${demoUserId} not found in users table.`,
+      "\n❌ ALERT: No reviewer access code configured (checked app_config.reviewer_access_code,",
     );
-    console.error("   Auto-healing: creating user row with hasPass = true ...");
-    await db
-      .insert(usersTable)
-      .values({ id: demoUserId, hasPass: true })
-      .onConflictDoUpdate({
-        target: usersTable.id,
-        set: {
-          hasPass: true,
-          passPurchasedAt: sql`COALESCE(${usersTable.passPurchasedAt}, now())`,
-          updatedAt: sql`now()`,
-        },
-      });
-    console.error("   ✅ Auto-heal complete. Review your DB and Clerk setup.");
-    await sendAlert({ demoUserId, timestamp, reason: "user_missing" });
+    console.error(
+      "   REVIEWER_ACCESS_CODE, and DEV_ACCESS_CODE). Reviewers cannot sign in.",
+    );
+    await sendAlert({ timestamp, reason: "no_access_code" });
     process.exit(1);
   }
 
-  if (!user.hasPass) {
-    console.error(
-      `\n❌ ALERT: Reviewer demo account (${demoUserId}) has hasPass = false!`,
-    );
-    console.error(
-      "   This means the Apple reviewer will see a free-tier experience.",
-    );
-    console.error("   Auto-healing: re-granting Full Pregnancy Pass ...");
+  console.log("   ✅ Access code configured.");
 
-    await db
-      .update(usersTable)
-      .set({
-        hasPass: true,
-        passPurchasedAt: sql`COALESCE(${usersTable.passPurchasedAt}, now())`,
-        updatedAt: sql`now()`,
-      })
-      .where(eq(usersTable.id, demoUserId));
-
+  // 2. Verify Clerk secret key is present
+  const clerkKey = process.env.CLERK_SECRET_KEY;
+  if (!clerkKey) {
     console.error(
-      "   ✅ Pass re-granted. Investigate why it was cleared (Stripe webhook? DB migration? test script?).",
+      "\n❌ ALERT: CLERK_SECRET_KEY is not set. Reviewer sign-in will fail.",
     );
-    await sendAlert({ demoUserId, timestamp, reason: "pass_revoked" });
+    await sendAlert({ timestamp, reason: "no_clerk_key" });
     process.exit(1);
   }
 
-  console.log(`   ✅ hasPass = true — reviewer account looks good.\n`);
+  console.log("   ✅ Clerk secret key present.");
+
+  // 3. Verify Clerk API is reachable (lightweight read — no user creation)
+  try {
+    const res = await fetch(`${CLERK_API}/users?limit=1`, {
+      headers: { Authorization: `Bearer ${clerkKey}` },
+    });
+
+    if (!res.ok) {
+      console.error(
+        `\n❌ ALERT: Clerk API returned ${res.status}. Reviewer sign-in will fail.`,
+      );
+      await sendAlert({ timestamp, reason: "clerk_unreachable" });
+      process.exit(1);
+    }
+  } catch (err) {
+    console.error(
+      `\n❌ ALERT: Clerk API unreachable: ${(err as Error).message}`,
+    );
+    await sendAlert({ timestamp, reason: "clerk_unreachable" });
+    process.exit(1);
+  }
+
+  console.log("   ✅ Clerk API reachable — reviewer sign-in should work.");
+  console.log(
+    "   ℹ️  Each sign-in creates a unique isolated account (no shared demo user).\n",
+  );
   process.exit(0);
 }
 
