@@ -364,7 +364,7 @@ export default function HospitalBagScreen() {
                   { color: colors.primaryForeground },
                 ]}
               >
-                Print / Save Checklist as PDF
+                View Checklist PDF
               </Text>
             </>
           )}

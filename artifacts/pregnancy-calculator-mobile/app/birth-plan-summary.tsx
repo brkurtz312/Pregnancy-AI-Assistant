@@ -195,7 +195,7 @@ export default function BirthPlanSummaryScreen() {
                     { color: colors.primaryForeground },
                   ]}
                 >
-                  Share / Print / Save PDF
+                  View PDF
                 </Text>
               </>
             )}

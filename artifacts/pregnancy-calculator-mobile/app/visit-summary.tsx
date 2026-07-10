@@ -481,7 +481,7 @@ export default function VisitSummaryScreen() {
                   { color: colors.primaryForeground },
                 ]}
               >
-                Share / Print / Save PDF
+                View PDF
               </Text>
             </>
           )}

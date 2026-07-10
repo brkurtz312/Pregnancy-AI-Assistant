@@ -377,7 +377,7 @@ export default function BirthPlanScreen() {
               color={colors.primary}
             />
             <Text style={[styles.pdfBtnText, { color: colors.primary }]}>
-              Print / Save Blank PDF
+              View Blank PDF
             </Text>
           </TouchableOpacity>
         </Animated.View>

@@ -321,7 +321,7 @@ export default function BreastfeedingSummaryScreen() {
                     { color: colors.primaryForeground },
                   ]}
                 >
-                  Print / Save as PDF
+                  View PDF
                 </Text>
               </>
             )}

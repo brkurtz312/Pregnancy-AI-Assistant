@@ -380,7 +380,7 @@ export default function PostpartumDepressionSummaryScreen() {
                     { color: colors.primaryForeground },
                   ]}
                 >
-                  Print / Save as PDF
+                  View PDF
                 </Text>
               </>
             )}

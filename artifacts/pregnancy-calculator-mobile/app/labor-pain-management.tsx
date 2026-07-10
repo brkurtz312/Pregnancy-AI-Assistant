@@ -306,7 +306,7 @@ export default function LaborPainManagementScreen() {
                   { color: colors.primaryForeground },
                 ]}
               >
-                Print / Save Resource Summary as PDF
+                View Resource Summary PDF
               </Text>
             </>
           )}

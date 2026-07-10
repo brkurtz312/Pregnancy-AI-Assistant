@@ -294,7 +294,7 @@ export default function PostpartumContraceptionScreen() {
                   { color: colors.primaryForeground },
                 ]}
               >
-                Print / Save Resource Summary as PDF
+                View Resource Summary PDF
               </Text>
             </>
           )}
