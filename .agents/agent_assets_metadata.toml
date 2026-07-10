@@ -311,3 +311,21 @@ id = "mtMKf_61U_YqO_RVK_gPl"
 uri = "file://screenshots/app-store-6.9/08-maternal-body.jpg"
 type = "image"
 title = "8. The Maternal Body"
+
+[[outputs]]
+id = "eggBKBx9LR61nKl46OqaT"
+uri = "file://screenshots/app-store-1320x2868.zip"
+type = "unspecified"
+title = "1320 × 2868 px — iPhone 16 Pro Max (6.9\")"
+
+[[outputs]]
+id = "v-QUjcRITfQd905Gq6DJe"
+uri = "file://screenshots/app-store-1290x2796.zip"
+type = "unspecified"
+title = "1290 × 2796 px — iPhone 16 Pro / 15 Pro (6.3\"–6.1\")"
+
+[[outputs]]
+id = "xWDr2SLsEbyUFA4D1Qheg"
+uri = "file://screenshots/app-store-1260x2736.zip"
+type = "unspecified"
+title = "1260 × 2736 px — iPhone 16 Plus / 15 Plus (6.7\")"
