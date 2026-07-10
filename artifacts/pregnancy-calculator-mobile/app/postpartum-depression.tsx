@@ -156,7 +156,6 @@ export default function PostpartumDepressionScreen() {
   });
   const [loaded, setLoaded] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [generated, setGenerated] = useState(false);
   const [zipError, setZipError] = useState<string | null>(null);
 
   const [phq9Answers, setPhq9Answers] = useState<Phq9Answers>(
@@ -167,7 +166,6 @@ export default function PostpartumDepressionScreen() {
   useEffect(() => {
     Promise.all([loadPpdCheckin(), loadPhq9Answers()]).then(([c, phq9]) => {
       setCheckin(c);
-      setGenerated(!!c.generatedAt);
       setPhq9Answers(phq9);
       if (phq9.some((a) => a !== undefined)) setPhq9Started(true);
       setLoaded(true);
@@ -216,15 +214,13 @@ export default function PostpartumDepressionScreen() {
         updateProfileMutation.mutate({ data: { zipCode: zip } });
       }
       if (Platform.OS === "web") {
-        setGenerated(true);
         Alert.alert(
           "Resource summary ready",
-          "You can view it in-app now. Printing/saving as a PDF is available in the mobile app.",
+          "Printing/saving as a PDF is available in the mobile app.",
         );
         return;
       }
       const { uri } = await Print.printToFileAsync({ html });
-      setGenerated(true);
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {
         await Sharing.shareAsync(uri, {
@@ -870,7 +866,7 @@ export default function PostpartumDepressionScreen() {
                 ) : (
                   <>
                     <Ionicons
-                      name="sparkles-outline"
+                      name="document-text-outline"
                       size={18}
                       color={colors.primaryForeground}
                     />
@@ -880,34 +876,10 @@ export default function PostpartumDepressionScreen() {
                         { color: colors.primaryForeground },
                       ]}
                     >
-                      Generate My Resource Summary
+                      View My Resource Summary
                     </Text>
                   </>
                 )}
-              </TouchableOpacity>
-            )}
-
-            {generated && (
-              <TouchableOpacity
-                style={[
-                  styles.viewBtn,
-                  { borderColor: colors.primary, backgroundColor: colors.card },
-                ]}
-                onPress={() =>
-                  router.push({
-                    pathname: "/postpartum-depression-summary",
-                    params: { from: "Postpartum Depression" },
-                  })
-                }
-              >
-                <Ionicons
-                  name="reader-outline"
-                  size={18}
-                  color={colors.primary}
-                />
-                <Text style={[styles.viewBtnText, { color: colors.primary }]}>
-                  View My Resource Summary in App
-                </Text>
               </TouchableOpacity>
             )}
           </>
@@ -1096,20 +1068,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   generateBtnText: {
-    fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
-  },
-  viewBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    borderRadius: 12,
-    paddingVertical: 14,
-    borderWidth: 1.5,
-    marginBottom: 8,
-  },
-  viewBtnText: {
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
   },
