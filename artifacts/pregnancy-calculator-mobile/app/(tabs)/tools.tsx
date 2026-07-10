@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useUser } from "@clerk/expo";
 import * as Haptics from "expo-haptics";
 import * as haptics from "@/lib/haptics";
+import { router } from "expo-router";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   ActivityIndicator,
@@ -1053,6 +1054,31 @@ export default function ToolsScreen() {
         </Text>
       </Animated.View>
 
+      <Animated.View entering={FadeInDown.delay(40).duration(400)}>
+        <TouchableOpacity
+          style={[
+            styles.card,
+            styles.scribeCard,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+          onPress={() => router.push("/scribe")}
+          activeOpacity={0.85}
+        >
+          <View style={styles.scribeCardInner}>
+            <Ionicons name="mic-circle-outline" size={28} color={colors.primary ?? "#e86cad"} />
+            <View style={styles.scribeCardText}>
+              <Text style={[styles.scribeCardTitle, { color: colors.foreground }]}>
+                Medical Scribe
+              </Text>
+              <Text style={[styles.scribeCardSub, { color: colors.mutedForeground }]}>
+                Record an encounter · draft SOAP note or patient summary
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+
       <Animated.View
         entering={FadeInDown.delay(80).duration(400)}
         style={[
@@ -1178,6 +1204,27 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
+  },
+  scribeCard: {
+    padding: 14,
+    marginBottom: 12,
+  },
+  scribeCardInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  scribeCardText: {
+    flex: 1,
+    gap: 2,
+  },
+  scribeCardTitle: {
+    fontSize: 16,
+    fontFamily: "Inter_600SemiBold",
+  },
+  scribeCardSub: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
   },
   primaryBtn: {
     borderRadius: 12,
