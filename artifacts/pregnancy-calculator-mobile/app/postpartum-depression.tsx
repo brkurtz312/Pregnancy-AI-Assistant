@@ -338,7 +338,7 @@ export default function PostpartumDepressionScreen() {
               color={colors.primary}
             />
             <Text style={[styles.pdfBtnText, { color: colors.primary }]}>
-              View Full ACOG Handout (PDF)
+              View Full Handout (PDF)
             </Text>
           </TouchableOpacity>
         </Animated.View>
