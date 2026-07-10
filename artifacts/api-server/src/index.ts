@@ -50,8 +50,8 @@ if (REVIEWER_CHECK_INTERVAL_MS > 0) {
       const result = await runReviewerPassCheck();
       if (!result.ok) {
         logger.warn(
-          { reason: result.reason, healed: result.healed },
-          "Scheduled reviewer pass check failed (auto-heal attempted)",
+          { reason: result.reason },
+          "Scheduled reviewer pass check failed",
         );
       }
     } catch (err) {

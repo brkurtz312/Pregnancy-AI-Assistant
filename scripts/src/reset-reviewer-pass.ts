@@ -23,8 +23,6 @@ console.log(
 console.log("granted automatically. There is no shared demo account to reset.");
 console.log();
 console.log("To verify the system is healthy:");
-console.log(
-  "  pnpm --filter @workspace/scripts run check-reviewer-pass",
-);
+console.log("  pnpm --filter @workspace/scripts run check-reviewer-pass");
 console.log();
 process.exit(0);

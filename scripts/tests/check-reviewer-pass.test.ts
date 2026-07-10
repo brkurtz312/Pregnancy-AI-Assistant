@@ -293,18 +293,33 @@ describe("main() — Clerk API unreachable", () => {
   });
 
   it("exits 1 when Clerk API returns non-OK", async () => {
-    // First call: Clerk connectivity check → non-OK
-    // Second call: Slack alert → OK
     fetchMock
-      .mockResolvedValueOnce({ ok: false, status: 503, text: async () => "" } as Response)
-      .mockResolvedValueOnce({ ok: true, status: 200, text: async () => "" } as Response);
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        text: async () => "",
+      } as Response)
+      .mockResolvedValue({
+        ok: true,
+        status: 200,
+        text: async () => "",
+      } as Response);
 
     const exitSpy = mockProcessExit();
 
     await expect(main()).rejects.toThrow("process.exit(1)");
 
     expect(exitSpy).toHaveBeenCalledWith(1);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // Clerk connectivity check must have fired
+    const clerkCall = fetchMock.mock.calls.find(([url]) =>
+      (url as string).includes("clerk.com"),
+    );
+    expect(clerkCall).toBeDefined();
+    // Slack alert must have fired
+    const slackCall = fetchMock.mock.calls.find(([url]) =>
+      (url as string).includes("hooks.slack.com"),
+    );
+    expect(slackCall).toBeDefined();
   });
 
   it("exits 1 and sends no alert channel call when no channel configured", async () => {
