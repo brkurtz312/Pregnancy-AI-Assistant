@@ -15,9 +15,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { VIDEO_VAULT_TOPICS } from "@/lib/video-vault";
-import {
-  SUPPORT_PERSON_VOLUMES,
-} from "@/lib/support-person-survival";
+import { SUPPORT_PERSON_VOLUMES } from "@/lib/support-person-survival";
 import { HEALTHY_PREGNANCY_TOPICS } from "@/lib/healthy-pregnancy-topics";
 
 const ACOG_URL = "https://www.acog.org/womens-health/resources-for-you";
@@ -46,7 +44,11 @@ function buildSearchIndex(): SearchResult[] {
   }
 
   const volIcons = ["📖", "📋", "🎉"];
-  const volRoutes = ["/support-person-vol1", "/support-person-vol2", "/support-person-vol3"] as const;
+  const volRoutes = [
+    "/support-person-vol1",
+    "/support-person-vol2",
+    "/support-person-vol3",
+  ] as const;
   for (const vol of SUPPORT_PERSON_VOLUMES) {
     results.push({
       section: "supportperson",
@@ -183,9 +185,7 @@ export default function LearnScreen() {
 
   const grouped = useMemo(() => {
     if (!searchResults) return null;
-    return (
-      ["videovault", "supportperson", "healthypregnancy"] as const
-    )
+    return (["videovault", "supportperson", "healthypregnancy"] as const)
       .map((section) => ({
         section,
         items: searchResults.filter((r) => r.section === section),
@@ -271,9 +271,7 @@ export default function LearnScreen() {
               style={styles.emptyState}
             >
               <Text style={styles.emptyEmoji}>🔍</Text>
-              <Text
-                style={[styles.emptyTitle, { color: colors.foreground }]}
-              >
+              <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
                 No results found
               </Text>
               <Text
@@ -282,8 +280,8 @@ export default function LearnScreen() {
                   { color: colors.mutedForeground },
                 ]}
               >
-                Try a different keyword — e.g. "nutrition", "warning signs",
-                or "labor".
+                Try a different keyword — e.g. "nutrition", "warning signs", or
+                "labor".
               </Text>
             </Animated.View>
           ) : (
@@ -393,9 +391,16 @@ export default function LearnScreen() {
             ]}
           >
             <View
-              style={[styles.cardIcon, { backgroundColor: colors.primary + "18" }]}
+              style={[
+                styles.cardIcon,
+                { backgroundColor: colors.primary + "18" },
+              ]}
             >
-              <Ionicons name="medkit-outline" size={20} color={colors.primary} />
+              <Ionicons
+                name="medkit-outline"
+                size={20}
+                color={colors.primary}
+              />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.cardTitle, { color: colors.foreground }]}>
@@ -407,19 +412,23 @@ export default function LearnScreen() {
                   { color: colors.mutedForeground, marginBottom: 10 },
                 ]}
               >
-                The American College of Obstetricians and Gynecologists (ACOG) is
-                the leading professional organization for OB-GYNs in the United
-                States. Their women&apos;s health resource hub offers free,
-                evidence-based guides on pregnancy, labor and delivery, postpartum
-                care, and general women&apos;s health topics — written and reviewed
-                by practicing physicians.
+                The American College of Obstetricians and Gynecologists (ACOG)
+                is the leading professional organization for OB-GYNs in the
+                United States. Their women&apos;s health resource hub offers
+                free, evidence-based guides on pregnancy, labor and delivery,
+                postpartum care, and general women&apos;s health topics —
+                written and reviewed by practicing physicians.
               </Text>
               <TouchableOpacity
                 style={[styles.linkBtn, { borderColor: colors.primary }]}
                 onPress={() => Linking.openURL(ACOG_URL)}
                 activeOpacity={0.8}
               >
-                <Ionicons name="open-outline" size={16} color={colors.primary} />
+                <Ionicons
+                  name="open-outline"
+                  size={16}
+                  color={colors.primary}
+                />
                 <Text style={[styles.linkBtnText, { color: colors.primary }]}>
                   Visit acog.org
                 </Text>

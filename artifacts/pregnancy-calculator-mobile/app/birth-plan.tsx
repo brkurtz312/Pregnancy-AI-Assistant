@@ -298,7 +298,9 @@ export default function BirthPlanScreen() {
       setAnswers((prev) => {
         const next = { ...prev, [id]: value };
         if (isSignedIn) {
-          apiSaveBirthPlanAnswers(next, getToken).catch(() => {});
+          apiSaveBirthPlanAnswers(next, getToken).catch(() => {
+            saveBirthPlanAnswers(next);
+          });
         } else {
           saveBirthPlanAnswers(next);
         }

@@ -85,7 +85,9 @@ export default function HospitalBagScreen() {
     (next: HospitalBagCategory[]) => {
       setCategories(next);
       if (isSignedIn) {
-        apiSaveHospitalBag(next, getToken).catch(() => {});
+        apiSaveHospitalBag(next, getToken).catch(() => {
+          saveHospitalBagChecklist(next);
+        });
       } else {
         saveHospitalBagChecklist(next);
       }
