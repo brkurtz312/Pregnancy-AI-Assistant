@@ -2,6 +2,9 @@ import { useSession } from "@clerk/expo";
 import { useQueryClient } from "@tanstack/react-query";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { useEffect, useRef } from "react";
+import { clearJournalCache } from "@/lib/journal";
+import { clearHospitalBagCache } from "@/lib/hospital-bag";
+import { clearBirthPlanCache } from "@/lib/birth-plan";
 
 /**
  * Bridges the Clerk session token into the generated API client and keeps the
@@ -9,9 +12,9 @@ import { useEffect, useRef } from "react";
  *
  * - Sign-in  (null → session): registers the auth token getter and invalidates
  *   all cached queries so they re-fetch with the new auth token immediately.
- * - Sign-out (session → null): clears the entire cache so stale authenticated
- *   data (profile, pass status, AI usage) does not linger for the next user on
- *   a shared device.
+ * - Sign-out (session → null): clears the React Query cache AND the AsyncStorage
+ *   tool caches (journal, hospital bag, birth plan) so stale data does not
+ *   appear to a signed-out session or to a different user who signs in next.
  *
  * Design notes:
  * - Uses `useSession` (the actual session object) instead of `useAuth`'s
@@ -64,10 +67,15 @@ export function AuthTokenBridge() {
     }
 
     // When the session transitions non-null → null (i.e. user just signed out),
-    // clear the entire cache so stale authenticated data (profile, pass status,
-    // AI usage) does not linger for the next user on a shared device.
+    // clear the entire React Query cache so stale authenticated data (profile,
+    // pass status, AI usage) does not linger for the next user on a shared
+    // device. Also wipe the AsyncStorage tool caches (journal, hospital bag,
+    // birth plan) so a signed-out session never shows the previous user's data.
     if (wasSignedIn && isNowSignedOut) {
       queryClient.clear();
+      clearJournalCache().catch(() => {});
+      clearHospitalBagCache().catch(() => {});
+      clearBirthPlanCache().catch(() => {});
     }
   }, [session, queryClient]);
 

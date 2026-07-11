@@ -1,11 +1,13 @@
 /**
  * Unit tests for AuthTokenBridge — the mobile equivalent of the web's
  * SessionWatcher. Verifies that switching accounts on a shared device never
- * leaves stale cached data from the previous user in the React Query store.
+ * leaves stale cached data from the previous user in the React Query store
+ * or in the AsyncStorage tool caches (journal, hospital bag, birth plan).
  *
- * Scenario covered:
+ * Scenarios covered:
  *   User A signs in  → queryClient.invalidateQueries() is called
  *   User A signs out → queryClient.clear() is called (cache wiped)
+ *                    → clearJournalCache / clearHospitalBagCache / clearBirthPlanCache called
  *   User B signs in  → queryClient.invalidateQueries() is called (fresh fetch)
  *
  * This mirrors session-switch-isolation.spec.ts on the web side.
@@ -23,12 +25,30 @@ jest.mock("@workspace/api-client-react", () => ({
   setAuthTokenGetter: jest.fn(),
 }));
 
+jest.mock("@/lib/journal", () => ({
+  clearJournalCache: jest.fn(async () => {}),
+}));
+
+jest.mock("@/lib/hospital-bag", () => ({
+  clearHospitalBagCache: jest.fn(async () => {}),
+}));
+
+jest.mock("@/lib/birth-plan", () => ({
+  clearBirthPlanCache: jest.fn(async () => {}),
+}));
+
 import { useSession } from "@clerk/expo";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
+import { clearJournalCache } from "@/lib/journal";
+import { clearHospitalBagCache } from "@/lib/hospital-bag";
+import { clearBirthPlanCache } from "@/lib/birth-plan";
 import { AuthTokenBridge } from "../components/AuthTokenBridge";
 
 const mockUseSession = useSession as jest.Mock;
 const mockSetAuthTokenGetter = setAuthTokenGetter as jest.Mock;
+const mockClearJournal = clearJournalCache as jest.Mock;
+const mockClearHospitalBag = clearHospitalBagCache as jest.Mock;
+const mockClearBirthPlan = clearBirthPlanCache as jest.Mock;
 
 function makeSession(id: string) {
   return { getToken: jest.fn(async () => `token-${id}`) };
@@ -174,6 +194,50 @@ describe("AuthTokenBridge — session-switch isolation", () => {
 
     expect(invalidate).toHaveBeenCalledTimes(1);
     expect(clear).toHaveBeenCalledTimes(1); // still only once, from sign-out
+  });
+
+  it("clears journal, hospital-bag, and birth-plan caches on sign-out", async () => {
+    const qc = new QueryClient();
+
+    const renderer = renderBridge(qc, makeSession("userA"));
+    await act(async () => {});
+
+    mockUseSession.mockReturnValue({ session: null });
+    await act(async () => {
+      renderer.update(
+        React.createElement(
+          QueryClientProvider,
+          { client: qc },
+          React.createElement(AuthTokenBridge),
+        ),
+      );
+    });
+
+    expect(mockClearJournal).toHaveBeenCalledTimes(1);
+    expect(mockClearHospitalBag).toHaveBeenCalledTimes(1);
+    expect(mockClearBirthPlan).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT clear tool caches on sign-in (only on sign-out)", async () => {
+    const qc = new QueryClient();
+
+    const renderer = renderBridge(qc, null);
+    await act(async () => {});
+
+    mockUseSession.mockReturnValue({ session: makeSession("userA") });
+    await act(async () => {
+      renderer.update(
+        React.createElement(
+          QueryClientProvider,
+          { client: qc },
+          React.createElement(AuthTokenBridge),
+        ),
+      );
+    });
+
+    expect(mockClearJournal).not.toHaveBeenCalled();
+    expect(mockClearHospitalBag).not.toHaveBeenCalled();
+    expect(mockClearBirthPlan).not.toHaveBeenCalled();
   });
 
   it("does not call invalidateQueries or clear when the same session re-renders without changing", async () => {
