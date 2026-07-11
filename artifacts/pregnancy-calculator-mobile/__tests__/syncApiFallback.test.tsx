@@ -50,12 +50,17 @@ jest.mock("@clerk/expo", () => ({
 
 // ─── Shared expo-router mock ──────────────────────────────────────────────────
 
+// Holds the most-recently registered useFocusEffect callback so tests can
+// re-invoke it to simulate the user navigating away and back.
+let _lastFocusEffect: (() => void) | null = null;
+
 jest.mock("expo-router", () => {
   const React = require("react");
   return {
     router: { back: jest.fn(), push: jest.fn() },
     useLocalSearchParams: jest.fn(() => ({})),
     useFocusEffect: (cb: () => (() => void) | void) => {
+      _lastFocusEffect = cb as () => void;
       React.useEffect(() => {
         cb();
       }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -186,6 +191,7 @@ jest.mock("@/lib/sync-api", () => ({
 
 import {
   apiLoadJournalEntries,
+  apiUpsertJournalEntry,
   apiLoadHospitalBag,
   apiSaveHospitalBag,
   apiLoadBirthPlanAnswers,
@@ -199,6 +205,7 @@ import {
 } from "@/lib/journal";
 
 const mockApiLoadJournal = apiLoadJournalEntries as jest.Mock;
+const mockApiUpsertJournalEntry = apiUpsertJournalEntry as jest.Mock;
 const mockLoadEntries = loadEntries as jest.Mock;
 const mockCacheEntries = cacheEntries as jest.Mock;
 const mockGetJournalCacheOwner = getJournalCacheOwner as jest.Mock;
@@ -295,6 +302,64 @@ describe("Journal — sync API fallback", () => {
     // User B should see an empty journal, not user A's entries.
     const json = JSON.stringify(renderer!.toJSON());
     expect(json).not.toContain("A local journal entry");
+  });
+
+  it("preserves local entries when the migration API push fails", async () => {
+    // Server returns empty (first sign-in) → migration path is entered.
+    // apiUpsertJournalEntry throws → entry must survive in local state.
+    mockApiLoadJournal.mockResolvedValue([]);
+    mockLoadEntries.mockResolvedValue([LOCAL_ENTRY]);
+    mockApiUpsertJournalEntry.mockRejectedValue(new Error("network error"));
+
+    const JournalScreen = require("../app/journal").default;
+    act(() => {
+      create(React.createElement(JournalScreen));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // The failed-push entry is collected into the migrated array and cached.
+    expect(mockApiUpsertJournalEntry).toHaveBeenCalled();
+    expect(mockCacheEntries).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ id: LOCAL_ENTRY.id })]),
+    );
+  });
+
+  it("does not re-migrate when the user re-focuses after a failed migration", async () => {
+    // First focus: server is empty → migration branch entered, push fails.
+    // Re-focus: server now returns the entry (simulating eventual persistence) →
+    // migratedForUserRef.current === userId so migration is skipped;
+    // localOnlyEntries is empty (server already has the entry) so the
+    // incremental-sync loop is also a no-op, meaning apiUpsertJournalEntry is
+    // NOT called a second time.
+    mockApiLoadJournal
+      .mockResolvedValueOnce([]) // first focus: empty server
+      .mockResolvedValue([LOCAL_ENTRY]); // re-focus: server has it now
+    mockLoadEntries.mockResolvedValue([LOCAL_ENTRY]);
+    mockApiUpsertJournalEntry.mockRejectedValue(new Error("network error"));
+
+    const JournalScreen = require("../app/journal").default;
+    act(() => {
+      create(React.createElement(JournalScreen));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // Migration attempted once for the single local entry.
+    expect(mockApiUpsertJournalEntry).toHaveBeenCalledTimes(1);
+
+    // Simulate the user navigating away and back (re-focus).
+    await act(async () => {
+      _lastFocusEffect?.();
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // The migration branch is guarded by migratedForUserRef.current === userId,
+    // so it is not entered again. The incremental-sync loop also has nothing to
+    // push (LOCAL_ENTRY.id is now in the server-IDs set). Call count stays at 1.
+    expect(mockApiUpsertJournalEntry).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -459,6 +524,82 @@ describe("Hospital Bag — sync API fallback", () => {
 
     expect(mockLoadHospitalBag).toHaveBeenCalled();
     expect(mockApiLoadHospitalBag).not.toHaveBeenCalled();
+  });
+
+  it("preserves local categories when the migration API save fails", async () => {
+    // Server returns null (first sign-in) → migration path is entered.
+    // apiSaveHospitalBag fails → fire-and-forget, local categories still shown.
+    mockApiLoadHospitalBag.mockResolvedValue(null);
+    mockLoadHospitalBag.mockResolvedValue(LOCAL_CATEGORIES);
+    mockApiSaveHospitalBag.mockRejectedValue(new Error("network error"));
+
+    const HospitalBagScreen = require("../app/hospital-bag").default;
+    act(() => {
+      create(React.createElement(HospitalBagScreen));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // loadHospitalBagChecklist is called to get the local data for migration.
+    expect(mockLoadHospitalBag).toHaveBeenCalled();
+    // The push is attempted even though it fails.
+    expect(mockApiSaveHospitalBag).toHaveBeenCalled();
+  });
+
+  it("does not re-migrate when server data is available on a subsequent mount", async () => {
+    // Server has data (migration already happened in a previous session) →
+    // no migration push should be attempted.
+    mockApiLoadHospitalBag.mockResolvedValue(SERVER_CATEGORIES);
+    mockLoadHospitalBag.mockResolvedValue(LOCAL_CATEGORIES);
+    mockApiSaveHospitalBag.mockResolvedValue(undefined);
+
+    const HospitalBagScreen = require("../app/hospital-bag").default;
+    act(() => {
+      create(React.createElement(HospitalBagScreen));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // No migration push when serverCategories is non-null.
+    expect(mockApiSaveHospitalBag).not.toHaveBeenCalled();
+  });
+
+  it("does not re-push local categories when re-triggered after a failed migration", async () => {
+    // First trigger: server=null → migration branch, push fails, local shown.
+    mockApiLoadHospitalBag.mockResolvedValue(null);
+    mockLoadHospitalBag.mockResolvedValue(LOCAL_CATEGORIES);
+    mockApiSaveHospitalBag.mockRejectedValue(new Error("network error"));
+
+    const HospitalBagScreen = require("../app/hospital-bag").default;
+    let renderer: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(HospitalBagScreen));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // Migration attempted exactly once after the first trigger.
+    expect(mockApiSaveHospitalBag).toHaveBeenCalledTimes(1);
+
+    // Re-trigger the useEffect by refreshing the getToken reference (simulates
+    // a Clerk token refresh or a rapid re-mount) — migratedForUserRef.current
+    // is already set to userId so the migration block is not entered again.
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      getToken: jest.fn(async () => "tok-refreshed"),
+    });
+    await act(async () => {
+      renderer.update(React.createElement(HospitalBagScreen));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // Push not repeated — local categories remain intact.
+    expect(mockApiSaveHospitalBag).toHaveBeenCalledTimes(1);
+    // Local data still loaded for the else-branch fallback.
+    expect(mockLoadHospitalBag).toHaveBeenCalled();
   });
 });
 
@@ -642,5 +783,81 @@ describe("Birth Plan — sync API fallback", () => {
 
     expect(mockLoadBirthPlan).toHaveBeenCalled();
     expect(mockApiLoadBirthPlan).not.toHaveBeenCalled();
+  });
+
+  it("preserves local answers when the migration API save fails", async () => {
+    // Server returns null (first sign-in) → migration path is entered.
+    // apiSaveBirthPlanAnswers fails → fire-and-forget, local answers still used.
+    mockApiLoadBirthPlan.mockResolvedValue(null);
+    mockLoadBirthPlan.mockResolvedValue(LOCAL_ANSWERS);
+    mockApiSaveBirthPlan.mockRejectedValue(new Error("network error"));
+
+    const BirthPlanScreen = require("../app/birth-plan").default;
+    act(() => {
+      create(React.createElement(BirthPlanScreen));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // loadBirthPlanAnswers is called to get the local data for migration.
+    expect(mockLoadBirthPlan).toHaveBeenCalled();
+    // The push is attempted even though it fails.
+    expect(mockApiSaveBirthPlan).toHaveBeenCalled();
+  });
+
+  it("does not re-migrate when server answers are available on a subsequent mount", async () => {
+    // Server has answers (migration already happened in a previous session) →
+    // no migration push should be attempted.
+    mockApiLoadBirthPlan.mockResolvedValue(SERVER_ANSWERS);
+    mockLoadBirthPlan.mockResolvedValue(LOCAL_ANSWERS);
+    mockApiSaveBirthPlan.mockResolvedValue(undefined);
+
+    const BirthPlanScreen = require("../app/birth-plan").default;
+    act(() => {
+      create(React.createElement(BirthPlanScreen));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // No migration push when serverAnswers is non-null.
+    expect(mockApiSaveBirthPlan).not.toHaveBeenCalled();
+  });
+
+  it("does not re-push local answers when re-triggered after a failed migration", async () => {
+    // First trigger: server=null → migration branch, push fails, local answers used.
+    mockApiLoadBirthPlan.mockResolvedValue(null);
+    mockLoadBirthPlan.mockResolvedValue(LOCAL_ANSWERS);
+    mockApiSaveBirthPlan.mockRejectedValue(new Error("network error"));
+
+    const BirthPlanScreen = require("../app/birth-plan").default;
+    let renderer: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(BirthPlanScreen));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // Migration attempted exactly once after the first trigger.
+    expect(mockApiSaveBirthPlan).toHaveBeenCalledTimes(1);
+
+    // Re-trigger the useEffect by refreshing the getToken reference (simulates
+    // a Clerk token refresh or a rapid re-mount) — migratedForUserRef.current
+    // is already set to userId so the migration block is not entered again.
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      getToken: jest.fn(async () => "tok-refreshed"),
+    });
+    await act(async () => {
+      renderer.update(React.createElement(BirthPlanScreen));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // Push not repeated — local answers remain intact.
+    expect(mockApiSaveBirthPlan).toHaveBeenCalledTimes(1);
+    // Local data still loaded for the else-branch fallback.
+    expect(mockLoadBirthPlan).toHaveBeenCalled();
   });
 });
