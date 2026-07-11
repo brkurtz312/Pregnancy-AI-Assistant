@@ -60,7 +60,11 @@ async function openBlankPdf() {
     }
     router.push({
       pathname: "/pdf-viewer",
-      params: { uri: destUri, title: "Blank Birth Plan", shareTitle: "Birth Plan" },
+      params: {
+        uri: destUri,
+        title: "Blank Birth Plan",
+        shareTitle: "Birth Plan",
+      },
     });
   } catch {
     Alert.alert(
