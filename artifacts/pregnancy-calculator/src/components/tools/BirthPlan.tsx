@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,8 +17,14 @@ import {
   apiLoadBirthPlanAnswers,
   apiSaveBirthPlanAnswers,
 } from "@/lib/sync-api";
+import {
+  isBirthPlanPending,
+  markBirthPlanPending,
+  clearBirthPlanPending,
+} from "@/lib/sync-queue";
 import { printHtml } from "@/lib/print-html";
 import { useAuth, useUser } from "@clerk/react";
+import { toast } from "@/hooks/use-toast";
 
 export function BirthPlan() {
   const { isSignedIn, getToken } = useAuth();
@@ -26,9 +32,27 @@ export function BirthPlan() {
   const [answers, setAnswers] = useState<BirthPlanAnswers>({});
   // Keyed to userId so migration re-runs if a different account signs in.
   const migratedForUserRef = useRef<string | null>(null);
+  // Debounce sync-error toasts so rapid field edits don't spam.
+  const syncErrorToastedRef = useRef(false);
 
   const isAuthed = !!isSignedIn;
   const userId = user?.id ?? null;
+
+  /** Push locally-pending birth plan answers to the server and clear the flag. */
+  const flushPending = useCallback(
+    async (current: BirthPlanAnswers) => {
+      if (!isAuthed || !isBirthPlanPending()) return;
+      try {
+        await apiSaveBirthPlanAnswers(current, getToken);
+        clearBirthPlanPending();
+        syncErrorToastedRef.current = false;
+      } catch {
+        // Still offline — leave the pending flag in place.
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isAuthed],
+  );
 
   useEffect(() => {
     if (isAuthed && userId) {
@@ -45,10 +69,36 @@ export function BirthPlan() {
                 setAnswers({});
               }
             } else {
-              setAnswers(serverAnswers as BirthPlanAnswers);
+              if (isBirthPlanPending()) {
+                // Use local storage payload — it contains the unsynced edits.
+                const localAnswers = loadBirthPlanAnswers();
+                setAnswers(localAnswers);
+                flushPending(localAnswers).then(() => {
+                  // After flush, reload from server to show canonical state.
+                  apiLoadBirthPlanAnswers(getToken)
+                    .then((fresh) =>
+                      setAnswers((fresh as BirthPlanAnswers) ?? {}),
+                    )
+                    .catch(() => setAnswers(loadBirthPlanAnswers()));
+                });
+              } else {
+                setAnswers(serverAnswers as BirthPlanAnswers);
+              }
             }
           } else {
-            setAnswers((serverAnswers as BirthPlanAnswers) ?? {});
+            if (isBirthPlanPending()) {
+              const localAnswers = loadBirthPlanAnswers();
+              setAnswers(localAnswers);
+              flushPending(localAnswers).then(() => {
+                apiLoadBirthPlanAnswers(getToken)
+                  .then((fresh) =>
+                    setAnswers((fresh as BirthPlanAnswers) ?? {}),
+                  )
+                  .catch(() => setAnswers(loadBirthPlanAnswers()));
+              });
+            } else {
+              setAnswers((serverAnswers as BirthPlanAnswers) ?? {});
+            }
           }
         })
         .catch(() => {
@@ -60,11 +110,41 @@ export function BirthPlan() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthed, userId]);
 
+  // Retry pending sync whenever the browser comes back online.
+  useEffect(() => {
+    const handleOnline = () => {
+      if (isAuthed && isBirthPlanPending()) {
+        flushPending(loadBirthPlanAnswers());
+      }
+    };
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [isAuthed, flushPending]);
+
   const setField = (id: string, value: BirthPlanValue) => {
     const updated = { ...answers, [id]: value };
     setAnswers(updated);
     if (isAuthed) {
-      apiSaveBirthPlanAnswers(updated, getToken).catch(() => {});
+      // Always write to localStorage as a local fallback.
+      saveBirthPlanAnswers(updated);
+      apiSaveBirthPlanAnswers(updated, getToken)
+        .then(() => {
+          clearBirthPlanPending();
+          syncErrorToastedRef.current = false;
+        })
+        .catch(() => {
+          markBirthPlanPending();
+          if (!syncErrorToastedRef.current) {
+            syncErrorToastedRef.current = true;
+            toast({
+              title: "Couldn't save to server",
+              description:
+                "Your answers are saved locally and will sync automatically when you're back online.",
+              variant: "destructive",
+              duration: 5000,
+            });
+          }
+        });
     } else {
       saveBirthPlanAnswers(updated);
     }

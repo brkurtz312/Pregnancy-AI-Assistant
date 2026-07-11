@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,8 +25,15 @@ import {
   apiUpsertJournalEntry,
   apiDeleteJournalEntry,
 } from "@/lib/sync-api";
+import {
+  getPendingJournalIds,
+  markJournalEntryPending,
+  clearJournalEntryPending,
+  clearAllJournalPending,
+} from "@/lib/sync-queue";
 import { printHtml } from "@/lib/print-html";
 import { useAuth, useUser } from "@clerk/react";
+import { toast } from "@/hooks/use-toast";
 
 type View = "list" | "new" | "edit";
 
@@ -105,6 +112,50 @@ export function Journal() {
   const isAuthed = !!isSignedIn;
   const userId = user?.id ?? null;
 
+  /**
+   * Save an entry locally (upsert into localStorage) so it isn't lost when
+   * the API is unreachable.
+   */
+  const saveLocalFallback = useCallback((entry: JournalEntry) => {
+    const all = loadJournalEntries();
+    const idx = all.findIndex((e) => e.id === entry.id);
+    if (idx >= 0) {
+      all[idx] = entry;
+    } else {
+      all.unshift(entry);
+    }
+    saveJournalEntries(all);
+  }, []);
+
+  /**
+   * Push any locally-pending journal entries to the server, then reload from
+   * server so the list shows server-assigned IDs.
+   */
+  const flushPendingEntries = useCallback(async () => {
+    if (!isAuthed) return;
+    const pendingIds = getPendingJournalIds();
+    if (pendingIds.length === 0) return;
+    const local = loadJournalEntries();
+    const pending = local.filter((e) => pendingIds.includes(e.id));
+    if (pending.length === 0) {
+      clearAllJournalPending();
+      return;
+    }
+    try {
+      await Promise.all(pending.map((e) => apiUpsertJournalEntry(e, getToken)));
+      clearAllJournalPending();
+      // Reload from server to get canonical IDs.
+      const fresh = await apiLoadJournalEntries(getToken);
+      setEntries(fresh);
+      // Remove the now-synced local copies (keep any still-local ones).
+      const remainingLocal = local.filter((e) => !pendingIds.includes(e.id));
+      saveJournalEntries(remainingLocal);
+    } catch {
+      // Still offline — pending flags remain for the next attempt.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthed]);
+
   useEffect(() => {
     if (isAuthed && userId) {
       apiLoadJournalEntries(getToken)
@@ -120,13 +171,17 @@ export function Journal() {
                 .then((migrated) => {
                   setEntries(migrated);
                   saveJournalEntries([]);
+                  clearAllJournalPending();
                 })
                 .catch(() => setEntries(localEntries));
             } else {
               setEntries(serverEntries);
+              // Flush any entries that failed to sync previously.
+              flushPendingEntries();
             }
           } else {
             setEntries(serverEntries);
+            flushPendingEntries();
           }
         })
         .catch(() => {
@@ -137,6 +192,15 @@ export function Journal() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthed, userId]);
+
+  // Retry pending sync whenever the browser comes back online.
+  useEffect(() => {
+    const handleOnline = () => {
+      if (isAuthed) flushPendingEntries();
+    };
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [isAuthed, flushPendingEntries]);
 
   const refreshEntries = () => {
     if (isAuthed) {
@@ -171,9 +235,22 @@ export function Journal() {
     if (isAuthed) {
       try {
         await apiUpsertJournalEntry(entry, getToken);
+        // Clear any pending flag for this entry on success.
+        clearJournalEntryPending(entry.id);
         refreshEntries();
       } catch {
-        refreshEntries();
+        // Save locally so the entry isn't lost.
+        saveLocalFallback(entry);
+        markJournalEntryPending(entry.id);
+        // Show the entry immediately from local state.
+        setEntries(loadJournalEntries());
+        toast({
+          title: "Couldn't save to server",
+          description:
+            "Your entry is saved locally and will sync automatically when you're back online.",
+          variant: "destructive",
+          duration: 5000,
+        });
       }
     } else {
       const all = loadJournalEntries();
@@ -193,6 +270,7 @@ export function Journal() {
     if (isAuthed) {
       try {
         await apiDeleteJournalEntry(id, getToken);
+        clearJournalEntryPending(id);
       } catch {
         // best effort
       }

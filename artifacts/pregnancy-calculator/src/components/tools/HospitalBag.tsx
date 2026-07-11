@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,8 +12,14 @@ import {
   type HospitalBagCategory,
 } from "@/lib/web-hospital-bag";
 import { apiLoadHospitalBag, apiSaveHospitalBag } from "@/lib/sync-api";
+import {
+  isHospitalBagPending,
+  markHospitalBagPending,
+  clearHospitalBagPending,
+} from "@/lib/sync-queue";
 import { printHtml } from "@/lib/print-html";
 import { useAuth, useUser } from "@clerk/react";
+import { toast } from "@/hooks/use-toast";
 
 export function HospitalBag() {
   const { isSignedIn, getToken } = useAuth();
@@ -23,9 +29,27 @@ export function HospitalBag() {
   // Track which userId has already been migrated this session to avoid
   // re-running migration if auth state changes without a page reload.
   const migratedForUserRef = useRef<string | null>(null);
+  // Debounce sync-error toasts so rapid checkbox toggling doesn't spam.
+  const syncErrorToastedRef = useRef(false);
 
   const isAuthed = !!isSignedIn;
   const userId = user?.id ?? null;
+
+  /** Push any locally-pending bag data to the server and clear the flag. */
+  const flushPending = useCallback(
+    async (current: HospitalBagCategory[]) => {
+      if (!isAuthed || !isHospitalBagPending()) return;
+      try {
+        await apiSaveHospitalBag(current, getToken);
+        clearHospitalBagPending();
+        syncErrorToastedRef.current = false;
+      } catch {
+        // Still offline — leave the pending flag in place.
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isAuthed],
+  );
 
   useEffect(() => {
     if (isAuthed && userId) {
@@ -39,10 +63,35 @@ export function HospitalBag() {
               apiSaveHospitalBag(local, getToken).catch(() => {});
               setCategories(local);
             } else {
-              setCategories(serverCategories);
+              // Flush pending local changes first, then show server state.
+              if (isHospitalBagPending()) {
+                // Use local storage payload — it contains the unsynced edits.
+                flushPending(loadHospitalBag()).then(() => {
+                  // After flush, reload from server to show canonical state.
+                  apiLoadHospitalBag(getToken)
+                    .then((fresh) =>
+                      setCategories(fresh ?? makeDefaultHospitalBag()),
+                    )
+                    .catch(() => setCategories(loadHospitalBag()));
+                });
+              } else {
+                setCategories(serverCategories);
+              }
             }
           } else {
-            setCategories(serverCategories ?? makeDefaultHospitalBag());
+            const cats = serverCategories ?? makeDefaultHospitalBag();
+            if (isHospitalBagPending()) {
+              setCategories(loadHospitalBag());
+              flushPending(loadHospitalBag()).then(() => {
+                apiLoadHospitalBag(getToken)
+                  .then((fresh) =>
+                    setCategories(fresh ?? makeDefaultHospitalBag()),
+                  )
+                  .catch(() => setCategories(loadHospitalBag()));
+              });
+            } else {
+              setCategories(cats);
+            }
           }
         })
         .catch(() => {
@@ -54,10 +103,40 @@ export function HospitalBag() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthed, userId]);
 
+  // Retry pending sync whenever the browser comes back online.
+  useEffect(() => {
+    const handleOnline = () => {
+      if (isAuthed && isHospitalBagPending()) {
+        flushPending(loadHospitalBag());
+      }
+    };
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [isAuthed, flushPending]);
+
   const persist = (updated: HospitalBagCategory[]) => {
     setCategories(updated);
     if (isAuthed) {
-      apiSaveHospitalBag(updated, getToken).catch(() => {});
+      // Always write to localStorage as a local fallback.
+      saveHospitalBag(updated);
+      apiSaveHospitalBag(updated, getToken)
+        .then(() => {
+          clearHospitalBagPending();
+          syncErrorToastedRef.current = false;
+        })
+        .catch(() => {
+          markHospitalBagPending();
+          if (!syncErrorToastedRef.current) {
+            syncErrorToastedRef.current = true;
+            toast({
+              title: "Couldn't save to server",
+              description:
+                "Your changes are saved locally and will sync automatically when you're back online.",
+              variant: "destructive",
+              duration: 5000,
+            });
+          }
+        });
     } else {
       saveHospitalBag(updated);
     }
