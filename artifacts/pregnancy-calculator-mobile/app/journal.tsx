@@ -3,6 +3,7 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
+  ActivityIndicator,
   Dimensions,
   ScrollView,
   StyleSheet,
@@ -21,6 +22,7 @@ import {
   type JournalEntry,
   type JournalMedia,
 } from "@/lib/journal";
+import { exportJournalPdf } from "@/lib/journal-pdf";
 import { usePass } from "@/hooks/usePass";
 import { PassGate } from "@/components/PassGate";
 import { FREE_JOURNAL_ENTRY_LIMIT } from "@/constants/free-limits";
@@ -235,7 +237,18 @@ export default function JournalScreen() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("journal");
   const [showGate, setShowGate] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const { hasPass } = usePass();
+
+  async function handleExportPdf() {
+    if (exporting || entries.length === 0) return;
+    setExporting(true);
+    try {
+      await exportJournalPdf(entries);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -320,6 +333,33 @@ export default function JournalScreen() {
             Your personal record of this journey — from first heartbeat to first
             steps.
           </Text>
+          {entries.length > 0 && (
+            <TouchableOpacity
+              style={[
+                styles.exportBtn,
+                {
+                  backgroundColor: (ACCENT ?? "#e86cad") + "14",
+                  borderColor: (ACCENT ?? "#e86cad") + "40",
+                },
+              ]}
+              onPress={handleExportPdf}
+              disabled={exporting}
+              activeOpacity={0.75}
+            >
+              {exporting ? (
+                <ActivityIndicator size="small" color={ACCENT} />
+              ) : (
+                <Ionicons
+                  name="document-text-outline"
+                  size={16}
+                  color={ACCENT}
+                />
+              )}
+              <Text style={[styles.exportBtnText, { color: ACCENT }]}>
+                {exporting ? "Building PDF…" : "Export Journal as PDF"}
+              </Text>
+            </TouchableOpacity>
+          )}
         </Animated.View>
 
         <Animated.View
@@ -634,5 +674,21 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     textAlign: "center",
     lineHeight: 21,
+  },
+  exportBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    alignSelf: "flex-start",
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  exportBtnText: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
   },
 });
