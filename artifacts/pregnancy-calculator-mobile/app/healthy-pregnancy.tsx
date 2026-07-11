@@ -61,6 +61,13 @@ const TOPICS = [
       "How to lift, sit, sleep, and move safely to prevent back and pelvic pain.",
     route: "/hp-body-mechanics",
   },
+  {
+    icon: "alert-circle-outline" as const,
+    title: "Warning Signs",
+    description:
+      "Symptoms that always mean you should call your provider or go to the ER.",
+    route: "/hp-warning-signs",
+  },
 ];
 
 export default function HealthyPregnancyScreen() {
