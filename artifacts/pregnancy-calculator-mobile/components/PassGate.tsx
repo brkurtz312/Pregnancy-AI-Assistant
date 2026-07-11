@@ -29,10 +29,7 @@ export function PassGate({
 
   return (
     <Modal visible={visible} transparent animationType="fade">
-      <Pressable
-        style={styles.overlay}
-        onPress={onClose}
-      >
+      <Pressable style={styles.overlay} onPress={onClose}>
         <Pressable
           style={[styles.sheet, { backgroundColor: colors.background }]}
           onPress={() => {}}
@@ -80,7 +77,9 @@ export function PassGate({
           </TouchableOpacity>
 
           <TouchableOpacity onPress={onClose} style={styles.cancelBtn}>
-            <Text style={[styles.cancelText, { color: colors.mutedForeground }]}>
+            <Text
+              style={[styles.cancelText, { color: colors.mutedForeground }]}
+            >
               Not now
             </Text>
           </TouchableOpacity>

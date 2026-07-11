@@ -204,10 +204,7 @@ export default function JournalEntryScreen() {
     type: "photo" | "video",
     category: JournalMediaCategory,
   ) {
-    if (
-      !hasPass &&
-      (category === "bump" || category === "ultrasound")
-    ) {
+    if (!hasPass && (category === "bump" || category === "ultrasound")) {
       const saved = await loadEntries();
       const savedCount = saved.reduce(
         (n, e) =>
