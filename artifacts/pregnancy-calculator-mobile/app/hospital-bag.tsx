@@ -36,6 +36,9 @@ import {
   type HospitalBagCategory,
 } from "@/lib/hospital-bag";
 import { apiLoadHospitalBag, apiSaveHospitalBag } from "@/lib/sync-api";
+import { clearPendingSync, markPendingSync } from "@/lib/sync-queue";
+import { useNetReconnect } from "@/hooks/useNetReconnect";
+import { SyncBanner } from "@/components/SyncBanner";
 
 export default function HospitalBagScreen() {
   const colors = useColors();
@@ -50,7 +53,9 @@ export default function HospitalBagScreen() {
   const [loaded, setLoaded] = useState(false);
   const [newItemText, setNewItemText] = useState<Record<string, string>>({});
   const [generating, setGenerating] = useState(false);
+  const [syncFailed, setSyncFailed] = useState(false);
   const migratedForUserRef = useRef<string | null>(null);
+  const categoriesRef = useRef<HospitalBagCategory[]>(categories);
 
   useEffect(() => {
     const userId = user?.id ?? null;
@@ -95,19 +100,40 @@ export default function HospitalBagScreen() {
     }
   }, [isSignedIn, getToken, user]);
 
+  useEffect(() => {
+    categoriesRef.current = categories;
+  }, [categories]);
+
   const persist = useCallback(
     (next: HospitalBagCategory[]) => {
       setCategories(next);
       if (isSignedIn) {
-        apiSaveHospitalBag(next, getToken).catch(() => {
-          saveHospitalBagChecklist(next);
-        });
+        apiSaveHospitalBag(next, getToken)
+          .then(() => {
+            setSyncFailed(false);
+            clearPendingSync("hospital-bag").catch(() => {});
+          })
+          .catch(() => {
+            saveHospitalBagChecklist(next);
+            setSyncFailed(true);
+            markPendingSync("hospital-bag").catch(() => {});
+          });
       } else {
         saveHospitalBagChecklist(next);
       }
     },
     [isSignedIn, getToken],
   );
+
+  useNetReconnect(() => {
+    if (!isSignedIn) return;
+    apiSaveHospitalBag(categoriesRef.current, getToken)
+      .then(() => {
+        setSyncFailed(false);
+        clearPendingSync("hospital-bag").catch(() => {});
+      })
+      .catch(() => {});
+  });
 
   const toggleItem = useCallback(
     (categoryId: string, itemId: string) => {
@@ -230,6 +256,7 @@ export default function HospitalBagScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <SyncBanner visible={syncFailed} />
       <View
         style={[
           styles.header,

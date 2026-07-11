@@ -28,6 +28,13 @@ import {
   type JournalMedia,
 } from "@/lib/journal";
 import { apiLoadJournalEntries, apiUpsertJournalEntry } from "@/lib/sync-api";
+import {
+  clearPendingSync,
+  hasPendingSync,
+  markPendingSync,
+} from "@/lib/sync-queue";
+import { useNetReconnect } from "@/hooks/useNetReconnect";
+import { SyncBanner } from "@/components/SyncBanner";
 import { exportJournalPdf } from "@/lib/journal-pdf";
 import { usePass } from "@/hooks/usePass";
 import { PassGate } from "@/components/PassGate";
@@ -244,10 +251,14 @@ export default function JournalScreen() {
   const [activeTab, setActiveTab] = useState<Tab>("journal");
   const [showGate, setShowGate] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [syncFailed, setSyncFailed] = useState(false);
   const { hasPass } = usePass();
   const { isSignedIn, getToken } = useAuth();
   const { user } = useUser();
   const migratedForUserRef = useRef<string | null>(null);
+  // Holds the latest sync function so useNetReconnect can call it without
+  // capturing a stale closure or needing extra state as a trigger.
+  const syncNowRef = useRef<() => void>(() => {});
 
   async function handleExportPdf() {
     if (exporting || entries.length === 0) return;
@@ -259,93 +270,127 @@ export default function JournalScreen() {
     }
   }
 
+  // Fire the latest sync function whenever connectivity is restored.
+  useNetReconnect(() => syncNowRef.current());
+
   useFocusEffect(
     useCallback(() => {
       const userId = user?.id ?? null;
-      if (isSignedIn && userId) {
-        // Pre-flight: clear stale cross-user cache before any load. Running
-        // this before the API call ensures isolation even when the network is
-        // unavailable and the catch path falls back to local data.
-        // owner=null means anonymous cache (valid first-sign-in migration).
-        getJournalCacheOwner()
-          .then(async (cacheOwner) => {
-            if (cacheOwner !== null && cacheOwner !== userId) {
-              await clearJournalCache();
-            }
-          })
-          .then(() => apiLoadJournalEntries(getToken))
-          .then(async (serverEntries) => {
-            const localEntries = await loadEntries();
-            const localById = new Map(localEntries.map((e) => [e.id, e]));
 
-            if (migratedForUserRef.current !== userId) {
-              migratedForUserRef.current = userId;
-              if (serverEntries.length === 0 && localEntries.length > 0) {
-                // First sign-in migration: push all local entries to server
-                // sequentially to avoid concurrent AsyncStorage ID rewrites.
-                // We build the final array with server UUIDs, then persist once.
-                const migrated: JournalEntry[] = [];
-                for (const e of localEntries) {
-                  try {
-                    const synced = await apiUpsertJournalEntry(e, getToken);
-                    migrated.push({ ...synced, media: e.media });
-                  } catch {
-                    migrated.push(e);
+      const syncNow = () => {
+        if (isSignedIn && userId) {
+          // Pre-flight: clear stale cross-user cache before any load. Running
+          // this before the API call ensures isolation even when the network is
+          // unavailable and the catch path falls back to local data.
+          // owner=null means anonymous cache (valid first-sign-in migration).
+          getJournalCacheOwner()
+            .then(async (cacheOwner) => {
+              if (cacheOwner !== null && cacheOwner !== userId) {
+                await clearJournalCache();
+              }
+            })
+            .then(() => apiLoadJournalEntries(getToken))
+            .then(async (serverEntries) => {
+              const localEntries = await loadEntries();
+              const localById = new Map(localEntries.map((e) => [e.id, e]));
+
+              if (migratedForUserRef.current !== userId) {
+                migratedForUserRef.current = userId;
+                if (serverEntries.length === 0 && localEntries.length > 0) {
+                  // First sign-in migration: push all local entries to server
+                  // sequentially to avoid concurrent AsyncStorage ID rewrites.
+                  // We build the final array with server UUIDs, then persist once.
+                  const migrated: JournalEntry[] = [];
+                  let anyMigrateFailed = false;
+                  for (const e of localEntries) {
+                    try {
+                      const synced = await apiUpsertJournalEntry(e, getToken);
+                      migrated.push({ ...synced, media: e.media });
+                    } catch {
+                      migrated.push(e);
+                      anyMigrateFailed = true;
+                    }
                   }
+                  // Single write: overwrites AsyncStorage with correct server IDs.
+                  await cacheEntries(migrated);
+                  await setJournalCacheOwner(userId);
+                  setEntries(migrated);
+                  if (anyMigrateFailed) {
+                    setSyncFailed(true);
+                    markPendingSync("journal").catch(() => {});
+                  } else {
+                    setSyncFailed(false);
+                    clearPendingSync("journal").catch(() => {});
+                  }
+                  return;
                 }
-                // Single write: overwrites AsyncStorage with correct server IDs.
-                await cacheEntries(migrated);
-                await setJournalCacheOwner(userId);
-                setEntries(migrated);
-                return;
               }
-            }
 
-            // Build the merged list: server entries (with local media re-attached)
-            // plus any local-only entries not yet on the server. Local-only entries
-            // have non-UUID IDs (created offline or whose prior sync failed).
-            const serverIds = new Set(serverEntries.map((se) => se.id));
-            const localOnlyEntries = localEntries.filter(
-              (e) => !serverIds.has(e.id),
-            );
+              // Build the merged list: server entries (with local media re-attached)
+              // plus any local-only entries not yet on the server. Local-only entries
+              // have non-UUID IDs (created offline or whose prior sync failed).
+              const serverIds = new Set(serverEntries.map((se) => se.id));
+              const localOnlyEntries = localEntries.filter(
+                (e) => !serverIds.has(e.id),
+              );
 
-            // Best-effort: push local-only entries to server sequentially.
-            // Sequential avoids concurrent read-modify-write races on AsyncStorage.
-            // We collect results and write once at the end via cacheEntries.
-            const syncedLocalEntries: JournalEntry[] = [];
-            for (const e of localOnlyEntries) {
-              try {
-                const synced = await apiUpsertJournalEntry(e, getToken);
-                syncedLocalEntries.push({ ...synced, media: e.media });
-              } catch {
-                syncedLocalEntries.push(e);
+              // Best-effort: push local-only entries to server sequentially.
+              // Sequential avoids concurrent read-modify-write races on AsyncStorage.
+              // We collect results and write once at the end via cacheEntries.
+              const syncedLocalEntries: JournalEntry[] = [];
+              let anySyncFailed = false;
+              for (const e of localOnlyEntries) {
+                try {
+                  const synced = await apiUpsertJournalEntry(e, getToken);
+                  syncedLocalEntries.push({ ...synced, media: e.media });
+                } catch {
+                  syncedLocalEntries.push(e);
+                  anySyncFailed = true;
+                }
               }
-            }
 
-            const merged = [
-              ...serverEntries.map((se) => ({
-                ...se,
-                media: localById.get(se.id)?.media ?? [],
-              })),
-              ...syncedLocalEntries,
-            ].sort(
-              (a, b) =>
-                new Date(b.createdAt).getTime() -
-                new Date(a.createdAt).getTime(),
-            );
-            // Single write: overwrites AsyncStorage with the authoritative merged
-            // list (correct server UUIDs). No separate replaceEntryId calls needed.
-            await cacheEntries(merged);
-            await setJournalCacheOwner(userId);
-            setEntries(merged);
-          })
-          .catch(async () => {
-            const local = await loadEntries();
-            setEntries(local);
-          });
-      } else {
-        loadEntries().then(setEntries);
-      }
+              const merged = [
+                ...serverEntries.map((se) => ({
+                  ...se,
+                  media: localById.get(se.id)?.media ?? [],
+                })),
+                ...syncedLocalEntries,
+              ].sort(
+                (a, b) =>
+                  new Date(b.createdAt).getTime() -
+                  new Date(a.createdAt).getTime(),
+              );
+              // Single write: overwrites AsyncStorage with the authoritative merged
+              // list (correct server UUIDs). No separate replaceEntryId calls needed.
+              await cacheEntries(merged);
+              await setJournalCacheOwner(userId);
+              setEntries(merged);
+
+              // Clear the pending marker whenever all local-only entries have been
+              // pushed successfully (including those marked by journal-entry.tsx).
+              // Keep it only when we know at least one entry is still unsynced.
+              if (anySyncFailed) {
+                setSyncFailed(true);
+                markPendingSync("journal").catch(() => {});
+              } else {
+                setSyncFailed(false);
+                clearPendingSync("journal").catch(() => {});
+              }
+            })
+            .catch(async () => {
+              const local = await loadEntries();
+              setEntries(local);
+              // Can't reach the server — show banner if a prior write failed.
+              const pending = await hasPendingSync("journal");
+              setSyncFailed(pending);
+            });
+        } else {
+          loadEntries().then(setEntries);
+        }
+      };
+
+      syncNowRef.current = syncNow;
+      syncNow();
     }, [isSignedIn, getToken, user]),
   );
 
@@ -374,6 +419,7 @@ export default function JournalScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
+      <SyncBanner visible={syncFailed} />
       <View
         style={[
           styles.header,

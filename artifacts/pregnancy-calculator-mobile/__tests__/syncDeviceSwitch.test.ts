@@ -49,9 +49,7 @@ afterEach(() => {
 
 describe("isServerUuid", () => {
   it("returns true for a valid UUID v4", () => {
-    expect(
-      isServerUuid("00000000-0000-4000-8000-000000000001"),
-    ).toBe(true);
+    expect(isServerUuid("00000000-0000-4000-8000-000000000001")).toBe(true);
   });
 
   it("returns false for a local base36 id", () => {
@@ -308,7 +306,9 @@ describe("Hospital Bag — device switch (sync survival)", () => {
     expect(loaded![0].items[1].checked).toBe(
       sampleCategories[0].items[1].checked,
     );
-    expect(loaded![0].items[2].custom).toBe(sampleCategories[0].items[2].custom);
+    expect(loaded![0].items[2].custom).toBe(
+      sampleCategories[0].items[2].custom,
+    );
   });
 });
 
@@ -376,7 +376,10 @@ describe("Birth Plan — device switch (sync survival)", () => {
   });
 
   it("overwrites existing answers — second save replaces the first on reload", async () => {
-    const updatedAnswers = { ...sampleAnswers, preferred_name: "Jane (updated)" };
+    const updatedAnswers = {
+      ...sampleAnswers,
+      preferred_name: "Jane (updated)",
+    };
 
     // First save — set up two mockResolvedValueOnce calls on the same spy so
     // both apiSaveBirthPlanAnswers calls are serviced by the same spy instance.

@@ -154,9 +154,9 @@ async function seedBirthPlan(page: Page): Promise<void> {
 
 async function navigateToJournal(page: Page) {
   await page.getByRole("button", { name: /^journal$/i }).click();
-  await expect(page.getByRole("heading", { name: /my journal/i })).toBeVisible(
-    { timeout: 10_000 },
-  );
+  await expect(page.getByRole("heading", { name: /my journal/i })).toBeVisible({
+    timeout: 10_000,
+  });
 }
 
 async function navigateToHospitalBag(page: Page) {
@@ -170,9 +170,9 @@ async function navigateToHospitalBag(page: Page) {
 async function navigateToBirthPlan(page: Page) {
   await page.getByRole("button", { name: /tools/i }).click();
   await page.getByRole("button", { name: /birth plan/i }).click();
-  await expect(page.getByRole("heading", { name: /birth plan/i })).toBeVisible(
-    { timeout: 10_000 },
-  );
+  await expect(page.getByRole("heading", { name: /birth plan/i })).toBeVisible({
+    timeout: 10_000,
+  });
 }
 
 // ─── Tests ─────────────────────────────────────────────────────────────────────

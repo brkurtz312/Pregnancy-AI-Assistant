@@ -63,6 +63,35 @@ jest.mock("expo-router", () => {
   };
 });
 
+// ─── NetInfo mock (no-op listener, always online) ─────────────────────────────
+
+jest.mock("@react-native-community/netinfo", () => ({
+  __esModule: true,
+  default: {
+    addEventListener: jest.fn(() => () => {}),
+    fetch: jest.fn(async () => ({
+      isConnected: true,
+      isInternetReachable: true,
+    })),
+  },
+}));
+
+// ─── Sync queue + reconnect hook mocks ────────────────────────────────────────
+
+jest.mock("@/lib/sync-queue", () => ({
+  markPendingSync: jest.fn(async () => {}),
+  clearPendingSync: jest.fn(async () => {}),
+  hasPendingSync: jest.fn(async () => false),
+}));
+
+jest.mock("@/hooks/useNetReconnect", () => ({
+  useNetReconnect: jest.fn(),
+}));
+
+jest.mock("@/components/SyncBanner", () => ({
+  SyncBanner: () => null,
+}));
+
 import { useAuth, useUser } from "@clerk/expo";
 
 const mockUseAuth = useAuth as jest.Mock;

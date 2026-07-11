@@ -129,9 +129,9 @@ test.describe("Sync API failure — error shown, no silent data loss", () => {
     await page.getByRole("button", { name: /save entry/i }).click();
 
     // The UI must show an error toast — not a silent success
-    await expect(
-      page.getByText(/couldn't save to server/i),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/couldn't save to server/i)).toBeVisible({
+      timeout: 10_000,
+    });
 
     // The entry must still appear in the list (local fallback preserves it)
     await expect(page.getByText(uniqueText)).toBeVisible({ timeout: 5_000 });
@@ -175,9 +175,9 @@ test.describe("Sync API failure — error shown, no silent data loss", () => {
     await checkbox.click();
 
     // The UI must surface an error toast — not silently succeed
-    await expect(
-      page.getByText(/couldn't save to server/i),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/couldn't save to server/i)).toBeVisible({
+      timeout: 10_000,
+    });
 
     // The checkbox must remain checked in the UI (optimistic + local fallback)
     await expect(checkbox).toBeChecked({ timeout: 5_000 });
@@ -216,9 +216,9 @@ test.describe("Sync API failure — error shown, no silent data loss", () => {
     await nameInput.fill(uniqueName);
 
     // The UI must show an error toast — not silently succeed
-    await expect(
-      page.getByText(/couldn't save to server/i),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/couldn't save to server/i)).toBeVisible({
+      timeout: 10_000,
+    });
 
     // The field value must still reflect what the user typed (local state preserved)
     await expect(nameInput).toHaveValue(uniqueName, { timeout: 5_000 });

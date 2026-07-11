@@ -44,6 +44,9 @@ import {
   apiLoadBirthPlanAnswers,
   apiSaveBirthPlanAnswers,
 } from "@/lib/sync-api";
+import { clearPendingSync, markPendingSync } from "@/lib/sync-queue";
+import { useNetReconnect } from "@/hooks/useNetReconnect";
+import { SyncBanner } from "@/components/SyncBanner";
 
 const BLANK_PDF_ASSET = require("@/assets/docs/sample-birth-plan.pdf");
 
@@ -260,7 +263,9 @@ export default function BirthPlanScreen() {
   const [loaded, setLoaded] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [generated, setGenerated] = useState(false);
+  const [syncFailed, setSyncFailed] = useState(false);
   const migratedForUserRef = useRef<string | null>(null);
+  const answersRef = useRef<BirthPlanAnswers>(answers);
 
   useEffect(() => {
     const userId = user?.id ?? null;
@@ -308,14 +313,26 @@ export default function BirthPlanScreen() {
     }
   }, [isSignedIn, getToken, user]);
 
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
+
   const setField = useCallback(
     (id: string, value: BirthPlanValue) => {
       setAnswers((prev) => {
         const next = { ...prev, [id]: value };
+        answersRef.current = next;
         if (isSignedIn) {
-          apiSaveBirthPlanAnswers(next, getToken).catch(() => {
-            saveBirthPlanAnswers(next);
-          });
+          apiSaveBirthPlanAnswers(next, getToken)
+            .then(() => {
+              setSyncFailed(false);
+              clearPendingSync("birth-plan").catch(() => {});
+            })
+            .catch(() => {
+              saveBirthPlanAnswers(next);
+              setSyncFailed(true);
+              markPendingSync("birth-plan").catch(() => {});
+            });
         } else {
           saveBirthPlanAnswers(next);
         }
@@ -324,6 +341,16 @@ export default function BirthPlanScreen() {
     },
     [isSignedIn, getToken],
   );
+
+  useNetReconnect(() => {
+    if (!isSignedIn) return;
+    apiSaveBirthPlanAnswers(answersRef.current, getToken)
+      .then(() => {
+        setSyncFailed(false);
+        clearPendingSync("birth-plan").catch(() => {});
+      })
+      .catch(() => {});
+  });
 
   const answeredCount = useMemo(() => {
     return Object.values(answers).filter((v) => {
@@ -365,6 +392,7 @@ export default function BirthPlanScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <SyncBanner visible={syncFailed} />
       <View
         style={[
           styles.header,

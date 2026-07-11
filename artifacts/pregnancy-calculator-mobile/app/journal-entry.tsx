@@ -42,6 +42,7 @@ import {
   type JournalMood,
 } from "@/lib/journal";
 import { apiUpsertJournalEntry, apiDeleteJournalEntry } from "@/lib/sync-api";
+import { markPendingSync } from "@/lib/sync-queue";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const MEDIA_CELL = (SCREEN_WIDTH - 32 - 8) / 3;
@@ -142,7 +143,11 @@ export default function JournalEntryScreen() {
             await replaceEntryId(toSave.id, synced.id);
           }
         } catch {
-          // Sync failed — data is saved locally and will sync on next load
+          await markPendingSync("journal").catch(() => {});
+          Alert.alert(
+            "Saved locally",
+            "No connection — your entry is saved on this device and will sync automatically when you're back online.",
+          );
         }
       }
       router.back();

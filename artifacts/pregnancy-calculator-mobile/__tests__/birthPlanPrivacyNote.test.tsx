@@ -96,6 +96,31 @@ jest.mock("@/lib/sync-api", () => ({
   apiSaveBirthPlanAnswers: jest.fn(async () => {}),
 }));
 
+jest.mock("@react-native-community/netinfo", () => ({
+  __esModule: true,
+  default: {
+    addEventListener: jest.fn(() => () => {}),
+    fetch: jest.fn(async () => ({
+      isConnected: true,
+      isInternetReachable: true,
+    })),
+  },
+}));
+
+jest.mock("@/lib/sync-queue", () => ({
+  markPendingSync: jest.fn(async () => {}),
+  clearPendingSync: jest.fn(async () => {}),
+  hasPendingSync: jest.fn(async () => false),
+}));
+
+jest.mock("@/hooks/useNetReconnect", () => ({
+  useNetReconnect: jest.fn(),
+}));
+
+jest.mock("@/components/SyncBanner", () => ({
+  SyncBanner: () => null,
+}));
+
 // The screen has a static require for the blank PDF asset. jest-expo transforms
 // asset requires to numbers; mock it so the module resolves cleanly.
 jest.mock("../assets/docs/sample-birth-plan.pdf", () => 1, { virtual: true });
