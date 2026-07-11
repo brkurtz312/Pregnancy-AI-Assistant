@@ -1072,7 +1072,11 @@ export default function ToolsScreen() {
               { backgroundColor: (colors.primary ?? "#e86cad") + "18" },
             ]}
           >
-            <Ionicons name="book" size={22} color={colors.primary ?? "#e86cad"} />
+            <Ionicons
+              name="book"
+              size={22}
+              color={colors.primary ?? "#e86cad"}
+            />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.navCardTitle, { color: colors.foreground }]}>

@@ -4,7 +4,6 @@ import { router } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   Dimensions,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -69,9 +68,7 @@ function EntryCard({
       <View style={styles.entryCardContent}>
         <View style={{ flex: 1 }}>
           <View style={styles.entryMeta}>
-            <Text
-              style={[styles.entryDate, { color: colors.mutedForeground }]}
-            >
+            <Text style={[styles.entryDate, { color: colors.mutedForeground }]}>
               {formatEntryDate(entry.createdAt)}
             </Text>
             {moodEmoji ? (
@@ -85,9 +82,7 @@ function EntryCard({
                 { backgroundColor: (colors.primary ?? "#e86cad") + "18" },
               ]}
             >
-              <Text
-                style={[styles.agePillText, { color: colors.primary }]}
-              >
+              <Text style={[styles.agePillText, { color: colors.primary }]}>
                 {ageLabel}
               </Text>
             </View>
@@ -155,14 +150,8 @@ function PhotoGrid({
   if (!items.length) {
     return (
       <View style={styles.emptyState}>
-        <Ionicons
-          name={emptyIcon}
-          size={48}
-          color={colors.mutedForeground}
-        />
-        <Text
-          style={[styles.emptyText, { color: colors.mutedForeground }]}
-        >
+        <Ionicons name={emptyIcon} size={48} color={colors.mutedForeground} />
+        <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
           {emptyText}
         </Text>
       </View>
@@ -262,7 +251,11 @@ export default function JournalScreen() {
   );
 
   const ACCENT = colors.primary ?? "#e86cad";
-  const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  const TABS: {
+    key: Tab;
+    label: string;
+    icon: keyof typeof Ionicons.glyphMap;
+  }[] = [
     { key: "journal", label: "Journal", icon: "book-outline" },
     { key: "bump", label: "Baby Bump", icon: "camera-outline" },
     { key: "ultrasound", label: "Ultrasound", icon: "scan-outline" },
@@ -313,8 +306,8 @@ export default function JournalScreen() {
             My Pregnancy Journal
           </Text>
           <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
-            Your personal record of this journey — from first heartbeat to
-            first steps.
+            Your personal record of this journey — from first heartbeat to first
+            steps.
           </Text>
         </Animated.View>
 
@@ -332,7 +325,7 @@ export default function JournalScreen() {
                   {
                     backgroundColor: active
                       ? ACCENT
-                      : colors.muted ?? "#f5f5f5",
+                      : (colors.muted ?? "#f5f5f5"),
                     borderColor: active ? ACCENT : colors.border,
                   },
                 ]}
@@ -368,10 +361,7 @@ export default function JournalScreen() {
                     color={colors.mutedForeground}
                   />
                   <Text
-                    style={[
-                      styles.emptyTitle,
-                      { color: colors.foreground },
-                    ]}
+                    style={[styles.emptyTitle, { color: colors.foreground }]}
                   >
                     Your journal is empty
                   </Text>
@@ -405,7 +395,10 @@ export default function JournalScreen() {
           {activeTab === "bump" && (
             <>
               <Text
-                style={[styles.gridSectionHint, { color: colors.mutedForeground }]}
+                style={[
+                  styles.gridSectionHint,
+                  { color: colors.mutedForeground },
+                ]}
               >
                 Watch your bump grow — add bump photos to any journal entry.
               </Text>
@@ -429,7 +422,10 @@ export default function JournalScreen() {
           {activeTab === "ultrasound" && (
             <>
               <Text
-                style={[styles.gridSectionHint, { color: colors.mutedForeground }]}
+                style={[
+                  styles.gridSectionHint,
+                  { color: colors.mutedForeground },
+                ]}
               >
                 Save your ultrasound images here for safekeeping.
               </Text>

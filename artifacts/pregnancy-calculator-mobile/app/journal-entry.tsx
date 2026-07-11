@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Dimensions,
@@ -23,7 +23,7 @@ import {
 } from "@workspace/api-client-react";
 import { useAuth } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
-import { calculateByDueDate, getGestationalAgeAtDate } from "@/lib/pregnancy-math";
+import { getGestationalAgeAtDate } from "@/lib/pregnancy-math";
 import {
   copyMediaToDocuments,
   deleteEntry,
@@ -129,7 +129,7 @@ export default function JournalEntryScreen() {
       };
       await upsertEntry(toSave);
       router.back();
-    } catch (err) {
+    } catch (_err) {
       Alert.alert("Couldn't save", "Something went wrong. Please try again.");
     } finally {
       setSaving(false);
@@ -155,8 +155,7 @@ export default function JournalEntryScreen() {
   }
 
   async function handlePickMedia() {
-    const { status } =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
       Alert.alert(
         "Permission needed",
@@ -234,9 +233,7 @@ export default function JournalEntryScreen() {
   function insertPrompt(text: string) {
     setEntry((prev) => ({
       ...prev,
-      text: prev.text
-        ? prev.text.trimEnd() + "\n\n" + text
-        : text,
+      text: prev.text ? prev.text.trimEnd() + "\n\n" + text : text,
     }));
     setShowPrompts(false);
   }
@@ -394,7 +391,7 @@ export default function JournalEntryScreen() {
                     {
                       backgroundColor: active
                         ? ACCENT + "18"
-                        : colors.muted ?? "#f5f5f5",
+                        : (colors.muted ?? "#f5f5f5"),
                       borderColor: active ? ACCENT : colors.border,
                     },
                   ]}
@@ -435,9 +432,7 @@ export default function JournalEntryScreen() {
               activeOpacity={0.8}
             >
               <Ionicons name="add" size={16} color={ACCENT} />
-              <Text style={[styles.addMediaText, { color: ACCENT }]}>
-                Add
-              </Text>
+              <Text style={[styles.addMediaText, { color: ACCENT }]}>Add</Text>
             </TouchableOpacity>
           </View>
           <Text style={[styles.mediaHint, { color: colors.mutedForeground }]}>
@@ -466,11 +461,7 @@ export default function JournalEntryScreen() {
                         },
                       ]}
                     >
-                      <Ionicons
-                        name="play-circle"
-                        size={32}
-                        color={ACCENT}
-                      />
+                      <Ionicons name="play-circle" size={32} color={ACCENT} />
                     </View>
                   )}
                   <View

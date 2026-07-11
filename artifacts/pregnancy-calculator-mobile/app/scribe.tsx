@@ -198,9 +198,7 @@ export default function ScribeScreen() {
               size={16}
               color={colors.mutedForeground}
             />
-            <Text
-              style={[styles.infoText, { color: colors.mutedForeground }]}
-            >
+            <Text style={[styles.infoText, { color: colors.mutedForeground }]}>
               Keep this screen open during your visit. Your recording stays on
               your device and is only used to create your personal summary.
             </Text>
@@ -395,7 +393,9 @@ function PatientSummaryView({
               <Text style={[styles.stepBullet, { color: colors.primary }]}>
                 •
               </Text>
-              <Text style={[styles.noteSectionText, { color: colors.foreground }]}>
+              <Text
+                style={[styles.noteSectionText, { color: colors.foreground }]}
+              >
                 {step}
               </Text>
             </View>

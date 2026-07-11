@@ -806,10 +806,12 @@ export default function OfficeVisitScreen() {
                 Visit Notes Scribe
               </Text>
             </View>
-            <Text style={[styles.scribeDesc, { color: colors.mutedForeground }]}>
+            <Text
+              style={[styles.scribeDesc, { color: colors.mutedForeground }]}
+            >
               Record your appointment and get a plain-language summary of what
-              was discussed, your next steps, and what to remember — all in
-              your own words.
+              was discussed, your next steps, and what to remember — all in your
+              own words.
             </Text>
             <TouchableOpacity
               style={[styles.summaryBtn, { backgroundColor: colors.primary }]}
