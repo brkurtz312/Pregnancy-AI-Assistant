@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { VideoVault } from "./VideoVault";
 import { SupportPerson } from "./SupportPerson";
-import { ExternalLink, Video, Users, BookOpenCheck } from "lucide-react";
+import { HealthyPregnancy } from "./HealthyPregnancy";
+import { ExternalLink, Video, Users, BookOpenCheck, Heart } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
-type LearnView = "hub" | "videovault" | "supportperson";
+type LearnView = "hub" | "videovault" | "supportperson" | "healthypregnancy";
 
 const EXTERNAL_RESOURCES = [
   {
@@ -87,6 +88,20 @@ export function Learn() {
     );
   }
 
+  if (view === "healthypregnancy") {
+    return (
+      <div className="space-y-4">
+        <button
+          onClick={() => setView("hub")}
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+        >
+          ← Back to Learn
+        </button>
+        <HealthyPregnancy />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -141,6 +156,29 @@ export function Learn() {
               </p>
               <p className="text-xs text-violet-600 mt-2 font-medium group-hover:underline">
                 Read the guides →
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <Card
+          onClick={() => setView("healthypregnancy")}
+          className="p-5 cursor-pointer hover:bg-muted/30 transition-colors border-border/50 rounded-2xl group sm:col-span-2"
+        >
+          <div className="flex items-start gap-4">
+            <div className="p-2.5 bg-rose-100 rounded-xl shrink-0">
+              <Heart className="w-5 h-5 text-rose-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-foreground mb-1">
+                Healthy Pregnancy
+              </h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Evidence-based ACOG guidance on travel, nutrition, exercise,
+                intimacy, medications, and warning signs — all in one place
+              </p>
+              <p className="text-xs text-rose-500 mt-2 font-medium group-hover:underline">
+                Browse articles →
               </p>
             </div>
           </div>
