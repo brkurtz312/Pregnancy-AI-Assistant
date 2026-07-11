@@ -240,6 +240,23 @@ const fieldStyles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
   },
+  weightRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  unitBtn: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  unitBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
 });
 
 // ─── Visit Modal (schedule or log) ───────────────────────────────────────────
@@ -265,13 +282,21 @@ function VisitModal({
   const colors = useColors();
   const [visitDate, setVisitDate] = useState(new Date());
   const [weight, setWeight] = useState("");
+  const [weightUnit, setWeightUnit] = useState<"lbs" | "kg">("lbs");
   const [bloodPressure, setBloodPressure] = useState("");
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
     if (visible) {
       setVisitDate(initial ? new Date(initial.visitDate) : new Date());
-      setWeight(initial?.weight ?? "");
+      const raw = initial?.weight ?? "";
+      const unitMatch = raw.match(/\b(lbs|kg)\s*$/i);
+      if (unitMatch) {
+        setWeightUnit(unitMatch[1]!.toLowerCase() as "lbs" | "kg");
+        setWeight(raw.replace(/\s*(lbs|kg)\s*$/i, "").trim());
+      } else {
+        setWeight(raw);
+      }
       setBloodPressure(initial?.bloodPressure ?? "");
       setNotes(initial?.notes ?? "");
     }
@@ -308,21 +333,53 @@ function VisitModal({
             >
               Weight (optional)
             </Text>
-            <TextInput
-              style={[
-                fieldStyles.input,
-                {
-                  color: colors.foreground,
-                  borderColor: colors.border,
-                  backgroundColor: colors.card,
-                  marginBottom: 16,
-                },
-              ]}
-              value={weight}
-              onChangeText={setWeight}
-              placeholder="e.g. 148 lbs"
-              placeholderTextColor={colors.mutedForeground}
-            />
+            <View style={[fieldStyles.weightRow, { marginBottom: 16 }]}>
+              <TextInput
+                style={[
+                  fieldStyles.input,
+                  {
+                    color: colors.foreground,
+                    borderColor: colors.border,
+                    backgroundColor: colors.card,
+                    flex: 1,
+                  },
+                ]}
+                value={weight}
+                onChangeText={setWeight}
+                placeholder="e.g. 148"
+                placeholderTextColor={colors.mutedForeground}
+                keyboardType="decimal-pad"
+              />
+              {(["lbs", "kg"] as const).map((unit) => (
+                <TouchableOpacity
+                  key={unit}
+                  onPress={() => setWeightUnit(unit)}
+                  style={[
+                    fieldStyles.unitBtn,
+                    {
+                      backgroundColor:
+                        weightUnit === unit ? colors.primary : colors.card,
+                      borderColor:
+                        weightUnit === unit ? colors.primary : colors.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      fieldStyles.unitBtnText,
+                      {
+                        color:
+                          weightUnit === unit
+                            ? colors.primaryForeground
+                            : colors.mutedForeground,
+                      },
+                    ]}
+                  >
+                    {unit}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
             <Text
               style={[fieldStyles.label, { color: colors.mutedForeground }]}
@@ -372,7 +429,12 @@ function VisitModal({
             <TouchableOpacity
               style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
               onPress={() =>
-                onSave({ visitDate, weight, bloodPressure, notes })
+                onSave({
+                  visitDate,
+                  weight: weight.trim() ? `${weight.trim()} ${weightUnit}` : "",
+                  bloodPressure,
+                  notes,
+                })
               }
               disabled={saving}
             >
