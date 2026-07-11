@@ -193,7 +193,9 @@ describe("buildBirthPlanHtml — full answers (all field types from server)", ()
   it("resolves single-choice values to human labels", () => {
     expect(html).toContain("An IV line for fluids and medications");
     expect(html).toContain("Not OK");
-    expect(html).toContain("I would like anesthesia. Please discuss the options.");
+    expect(html).toContain(
+      "I would like anesthesia. Please discuss the options.",
+    );
     expect(html).toContain("Breastfeed exclusively");
     expect(html).toContain("In my room with me at all times");
   });
@@ -211,7 +213,7 @@ describe("buildBirthPlanHtml — full answers (all field types from server)", ()
     // escapeHtml covers the three characters that break HTML content: & < >
     // (double-quote escaping is not needed inside element text nodes)
     const withSpecialChars: BirthPlanAnswers = {
-      yourName: 'Jane & <Smith>',
+      yourName: "Jane & <Smith>",
     };
     const escaped = buildBirthPlanHtml(withSpecialChars);
     expect(escaped).toContain("Jane &amp; &lt;Smith&gt;");
