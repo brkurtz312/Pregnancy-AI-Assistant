@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useUser, useAuth } from "@clerk/react";
+import { usePass } from "@/hooks/use-pass";
 import {
   Mic,
   MicOff,
@@ -11,6 +12,7 @@ import {
   AlertCircle,
   Loader2,
   Stethoscope,
+  Crown,
 } from "lucide-react";
 
 type Status =
@@ -98,10 +100,12 @@ const getSpeechRecognition = (): SpeechRecognitionConstructor | null => {
 export function Scribe() {
   const { isSignedIn } = useUser();
   const { getToken } = useAuth();
+  const { startCheckout, isStartingCheckout } = usePass();
   const [status, setStatus] = useState<Status>("idle");
   const [transcript, setTranscript] = useState("");
   const [summary, setSummary] = useState<PatientSummary | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
+  const [isLimitError, setIsLimitError] = useState(false);
   const [copied, setCopied] = useState(false);
   const [savedNotes, setSavedNotes] = useState<SavedNote[]>([]);
   const [viewNote, setViewNote] = useState<SavedNote | null>(null);
@@ -172,6 +176,7 @@ export function Scribe() {
 
     setStatus("generating");
     setErrorMsg("");
+    setIsLimitError(false);
 
     try {
       const token = await getToken();
@@ -193,6 +198,7 @@ export function Scribe() {
 
       if (!res.ok) {
         if (data.code === "SCRIBE_LIMIT_REACHED") {
+          setIsLimitError(true);
           setErrorMsg(
             "You've used your free scribe session. Upgrade to the Full Pregnancy Pass for unlimited sessions.",
           );
@@ -251,6 +257,7 @@ export function Scribe() {
     setTranscript("");
     setSummary(null);
     setErrorMsg("");
+    setIsLimitError(false);
     finalTranscriptRef.current = "";
   };
 
@@ -392,7 +399,21 @@ export function Scribe() {
             <Card className="p-3 rounded-xl border-red-200 bg-red-50/50">
               <div className="flex gap-2 items-start">
                 <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-                <p className="text-xs text-red-700">{errorMsg}</p>
+                <div className="space-y-2 flex-1">
+                  <p className="text-xs text-red-700">{errorMsg}</p>
+                  {isLimitError && (
+                    <Button
+                      size="sm"
+                      onClick={startCheckout}
+                      disabled={isStartingCheckout}
+                      className="gap-1.5 rounded-xl text-xs bg-primary hover:bg-primary/90"
+                      data-testid="upgrade-to-pass-cta"
+                    >
+                      <Crown className="w-3.5 h-3.5" />
+                      {isStartingCheckout ? "Opening…" : "Upgrade to Full Pass"}
+                    </Button>
+                  )}
+                </div>
               </div>
             </Card>
           )}
