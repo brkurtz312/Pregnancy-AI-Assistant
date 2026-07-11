@@ -1339,6 +1339,9 @@ components:
           type: ["string", "null"]
         hospitalAddress:
           type: ["string", "null"]
+        prePregnancyWeight:
+          type: ["string", "null"]
+          description: Pre-pregnancy weight (e.g. "140 lbs" or "63 kg")
     UpdateProfileBody:
       type: object
       properties:
@@ -1372,3 +1375,7 @@ components:
         hospitalAddress:
           type: ["string", "null"]
           maxLength: 500
+        prePregnancyWeight:
+          type: ["string", "null"]
+          maxLength: 50
+          description: Pre-pregnancy weight (e.g. "140 lbs" or "63 kg")

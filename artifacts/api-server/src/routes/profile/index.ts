@@ -28,6 +28,7 @@ router.get("/profile", requireAuth, async (req: AuthedRequest, res) => {
     hospitalName: row?.hospitalName ?? null,
     hospitalPhone: row?.hospitalPhone ?? null,
     hospitalAddress: row?.hospitalAddress ?? null,
+    prePregnancyWeight: row?.prePregnancyWeight ?? null,
   });
 });
 
@@ -49,6 +50,7 @@ router.put("/profile", requireAuth, async (req: AuthedRequest, res) => {
     hospitalName,
     hospitalPhone,
     hospitalAddress,
+    prePregnancyWeight,
   } = parsed.data;
 
   const [row] = await db
@@ -65,6 +67,7 @@ router.put("/profile", requireAuth, async (req: AuthedRequest, res) => {
       hospitalName: hospitalName ?? null,
       hospitalPhone: hospitalPhone ?? null,
       hospitalAddress: hospitalAddress ?? null,
+      prePregnancyWeight: prePregnancyWeight ?? null,
     })
     .onConflictDoUpdate({
       target: userProfilesTable.userId,
@@ -93,6 +96,9 @@ router.put("/profile", requireAuth, async (req: AuthedRequest, res) => {
         ...(hospitalAddress !== undefined && {
           hospitalAddress: hospitalAddress ?? null,
         }),
+        ...(prePregnancyWeight !== undefined && {
+          prePregnancyWeight: prePregnancyWeight ?? null,
+        }),
         updatedAt: new Date(),
       },
     })
@@ -109,6 +115,7 @@ router.put("/profile", requireAuth, async (req: AuthedRequest, res) => {
     hospitalName: row.hospitalName ?? null,
     hospitalPhone: row.hospitalPhone ?? null,
     hospitalAddress: row.hospitalAddress ?? null,
+    prePregnancyWeight: row.prePregnancyWeight ?? null,
   });
 });
 

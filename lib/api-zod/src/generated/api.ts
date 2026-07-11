@@ -436,6 +436,10 @@ export const GetProfileResponse = zod.object({
   hospitalName: zod.string().nullish(),
   hospitalPhone: zod.string().nullish(),
   hospitalAddress: zod.string().nullish(),
+  prePregnancyWeight: zod
+    .string()
+    .nullish()
+    .describe('Pre-pregnancy weight (e.g. \"140 lbs\" or \"63 kg\")'),
 });
 
 /**
@@ -457,6 +461,8 @@ export const updateProfileBodyHospitalNameMax = 200;
 export const updateProfileBodyHospitalPhoneMax = 30;
 
 export const updateProfileBodyHospitalAddressMax = 500;
+
+export const updateProfileBodyPrePregnancyWeightMax = 50;
 
 export const UpdateProfileBody = zod.object({
   firstName: zod.string().max(updateProfileBodyFirstNameMax).nullish(),
@@ -484,6 +490,11 @@ export const UpdateProfileBody = zod.object({
     .string()
     .max(updateProfileBodyHospitalAddressMax)
     .nullish(),
+  prePregnancyWeight: zod
+    .string()
+    .max(updateProfileBodyPrePregnancyWeightMax)
+    .nullish()
+    .describe('Pre-pregnancy weight (e.g. \"140 lbs\" or \"63 kg\")'),
 });
 
 export const UpdateProfileResponse = zod.object({
@@ -506,6 +517,10 @@ export const UpdateProfileResponse = zod.object({
   hospitalName: zod.string().nullish(),
   hospitalPhone: zod.string().nullish(),
   hospitalAddress: zod.string().nullish(),
+  prePregnancyWeight: zod
+    .string()
+    .nullish()
+    .describe('Pre-pregnancy weight (e.g. \"140 lbs\" or \"63 kg\")'),
 });
 
 /**

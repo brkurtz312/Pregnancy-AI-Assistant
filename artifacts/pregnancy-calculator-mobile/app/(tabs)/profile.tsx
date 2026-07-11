@@ -278,6 +278,7 @@ export default function ProfileScreen() {
 
   const [firstName, setFirstName] = useState("");
   const [zipCode, setZipCode] = useState("");
+  const [prePregnancyWeight, setPrePregnancyWeight] = useState("");
   const [providerName, setProviderName] = useState("");
   const [providerPhone, setProviderPhone] = useState("");
   const [providerAddress, setProviderAddress] = useState("");
@@ -312,6 +313,7 @@ export default function ProfileScreen() {
     if (profile) {
       setFirstName(profile.firstName ?? "");
       setZipCode(profile.zipCode ?? "");
+      setPrePregnancyWeight(profile.prePregnancyWeight ?? "");
       setProviderName(profile.providerName ?? "");
       setProviderPhone(formatPhone(profile.providerPhone ?? ""));
       setProviderAddress(profile.providerAddress ?? "");
@@ -333,6 +335,7 @@ export default function ProfileScreen() {
         data: {
           firstName: firstName.trim() || null,
           zipCode: zipCode.trim() || null,
+          prePregnancyWeight: prePregnancyWeight.trim() || null,
           providerName: providerName.trim() || null,
           providerPhone: providerPhone.trim() || null,
           providerAddress: providerAddress.trim() || null,
@@ -460,6 +463,12 @@ export default function ProfileScreen() {
                   onChange={setZipCode}
                   placeholder="90210"
                   keyboardType="number-pad"
+                />
+                <Field
+                  label="PRE-PREGNANCY WEIGHT"
+                  value={prePregnancyWeight}
+                  onChange={setPrePregnancyWeight}
+                  placeholder="e.g. 140 lbs or 63 kg"
                 />
                 <Text
                   style={[

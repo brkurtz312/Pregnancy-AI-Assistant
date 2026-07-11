@@ -345,6 +345,11 @@ export interface UserProfile {
   hospitalPhone?: string | null;
   /** @nullable */
   hospitalAddress?: string | null;
+  /**
+   * Pre-pregnancy weight (e.g. "140 lbs" or "63 kg")
+   * @nullable
+   */
+  prePregnancyWeight?: string | null;
 }
 
 /**
@@ -407,6 +412,12 @@ export interface UpdateProfileBody {
    * @nullable
    */
   hospitalAddress?: string | null;
+  /**
+   * Pre-pregnancy weight (e.g. "140 lbs" or "63 kg")
+   * @maxLength 50
+   * @nullable
+   */
+  prePregnancyWeight?: string | null;
 }
 
 export type ListSymptomsParams = {

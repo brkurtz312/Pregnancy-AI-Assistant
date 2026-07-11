@@ -15,6 +15,7 @@ export const userProfilesTable = pgTable("user_profiles", {
   hospitalName: text("hospital_name"),
   hospitalPhone: text("hospital_phone"),
   hospitalAddress: text("hospital_address"),
+  prePregnancyWeight: text("pre_pregnancy_weight"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

@@ -135,6 +135,34 @@ export default function VisitSummaryScreen() {
   const latestKickSession = kickSessions?.items?.find((s) => s.endedAt);
   const contractionItems = contractions?.items ?? [];
 
+  const latestMeasurementVisit = useMemo(() => {
+    if (!visits?.items?.length) return null;
+    return (
+      [...visits.items]
+        .sort(
+          (a, b) =>
+            new Date(b.visitDate).getTime() - new Date(a.visitDate).getTime(),
+        )
+        .find((v) => v.weight || v.bloodPressure) ?? null
+    );
+  }, [visits]);
+
+  const weightGainText = useMemo(() => {
+    const preStr = profile?.prePregnancyWeight;
+    const curStr = latestMeasurementVisit?.weight;
+    if (!preStr || !curStr) return null;
+    const parseNum = (s: string) => parseFloat(s.replace(/[^0-9.]/g, ""));
+    const isKg = (s: string) => /kg/i.test(s);
+    const preNum = parseNum(preStr);
+    const curNum = parseNum(curStr);
+    if (isNaN(preNum) || isNaN(curNum)) return null;
+    const preLbs = isKg(preStr) ? preNum * 2.20462 : preNum;
+    const curLbs = isKg(curStr) ? curNum * 2.20462 : curNum;
+    const diff = curLbs - preLbs;
+    const sign = diff >= 0 ? "+" : "";
+    return `${sign}${diff.toFixed(1)} lbs gained`;
+  }, [profile?.prePregnancyWeight, latestMeasurementVisit?.weight]);
+
   const buildHtml = () => {
     const questionsHtml = selectedQuestions.length
       ? `<ul>${selectedQuestions.map((q) => `<li>${escapeHtml(q)}</li>`).join("")}</ul>`
@@ -196,44 +224,207 @@ export default function VisitSummaryScreen() {
       `
       : "<p>No encounter notes recorded yet.</p>";
 
+    const providerName = profile?.providerName;
+    const providerAddress = profile?.providerAddress;
+    const patientName = profile?.firstName;
+
+    const providerHtml =
+      providerName || providerAddress
+        ? `<div class="provider-card">
+            <span class="provider-icon">🏥</span>
+            <div class="provider-info">
+              ${providerName ? `<div class="provider-name">${escapeHtml(providerName)}</div>` : ""}
+              ${providerAddress ? `<div class="provider-addr">${escapeHtml(providerAddress)}</div>` : ""}
+            </div>
+          </div>`
+        : "";
+
+    const hasMeasurements =
+      latestMeasurementVisit?.weight ||
+      latestMeasurementVisit?.bloodPressure ||
+      weightGainText;
+    const measurementsHtml = hasMeasurements
+      ? `<div class="stats-row">
+          ${
+            latestMeasurementVisit?.weight
+              ? `<div class="stat-box">
+                  <div class="stat-label">Weight</div>
+                  <div class="stat-value">${escapeHtml(latestMeasurementVisit.weight)}</div>
+                </div>`
+              : ""
+          }
+          ${
+            latestMeasurementVisit?.bloodPressure
+              ? `<div class="stat-box">
+                  <div class="stat-label">Blood Pressure</div>
+                  <div class="stat-value">${escapeHtml(latestMeasurementVisit.bloodPressure)}</div>
+                </div>`
+              : ""
+          }
+          ${
+            weightGainText
+              ? `<div class="stat-box stat-gain">
+                  <div class="stat-label">Total Gained</div>
+                  <div class="stat-value">${escapeHtml(weightGainText)}</div>
+                </div>`
+              : ""
+          }
+        </div>`
+      : "";
+
     return `
       <html>
         <head>
           <meta charset="utf-8" />
           <style>
-            body { font-family: -apple-system, Helvetica, Arial, sans-serif; padding: 24px; color: #222; }
-            h1 { font-size: 22px; margin-bottom: 4px; }
-            h2 { font-size: 16px; margin-top: 24px; margin-bottom: 8px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
-            p, li { font-size: 13px; line-height: 1.5; }
-            ul { padding-left: 18px; margin: 0; }
-            .sub { color: #666; font-size: 13px; margin-bottom: 16px; }
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body {
+              font-family: -apple-system, Georgia, "Times New Roman", serif;
+              background: #fff;
+              color: #2d2d2d;
+            }
+            .header {
+              background: linear-gradient(135deg, #c2185b 0%, #e91e8c 50%, #f8a4c4 100%);
+              padding: 36px 28px 28px;
+              color: #fff;
+            }
+            .header-heart { font-size: 28px; margin-bottom: 8px; }
+            .header h1 {
+              font-size: 26px;
+              font-weight: 700;
+              letter-spacing: -0.5px;
+              margin-bottom: 6px;
+            }
+            .header-sub {
+              font-size: 14px;
+              opacity: 0.92;
+              line-height: 1.5;
+            }
+            .body-wrap { padding: 24px 28px; }
+            .provider-card {
+              display: flex;
+              align-items: flex-start;
+              gap: 12px;
+              background: #fce4ec;
+              border-left: 4px solid #c2185b;
+              border-radius: 10px;
+              padding: 14px 16px;
+              margin-bottom: 20px;
+            }
+            .provider-icon { font-size: 22px; }
+            .provider-name {
+              font-size: 15px;
+              font-weight: 700;
+              color: #880e4f;
+            }
+            .provider-addr {
+              font-size: 13px;
+              color: #ad1457;
+              margin-top: 3px;
+            }
+            .stats-row {
+              display: flex;
+              gap: 10px;
+              margin-bottom: 22px;
+              flex-wrap: wrap;
+            }
+            .stat-box {
+              flex: 1;
+              min-width: 90px;
+              background: #fce4ec;
+              border-radius: 12px;
+              padding: 12px 14px;
+              text-align: center;
+            }
+            .stat-gain {
+              background: #e8f5e9;
+            }
+            .stat-label {
+              font-size: 10px;
+              font-weight: 600;
+              text-transform: uppercase;
+              letter-spacing: 0.6px;
+              color: #880e4f;
+              margin-bottom: 5px;
+            }
+            .stat-gain .stat-label { color: #2e7d32; }
+            .stat-value {
+              font-size: 16px;
+              font-weight: 700;
+              color: #c2185b;
+            }
+            .stat-gain .stat-value { color: #388e3c; }
+            h2 {
+              font-size: 14px;
+              font-weight: 700;
+              text-transform: uppercase;
+              letter-spacing: 0.8px;
+              color: #c2185b;
+              margin-top: 24px;
+              margin-bottom: 10px;
+              padding-bottom: 6px;
+              border-bottom: 2px solid #fce4ec;
+            }
+            p, li {
+              font-size: 13px;
+              line-height: 1.65;
+              color: #3d3d3d;
+            }
+            ul { padding-left: 18px; }
+            li { margin-bottom: 5px; }
+            .sub {
+              font-size: 12px;
+              color: #999;
+              margin-top: 4px;
+              font-style: italic;
+            }
+            .footer {
+              margin-top: 36px;
+              padding: 18px 28px;
+              background: #fce4ec;
+              text-align: center;
+              font-size: 11px;
+              color: #ad1457;
+            }
           </style>
         </head>
         <body>
-          <h1>Visit Report</h1>
-          <p class="sub">${nextVisit ? `Appointment: ${formatDate(nextVisit.visitDate)}` : "No upcoming appointment scheduled"}${
-            gaAtVisit
-              ? ` — ${gaAtVisit.weeks}w ${gaAtVisit.days}d gestational age`
-              : ""
-          }</p>
+          <div class="header">
+            <div class="header-heart">♥</div>
+            <h1>Visit Report</h1>
+            <div class="header-sub">
+              ${patientName ? `${escapeHtml(patientName)}'s Appointment` : "Appointment"}
+              ${nextVisit ? ` · ${formatDate(nextVisit.visitDate)}` : " · No upcoming appointment scheduled"}
+              ${gaAtVisit ? `<br/>${gaAtVisit.weeks}w ${gaAtVisit.days}d gestational age` : ""}
+            </div>
+          </div>
 
-          <h2>What to Expect at This Visit</h2>
-          ${expectHtml}
+          <div class="body-wrap">
+            ${providerHtml}
+            ${measurementsHtml}
 
-          <h2>Questions to Ask</h2>
-          ${questionsHtml}
+            <h2>What to Expect at This Visit</h2>
+            ${expectHtml}
 
-          <h2>Recent Symptoms</h2>
-          ${symptomsHtml}
+            <h2>Questions to Ask</h2>
+            ${questionsHtml}
 
-          <h2>Kick Counts</h2>
-          ${kickHtml}
+            <h2>Recent Symptoms</h2>
+            ${symptomsHtml}
 
-          <h2>Contraction Timing (Today)</h2>
-          ${contractionsHtml}
+            <h2>Kick Counts</h2>
+            ${kickHtml}
 
-          <h2>Encounter Notes (Scribe)</h2>
-          ${scribeHtml}
+            <h2>Contraction Timing</h2>
+            ${contractionsHtml}
+
+            <h2>Encounter Notes</h2>
+            ${scribeHtml}
+          </div>
+
+          <div class="footer">
+            ♥ Generated by Pregnancy Assistant · ${new Date().toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
+          </div>
         </body>
       </html>
     `;
@@ -253,7 +444,7 @@ export default function VisitSummaryScreen() {
       const { uri } = await Print.printToFileAsync({ html });
       router.push({
         pathname: "/pdf-viewer",
-        params: { uri, title: "Visit Summary", shareTitle: "Visit Summary" },
+        params: { uri, title: "Visit Report", shareTitle: "Visit Report" },
       });
     } catch {
       Alert.alert("Couldn't export", "Please try again.");
@@ -269,7 +460,7 @@ export default function VisitSummaryScreen() {
       const { uri } = await Print.printToFileAsync({ html });
       router.push({
         pathname: "/pdf-viewer",
-        params: { uri, title: "Visit Summary" },
+        params: { uri, title: "Visit Report" },
       });
     } catch {
       Alert.alert("Couldn't generate PDF", "Please try again.");
@@ -336,6 +527,85 @@ export default function VisitSummaryScreen() {
             {gaAtVisit ? ` · ${gaAtVisit.weeks}w ${gaAtVisit.days}d` : ""}
           </Text>
         </Animated.View>
+
+        {(latestMeasurementVisit?.weight ||
+          latestMeasurementVisit?.bloodPressure ||
+          weightGainText) && (
+          <Animated.View
+            entering={FadeInDown.delay(60).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              Last Recorded Measurements
+            </Text>
+            <View style={styles.statsRow}>
+              {latestMeasurementVisit?.weight && (
+                <View
+                  style={[styles.statBox, { backgroundColor: colors.muted }]}
+                >
+                  <Text
+                    style={[
+                      styles.statLabel,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    WEIGHT
+                  </Text>
+                  <Text
+                    style={[styles.statValue, { color: colors.foreground }]}
+                  >
+                    {latestMeasurementVisit.weight}
+                  </Text>
+                </View>
+              )}
+              {latestMeasurementVisit?.bloodPressure && (
+                <View
+                  style={[styles.statBox, { backgroundColor: colors.muted }]}
+                >
+                  <Text
+                    style={[
+                      styles.statLabel,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    BLOOD PRESSURE
+                  </Text>
+                  <Text
+                    style={[styles.statValue, { color: colors.foreground }]}
+                  >
+                    {latestMeasurementVisit.bloodPressure}
+                  </Text>
+                </View>
+              )}
+              {weightGainText && (
+                <View
+                  style={[
+                    styles.statBox,
+                    { backgroundColor: colors.primary + "18" },
+                  ]}
+                >
+                  <Text style={[styles.statLabel, { color: colors.primary }]}>
+                    TOTAL GAINED
+                  </Text>
+                  <Text style={[styles.statValue, { color: colors.primary }]}>
+                    {weightGainText}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text
+              style={[
+                styles.bodyMuted,
+                { color: colors.mutedForeground, marginTop: 6 },
+              ]}
+            >
+              From visit on {formatShortDate(latestMeasurementVisit!.visitDate)}
+            </Text>
+          </Animated.View>
+        )}
 
         <Animated.View
           entering={FadeInDown.delay(80).duration(400)}
@@ -734,5 +1004,28 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 12,
     marginTop: 10,
+  },
+  statsRow: {
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
+    marginBottom: 4,
+  },
+  statBox: {
+    flex: 1,
+    minWidth: 90,
+    borderRadius: 12,
+    padding: 12,
+    alignItems: "center",
+  },
+  statLabel: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.6,
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
   },
 });

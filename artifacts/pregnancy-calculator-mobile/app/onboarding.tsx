@@ -96,6 +96,7 @@ export default function OnboardingScreen() {
 
   const [firstName, setFirstName] = useState("");
   const [zipCode, setZipCode] = useState("");
+  const [prePregnancyWeight, setPrePregnancyWeight] = useState("");
   const [providerName, setProviderName] = useState("");
   const [providerAddress, setProviderAddress] = useState("");
   const [providerPhone, setProviderPhone] = useState("");
@@ -135,6 +136,7 @@ export default function OnboardingScreen() {
         data: {
           firstName: firstName.trim() || null,
           zipCode: zipCode.trim() || null,
+          prePregnancyWeight: prePregnancyWeight.trim() || null,
           providerName: providerName.trim() || null,
           providerAddress: providerAddress.trim() || null,
           providerPhone: providerPhone.trim() || null,
@@ -158,6 +160,7 @@ export default function OnboardingScreen() {
     isSignedIn,
     firstName,
     zipCode,
+    prePregnancyWeight,
     providerName,
     providerAddress,
     providerPhone,
@@ -238,6 +241,12 @@ export default function OnboardingScreen() {
             onChange={setZipCode}
             placeholder="90210"
             keyboardType="number-pad"
+          />
+          <Field
+            label="PRE-PREGNANCY WEIGHT"
+            value={prePregnancyWeight}
+            onChange={setPrePregnancyWeight}
+            placeholder="e.g. 140 lbs or 63 kg"
           />
         </View>
 
