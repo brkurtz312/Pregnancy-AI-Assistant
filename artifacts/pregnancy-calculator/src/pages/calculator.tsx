@@ -186,9 +186,24 @@ export default function CalculatorPage() {
   const resultsRef = useRef<HTMLDivElement>(null);
   const autoLoadedRef = useRef(false);
 
-  const { isSignedIn } = useUser();
+  const { isSignedIn, user } = useUser();
   const { data: profile } = useGetProfile();
   const updateProfileMutation = useUpdateProfile();
+
+  // Reset local due-date state when the signed-in user changes (account switch).
+  // Without this, switching from user A to user B in the same SPA session leaves
+  // `results` and `autoLoadedRef` set to user A's values, so the profile useEffect
+  // below never fires for user B (its guard `!autoLoadedRef.current && !results`
+  // is false). Resetting on userId change lets the profile effect re-run cleanly
+  // for the incoming user.
+  const prevUserIdRef = useRef<string | undefined>(user?.id);
+  useEffect(() => {
+    if (prevUserIdRef.current !== user?.id) {
+      prevUserIdRef.current = user?.id;
+      setResults(null);
+      autoLoadedRef.current = false;
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (profile?.dueDate && !autoLoadedRef.current && !results) {

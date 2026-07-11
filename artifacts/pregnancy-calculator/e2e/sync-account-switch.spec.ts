@@ -740,3 +740,144 @@ test.describe("Sync account-switch — user B's own saved data loads after switc
     await page.unroute("**/api/tools/birth-plan");
   });
 });
+
+// ─── Positive-case: due-date state is replaced with user B's after a switch ───
+//
+// The due date follows a different sync path than journal/bag/birth-plan: it is
+// stored in /api/profile (not /api/tools/*) and loaded into LOCAL React state
+// via a useEffect in CalculatorPage rather than directly from the React Query
+// cache. That local state (`results` + `autoLoadedRef`) must be reset when the
+// user changes — otherwise user A's due date stays rendered for user B even
+// after user B's profile arrives from the server.
+//
+// Flow:
+//   1. Sign in as user B; seed B's due date via PUT /api/profile; sign out.
+//   2. Sign in as user A; seed A's due date; wait for EDD to render (warms cache
+//      AND sets local results state); sign out.
+//   3. Intercept GET /api/profile to stall it after user B signs in.
+//   4. Sign in as user B; assert user A's date is NOT visible before the stall
+//      resolves (confirms local state was cleared on user-id change).
+//   5. Release stall; assert user B's OWN date IS visible and user A's is NOT.
+
+const USER_A_DUE_DATE = "2026-11-15"; // November 15, 2026
+const USER_B_DUE_DATE = "2026-12-20"; // December 20, 2026
+const USER_A_DUE_DATE_DISPLAY = "November 15, 2026";
+const USER_B_DUE_DATE_DISPLAY = "December 20, 2026";
+
+test.describe("Sync account-switch — due-date state clears and reloads for user B", () => {
+  let userAId: string;
+  let userBId: string;
+
+  test.beforeAll(async () => {
+    await clerkSetup({
+      publishableKey: process.env.VITE_CLERK_PUBLISHABLE_KEY,
+    });
+    const users = await createTestUsers();
+    userAId = users.userAId;
+    userBId = users.userBId;
+  });
+
+  test.afterAll(async () => {
+    await cleanupTestUsers(userAId, userBId);
+  });
+
+  test("user B's own due date is visible after switching from user A — not A's date, not blank", async ({
+    page,
+  }) => {
+    // ── Step 1: Sign in as user B and seed B's due date ───────────────────────
+    await setupClerkTestingToken({ page });
+    await signInViaUi(page, USER_B_EMAIL, SHARED_PASSWORD);
+    const seedBProfile = await page.request.put("/api/profile", {
+      data: { dueDate: USER_B_DUE_DATE },
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!seedBProfile.ok()) {
+      throw new Error(
+        `Failed to seed user B due date: ${seedBProfile.status()} ${await seedBProfile.text()}`,
+      );
+    }
+
+    // ── Step 2: Sign out user B ────────────────────────────────────────────────
+    await signOut(page);
+
+    // ── Step 3: Sign in as user A and seed + warm A's due date ────────────────
+    // Seeding sets A's dueDate server-side; waiting for the EDD to render on the
+    // calculator page ensures the profile is in the React Query cache AND the
+    // local `results` state is populated — this is exactly what would linger
+    // for user B without the per-user reset fix.
+    await setupClerkTestingToken({ page });
+    await signInViaUi(page, USER_A_EMAIL, SHARED_PASSWORD);
+    const seedAProfile = await page.request.put("/api/profile", {
+      data: { dueDate: USER_A_DUE_DATE },
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!seedAProfile.ok()) {
+      throw new Error(
+        `Failed to seed user A due date: ${seedAProfile.status()} ${await seedAProfile.text()}`,
+      );
+    }
+    // The calculator page at /app auto-loads results from the profile.
+    // Wait for A's EDD to confirm the profile is fetched and local state is set.
+    await expect(page.getByTestId("text-edd")).toHaveText(
+      USER_A_DUE_DATE_DISPLAY,
+      { timeout: 15_000 },
+    );
+
+    // ── Step 4: Sign out user A ────────────────────────────────────────────────
+    await signOut(page);
+
+    // ── Step 5: Intercept GET /api/profile to stall it ────────────────────────
+    // The stall window lets us inspect the UI while the React Query cache is the
+    // only data source. If the per-userId reset did NOT fire, the local `results`
+    // state still holds user A's EDD and it would appear here — a regression.
+    let resolveProfileFetch!: () => void;
+    const profileFetchGate = new Promise<void>(
+      (resolve) => (resolveProfileFetch = resolve),
+    );
+    await page.route("**/api/profile", async (route) => {
+      if (route.request().method() === "GET") {
+        await profileFetchGate;
+        await route.continue();
+      } else {
+        await route.continue();
+      }
+    });
+
+    // ── Step 6: Sign in as user B ──────────────────────────────────────────────
+    await setupClerkTestingToken({ page });
+    await signInViaUi(page, USER_B_EMAIL, SHARED_PASSWORD);
+
+    // ── Step 7: Assert BEFORE stall resolves — user A's date must be absent ───
+    // After the per-userId reset, local `results` is null so the EDD element
+    // is not rendered at all. If the fix is absent, user A's EDD is still shown.
+    const eddLocator = page.getByTestId("text-edd");
+    const aVisibleBeforeFetch = await eddLocator.isVisible();
+    if (aVisibleBeforeFetch) {
+      const renderedText = await eddLocator.textContent();
+      if (renderedText === USER_A_DUE_DATE_DISPLAY) {
+        throw new Error(
+          `REGRESSION: user A's due date "${USER_A_DUE_DATE_DISPLAY}" appeared ` +
+            "in user B's calculator view before the profile response arrived. " +
+            "CalculatorPage did not reset local results state on user-id change.",
+        );
+      }
+    }
+
+    // ── Step 8: Release the stall ──────────────────────────────────────────────
+    resolveProfileFetch();
+    await page.waitForTimeout(STALL_MS);
+
+    // ── Step 9: User B's OWN due date must now be visible ─────────────────────
+    await expect(page.getByTestId("text-edd")).toHaveText(
+      USER_B_DUE_DATE_DISPLAY,
+      { timeout: 10_000 },
+    );
+
+    // ── Step 10: User A's due date must NOT appear anywhere ───────────────────
+    await expect(page.getByText(USER_A_DUE_DATE_DISPLAY)).not.toBeVisible({
+      timeout: 5_000,
+    });
+
+    await page.unroute("**/api/profile");
+  });
+});
