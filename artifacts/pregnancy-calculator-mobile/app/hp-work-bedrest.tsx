@@ -42,11 +42,6 @@ const TALK_TO_PROVIDER = [
 
 const RESOURCES = [
   {
-    name: "ACOG: Work During Pregnancy",
-    detail: "Guidance on working safely and when modifications may be needed",
-    url: "https://www.acog.org/womens-health/faqs/employment-during-pregnancy",
-  },
-  {
     name: "U.S. Dept. of Labor: FMLA",
     detail: "Your rights to job-protected leave for pregnancy and childbirth",
     url: "https://www.dol.gov/agencies/whd/fmla",
