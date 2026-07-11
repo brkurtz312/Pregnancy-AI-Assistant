@@ -4,6 +4,7 @@ import DateTimePicker, {
 import { Ionicons } from "@expo/vector-icons";
 import { useUser } from "@clerk/expo";
 import * as Haptics from "expo-haptics";
+import * as Print from "expo-print";
 import { router } from "expo-router";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
@@ -26,6 +27,9 @@ import {
   useCreatePrenatalVisit,
   useUpdatePrenatalVisit,
   useDeletePrenatalVisit,
+  useListSymptoms,
+  useListKickSessions,
+  useListContractions,
   type PrenatalVisit,
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
@@ -478,6 +482,243 @@ function AppointmentLogSection({
   );
 }
 
+// ─── Prep-for-Visit PDF builder ───────────────────────────────────────────────
+
+type SymptomItem = {
+  id: number;
+  symptom: string;
+  severity?: number | null;
+  notes?: string | null;
+  loggedAt: Date | string;
+};
+type KickSessionItem = {
+  id: number;
+  startedAt: Date | string;
+  endedAt?: Date | string | null;
+  kickCount: number;
+};
+type ContractionItem = {
+  id: number;
+  startedAt: Date | string;
+  durationSeconds?: number | null;
+  intervalSeconds?: number | null;
+  sessionDate: string;
+};
+
+function toDate(d: Date | string): Date {
+  return d instanceof Date ? d : new Date(d);
+}
+function fmtDate(d: Date | string) {
+  return toDate(d).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
+function fmtDateTime(d: Date | string) {
+  const dt = toDate(d);
+  return (
+    dt.toLocaleDateString(undefined, { month: "short", day: "numeric" }) +
+    " " +
+    dt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+  );
+}
+function fmtSecs(s: number) {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
+}
+
+function buildPrepHtml(
+  questions: QuestionItem[],
+  symptoms: SymptomItem[],
+  kickSessions: KickSessionItem[],
+  contractions: ContractionItem[],
+): string {
+  const date = new Date().toLocaleDateString(undefined, {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const questionRows = questions
+    .map(
+      (q) => `
+        <div class="row">
+          <div class="checkbox"></div>
+          <span>${q.text}</span>
+        </div>`,
+    )
+    .join("");
+
+  const severityDots = (sev: number | null | undefined) =>
+    sev
+      ? [1, 2, 3, 4, 5]
+          .map(
+            (n) =>
+              `<span class="dot" style="background:${n <= sev ? "#ec4899" : "#fce7f3"}"></span>`,
+          )
+          .join("")
+      : "";
+
+  const symptomRows = symptoms
+    .map(
+      (s) => `
+        <div class="row">
+          <div class="row-main">
+            <span class="row-title">${s.symptom}</span>
+            <span class="row-meta">${fmtDateTime(s.loggedAt)}${s.severity ? ` · Severity: ${s.severity}/5` : ""}</span>
+            ${s.severity ? `<div class="dots">${severityDots(s.severity)}</div>` : ""}
+            ${s.notes ? `<span class="row-meta">${s.notes}</span>` : ""}
+          </div>
+        </div>`,
+    )
+    .join("");
+
+  const kickRows = kickSessions
+    .map((k) => {
+      const dur =
+        k.endedAt && k.startedAt
+          ? Math.round(
+              (toDate(k.endedAt).getTime() - toDate(k.startedAt).getTime()) /
+                60000,
+            )
+          : null;
+      return `
+        <div class="row">
+          <div class="row-main">
+            <span class="row-title">${k.kickCount} kicks</span>
+            <span class="row-meta">${fmtDateTime(k.startedAt)}${dur !== null ? ` · ${dur} min` : ""}</span>
+          </div>
+        </div>`;
+    })
+    .join("");
+
+  const contractionRows = contractions
+    .map(
+      (c) => `
+        <div class="row">
+          <div class="row-main">
+            <span class="row-title">${c.durationSeconds ? fmtSecs(c.durationSeconds) : "—"}</span>
+            <span class="row-meta">${fmtDateTime(c.startedAt)}${c.intervalSeconds ? ` · Interval: ${fmtSecs(c.intervalSeconds)}` : ""}</span>
+          </div>
+        </div>`,
+    )
+    .join("");
+
+  const toolsBlock =
+    symptoms.length || kickSessions.length || contractions.length
+      ? `
+        <div style="margin-top:28px">
+          ${
+            symptoms.length
+              ? `<div class="section-label">Recent Symptoms</div>
+                 <div class="rows-block">${symptomRows}</div>`
+              : ""
+          }
+          ${
+            kickSessions.length
+              ? `<div class="section-label" style="margin-top:${symptoms.length ? 20 : 0}px">Kick Counter</div>
+                 <div class="rows-block">${kickRows}</div>`
+              : ""
+          }
+          ${
+            contractions.length
+              ? `<div class="section-label" style="margin-top:${symptoms.length || kickSessions.length ? 20 : 0}px">Contractions — ${fmtDate(contractions[0]!.startedAt)}</div>
+                 <div class="rows-block">${contractionRows}</div>`
+              : ""
+          }
+        </div>`
+      : "";
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prep for Visit</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Inter, system-ui, sans-serif;
+      background: #fff;
+      color: #1f1f1f;
+      padding: 40px 48px;
+    }
+    .header {
+      background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 60%, #fbcfe8 100%);
+      border-radius: 16px;
+      padding: 28px 32px;
+      margin-bottom: 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .header-icon {
+      width: 52px; height: 52px;
+      background: #fff;
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px;
+      box-shadow: 0 2px 8px rgba(236,72,153,0.12);
+    }
+    .header-text h1 { font-size: 22px; font-weight: 700; color: #9d174d; }
+    .header-text p { font-size: 13px; color: #be185d; margin-top: 4px; }
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: #be185d;
+      margin-bottom: 14px;
+    }
+    .rows-block { margin-bottom: 4px; }
+    .row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 11px 0;
+      border-bottom: 1px solid #fce7f3;
+    }
+    .row:last-child { border-bottom: none; }
+    .row-main { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+    .checkbox {
+      width: 18px; height: 18px;
+      border: 2px solid #f9a8d4;
+      border-radius: 5px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .row span { font-size: 14px; line-height: 1.5; color: #1f1f1f; }
+    .row-title { font-size: 14px; font-weight: 500; color: #1f1f1f; }
+    .row-meta { font-size: 12px; color: #6b7280; }
+    .dots { display: flex; gap: 4px; margin-top: 2px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .footer {
+      margin-top: 36px;
+      font-size: 11px;
+      color: #9ca3af;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-icon">📋</div>
+    <div class="header-text">
+      <h1>Prep for My Visit</h1>
+      <p>${date}</p>
+    </div>
+  </div>
+  <div class="section-label">Questions to Ask My Provider</div>
+  <div class="rows-block">${questionRows}</div>
+  ${toolsBlock}
+  <div class="footer">Printed from Pregnancy AI Assistant</div>
+</body>
+</html>`;
+}
+
 // ─── What Questions Do You Want to Ask Section ───────────────────────────────
 
 function QuestionsToAskSection() {
@@ -485,6 +726,11 @@ function QuestionsToAskSection() {
   const [items, setItems] = useState<QuestionItem[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [newQuestion, setNewQuestion] = useState("");
+  const [viewing, setViewing] = useState(false);
+
+  const { data: symptomsData } = useListSymptoms({ limit: 10, offset: 0 });
+  const { data: kickData } = useListKickSessions({ limit: 5, offset: 0 });
+  const { data: contractionData } = useListContractions({ limit: 50 });
 
   useEffect(() => {
     loadQuestions()
@@ -526,6 +772,33 @@ function QuestionsToAskSection() {
   );
 
   const selectedCount = items.filter((q) => q.selected).length;
+  const selected = items.filter((q) => q.selected);
+
+  const handleViewPdf = useCallback(async () => {
+    if (!selected.length) return;
+    setViewing(true);
+    try {
+      const html = buildPrepHtml(
+        selected,
+        symptomsData?.items ?? [],
+        kickData?.items ?? [],
+        contractionData?.items ?? [],
+      );
+      const { uri } = await Print.printToFileAsync({ html });
+      router.push({
+        pathname: "/pdf-viewer",
+        params: {
+          uri,
+          title: "Prep for Visit",
+          shareTitle: "Prep for Visit — Questions for My Provider",
+        },
+      });
+    } catch {
+      Alert.alert("Error", "Could not generate PDF. Please try again.");
+    } finally {
+      setViewing(false);
+    }
+  }, [selected, symptomsData?.items, kickData?.items, contractionData?.items]);
 
   return (
     <View style={styles.container}>
@@ -606,6 +879,27 @@ function QuestionsToAskSection() {
           <Ionicons name="add" size={20} color={colors.primaryForeground} />
         </TouchableOpacity>
       </View>
+
+      {selectedCount > 0 && (
+        <TouchableOpacity
+          style={[styles.viewPdfBtn, { borderColor: colors.primary }]}
+          onPress={handleViewPdf}
+          disabled={viewing}
+        >
+          {viewing ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <Ionicons
+              name="document-text-outline"
+              size={18}
+              color={colors.primary}
+            />
+          )}
+          <Text style={[styles.viewPdfBtnText, { color: colors.primary }]}>
+            {viewing ? "Generating…" : "View PDF"}
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -1109,5 +1403,19 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
+  },
+  viewPdfBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  viewPdfBtnText: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
   },
 });
