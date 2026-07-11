@@ -69,15 +69,10 @@ export default function BirthPlanSummaryScreen() {
         return;
       }
       const { uri } = await Print.printToFileAsync({ html });
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(uri, {
-          mimeType: "application/pdf",
-          dialogTitle: "My Birth Plan",
-        });
-      } else {
-        Alert.alert("Saved", "Your birth plan PDF was created.");
-      }
+      router.push({
+        pathname: "/pdf-viewer",
+        params: { uri, title: "My Birth Plan", shareTitle: "My Birth Plan" },
+      });
     } catch {
       Alert.alert("Couldn't export", "Please try again.");
     } finally {
@@ -185,7 +180,7 @@ export default function BirthPlanSummaryScreen() {
             ) : (
               <>
                 <Ionicons
-                  name="share-outline"
+                  name="document-text-outline"
                   size={18}
                   color={colors.primaryForeground}
                 />

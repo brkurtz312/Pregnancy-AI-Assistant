@@ -150,15 +150,10 @@ export default function HospitalBagScreen() {
         return;
       }
       const { uri } = await Print.printToFileAsync({ html });
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(uri, {
-          mimeType: "application/pdf",
-          dialogTitle: "Hospital Bag Checklist",
-        });
-      } else {
-        Alert.alert("Saved", "Your hospital bag checklist PDF was created.");
-      }
+      router.push({
+        pathname: "/pdf-viewer",
+        params: { uri, title: "Hospital Bag Checklist", shareTitle: "Hospital Bag Checklist" },
+      });
     } catch {
       Alert.alert(
         "Couldn't generate",

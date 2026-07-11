@@ -272,15 +272,10 @@ export default function BirthPlanScreen() {
       }
       const { uri } = await Print.printToFileAsync({ html });
       setGenerated(true);
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(uri, {
-          mimeType: "application/pdf",
-          dialogTitle: "My Birth Plan",
-        });
-      } else {
-        Alert.alert("Saved", "Your birth plan PDF was created.");
-      }
+      router.push({
+        pathname: "/pdf-viewer",
+        params: { uri, title: "My Birth Plan", shareTitle: "My Birth Plan" },
+      });
     } catch {
       Alert.alert(
         "Couldn't generate",

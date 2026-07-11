@@ -252,15 +252,10 @@ export default function VisitSummaryScreen() {
         return;
       }
       const { uri } = await Print.printToFileAsync({ html });
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(uri, {
-          mimeType: "application/pdf",
-          dialogTitle: "Share Visit Summary",
-        });
-      } else {
-        Alert.alert("Saved", "Your visit summary PDF was created.");
-      }
+      router.push({
+        pathname: "/pdf-viewer",
+        params: { uri, title: "Visit Summary", shareTitle: "Visit Summary" },
+      });
     } catch {
       Alert.alert("Couldn't export", "Please try again.");
     } finally {

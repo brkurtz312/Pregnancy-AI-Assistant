@@ -54,15 +54,10 @@ export default function PostpartumDepressionSummaryScreen() {
         return;
       }
       const { uri } = await Print.printToFileAsync({ html });
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(uri, {
-          mimeType: "application/pdf",
-          dialogTitle: "My Postpartum Depression Resource Summary",
-        });
-      } else {
-        Alert.alert("Saved", "Your resource summary PDF was created.");
-      }
+      router.push({
+        pathname: "/pdf-viewer",
+        params: { uri, title: "Resource Summary", shareTitle: "My Postpartum Depression Resource Summary" },
+      });
     } catch {
       Alert.alert(
         "Couldn't share",
@@ -370,7 +365,7 @@ export default function PostpartumDepressionSummaryScreen() {
             ) : (
               <>
                 <Ionicons
-                  name="share-outline"
+                  name="document-text-outline"
                   size={18}
                   color={colors.primaryForeground}
                 />

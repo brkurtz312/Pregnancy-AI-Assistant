@@ -194,15 +194,10 @@ export default function BreastfeedingScreen() {
       }
       const { uri } = await Print.printToFileAsync({ html });
       setGenerated(true);
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(uri, {
-          mimeType: "application/pdf",
-          dialogTitle: "My Breastfeeding Resource Summary",
-        });
-      } else {
-        Alert.alert("Saved", "Your resource summary PDF was created.");
-      }
+      router.push({
+        pathname: "/pdf-viewer",
+        params: { uri, title: "Resource Summary", shareTitle: "My Breastfeeding Resource Summary" },
+      });
     } catch {
       Alert.alert(
         "Couldn't generate",
