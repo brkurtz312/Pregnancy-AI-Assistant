@@ -43,18 +43,25 @@ async function openBlankPdf() {
     }
     const destUri = `${FileSystem.cacheDirectory}sample-birth-plan.pdf`;
     await FileSystem.copyAsync({ from: sourceUri, to: destUri });
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(destUri, {
-        mimeType: "application/pdf",
-        dialogTitle: "Birth Plan",
-        UTI: "com.adobe.pdf",
-      });
-    } else {
-      Alert.alert(
-        "Can't open PDF",
-        "Viewing files isn't available on this device.",
-      );
+    if (Platform.OS === "web") {
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(destUri, {
+          mimeType: "application/pdf",
+          dialogTitle: "Birth Plan",
+          UTI: "com.adobe.pdf",
+        });
+      } else {
+        Alert.alert(
+          "Can't open PDF",
+          "Viewing files isn't available on this device.",
+        );
+      }
+      return;
     }
+    router.push({
+      pathname: "/pdf-viewer",
+      params: { uri: destUri, title: "Blank Birth Plan", shareTitle: "Birth Plan" },
+    });
   } catch {
     Alert.alert(
       "Can't open PDF",
