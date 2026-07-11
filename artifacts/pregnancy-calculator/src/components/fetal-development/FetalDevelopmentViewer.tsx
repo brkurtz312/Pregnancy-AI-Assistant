@@ -1,5 +1,94 @@
 import { useState, useEffect } from "react";
 
+// ─── BulletChip ───────────────────────────────────────────────────────────────
+
+function extractChipLabel(text: string): string {
+  const first = text.split(/[,:;(]|—|–/)[0].trim();
+  const words = first.split(/\s+/).filter(Boolean);
+  return words.slice(0, 3).join(" ");
+}
+
+function BulletChip({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const label = extractChipLabel(text);
+  return (
+    <div style={{ position: "relative", display: "inline-block" }}>
+      <button
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        onClick={() => setOpen((o) => !o)}
+        aria-label={text}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          background: open ? "rgba(78,205,196,0.18)" : "rgba(78,205,196,0.08)",
+          border: `1px solid ${open ? "rgba(78,205,196,0.5)" : "rgba(78,205,196,0.25)"}`,
+          borderRadius: 20,
+          padding: "4px 12px",
+          cursor: "pointer",
+          color: open ? "#a8e6df" : "#7eccc4",
+          fontFamily: "Arial, sans-serif",
+          fontSize: "0.75rem",
+          letterSpacing: "0.03em",
+          transition: "all 0.18s",
+          whiteSpace: "nowrap",
+        }}
+      >
+        <span
+          style={{
+            width: 5,
+            height: 5,
+            borderRadius: "50%",
+            background: "#4ecdc4",
+            flexShrink: 0,
+          }}
+        />
+        {label}
+      </button>
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 8px)",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "#1a2330",
+            border: "1px solid rgba(78,205,196,0.35)",
+            borderRadius: 8,
+            padding: "10px 14px",
+            width: 260,
+            zIndex: 50,
+            fontFamily: "Arial, sans-serif",
+            fontSize: "0.8rem",
+            color: "#c8ddd8",
+            lineHeight: 1.6,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.55)",
+            pointerEvents: "none",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              top: -6,
+              left: "50%",
+              transform: "translateX(-50%) rotate(45deg)",
+              width: 10,
+              height: 10,
+              background: "#1a2330",
+              borderTop: "1px solid rgba(78,205,196,0.35)",
+              borderLeft: "1px solid rgba(78,205,196,0.35)",
+            }}
+          />
+          {text}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ClinicalParam {
