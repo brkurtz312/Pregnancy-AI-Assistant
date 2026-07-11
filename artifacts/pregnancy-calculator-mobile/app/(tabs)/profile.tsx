@@ -279,6 +279,7 @@ export default function ProfileScreen() {
   const [firstName, setFirstName] = useState("");
   const [zipCode, setZipCode] = useState("");
   const [prePregnancyWeight, setPrePregnancyWeight] = useState("");
+  const [weightUnit, setWeightUnit] = useState<"lbs" | "kg">("lbs");
   const [providerName, setProviderName] = useState("");
   const [providerPhone, setProviderPhone] = useState("");
   const [providerAddress, setProviderAddress] = useState("");
@@ -313,7 +314,14 @@ export default function ProfileScreen() {
     if (profile) {
       setFirstName(profile.firstName ?? "");
       setZipCode(profile.zipCode ?? "");
-      setPrePregnancyWeight(profile.prePregnancyWeight ?? "");
+      const raw = profile.prePregnancyWeight ?? "";
+      const unitMatch = raw.match(/\b(lbs|kg)\s*$/i);
+      if (unitMatch) {
+        setWeightUnit(unitMatch[1]!.toLowerCase() as "lbs" | "kg");
+        setPrePregnancyWeight(raw.replace(/\s*(lbs|kg)\s*$/i, "").trim());
+      } else {
+        setPrePregnancyWeight(raw);
+      }
       setProviderName(profile.providerName ?? "");
       setProviderPhone(formatPhone(profile.providerPhone ?? ""));
       setProviderAddress(profile.providerAddress ?? "");
@@ -335,7 +343,9 @@ export default function ProfileScreen() {
         data: {
           firstName: firstName.trim() || null,
           zipCode: zipCode.trim() || null,
-          prePregnancyWeight: prePregnancyWeight.trim() || null,
+          prePregnancyWeight: prePregnancyWeight.trim()
+            ? `${prePregnancyWeight.trim()} ${weightUnit}`
+            : null,
           providerName: providerName.trim() || null,
           providerPhone: providerPhone.trim() || null,
           providerAddress: providerAddress.trim() || null,
@@ -355,6 +365,7 @@ export default function ProfileScreen() {
     firstName,
     zipCode,
     prePregnancyWeight,
+    weightUnit,
     providerName,
     providerPhone,
     providerAddress,
@@ -465,12 +476,67 @@ export default function ProfileScreen() {
                   placeholder="90210"
                   keyboardType="number-pad"
                 />
-                <Field
-                  label="PRE-PREGNANCY WEIGHT"
-                  value={prePregnancyWeight}
-                  onChange={setPrePregnancyWeight}
-                  placeholder="e.g. 140 lbs or 63 kg"
-                />
+                <View style={styles.fieldWrap}>
+                  <Text
+                    style={[
+                      styles.fieldLabel,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    PRE-PREGNANCY WEIGHT
+                  </Text>
+                  <View style={styles.fieldRow}>
+                    <TextInput
+                      value={prePregnancyWeight}
+                      onChangeText={setPrePregnancyWeight}
+                      placeholder="e.g. 140"
+                      placeholderTextColor={colors.mutedForeground}
+                      keyboardType="decimal-pad"
+                      style={[
+                        styles.input,
+                        {
+                          color: colors.foreground,
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                          flex: 1,
+                        },
+                      ]}
+                    />
+                    {(["lbs", "kg"] as const).map((unit) => (
+                      <TouchableOpacity
+                        key={unit}
+                        onPress={() => setWeightUnit(unit)}
+                        style={[
+                          styles.unitBtn,
+                          {
+                            backgroundColor:
+                              weightUnit === unit
+                                ? colors.primary
+                                : colors.card,
+                            borderColor:
+                              weightUnit === unit
+                                ? colors.primary
+                                : colors.border,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.unitBtnText,
+                            {
+                              color:
+                                weightUnit === unit
+                                  ? colors.primaryForeground
+                                  : colors.mutedForeground,
+                            },
+                          ]}
+                        >
+                          {unit}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
                 <Text
                   style={[
                     styles.privacyNote,
@@ -1304,6 +1370,18 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   fieldRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  unitBtn: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  unitBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
   privacyNote: {
     fontSize: 12,
     fontFamily: "Inter_400Regular",

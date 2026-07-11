@@ -97,6 +97,7 @@ export default function OnboardingScreen() {
   const [firstName, setFirstName] = useState("");
   const [zipCode, setZipCode] = useState("");
   const [prePregnancyWeight, setPrePregnancyWeight] = useState("");
+  const [weightUnit, setWeightUnit] = useState<"lbs" | "kg">("lbs");
   const [providerName, setProviderName] = useState("");
   const [providerAddress, setProviderAddress] = useState("");
   const [providerPhone, setProviderPhone] = useState("");
@@ -136,7 +137,9 @@ export default function OnboardingScreen() {
         data: {
           firstName: firstName.trim() || null,
           zipCode: zipCode.trim() || null,
-          prePregnancyWeight: prePregnancyWeight.trim() || null,
+          prePregnancyWeight: prePregnancyWeight.trim()
+            ? `${prePregnancyWeight.trim()} ${weightUnit}`
+            : null,
           providerName: providerName.trim() || null,
           providerAddress: providerAddress.trim() || null,
           providerPhone: providerPhone.trim() || null,
@@ -161,6 +164,7 @@ export default function OnboardingScreen() {
     firstName,
     zipCode,
     prePregnancyWeight,
+    weightUnit,
     providerName,
     providerAddress,
     providerPhone,
@@ -242,12 +246,60 @@ export default function OnboardingScreen() {
             placeholder="90210"
             keyboardType="number-pad"
           />
-          <Field
-            label="PRE-PREGNANCY WEIGHT"
-            value={prePregnancyWeight}
-            onChange={setPrePregnancyWeight}
-            placeholder="e.g. 140 lbs or 63 kg"
-          />
+          <View style={styles.fieldWrap}>
+            <Text
+              style={[styles.fieldLabel, { color: colors.mutedForeground }]}
+            >
+              PRE-PREGNANCY WEIGHT
+            </Text>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <TextInput
+                value={prePregnancyWeight}
+                onChangeText={setPrePregnancyWeight}
+                placeholder="e.g. 140"
+                placeholderTextColor={colors.mutedForeground}
+                keyboardType="decimal-pad"
+                style={[
+                  styles.input,
+                  {
+                    color: colors.foreground,
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    flex: 1,
+                  },
+                ]}
+              />
+              {(["lbs", "kg"] as const).map((unit) => (
+                <TouchableOpacity
+                  key={unit}
+                  onPress={() => setWeightUnit(unit)}
+                  style={[
+                    styles.unitBtn,
+                    {
+                      backgroundColor:
+                        weightUnit === unit ? colors.primary : colors.card,
+                      borderColor:
+                        weightUnit === unit ? colors.primary : colors.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.unitBtnText,
+                      {
+                        color:
+                          weightUnit === unit
+                            ? colors.primaryForeground
+                            : colors.mutedForeground,
+                      },
+                    ]}
+                  >
+                    {unit}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
         </View>
 
         <View
@@ -562,6 +614,18 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: "Inter_500Medium",
     letterSpacing: 0.8,
+  },
+  unitBtn: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  unitBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
   },
   input: {
     borderWidth: 1,
