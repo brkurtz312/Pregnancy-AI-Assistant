@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@clerk/expo";
-import { router, useLocalSearchParams, type Href } from "expo-router";
+import { useRouter, useLocalSearchParams, type Href } from "expo-router";
 import React, { useMemo } from "react";
 import {
   Platform,
@@ -26,6 +26,7 @@ export default function AskScreen() {
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const { isSignedIn } = useAuth();
+  const router = useRouter();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
 
   const { data: profile } = useGetProfile({
@@ -75,45 +76,86 @@ export default function AskScreen() {
         </View>
 
         <View style={styles.content}>
-          {returnTo && (
-            <TouchableOpacity
-              style={[
-                styles.returnCard,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-              onPress={() => router.push(returnTo as Href)}
-            >
-              <Ionicons
-                name="arrow-back-circle-outline"
-                size={18}
-                color={colors.primary}
-              />
-              <Text style={[styles.returnText, { color: colors.primary }]}>
-                Back to prenatal testing info
-              </Text>
-            </TouchableOpacity>
-          )}
-          {!profile?.dueDate && (
+          {!isSignedIn ? (
             <View
               style={[
-                styles.hintCard,
+                styles.signInCard,
                 { backgroundColor: colors.card, borderColor: colors.border },
               ]}
             >
-              <Ionicons
-                name="information-circle-outline"
-                size={16}
-                color={colors.mutedForeground}
-              />
-              <Text
-                style={[styles.hintText, { color: colors.mutedForeground }]}
-              >
-                Set your due date on the Home tab to get week-specific answers,
-                or ask a general question below.
+              <View style={styles.signInIconWrap}>
+                <Ionicons
+                  name="chatbubble-ellipses-outline"
+                  size={52}
+                  color={colors.primary}
+                />
+              </View>
+              <Text style={[styles.signInTitle, { color: colors.foreground }]}>
+                Sign in to ask questions
               </Text>
+              <Text
+                style={[styles.signInBody, { color: colors.mutedForeground }]}
+              >
+                Get evidence-based answers about your pregnancy from our AI
+                assistant — personalised to your week.
+              </Text>
+              <TouchableOpacity
+                onPress={() => router.push("/(auth)/sign-in")}
+                style={[styles.signInBtn, { backgroundColor: colors.primary }]}
+              >
+                <Ionicons name="log-in-outline" size={18} color="#fff" />
+                <Text style={styles.signInBtnText}>Sign In</Text>
+              </TouchableOpacity>
             </View>
+          ) : (
+            <>
+              {returnTo && (
+                <TouchableOpacity
+                  style={[
+                    styles.returnCard,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                  onPress={() => router.push(returnTo as Href)}
+                >
+                  <Ionicons
+                    name="arrow-back-circle-outline"
+                    size={18}
+                    color={colors.primary}
+                  />
+                  <Text style={[styles.returnText, { color: colors.primary }]}>
+                    Back to prenatal testing info
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {!profile?.dueDate && (
+                <View
+                  style={[
+                    styles.hintCard,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="information-circle-outline"
+                    size={16}
+                    color={colors.mutedForeground}
+                  />
+                  <Text
+                    style={[styles.hintText, { color: colors.mutedForeground }]}
+                  >
+                    Set your due date on the Home tab to get week-specific
+                    answers, or ask a general question below.
+                  </Text>
+                </View>
+              )}
+              <AiAssistant currentWeek={currentWeek} />
+            </>
           )}
-          <AiAssistant currentWeek={currentWeek} />
         </View>
       </ScrollView>
     </View>
@@ -180,5 +222,41 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "Inter_400Regular",
     lineHeight: 17,
+  },
+  signInCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 24,
+    alignItems: "center",
+    gap: 12,
+    marginTop: 8,
+  },
+  signInIconWrap: {
+    marginBottom: 4,
+  },
+  signInTitle: {
+    fontSize: 20,
+    fontFamily: "Inter_700Bold",
+    textAlign: "center",
+  },
+  signInBody: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  signInBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    marginTop: 4,
+  },
+  signInBtnText: {
+    color: "#fff",
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
   },
 });
