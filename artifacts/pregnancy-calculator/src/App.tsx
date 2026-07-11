@@ -27,21 +27,21 @@ const clerkAppearance = {
   theme: shadcn,
   cssLayerName: "clerk",
   variables: {
-    colorPrimary: "hsl(340 65% 55%)",
-    colorForeground: "hsl(340 15% 15%)",
-    colorMutedForeground: "hsl(340 15% 45%)",
+    colorPrimary: "hsl(0 42% 60%)",
+    colorForeground: "hsl(10 30% 15%)",
+    colorMutedForeground: "hsl(10 20% 45%)",
     colorDanger: "hsl(0 84% 60%)",
     colorBackground: "hsl(0 0% 100%)",
     colorInput: "hsl(0 0% 100%)",
-    colorInputForeground: "hsl(340 15% 15%)",
-    colorNeutral: "hsl(340 15% 15%)",
+    colorInputForeground: "hsl(10 30% 15%)",
+    colorNeutral: "hsl(10 30% 15%)",
     fontFamily: "'Inter', sans-serif",
     borderRadius: "0.5rem",
   },
   elements: {
     formButtonPrimary:
-      "bg-[hsl(340_65%_55%)] hover:bg-[hsl(340_65%_48%)] text-white",
-    footerActionLink: "text-[hsl(340_65%_55%)] hover:text-[hsl(340_65%_45%)]",
+      "bg-[hsl(0_42%_60%)] hover:bg-[hsl(0_42%_53%)] text-white",
+    footerActionLink: "text-[hsl(0_42%_60%)] hover:text-[hsl(0_42%_50%)]",
   },
 };
 

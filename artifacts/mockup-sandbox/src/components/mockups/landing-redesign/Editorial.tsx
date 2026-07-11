@@ -13,13 +13,20 @@ export function Editorial() {
             <div className="w-8 h-8 bg-[#1a1a18] rounded-lg flex items-center justify-center">
               <span className="text-[#fafaf8] text-sm">✦</span>
             </div>
-            <span style={{ fontFamily: "'Cormorant Garamond', serif" }} className="text-xl font-semibold tracking-wide">
+            <span
+              style={{ fontFamily: "'Cormorant Garamond', serif" }}
+              className="text-xl font-semibold tracking-wide"
+            >
               Pregnancy Assistant
             </span>
           </div>
           <nav className="hidden md:flex items-center gap-8 text-sm text-[#6b6b62]">
-            <a href="#" className="hover:text-[#1a1a18] transition-colors">Features</a>
-            <a href="#" className="hover:text-[#1a1a18] transition-colors">Pricing</a>
+            <a href="#" className="hover:text-[#1a1a18] transition-colors">
+              Features
+            </a>
+            <a href="#" className="hover:text-[#1a1a18] transition-colors">
+              Pricing
+            </a>
           </nav>
           <div className="flex items-center gap-3">
             <button className="text-sm text-[#6b6b62]">Sign in</button>
@@ -49,8 +56,9 @@ export function Editorial() {
             tracked.
           </h1>
           <p className="text-base text-[#6b6b62] max-w-md leading-relaxed mb-10">
-            Calculate your due date, follow your baby's weekly development, and ask an AI companion
-            anything — free to start, with an optional one-time pass.
+            Calculate your due date, follow your baby's weekly development, and
+            ask an AI companion anything — free to start, with an optional
+            one-time pass.
           </p>
           <div className="flex items-center gap-4">
             <button className="bg-[#b05070] text-white px-7 py-3 text-sm font-medium hover:bg-[#943d5c] transition-colors">
@@ -60,17 +68,26 @@ export function Editorial() {
               See what's included
             </button>
           </div>
-          <p className="text-xs text-[#9b9b8e] mt-4 tracking-wide">No account needed · No subscription</p>
+          <p className="text-xs text-[#9b9b8e] mt-4 tracking-wide">
+            No account needed · No subscription
+          </p>
         </div>
 
         {/* Issue number / sidebar detail */}
         <div className="hidden md:flex flex-col items-end gap-6 pt-2 text-right">
           <div className="text-xs uppercase tracking-[0.2em] text-[#9b9b8e] writing-mode-vertical">
-            <div className="text-5xl font-light text-[#e5e5e0]" style={{ fontFamily: "'Cormorant Garamond', serif" }}>40</div>
+            <div
+              className="text-5xl font-light text-[#e5e5e0]"
+              style={{ fontFamily: "'Cormorant Garamond', serif" }}
+            >
+              40
+            </div>
             <div className="text-xs text-[#9b9b8e] mt-1">weeks</div>
           </div>
           <div className="w-px h-32 bg-[#e5e5e0]" />
-          <div className="text-xs text-[#9b9b8e] uppercase tracking-[0.15em]">of moments</div>
+          <div className="text-xs text-[#9b9b8e] uppercase tracking-[0.15em]">
+            of moments
+          </div>
         </div>
       </section>
 
@@ -78,11 +95,26 @@ export function Editorial() {
       <section className="max-w-6xl mx-auto px-8 py-14">
         <div className="grid md:grid-cols-3 gap-0 border border-[#e5e5e0]">
           {[
-            { num: "01", title: "Precise dates", body: "Track gestational age, key milestones, and your due date down to the day." },
-            { num: "02", title: "Weekly development", body: "See how your baby is growing each week with gentle, illustrated insights." },
-            { num: "03", title: "AI companion", body: "Ask anything about your pregnancy and get caring, clear answers any time." },
+            {
+              num: "01",
+              title: "Precise dates",
+              body: "Track gestational age, key milestones, and your due date down to the day.",
+            },
+            {
+              num: "02",
+              title: "Weekly development",
+              body: "See how your baby is growing each week with gentle, illustrated insights.",
+            },
+            {
+              num: "03",
+              title: "AI companion",
+              body: "Ask anything about your pregnancy and get caring, clear answers any time.",
+            },
           ].map(({ num, title, body }, i) => (
-            <div key={num} className={`p-8 ${i < 2 ? "border-r border-[#e5e5e0]" : ""}`}>
+            <div
+              key={num}
+              className={`p-8 ${i < 2 ? "border-r border-[#e5e5e0]" : ""}`}
+            >
               <div className="text-xs text-[#9b9b8e] mb-5 font-mono">{num}</div>
               <h3
                 style={{ fontFamily: "'Cormorant Garamond', serif" }}
@@ -100,7 +132,9 @@ export function Editorial() {
       <section className="max-w-6xl mx-auto px-8 pb-20 border-t border-[#e5e5e0] pt-14">
         <div className="grid md:grid-cols-[1fr_1fr] gap-10 items-start">
           <div>
-            <div className="text-xs uppercase tracking-[0.2em] text-[#9b9b8e] mb-4">Pricing</div>
+            <div className="text-xs uppercase tracking-[0.2em] text-[#9b9b8e] mb-4">
+              Pricing
+            </div>
             <h2
               style={{ fontFamily: "'Cormorant Garamond', serif" }}
               className="text-4xl font-light leading-tight mb-4"
@@ -112,8 +146,8 @@ export function Editorial() {
               you need it.
             </h2>
             <p className="text-sm text-[#6b6b62] leading-relaxed">
-              Everything you need to follow your pregnancy is free.
-              Upgrade only for unlimited AI support.
+              Everything you need to follow your pregnancy is free. Upgrade only
+              for unlimited AI support.
             </p>
           </div>
 
@@ -121,13 +155,32 @@ export function Editorial() {
             <div className="border border-[#e5e5e0] p-7 bg-white">
               <div className="flex justify-between items-start mb-5">
                 <div>
-                  <h3 style={{ fontFamily: "'Cormorant Garamond', serif" }} className="text-2xl font-semibold">Free</h3>
-                  <p className="text-xs text-[#9b9b8e] mt-0.5">The full calculator, forever free.</p>
+                  <h3
+                    style={{ fontFamily: "'Cormorant Garamond', serif" }}
+                    className="text-2xl font-semibold"
+                  >
+                    Free
+                  </h3>
+                  <p className="text-xs text-[#9b9b8e] mt-0.5">
+                    The full calculator, forever free.
+                  </p>
                 </div>
-                <div style={{ fontFamily: "'Cormorant Garamond', serif" }} className="text-3xl font-light">$0</div>
+                <div
+                  style={{ fontFamily: "'Cormorant Garamond', serif" }}
+                  className="text-3xl font-light"
+                >
+                  $0
+                </div>
               </div>
-              {["All four calculation methods", "Weekly fetal development", "5 AI questions / week"].map(f => (
-                <div key={f} className="flex items-center gap-2 mb-2 text-sm text-[#6b6b62]">
+              {[
+                "All four calculation methods",
+                "Weekly fetal development",
+                "5 AI questions / week",
+              ].map((f) => (
+                <div
+                  key={f}
+                  className="flex items-center gap-2 mb-2 text-sm text-[#6b6b62]"
+                >
                   <span className="text-[#b05070] text-xs">—</span> {f}
                 </div>
               ))}
@@ -142,13 +195,32 @@ export function Editorial() {
               </div>
               <div className="flex justify-between items-start mb-5">
                 <div>
-                  <h3 style={{ fontFamily: "'Cormorant Garamond', serif" }} className="text-2xl font-semibold">Full Pregnancy Pass</h3>
-                  <p className="text-xs text-white/50 mt-0.5">Unlimited AI, all pregnancy long.</p>
+                  <h3
+                    style={{ fontFamily: "'Cormorant Garamond', serif" }}
+                    className="text-2xl font-semibold"
+                  >
+                    Full Pregnancy Pass
+                  </h3>
+                  <p className="text-xs text-white/50 mt-0.5">
+                    Unlimited AI, all pregnancy long.
+                  </p>
                 </div>
-                <div style={{ fontFamily: "'Cormorant Garamond', serif" }} className="text-3xl font-light">$14.99</div>
+                <div
+                  style={{ fontFamily: "'Cormorant Garamond', serif" }}
+                  className="text-3xl font-light"
+                >
+                  $14.99
+                </div>
               </div>
-              {["Everything in free", "Unlimited AI questions", "One-time — no subscription"].map(f => (
-                <div key={f} className="flex items-center gap-2 mb-2 text-sm text-white/80">
+              {[
+                "Everything in free",
+                "Unlimited AI questions",
+                "One-time — no subscription",
+              ].map((f) => (
+                <div
+                  key={f}
+                  className="flex items-center gap-2 mb-2 text-sm text-white/80"
+                >
                   <span className="text-[#e89ab0] text-xs">—</span> {f}
                 </div>
               ))}

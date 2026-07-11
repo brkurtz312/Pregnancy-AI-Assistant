@@ -13,7 +13,10 @@ export function Bold() {
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#f06292] to-[#ce3f6f] flex items-center justify-center">
               <span className="text-white text-sm font-bold">P</span>
             </div>
-            <span style={{ fontFamily: "'Playfair Display', serif" }} className="text-base font-semibold">
+            <span
+              style={{ fontFamily: "'Playfair Display', serif" }}
+              className="text-base font-semibold"
+            >
               Pregnancy Assistant
             </span>
           </div>
@@ -55,8 +58,8 @@ export function Bold() {
           </h1>
 
           <p className="text-lg text-white/55 max-w-xl mx-auto mb-10 leading-relaxed font-light">
-            Calculate your due date, follow your baby's growth week by week,
-            and ask an AI companion anything — free to start.
+            Calculate your due date, follow your baby's growth week by week, and
+            ask an AI companion anything — free to start.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -67,7 +70,9 @@ export function Bold() {
               See what's included
             </button>
           </div>
-          <p className="text-xs text-white/30 mt-5 tracking-wide">No subscription required · One-time optional upgrade</p>
+          <p className="text-xs text-white/30 mt-5 tracking-wide">
+            No subscription required · One-time optional upgrade
+          </p>
         </div>
       </section>
 
@@ -75,9 +80,30 @@ export function Bold() {
       <section className="max-w-6xl mx-auto px-6 py-14">
         <div className="grid md:grid-cols-3 gap-4">
           {[
-            { icon: "🗓️", gradient: "from-[#f06292]/20 to-[#f48fb1]/5", border: "border-[#f06292]/20", title: "Precise dates", body: "Track gestational age, milestones, and your due date down to the day.", tag: "Calculator" },
-            { icon: "🌱", gradient: "from-[#66bb6a]/15 to-[#a5d6a7]/5", border: "border-[#66bb6a]/20", title: "Weekly development", body: "Illustrated, week-by-week view of how your baby is growing.", tag: "Development" },
-            { icon: "✦", gradient: "from-[#ce93d8]/20 to-[#f3e5f5]/5", border: "border-[#ce93d8]/20", title: "AI companion", body: "Get caring, personalised answers to your pregnancy questions anytime.", tag: "AI" },
+            {
+              icon: "🗓️",
+              gradient: "from-[#f06292]/20 to-[#f48fb1]/5",
+              border: "border-[#f06292]/20",
+              title: "Precise dates",
+              body: "Track gestational age, milestones, and your due date down to the day.",
+              tag: "Calculator",
+            },
+            {
+              icon: "🌱",
+              gradient: "from-[#66bb6a]/15 to-[#a5d6a7]/5",
+              border: "border-[#66bb6a]/20",
+              title: "Weekly development",
+              body: "Illustrated, week-by-week view of how your baby is growing.",
+              tag: "Development",
+            },
+            {
+              icon: "✦",
+              gradient: "from-[#ce93d8]/20 to-[#f3e5f5]/5",
+              border: "border-[#ce93d8]/20",
+              title: "AI companion",
+              body: "Get caring, personalised answers to your pregnancy questions anytime.",
+              tag: "AI",
+            },
           ].map(({ icon, gradient, border, title, body, tag }) => (
             <div
               key={title}
@@ -85,9 +111,14 @@ export function Bold() {
             >
               <div className="flex justify-between items-start mb-5">
                 <span className="text-2xl">{icon}</span>
-                <span className="text-xs text-white/30 bg-white/5 px-2.5 py-1 rounded-full border border-white/10">{tag}</span>
+                <span className="text-xs text-white/30 bg-white/5 px-2.5 py-1 rounded-full border border-white/10">
+                  {tag}
+                </span>
               </div>
-              <h3 style={{ fontFamily: "'Playfair Display', serif" }} className="text-lg font-semibold mb-2">
+              <h3
+                style={{ fontFamily: "'Playfair Display', serif" }}
+                className="text-lg font-semibold mb-2"
+              >
                 {title}
               </h3>
               <p className="text-sm text-white/50 leading-relaxed">{body}</p>
@@ -103,7 +134,10 @@ export function Bold() {
             { num: "$0", label: "to get started" },
           ].map(({ num, label }) => (
             <div key={label}>
-              <div style={{ fontFamily: "'Playfair Display', serif" }} className="text-3xl font-bold bg-gradient-to-br from-white to-white/60 bg-clip-text text-transparent">
+              <div
+                style={{ fontFamily: "'Playfair Display', serif" }}
+                className="text-3xl font-bold bg-gradient-to-br from-white to-white/60 bg-clip-text text-transparent"
+              >
                 {num}
               </div>
               <div className="text-xs text-white/40 mt-1">{label}</div>
@@ -115,7 +149,10 @@ export function Bold() {
       {/* Pricing */}
       <section className="max-w-5xl mx-auto px-6 pb-20">
         <div className="text-center mb-10">
-          <h2 style={{ fontFamily: "'Playfair Display', serif" }} className="text-3xl md:text-4xl font-bold mb-3">
+          <h2
+            style={{ fontFamily: "'Playfair Display', serif" }}
+            className="text-3xl md:text-4xl font-bold mb-3"
+          >
             Free to start,{" "}
             <span className="bg-gradient-to-r from-[#f06292] to-[#ce93d8] bg-clip-text text-transparent">
               more when you need it
@@ -129,10 +166,27 @@ export function Bold() {
         <div className="grid md:grid-cols-2 gap-5">
           <div className="bg-white/4 border border-white/10 rounded-2xl p-8">
             <div className="text-3xl mb-4">🤍</div>
-            <h3 style={{ fontFamily: "'Playfair Display', serif" }} className="text-2xl font-semibold mb-1">Free</h3>
-            <p className="text-white/40 text-sm mb-4">The full calculator, forever free.</p>
-            <div style={{ fontFamily: "'Playfair Display', serif" }} className="text-4xl font-bold mb-6">$0</div>
-            {["All four calculation methods", "Weekly fetal development", "5 AI questions per week", "Milestones & countdowns"].map(f => (
+            <h3
+              style={{ fontFamily: "'Playfair Display', serif" }}
+              className="text-2xl font-semibold mb-1"
+            >
+              Free
+            </h3>
+            <p className="text-white/40 text-sm mb-4">
+              The full calculator, forever free.
+            </p>
+            <div
+              style={{ fontFamily: "'Playfair Display', serif" }}
+              className="text-4xl font-bold mb-6"
+            >
+              $0
+            </div>
+            {[
+              "All four calculation methods",
+              "Weekly fetal development",
+              "5 AI questions per week",
+              "Milestones & countdowns",
+            ].map((f) => (
               <div key={f} className="flex items-center gap-2.5 mb-2.5">
                 <span className="text-[#f06292] text-sm">✓</span>
                 <span className="text-sm text-white/60">{f}</span>
@@ -148,10 +202,27 @@ export function Bold() {
               👑 Best for the whole journey
             </div>
             <div className="text-3xl mb-4">✨</div>
-            <h3 style={{ fontFamily: "'Playfair Display', serif" }} className="text-2xl font-semibold mb-1">Full Pregnancy Pass</h3>
-            <p className="text-white/40 text-sm mb-4">Unlimited AI support, all pregnancy long.</p>
-            <div style={{ fontFamily: "'Playfair Display', serif" }} className="text-4xl font-bold bg-gradient-to-r from-[#f06292] to-[#f48fb1] bg-clip-text text-transparent mb-6">$14.99</div>
-            {["Everything in free", "Unlimited AI questions", "All devices, one account", "One-time — no subscription"].map(f => (
+            <h3
+              style={{ fontFamily: "'Playfair Display', serif" }}
+              className="text-2xl font-semibold mb-1"
+            >
+              Full Pregnancy Pass
+            </h3>
+            <p className="text-white/40 text-sm mb-4">
+              Unlimited AI support, all pregnancy long.
+            </p>
+            <div
+              style={{ fontFamily: "'Playfair Display', serif" }}
+              className="text-4xl font-bold bg-gradient-to-r from-[#f06292] to-[#f48fb1] bg-clip-text text-transparent mb-6"
+            >
+              $14.99
+            </div>
+            {[
+              "Everything in free",
+              "Unlimited AI questions",
+              "All devices, one account",
+              "One-time — no subscription",
+            ].map((f) => (
               <div key={f} className="flex items-center gap-2.5 mb-2.5">
                 <span className="text-[#f9a8c4] text-sm">✓</span>
                 <span className="text-sm text-white/70">{f}</span>

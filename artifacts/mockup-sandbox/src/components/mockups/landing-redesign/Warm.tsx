@@ -13,7 +13,10 @@ export function Warm() {
             <div className="w-9 h-9 rounded-2xl bg-[#c96b6b] flex items-center justify-center">
               <span className="text-white text-lg">🌸</span>
             </div>
-            <span style={{ fontFamily: "'Playfair Display', serif" }} className="text-lg font-bold">
+            <span
+              style={{ fontFamily: "'Playfair Display', serif" }}
+              className="text-lg font-bold"
+            >
               Pregnancy Assistant
             </span>
           </div>
@@ -55,8 +58,8 @@ export function Warm() {
           </h1>
 
           <p className="text-lg text-[#8a6055] max-w-xl mx-auto mb-10 leading-relaxed">
-            Calculate your due date, follow your baby's growth week by week,
-            and ask an AI companion anything — free to start.
+            Calculate your due date, follow your baby's growth week by week, and
+            ask an AI companion anything — free to start.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -67,7 +70,9 @@ export function Warm() {
               See what's included
             </button>
           </div>
-          <p className="text-sm text-[#b49080] mt-5">No subscription · One-time optional pass</p>
+          <p className="text-sm text-[#b49080] mt-5">
+            No subscription · One-time optional pass
+          </p>
         </div>
       </section>
 
@@ -75,10 +80,25 @@ export function Warm() {
       <section className="max-w-6xl mx-auto px-6 py-14">
         <div className="grid md:grid-cols-3 gap-5">
           {[
-            { emoji: "🗓️", color: "#fce8e0", accent: "#c96b6b", title: "Precise dates", body: "Track gestational age, key milestones, and your due date down to the day." },
-            { emoji: "🌿", color: "#e8f4ed", accent: "#5a9e7a", title: "Weekly development", body: "See how your baby is growing each week with gentle, illustrated insights." },
-            { emoji: "💬", color: "#e8edf8", accent: "#6b7ec9", title: "AI companion", body: "Ask anything about your pregnancy and get caring, clear answers any time." },
-          ].map(({ emoji, color, accent, title, body }) => (
+            {
+              emoji: "🗓️",
+              color: "#fce8e0",
+              title: "Precise dates",
+              body: "Track gestational age, key milestones, and your due date down to the day.",
+            },
+            {
+              emoji: "🌿",
+              color: "#e8f4ed",
+              title: "Weekly development",
+              body: "See how your baby is growing each week with gentle, illustrated insights.",
+            },
+            {
+              emoji: "💬",
+              color: "#e8edf8",
+              title: "AI companion",
+              body: "Ask anything about your pregnancy and get caring, clear answers any time.",
+            },
+          ].map(({ emoji, color, title, body }) => (
             <div
               key={title}
               className="rounded-3xl p-7 border border-white/80 shadow-sm hover:shadow-md transition-shadow"
@@ -87,7 +107,13 @@ export function Warm() {
               <div className="w-12 h-12 rounded-2xl bg-white/70 flex items-center justify-center text-2xl mb-5 shadow-sm">
                 {emoji}
               </div>
-              <h3 style={{ fontFamily: "'Playfair Display', serif" }} className="text-xl font-semibold mb-2" style={{ color: "#2d1f1a" }}>
+              <h3
+                style={{
+                  fontFamily: "'Playfair Display', serif",
+                  color: "#2d1f1a",
+                }}
+                className="text-xl font-semibold mb-2"
+              >
                 {title}
               </h3>
               <p className="text-[#6b5050] leading-relaxed text-sm">{body}</p>
@@ -99,7 +125,10 @@ export function Warm() {
       {/* Pricing */}
       <section className="max-w-5xl mx-auto px-6 pb-20">
         <div className="text-center mb-10">
-          <h2 style={{ fontFamily: "'Playfair Display', serif" }} className="text-3xl md:text-4xl font-bold mb-3">
+          <h2
+            style={{ fontFamily: "'Playfair Display', serif" }}
+            className="text-3xl md:text-4xl font-bold mb-3"
+          >
             Free to start, more when you need it
           </h2>
           <p className="text-[#8a6055] max-w-lg mx-auto">
@@ -110,10 +139,27 @@ export function Warm() {
         <div className="grid md:grid-cols-2 gap-6">
           <div className="bg-white rounded-3xl p-8 border border-[#e8d5c8] shadow-sm">
             <div className="text-3xl mb-4">🤍</div>
-            <h3 style={{ fontFamily: "'Playfair Display', serif" }} className="text-2xl font-semibold mb-1">Free</h3>
-            <p className="text-[#8a6055] mb-4 text-sm">The full calculator, forever free.</p>
-            <div className="text-4xl font-bold mb-6" style={{ fontFamily: "'Playfair Display', serif" }}>$0</div>
-            {["All four calculation methods", "Weekly fetal development", "5 AI questions per week", "Milestones & countdowns"].map(f => (
+            <h3
+              style={{ fontFamily: "'Playfair Display', serif" }}
+              className="text-2xl font-semibold mb-1"
+            >
+              Free
+            </h3>
+            <p className="text-[#8a6055] mb-4 text-sm">
+              The full calculator, forever free.
+            </p>
+            <div
+              className="text-4xl font-bold mb-6"
+              style={{ fontFamily: "'Playfair Display', serif" }}
+            >
+              $0
+            </div>
+            {[
+              "All four calculation methods",
+              "Weekly fetal development",
+              "5 AI questions per week",
+              "Milestones & countdowns",
+            ].map((f) => (
               <div key={f} className="flex items-center gap-2.5 mb-2.5">
                 <span className="text-[#c96b6b]">✓</span>
                 <span className="text-sm text-[#6b5050]">{f}</span>
@@ -129,10 +175,27 @@ export function Warm() {
               👑 Best for the whole journey
             </div>
             <div className="text-3xl mb-4">✨</div>
-            <h3 style={{ fontFamily: "'Playfair Display', serif" }} className="text-2xl font-semibold mb-1">Full Pregnancy Pass</h3>
-            <p className="text-white/75 mb-4 text-sm">Unlimited AI support, all pregnancy long.</p>
-            <div className="text-4xl font-bold mb-6" style={{ fontFamily: "'Playfair Display', serif" }}>$14.99</div>
-            {["Everything in free", "Unlimited AI questions", "All devices, one account", "One-time — no subscription"].map(f => (
+            <h3
+              style={{ fontFamily: "'Playfair Display', serif" }}
+              className="text-2xl font-semibold mb-1"
+            >
+              Full Pregnancy Pass
+            </h3>
+            <p className="text-white/75 mb-4 text-sm">
+              Unlimited AI support, all pregnancy long.
+            </p>
+            <div
+              className="text-4xl font-bold mb-6"
+              style={{ fontFamily: "'Playfair Display', serif" }}
+            >
+              $14.99
+            </div>
+            {[
+              "Everything in free",
+              "Unlimited AI questions",
+              "All devices, one account",
+              "One-time — no subscription",
+            ].map((f) => (
               <div key={f} className="flex items-center gap-2.5 mb-2.5">
                 <span className="text-[#f4c5a8]">✓</span>
                 <span className="text-sm text-white/90">{f}</span>
