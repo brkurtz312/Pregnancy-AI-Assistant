@@ -16,8 +16,15 @@ import {
   UpdatePrenatalVisitBody,
 } from "@workspace/api-zod";
 import { requireAuth, type AuthedRequest } from "../../middlewares/auth";
+import journalRouter from "./journal";
+import hospitalBagRouter from "./hospital-bag";
+import birthPlanRouter from "./birth-plan";
 
 const router: IRouter = Router();
+
+router.use(journalRouter);
+router.use(hospitalBagRouter);
+router.use(birthPlanRouter);
 
 // ─── Symptom Log ────────────────────────────────────────────────────────────
 

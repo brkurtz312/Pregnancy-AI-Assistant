@@ -120,7 +120,7 @@ const DEFAULT_CATEGORIES: {
   },
 ];
 
-function defaultChecklist(): HospitalBagCategory[] {
+export function makeDefaultHospitalBag(): HospitalBagCategory[] {
   return DEFAULT_CATEGORIES.map((cat) => ({
     id: cat.id,
     title: cat.title,
@@ -132,6 +132,10 @@ function defaultChecklist(): HospitalBagCategory[] {
       custom: false,
     })),
   }));
+}
+
+function defaultChecklist(): HospitalBagCategory[] {
+  return makeDefaultHospitalBag();
 }
 
 export function loadHospitalBag(): HospitalBagCategory[] {

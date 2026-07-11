@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,19 +13,61 @@ import {
   type BirthPlanField,
   type BirthPlanValue,
 } from "@/lib/web-birth-plan";
+import {
+  apiLoadBirthPlanAnswers,
+  apiSaveBirthPlanAnswers,
+} from "@/lib/sync-api";
 import { printHtml } from "@/lib/print-html";
+import { useAuth, useUser } from "@clerk/react";
 
 export function BirthPlan() {
+  const { isSignedIn, getToken } = useAuth();
+  const { user } = useUser();
   const [answers, setAnswers] = useState<BirthPlanAnswers>({});
+  // Keyed to userId so migration re-runs if a different account signs in.
+  const migratedForUserRef = useRef<string | null>(null);
+
+  const isAuthed = !!isSignedIn;
+  const userId = user?.id ?? null;
 
   useEffect(() => {
-    setAnswers(loadBirthPlanAnswers());
-  }, []);
+    if (isAuthed && userId) {
+      apiLoadBirthPlanAnswers(getToken)
+        .then((serverAnswers) => {
+          if (migratedForUserRef.current !== userId) {
+            migratedForUserRef.current = userId;
+            if (serverAnswers === null) {
+              const local = loadBirthPlanAnswers();
+              if (Object.keys(local).length > 0) {
+                apiSaveBirthPlanAnswers(local, getToken).catch(() => {});
+                setAnswers(local);
+              } else {
+                setAnswers({});
+              }
+            } else {
+              setAnswers(serverAnswers as BirthPlanAnswers);
+            }
+          } else {
+            setAnswers((serverAnswers as BirthPlanAnswers) ?? {});
+          }
+        })
+        .catch(() => {
+          setAnswers(loadBirthPlanAnswers());
+        });
+    } else {
+      setAnswers(loadBirthPlanAnswers());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthed, userId]);
 
   const setField = (id: string, value: BirthPlanValue) => {
     const updated = { ...answers, [id]: value };
     setAnswers(updated);
-    saveBirthPlanAnswers(updated);
+    if (isAuthed) {
+      apiSaveBirthPlanAnswers(updated, getToken).catch(() => {});
+    } else {
+      saveBirthPlanAnswers(updated);
+    }
   };
 
   const countAnswered = () => {

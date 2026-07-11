@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,24 +6,61 @@ import { Printer, RotateCcw, Plus, Luggage } from "lucide-react";
 import {
   loadHospitalBag,
   saveHospitalBag,
+  makeDefaultHospitalBag,
   countHospitalBagItems,
-  resetHospitalBag,
   buildHospitalBagHtml,
   type HospitalBagCategory,
 } from "@/lib/web-hospital-bag";
+import { apiLoadHospitalBag, apiSaveHospitalBag } from "@/lib/sync-api";
 import { printHtml } from "@/lib/print-html";
+import { useAuth, useUser } from "@clerk/react";
 
 export function HospitalBag() {
+  const { isSignedIn, getToken } = useAuth();
+  const { user } = useUser();
   const [categories, setCategories] = useState<HospitalBagCategory[]>([]);
   const [customInputs, setCustomInputs] = useState<Record<string, string>>({});
+  // Track which userId has already been migrated this session to avoid
+  // re-running migration if auth state changes without a page reload.
+  const migratedForUserRef = useRef<string | null>(null);
+
+  const isAuthed = !!isSignedIn;
+  const userId = user?.id ?? null;
 
   useEffect(() => {
-    setCategories(loadHospitalBag());
-  }, []);
+    if (isAuthed && userId) {
+      apiLoadHospitalBag(getToken)
+        .then((serverCategories) => {
+          if (migratedForUserRef.current !== userId) {
+            migratedForUserRef.current = userId;
+            if (serverCategories === null) {
+              // No server data yet — migrate from localStorage.
+              const local = loadHospitalBag();
+              apiSaveHospitalBag(local, getToken).catch(() => {});
+              setCategories(local);
+            } else {
+              setCategories(serverCategories);
+            }
+          } else {
+            setCategories(serverCategories ?? makeDefaultHospitalBag());
+          }
+        })
+        .catch(() => {
+          setCategories(loadHospitalBag());
+        });
+    } else {
+      setCategories(loadHospitalBag());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthed, userId]);
 
   const persist = (updated: HospitalBagCategory[]) => {
     setCategories(updated);
-    saveHospitalBag(updated);
+    if (isAuthed) {
+      apiSaveHospitalBag(updated, getToken).catch(() => {});
+    } else {
+      saveHospitalBag(updated);
+    }
   };
 
   const toggleItem = (catId: string, itemId: string) => {
@@ -76,7 +113,9 @@ export function HospitalBag() {
         "Reset the checklist? Your checked items and custom additions will be cleared.",
       )
     ) {
-      setCategories(resetHospitalBag());
+      // Always produce a clean default (no localStorage/server state).
+      const fresh = makeDefaultHospitalBag();
+      persist(fresh);
     }
   };
 

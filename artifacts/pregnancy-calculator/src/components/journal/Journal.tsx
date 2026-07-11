@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,15 +13,20 @@ import {
 } from "lucide-react";
 import {
   loadJournalEntries,
-  upsertJournalEntry,
-  deleteJournalEntry,
+  saveJournalEntries,
   getJournalAgeLabel,
   buildJournalHtml,
   MOOD_OPTIONS,
   type JournalEntry,
   type JournalMood,
 } from "@/lib/web-journal";
+import {
+  apiLoadJournalEntries,
+  apiUpsertJournalEntry,
+  apiDeleteJournalEntry,
+} from "@/lib/sync-api";
 import { printHtml } from "@/lib/print-html";
+import { useAuth, useUser } from "@clerk/react";
 
 type View = "list" | "new" | "edit";
 
@@ -88,14 +93,60 @@ function formatShortDate(iso: string): string {
 }
 
 export function Journal() {
+  const { isSignedIn, getToken } = useAuth();
+  const { user } = useUser();
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [view, setView] = useState<View>("list");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftState>(emptyDraft());
+  // Keyed to userId so migration re-runs if a different account signs in.
+  const migratedForUserRef = useRef<string | null>(null);
+
+  const isAuthed = !!isSignedIn;
+  const userId = user?.id ?? null;
 
   useEffect(() => {
-    setEntries(loadJournalEntries());
-  }, []);
+    if (isAuthed && userId) {
+      apiLoadJournalEntries(getToken)
+        .then((serverEntries) => {
+          if (migratedForUserRef.current !== userId) {
+            migratedForUserRef.current = userId;
+            const localEntries = loadJournalEntries();
+            if (serverEntries.length === 0 && localEntries.length > 0) {
+              Promise.all(
+                localEntries.map((e) => apiUpsertJournalEntry(e, getToken)),
+              )
+                .then(() => apiLoadJournalEntries(getToken))
+                .then((migrated) => {
+                  setEntries(migrated);
+                  saveJournalEntries([]);
+                })
+                .catch(() => setEntries(localEntries));
+            } else {
+              setEntries(serverEntries);
+            }
+          } else {
+            setEntries(serverEntries);
+          }
+        })
+        .catch(() => {
+          setEntries(loadJournalEntries());
+        });
+    } else {
+      setEntries(loadJournalEntries());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthed, userId]);
+
+  const refreshEntries = () => {
+    if (isAuthed) {
+      apiLoadJournalEntries(getToken)
+        .then(setEntries)
+        .catch(() => setEntries(loadJournalEntries()));
+    } else {
+      setEntries(loadJournalEntries());
+    }
+  };
 
   const openNew = () => {
     setDraft(emptyDraft());
@@ -109,21 +160,48 @@ export function Journal() {
     setView("edit");
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!draft.text.trim() && !draft.mood) return;
     const entry = entryFromDraft(draft, editingId ?? undefined);
     if (editingId) {
       const existing = entries.find((e) => e.id === editingId);
       if (existing) entry.createdAt = existing.createdAt;
     }
-    upsertJournalEntry(entry);
-    setEntries(loadJournalEntries());
+
+    if (isAuthed) {
+      try {
+        await apiUpsertJournalEntry(entry, getToken);
+        refreshEntries();
+      } catch {
+        refreshEntries();
+      }
+    } else {
+      const all = loadJournalEntries();
+      const idx = all.findIndex((e) => e.id === entry.id);
+      if (idx >= 0) {
+        all[idx] = entry;
+      } else {
+        all.unshift(entry);
+      }
+      saveJournalEntries(all);
+      setEntries(loadJournalEntries());
+    }
     setView("list");
   };
 
-  const handleDelete = (id: string) => {
-    deleteJournalEntry(id);
-    setEntries(loadJournalEntries());
+  const handleDelete = async (id: string) => {
+    if (isAuthed) {
+      try {
+        await apiDeleteJournalEntry(id, getToken);
+      } catch {
+        // best effort
+      }
+      refreshEntries();
+    } else {
+      const updated = loadJournalEntries().filter((e) => e.id !== id);
+      saveJournalEntries(updated);
+      setEntries(updated);
+    }
     if (editingId === id) setView("list");
   };
 

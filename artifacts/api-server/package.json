@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "zod": "catalog:",
     "@clerk/express": "^2.1.22",
     "@clerk/shared": "^4.14.0",
     "@replit/revenuecat-sdk": "^4.2.0",
