@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const HOSPITAL_BAG_STORAGE_KEY = "@hospital_bag_checklist_v1";
+export const HOSPITAL_BAG_OWNER_KEY = "@hospital_bag_cache_owner_v1";
 
 export interface HospitalBagItem {
   id: string;
@@ -182,6 +183,33 @@ export async function saveHospitalBagChecklist(
     HOSPITAL_BAG_STORAGE_KEY,
     JSON.stringify(categories),
   );
+}
+
+export async function getHospitalBagCacheOwner(): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(HOSPITAL_BAG_OWNER_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export async function setHospitalBagCacheOwner(userId: string): Promise<void> {
+  try {
+    await AsyncStorage.setItem(HOSPITAL_BAG_OWNER_KEY, userId);
+  } catch {
+    /* best-effort */
+  }
+}
+
+export async function clearHospitalBagCache(): Promise<void> {
+  try {
+    await AsyncStorage.multiRemove([
+      HOSPITAL_BAG_STORAGE_KEY,
+      HOSPITAL_BAG_OWNER_KEY,
+    ]);
+  } catch {
+    /* best-effort */
+  }
 }
 
 export function countChecked(categories: HospitalBagCategory[]): {

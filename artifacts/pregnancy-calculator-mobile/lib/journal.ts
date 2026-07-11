@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system/legacy";
 
 export const JOURNAL_KEY = "@journal_entries_v1";
+export const JOURNAL_OWNER_KEY = "@journal_cache_owner_v1";
 export const JOURNAL_MEDIA_DIR =
   (FileSystem.documentDirectory ?? "") + "journal-media/";
 
@@ -72,6 +73,43 @@ async function persistEntries(entries: JournalEntry[]): Promise<void> {
  */
 export async function cacheEntries(entries: JournalEntry[]): Promise<void> {
   await persistEntries(entries);
+}
+
+/**
+ * Returns the userId that last wrote to the local journal cache, or null if
+ * the cache was written while the user was anonymous.
+ */
+export async function getJournalCacheOwner(): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(JOURNAL_OWNER_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Records `userId` as the owner of the current local journal cache.
+ * Call this whenever we write authoritative (server-sourced) data for a
+ * signed-in user.
+ */
+export async function setJournalCacheOwner(userId: string): Promise<void> {
+  try {
+    await AsyncStorage.setItem(JOURNAL_OWNER_KEY, userId);
+  } catch {
+    /* best-effort */
+  }
+}
+
+/**
+ * Wipes the local journal entry cache and its owner record.
+ * Call this when a different user signs in so their session starts clean.
+ */
+export async function clearJournalCache(): Promise<void> {
+  try {
+    await AsyncStorage.multiRemove([JOURNAL_KEY, JOURNAL_OWNER_KEY]);
+  } catch {
+    /* best-effort */
+  }
 }
 
 export async function upsertEntry(entry: JournalEntry): Promise<void> {

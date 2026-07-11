@@ -27,9 +27,12 @@ import { useColors } from "@/hooks/useColors";
 import { AskCard } from "@/components/AskCard";
 import {
   buildHospitalBagHtml,
+  clearHospitalBagCache,
   countChecked,
+  getHospitalBagCacheOwner,
   loadHospitalBagChecklist,
   saveHospitalBagChecklist,
+  setHospitalBagCacheOwner,
   type HospitalBagCategory,
 } from "@/lib/hospital-bag";
 import { apiLoadHospitalBag, apiSaveHospitalBag } from "@/lib/sync-api";
@@ -52,22 +55,33 @@ export default function HospitalBagScreen() {
   useEffect(() => {
     const userId = user?.id ?? null;
     if (isSignedIn && userId) {
-      apiLoadHospitalBag(getToken)
-        .then((serverCategories) => {
+      // Pre-flight: clear stale cross-user cache before any load. Running
+      // this before the API call ensures isolation even when the network is
+      // unavailable and the catch path falls back to local data.
+      // owner=null means anonymous cache (valid first-sign-in migration).
+      getHospitalBagCacheOwner()
+        .then(async (cacheOwner) => {
+          if (cacheOwner !== null && cacheOwner !== userId) {
+            await clearHospitalBagCache();
+          }
+        })
+        .then(() => apiLoadHospitalBag(getToken))
+        .then(async (serverCategories) => {
           if (migratedForUserRef.current !== userId) {
             migratedForUserRef.current = userId;
             if (serverCategories === null) {
-              loadHospitalBagChecklist().then((local) => {
-                apiSaveHospitalBag(local, getToken).catch(() => {});
-                setCategories(local);
-              });
+              const local = await loadHospitalBagChecklist();
+              apiSaveHospitalBag(local, getToken).catch(() => {});
+              await setHospitalBagCacheOwner(userId);
+              setCategories(local);
             } else {
+              await setHospitalBagCacheOwner(userId);
               setCategories(serverCategories);
             }
           } else {
-            loadHospitalBagChecklist().then((defaultLocal) => {
-              setCategories(serverCategories ?? defaultLocal);
-            });
+            const defaultLocal = await loadHospitalBagChecklist();
+            await setHospitalBagCacheOwner(userId);
+            setCategories(serverCategories ?? defaultLocal);
           }
         })
         .catch(() => {

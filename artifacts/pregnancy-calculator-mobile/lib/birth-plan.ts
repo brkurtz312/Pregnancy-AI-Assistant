@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const BIRTH_PLAN_STORAGE_KEY = "@birth_plan_answers_v1";
 export const BIRTH_PLAN_GENERATED_KEY = "@birth_plan_generated_at_v1";
+export const BIRTH_PLAN_OWNER_KEY = "@birth_plan_cache_owner_v1";
 
 export type BirthPlanFieldType =
   | "text"
@@ -295,6 +296,33 @@ export async function saveBirthPlanAnswers(
   answers: BirthPlanAnswers,
 ): Promise<void> {
   await AsyncStorage.setItem(BIRTH_PLAN_STORAGE_KEY, JSON.stringify(answers));
+}
+
+export async function getBirthPlanCacheOwner(): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(BIRTH_PLAN_OWNER_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export async function setBirthPlanCacheOwner(userId: string): Promise<void> {
+  try {
+    await AsyncStorage.setItem(BIRTH_PLAN_OWNER_KEY, userId);
+  } catch {
+    /* best-effort */
+  }
+}
+
+export async function clearBirthPlanCache(): Promise<void> {
+  try {
+    await AsyncStorage.multiRemove([
+      BIRTH_PLAN_STORAGE_KEY,
+      BIRTH_PLAN_OWNER_KEY,
+    ]);
+  } catch {
+    /* best-effort */
+  }
 }
 
 export async function markBirthPlanGenerated(): Promise<void> {

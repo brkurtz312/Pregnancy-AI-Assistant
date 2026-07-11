@@ -138,6 +138,9 @@ jest.mock("@/lib/journal", () => ({
   cacheEntries: jest.fn(async () => {}),
   getAgeLabel: jest.fn(() => ""),
   MOOD_OPTIONS: [],
+  getJournalCacheOwner: jest.fn(async () => null),
+  setJournalCacheOwner: jest.fn(async () => {}),
+  clearJournalCache: jest.fn(async () => {}),
 }));
 
 jest.mock("@/lib/sync-api", () => ({
@@ -159,20 +162,32 @@ import {
   apiLoadBirthPlanAnswers,
   apiSaveBirthPlanAnswers,
 } from "@/lib/sync-api";
-import { loadEntries, cacheEntries } from "@/lib/journal";
+import {
+  loadEntries,
+  cacheEntries,
+  getJournalCacheOwner,
+  clearJournalCache,
+} from "@/lib/journal";
 
 const mockApiLoadJournal = apiLoadJournalEntries as jest.Mock;
 const mockLoadEntries = loadEntries as jest.Mock;
 const mockCacheEntries = cacheEntries as jest.Mock;
+const mockGetJournalCacheOwner = getJournalCacheOwner as jest.Mock;
+const mockClearJournalCache = clearJournalCache as jest.Mock;
 
 describe("Journal — sync API fallback", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     setSignedIn();
     mockCacheEntries.mockResolvedValue(undefined);
+    mockGetJournalCacheOwner.mockResolvedValue(null);
+    mockClearJournalCache.mockResolvedValue(undefined);
   });
 
   it("loads entries from AsyncStorage when the API call fails", async () => {
+    // Generous timeout: the first require() in this describe block triggers
+    // React Compiler + Jest module transform, which takes ~4-5 s in CI.
+    jest.setTimeout(15000);
     mockApiLoadJournal.mockRejectedValue(new Error("network error"));
     mockLoadEntries.mockResolvedValue([LOCAL_ENTRY]);
 
@@ -227,6 +242,31 @@ describe("Journal — sync API fallback", () => {
     const json = JSON.stringify(renderer!.toJSON());
     expect(json).toContain("A local journal entry");
   });
+
+  it("clears stale local entries when a different user signs in", async () => {
+    // Owner stamped from a previous session as "user-A"; now "user-B" signs in.
+    mockGetJournalCacheOwner.mockResolvedValue("user-A");
+    setSignedIn("user-B");
+    // Server has no entries for user-B yet (fresh account).
+    mockApiLoadJournal.mockResolvedValue([]);
+    // After clearJournalCache the local store is empty (models storage state).
+    mockLoadEntries.mockResolvedValue([]);
+
+    const JournalScreen = require("../app/journal").default;
+    let renderer: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(JournalScreen));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // The stale cache should have been cleared.
+    expect(mockClearJournalCache).toHaveBeenCalled();
+    // User B should see an empty journal, not user A's entries.
+    const json = JSON.stringify(renderer!.toJSON());
+    expect(json).not.toContain("A local journal entry");
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -247,11 +287,16 @@ jest.mock("@/lib/hospital-bag", () => ({
   saveHospitalBagChecklist: jest.fn(async () => {}),
   countChecked: jest.fn(() => ({ checked: 1, total: 1 })),
   buildHospitalBagHtml: jest.fn(() => "<html/>"),
+  getHospitalBagCacheOwner: jest.fn(async () => null),
+  setHospitalBagCacheOwner: jest.fn(async () => {}),
+  clearHospitalBagCache: jest.fn(async () => {}),
 }));
 
 import {
   loadHospitalBagChecklist,
   saveHospitalBagChecklist,
+  getHospitalBagCacheOwner,
+  clearHospitalBagCache,
 } from "@/lib/hospital-bag";
 import {
   apiLoadHospitalBag as _apiLoadHospitalBag,
@@ -262,12 +307,16 @@ const mockApiLoadHospitalBag = apiLoadHospitalBag as jest.Mock;
 const mockApiSaveHospitalBag = apiSaveHospitalBag as jest.Mock;
 const mockLoadHospitalBag = loadHospitalBagChecklist as jest.Mock;
 const mockSaveHospitalBag = saveHospitalBagChecklist as jest.Mock;
+const mockGetHospitalBagCacheOwner = getHospitalBagCacheOwner as jest.Mock;
+const mockClearHospitalBagCache = clearHospitalBagCache as jest.Mock;
 
 describe("Hospital Bag — sync API fallback", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     setSignedIn();
     mockSaveHospitalBag.mockResolvedValue(undefined);
+    mockGetHospitalBagCacheOwner.mockResolvedValue(null);
+    mockClearHospitalBagCache.mockResolvedValue(undefined);
   });
 
   it("loads from AsyncStorage when the API call fails on load", async () => {
@@ -424,9 +473,17 @@ jest.mock("@/lib/birth-plan", () => ({
       ],
     },
   ],
+  getBirthPlanCacheOwner: jest.fn(async () => null),
+  setBirthPlanCacheOwner: jest.fn(async () => {}),
+  clearBirthPlanCache: jest.fn(async () => {}),
 }));
 
-import { loadBirthPlanAnswers, saveBirthPlanAnswers } from "@/lib/birth-plan";
+import {
+  loadBirthPlanAnswers,
+  saveBirthPlanAnswers,
+  getBirthPlanCacheOwner,
+  clearBirthPlanCache,
+} from "@/lib/birth-plan";
 import {
   apiLoadBirthPlanAnswers as _apiLoadBirthPlanAnswers,
   apiSaveBirthPlanAnswers as _apiSaveBirthPlanAnswers,
@@ -436,12 +493,16 @@ const mockApiLoadBirthPlan = apiLoadBirthPlanAnswers as jest.Mock;
 const mockApiSaveBirthPlan = apiSaveBirthPlanAnswers as jest.Mock;
 const mockLoadBirthPlan = loadBirthPlanAnswers as jest.Mock;
 const mockSaveBirthPlan = saveBirthPlanAnswers as jest.Mock;
+const mockGetBirthPlanCacheOwner = getBirthPlanCacheOwner as jest.Mock;
+const mockClearBirthPlanCache = clearBirthPlanCache as jest.Mock;
 
 describe("Birth Plan — sync API fallback", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     setSignedIn();
     mockSaveBirthPlan.mockResolvedValue(undefined);
+    mockGetBirthPlanCacheOwner.mockResolvedValue(null);
+    mockClearBirthPlanCache.mockResolvedValue(undefined);
   });
 
   it("loads answers from AsyncStorage when the API call fails on load", async () => {

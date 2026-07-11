@@ -30,8 +30,11 @@ import { useColors } from "@/hooks/useColors";
 import {
   BIRTH_PLAN_SECTIONS,
   buildBirthPlanHtml,
+  clearBirthPlanCache,
+  getBirthPlanCacheOwner,
   loadBirthPlanAnswers,
   saveBirthPlanAnswers,
+  setBirthPlanCacheOwner,
   markBirthPlanGenerated,
   type BirthPlanAnswers,
   type BirthPlanField,
@@ -262,22 +265,34 @@ export default function BirthPlanScreen() {
   useEffect(() => {
     const userId = user?.id ?? null;
     if (isSignedIn && userId) {
-      apiLoadBirthPlanAnswers(getToken)
-        .then((serverAnswers) => {
+      // Pre-flight: clear stale cross-user cache before any load. Running
+      // this before the API call ensures isolation even when the network is
+      // unavailable and the catch path falls back to local data.
+      // owner=null means anonymous cache (valid first-sign-in migration).
+      getBirthPlanCacheOwner()
+        .then(async (cacheOwner) => {
+          if (cacheOwner !== null && cacheOwner !== userId) {
+            await clearBirthPlanCache();
+          }
+        })
+        .then(() => apiLoadBirthPlanAnswers(getToken))
+        .then(async (serverAnswers) => {
           if (migratedForUserRef.current !== userId) {
             migratedForUserRef.current = userId;
             if (serverAnswers === null) {
-              loadBirthPlanAnswers().then((local) => {
-                const hasLocal = Object.keys(local).length > 0;
-                if (hasLocal) {
-                  apiSaveBirthPlanAnswers(local, getToken).catch(() => {});
-                }
-                setAnswers(local);
-              });
+              const local = await loadBirthPlanAnswers();
+              const hasLocal = Object.keys(local).length > 0;
+              if (hasLocal) {
+                apiSaveBirthPlanAnswers(local, getToken).catch(() => {});
+              }
+              await setBirthPlanCacheOwner(userId);
+              setAnswers(local);
             } else {
+              await setBirthPlanCacheOwner(userId);
               setAnswers(serverAnswers);
             }
           } else {
+            await setBirthPlanCacheOwner(userId);
             setAnswers(serverAnswers ?? {});
           }
         })

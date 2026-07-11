@@ -86,6 +86,9 @@ jest.mock("@/lib/birth-plan", () => ({
   loadBirthPlanAnswers: jest.fn(async () => ({})),
   saveBirthPlanAnswers: jest.fn(async () => {}),
   markBirthPlanGenerated: jest.fn(async () => {}),
+  getBirthPlanCacheOwner: jest.fn(async () => null),
+  setBirthPlanCacheOwner: jest.fn(async () => {}),
+  clearBirthPlanCache: jest.fn(async () => {}),
 }));
 
 jest.mock("@/lib/sync-api", () => ({

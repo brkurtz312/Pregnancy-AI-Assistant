@@ -18,7 +18,10 @@ import { useAuth, useUser } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
 import {
   cacheEntries,
+  clearJournalCache,
+  getJournalCacheOwner,
   loadEntries,
+  setJournalCacheOwner,
   getAgeLabel,
   MOOD_OPTIONS,
   type JournalEntry,
@@ -260,7 +263,17 @@ export default function JournalScreen() {
     useCallback(() => {
       const userId = user?.id ?? null;
       if (isSignedIn && userId) {
-        apiLoadJournalEntries(getToken)
+        // Pre-flight: clear stale cross-user cache before any load. Running
+        // this before the API call ensures isolation even when the network is
+        // unavailable and the catch path falls back to local data.
+        // owner=null means anonymous cache (valid first-sign-in migration).
+        getJournalCacheOwner()
+          .then(async (cacheOwner) => {
+            if (cacheOwner !== null && cacheOwner !== userId) {
+              await clearJournalCache();
+            }
+          })
+          .then(() => apiLoadJournalEntries(getToken))
           .then(async (serverEntries) => {
             const localEntries = await loadEntries();
             const localById = new Map(localEntries.map((e) => [e.id, e]));
@@ -282,6 +295,7 @@ export default function JournalScreen() {
                 }
                 // Single write: overwrites AsyncStorage with correct server IDs.
                 await cacheEntries(migrated);
+                await setJournalCacheOwner(userId);
                 setEntries(migrated);
                 return;
               }
@@ -322,6 +336,7 @@ export default function JournalScreen() {
             // Single write: overwrites AsyncStorage with the authoritative merged
             // list (correct server UUIDs). No separate replaceEntryId calls needed.
             await cacheEntries(merged);
+            await setJournalCacheOwner(userId);
             setEntries(merged);
           })
           .catch(async () => {
