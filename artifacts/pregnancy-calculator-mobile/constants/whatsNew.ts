@@ -27,6 +27,31 @@ export interface WhatsNewEntry {
  * the build before it reaches the App Store.
  */
 export const WHATS_NEW: Record<string, WhatsNewEntry> = {
+  "1.0.6": {
+    headline: "What's new in this update",
+    items: [
+      {
+        icon: "mic-circle-outline",
+        title: "New: Visit Notes Scribe",
+        body: "Record your prenatal appointment and get a warm, plain-language summary — what was discussed, your next steps, and what to remember. Your recording never leaves your device.",
+      },
+      {
+        icon: "book-outline",
+        title: "New: Pregnancy Journal",
+        body: "Write journal entries throughout your pregnancy, capture your mood, and attach baby bump or ultrasound photos. Your journal lives privately on your device.",
+      },
+      {
+        icon: "document-text-outline",
+        title: "New: Visit Report",
+        body: "Your prep questions, appointment log, and scribe notes now come together in one shareable visit report you can view or save as a PDF.",
+      },
+      {
+        icon: "star-outline",
+        title: "New: Full Pregnancy Pass",
+        body: "Unlock unlimited AI questions, unlimited journal entries and photos, and unlimited scribe sessions with a one-time upgrade.",
+      },
+    ],
+  },
   "1.0.5": {
     headline: "What's new in this update",
     items: [
