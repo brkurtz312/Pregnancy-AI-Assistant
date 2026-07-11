@@ -232,7 +232,7 @@ export default function LandingPage() {
                 Unlimited AI support, all pregnancy long.
               </p>
               <div className="flex items-baseline gap-1.5 pt-2">
-                <span className="text-4xl font-bold font-serif">$19.99</span>
+                <span className="text-4xl font-bold font-serif">$14.99</span>
                 <span className="text-muted-foreground">one-time</span>
               </div>
             </div>

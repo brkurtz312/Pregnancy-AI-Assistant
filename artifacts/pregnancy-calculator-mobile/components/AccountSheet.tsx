@@ -27,7 +27,7 @@ import {
   useSubscription,
 } from "@/lib/revenuecat";
 
-const PASS_PRICE = "$19.99";
+const PASS_PRICE = "$14.99";
 
 function redeemErrorMessage(err: unknown): string {
   if (err instanceof ApiError) {

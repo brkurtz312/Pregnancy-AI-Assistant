@@ -258,7 +258,7 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.upgradeBtnText}>
-                  {pass.isSignedIn ? "Get the Pass — $19.99" : "Sign In"}
+                  {pass.isSignedIn ? "Get the Pass — $14.99" : "Sign In"}
                 </Text>
               )}
             </TouchableOpacity>
