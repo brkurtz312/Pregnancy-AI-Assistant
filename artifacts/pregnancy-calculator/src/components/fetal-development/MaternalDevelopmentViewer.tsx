@@ -392,43 +392,18 @@ export function MaternalDevelopmentViewer() {
           >
             {s.desc}
           </p>
-          <ul
+          <div
             style={{
-              listStyle: "none",
-              padding: 0,
-              margin: "0 0 14px",
               display: "flex",
-              flexDirection: "column",
+              flexWrap: "wrap",
               gap: 8,
+              margin: "0 0 14px",
             }}
           >
             {s.maternal.map((m, i) => (
-              <li
-                key={i}
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 10,
-                  fontSize: "0.83rem",
-                  color: "#b8d4ce",
-                  fontFamily: "Arial, sans-serif",
-                  lineHeight: 1.5,
-                }}
-              >
-                <span
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: "50%",
-                    background: "#4ecdc4",
-                    marginTop: "0.42em",
-                    flexShrink: 0,
-                  }}
-                />
-                {m}
-              </li>
+              <BulletChip key={i} text={m} />
             ))}
-          </ul>
+          </div>
           <div
             style={{
               borderTop: "1px solid rgba(78,205,196,0.12)",
