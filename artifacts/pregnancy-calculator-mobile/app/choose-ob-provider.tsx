@@ -73,37 +73,36 @@ export default function ChooseObProviderScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ from?: string }>();
   const backLabel = params.from || "Prenatal Care";
-  const [sharing, setSharing] = useState(false);
+  const [viewing, setViewing] = useState(false);
 
-  const handleShare = useCallback(async () => {
+  const handleView = useCallback(async () => {
+    if (Platform.OS === "web") {
+      Alert.alert(
+        "Not available on web",
+        "Viewing the PDF is available in the mobile app.",
+      );
+      return;
+    }
     try {
-      setSharing(true);
+      setViewing(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       const html = buildObProviderResourceHtml();
-      if (Platform.OS === "web") {
-        Alert.alert(
-          "Not available on web",
-          "Printing/saving as a PDF is available in the mobile app.",
-        );
-        return;
-      }
       const { uri } = await Print.printToFileAsync({ html });
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(uri, {
-          mimeType: "application/pdf",
-          dialogTitle: "My Choosing an OB Provider Resource Summary",
-        });
-      } else {
-        Alert.alert("Saved", "Your resource summary PDF was created.");
-      }
+      router.push({
+        pathname: "/pdf-viewer",
+        params: {
+          uri,
+          title: "Resource Summary",
+          shareTitle: "My Choosing an OB Provider Resource Summary",
+        },
+      });
     } catch {
       Alert.alert(
-        "Couldn't share",
+        "Couldn't open PDF",
         "Something went wrong preparing your PDF. Please try again.",
       );
     } finally {
-      setSharing(false);
+      setViewing(false);
     }
   }, []);
 
@@ -287,15 +286,15 @@ export default function ChooseObProviderScreen() {
 
         <TouchableOpacity
           style={[styles.shareBtn, { backgroundColor: colors.primary }]}
-          onPress={handleShare}
-          disabled={sharing}
+          onPress={handleView}
+          disabled={viewing}
         >
-          {sharing ? (
+          {viewing ? (
             <ActivityIndicator color={colors.primaryForeground} />
           ) : (
             <>
               <Ionicons
-                name="share-outline"
+                name="document-text-outline"
                 size={18}
                 color={colors.primaryForeground}
               />
