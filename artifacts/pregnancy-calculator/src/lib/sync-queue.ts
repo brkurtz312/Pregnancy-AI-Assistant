@@ -48,10 +48,7 @@ export function isBirthPlanPending(): boolean {
 export function markJournalEntryPending(id: string): void {
   const existing = getPendingJournalIds();
   if (!existing.includes(id)) {
-    localStorage.setItem(
-      KEY_JOURNAL_ENTRIES,
-      [...existing, id].join(","),
-    );
+    localStorage.setItem(KEY_JOURNAL_ENTRIES, [...existing, id].join(","));
   }
 }
 

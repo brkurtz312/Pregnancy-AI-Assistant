@@ -29,12 +29,12 @@ const mockUseSession = useSession as MockedFunction<typeof useSession>;
 
 type UseSessionReturn = ReturnType<typeof useSession>;
 
-function signedInState(): UseSessionReturn {
+function signedInState(id = "sess_test"): UseSessionReturn {
   return {
     isLoaded: true,
     isSignedIn: true,
     session: {
-      id: "sess_test",
+      id,
       status: "active",
     } as UseSessionReturn["session"] & {},
   } as UseSessionReturn;
@@ -112,6 +112,93 @@ describe("SessionWatcher", () => {
     );
 
     expect(invalidateSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("same-device account switch: clear() fires on sign-out then invalidateQueries() fires on next sign-in", () => {
+    const clearSpy = vi.spyOn(queryClient, "clear");
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    // User A is signed in.
+    mockUseSession.mockReturnValue(signedInState("sess_user_a"));
+    const { rerender } = renderWatcher(queryClient);
+
+    // User A signs out — cache must be cleared.
+    mockUseSession.mockReturnValue(signedOutState());
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <SessionWatcher />
+      </QueryClientProvider>,
+    );
+
+    expect(clearSpy).toHaveBeenCalledTimes(1);
+    expect(invalidateSpy).toHaveBeenCalledTimes(0);
+
+    // User B signs in on the same device/browser — queries must be invalidated.
+    mockUseSession.mockReturnValue(signedInState("sess_user_b"));
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <SessionWatcher />
+      </QueryClientProvider>,
+    );
+
+    expect(invalidateSpy).toHaveBeenCalledTimes(1);
+    // clear() must NOT fire again — only the sign-out transition triggers it.
+    expect(clearSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("same-device account switch: user A's cached data is absent when user B's session starts", async () => {
+    const passStatusKey = ["get-pass-status"];
+    const profileKey = ["get-profile"];
+
+    // Seed cache with user A's data.
+    await queryClient.fetchQuery({
+      queryKey: passStatusKey,
+      queryFn: () =>
+        Promise.resolve({ hasPass: true, freeUsed: 3, freeLimit: 5 }),
+    });
+    await queryClient.fetchQuery({
+      queryKey: profileKey,
+      queryFn: () => Promise.resolve({ providerName: "Dr_UserA" }),
+    });
+
+    expect(queryClient.getQueryData(passStatusKey)).toEqual({
+      hasPass: true,
+      freeUsed: 3,
+      freeLimit: 5,
+    });
+    expect(queryClient.getQueryData(profileKey)).toEqual({
+      providerName: "Dr_UserA",
+    });
+
+    // User A is signed in.
+    mockUseSession.mockReturnValue(signedInState("sess_user_a"));
+    const { rerender } = renderWatcher(queryClient);
+
+    // User A signs out — cache cleared.
+    mockUseSession.mockReturnValue(signedOutState());
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <SessionWatcher />
+      </QueryClientProvider>,
+    );
+
+    // All of user A's data must be gone before user B arrives.
+    expect(queryClient.getQueryData(passStatusKey)).toBeUndefined();
+    expect(queryClient.getQueryData(profileKey)).toBeUndefined();
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+
+    // User B signs in — invalidateQueries fires but no stale data exists to bleed.
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    mockUseSession.mockReturnValue(signedInState("sess_user_b"));
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <SessionWatcher />
+      </QueryClientProvider>,
+    );
+
+    expect(invalidateSpy).toHaveBeenCalledTimes(1);
+    // Cache is still empty — user B's queries will fetch fresh from the server.
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
   });
 
   it("stale cache entries are gone immediately after sign-out clears the cache", async () => {

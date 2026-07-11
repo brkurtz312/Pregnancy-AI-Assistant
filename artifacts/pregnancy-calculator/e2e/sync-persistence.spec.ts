@@ -25,7 +25,8 @@ const TEST_PASSWORD = `Test!${UNIQUE_SUFFIX}pass`;
 
 async function createTestUser(): Promise<string> {
   const secretKey = process.env.CLERK_SECRET_KEY;
-  if (!secretKey) throw new Error("CLERK_SECRET_KEY is required for e2e sync tests.");
+  if (!secretKey)
+    throw new Error("CLERK_SECRET_KEY is required for e2e sync tests.");
   const clerk = createClerkClient({ secretKey });
   const user = await clerk.users.createUser({
     emailAddress: [TEST_EMAIL],
@@ -66,7 +67,9 @@ async function navigateToJournal(page: Page) {
 async function navigateToHospitalBag(page: Page) {
   await page.getByRole("button", { name: /tools/i }).click();
   await page.getByRole("button", { name: /hospital bag/i }).click();
-  await expect(page.getByRole("heading", { name: /hospital bag/i })).toBeVisible({
+  await expect(
+    page.getByRole("heading", { name: /hospital bag/i }),
+  ).toBeVisible({
     timeout: 10_000,
   });
 }
@@ -180,7 +183,9 @@ test.describe("Sync persistence — data survives a page reload", () => {
     //   <input ... />            ← direct adjacent sibling
     // There is no `for`/`id` linkage, so we use the adjacent-sibling CSS selector.
     const uniqueName = `Sync Test User ${UNIQUE_SUFFIX}`;
-    const nameInput = page.locator('label:has-text("Your name") + input').first();
+    const nameInput = page
+      .locator('label:has-text("Your name") + input')
+      .first();
     await expect(nameInput).toBeVisible({ timeout: 10_000 });
 
     await nameInput.fill(uniqueName);
@@ -194,7 +199,9 @@ test.describe("Sync persistence — data survives a page reload", () => {
     await navigateToBirthPlan(page);
 
     // Locate the same input after reload
-    const nameInputAfter = page.locator('label:has-text("Your name") + input').first();
+    const nameInputAfter = page
+      .locator('label:has-text("Your name") + input')
+      .first();
     await expect(nameInputAfter).toBeVisible({ timeout: 10_000 });
 
     // Value must be restored from the server
