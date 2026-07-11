@@ -1,0 +1,224 @@
+import { useState, useEffect } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Printer, RotateCcw, Plus, Luggage } from "lucide-react";
+import {
+  loadHospitalBag,
+  saveHospitalBag,
+  countHospitalBagItems,
+  resetHospitalBag,
+  buildHospitalBagHtml,
+  type HospitalBagCategory,
+} from "@/lib/web-hospital-bag";
+import { printHtml } from "@/lib/print-html";
+
+export function HospitalBag() {
+  const [categories, setCategories] = useState<HospitalBagCategory[]>([]);
+  const [customInputs, setCustomInputs] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    setCategories(loadHospitalBag());
+  }, []);
+
+  const persist = (updated: HospitalBagCategory[]) => {
+    setCategories(updated);
+    saveHospitalBag(updated);
+  };
+
+  const toggleItem = (catId: string, itemId: string) => {
+    persist(
+      categories.map((cat) =>
+        cat.id !== catId
+          ? cat
+          : {
+              ...cat,
+              items: cat.items.map((item) =>
+                item.id === itemId
+                  ? { ...item, checked: !item.checked }
+                  : item,
+              ),
+            },
+      ),
+    );
+  };
+
+  const addCustomItem = (catId: string) => {
+    const label = (customInputs[catId] ?? "").trim();
+    if (!label) return;
+    const cat = categories.find((c) => c.id === catId);
+    if (!cat) return;
+    const id = `${catId}-custom-${Date.now()}`;
+    persist(
+      categories.map((c) =>
+        c.id !== catId
+          ? c
+          : {
+              ...c,
+              items: [
+                ...c.items,
+                { id, label, checked: false, custom: true },
+              ],
+            },
+      ),
+    );
+    setCustomInputs({ ...customInputs, [catId]: "" });
+  };
+
+  const removeCustomItem = (catId: string, itemId: string) => {
+    persist(
+      categories.map((c) =>
+        c.id !== catId
+          ? c
+          : { ...c, items: c.items.filter((i) => i.id !== itemId) },
+      ),
+    );
+  };
+
+  const handleReset = () => {
+    if (
+      confirm(
+        "Reset the checklist? Your checked items and custom additions will be cleared.",
+      )
+    ) {
+      setCategories(resetHospitalBag());
+    }
+  };
+
+  const { checked, total } = countHospitalBagItems(categories);
+  const percent = total > 0 ? Math.round((checked / total) * 100) : 0;
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-primary/10 rounded-xl">
+            <Luggage className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold font-serif text-foreground">
+              Hospital Bag
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Pack around 36 weeks so you're ready anytime
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => printHtml(buildHospitalBagHtml(categories))}
+            className="gap-1.5 rounded-xl text-xs"
+          >
+            <Printer className="w-3.5 h-3.5" /> Print
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReset}
+            className="gap-1.5 rounded-xl text-xs"
+          >
+            <RotateCcw className="w-3.5 h-3.5" /> Reset
+          </Button>
+        </div>
+      </div>
+
+      <Card className="p-4 rounded-2xl border-border/50">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium">
+            {checked} of {total} packed
+          </span>
+          <span className="text-xs text-muted-foreground">{percent}%</span>
+        </div>
+        <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+          <div
+            className="h-full bg-primary rounded-full transition-all duration-500"
+            style={{ width: `${percent}%` }}
+          />
+        </div>
+        {percent === 100 && (
+          <p className="text-xs text-primary mt-2 text-center font-medium">
+            🎉 You're all packed and ready!
+          </p>
+        )}
+      </Card>
+
+      <div className="space-y-4">
+        {categories.map((cat) => (
+          <Card
+            key={cat.id}
+            className="p-4 rounded-2xl border-border/50 space-y-3"
+          >
+            <h3 className="font-semibold text-sm text-foreground">
+              {cat.title}
+            </h3>
+
+            <div className="space-y-2">
+              {cat.items.map((item) => (
+                <label
+                  key={item.id}
+                  className="flex items-start gap-3 cursor-pointer group"
+                >
+                  <div className="mt-0.5 shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={item.checked}
+                      onChange={() => toggleItem(cat.id, item.id)}
+                      className="w-4 h-4 rounded border-border accent-primary cursor-pointer"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span
+                      className={`text-sm ${item.checked ? "line-through text-muted-foreground" : "text-foreground"}`}
+                    >
+                      {item.label}
+                    </span>
+                    {item.note && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {item.note}
+                      </p>
+                    )}
+                  </div>
+                  {item.custom && (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        removeCustomItem(cat.id, item.id);
+                      }}
+                      className="text-muted-foreground/40 hover:text-destructive transition-colors text-xs shrink-0 opacity-0 group-hover:opacity-100"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </label>
+              ))}
+            </div>
+
+            <div className="flex gap-2 pt-1 border-t border-border/40">
+              <Input
+                value={customInputs[cat.id] ?? ""}
+                onChange={(e) =>
+                  setCustomInputs({ ...customInputs, [cat.id]: e.target.value })
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") addCustomItem(cat.id);
+                }}
+                placeholder="Add a custom item…"
+                className="h-8 text-xs rounded-xl border-border/50 flex-1"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => addCustomItem(cat.id)}
+                className="h-8 w-8 p-0 rounded-xl"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
