@@ -27,6 +27,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ErrorFallback } from "@/components/ErrorFallback";
+import { LocationModeGate } from "@/components/LocationModePrompt";
 import { SubscriptionProvider } from "@/lib/revenuecat";
 import { SettingsProvider } from "@/contexts/SettingsContext";
 
@@ -173,6 +174,7 @@ function RootLayoutNav() {
   return (
     <>
       <OnboardingGate />
+      <LocationModeGate />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
@@ -289,6 +291,14 @@ function RootLayoutNav() {
         />
         <Stack.Screen
           name="journal-entry"
+          options={{ headerShown: false, presentation: "card" }}
+        />
+        <Stack.Screen
+          name="in-office"
+          options={{ headerShown: false, presentation: "card" }}
+        />
+        <Stack.Screen
+          name="at-facility"
           options={{ headerShown: false, presentation: "card" }}
         />
       </Stack>
