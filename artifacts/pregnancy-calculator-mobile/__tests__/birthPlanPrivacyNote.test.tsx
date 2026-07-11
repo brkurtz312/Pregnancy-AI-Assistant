@@ -111,6 +111,8 @@ jest.mock("@/lib/sync-queue", () => ({
   markPendingSync: jest.fn(async () => {}),
   clearPendingSync: jest.fn(async () => {}),
   hasPendingSync: jest.fn(async () => false),
+  tryAcquireSyncLock: jest.fn(() => true),
+  releaseSyncLock: jest.fn(),
 }));
 
 jest.mock("@/hooks/useNetReconnect", () => ({

@@ -30,6 +30,7 @@ import { ErrorFallback } from "@/components/ErrorFallback";
 import { LocationModeGate } from "@/components/LocationModePrompt";
 import { SubscriptionProvider } from "@/lib/revenuecat";
 import { SettingsProvider } from "@/contexts/SettingsContext";
+import { useGlobalBackgroundSync } from "@/hooks/useGlobalBackgroundSync";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -107,6 +108,8 @@ function OnboardingGate() {
 function RootLayoutNav() {
   const appVersion = Constants.expoConfig?.version ?? "";
   const { visible, dismiss } = useWhatsNew();
+
+  useGlobalBackgroundSync();
 
   return (
     <>

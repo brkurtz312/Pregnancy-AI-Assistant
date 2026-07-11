@@ -32,6 +32,8 @@ import {
   clearPendingSync,
   hasPendingSync,
   markPendingSync,
+  tryAcquireSyncLock,
+  releaseSyncLock,
 } from "@/lib/sync-queue";
 import { useNetReconnect } from "@/hooks/useNetReconnect";
 import { SyncBanner } from "@/components/SyncBanner";
@@ -279,6 +281,12 @@ export default function JournalScreen() {
 
       const syncNow = () => {
         if (isSignedIn && userId) {
+          // Acquire the single-flight lock so the global background sync hook
+          // (mounted at the root layout) cannot concurrently upsert the same
+          // local-only entries, which would create duplicate server records.
+          // If the global hook already holds the lock this call skips
+          // gracefully — the global path will clear the pending marker.
+          if (!tryAcquireSyncLock("journal")) return;
           // Pre-flight: clear stale cross-user cache before any load. Running
           // this before the API call ensures isolation even when the network is
           // unavailable and the catch path falls back to local data.
@@ -383,7 +391,8 @@ export default function JournalScreen() {
               // Can't reach the server — show banner if a prior write failed.
               const pending = await hasPendingSync("journal");
               setSyncFailed(pending);
-            });
+            })
+            .finally(() => releaseSyncLock("journal"));
         } else {
           loadEntries().then(setEntries);
         }

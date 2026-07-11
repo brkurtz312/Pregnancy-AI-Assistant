@@ -91,6 +91,8 @@ jest.mock("@/lib/sync-queue", () => ({
   markPendingSync: jest.fn(async () => {}),
   clearPendingSync: jest.fn(async () => {}),
   hasPendingSync: jest.fn(async () => false),
+  tryAcquireSyncLock: jest.fn(() => true),
+  releaseSyncLock: jest.fn(),
 }));
 
 jest.mock("@/hooks/useNetReconnect", () => ({
@@ -144,9 +146,7 @@ jest.mock("@/lib/sync-api", () => ({
   apiLoadBirthPlanAnswers: jest.fn(),
   apiSaveBirthPlanAnswers: jest.fn(),
   isServerUuid: jest.fn((id: string) =>
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      id,
-    ),
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id),
   ),
 }));
 
@@ -509,7 +509,8 @@ jest.mock("@/lib/birth-plan", () => ({
       fields: [
         {
           id: "moveAroundDuringLabor",
-          label: "I would like to be able to move around as I wish during labor.",
+          label:
+            "I would like to be able to move around as I wish during labor.",
           type: "boolean",
         },
       ],
