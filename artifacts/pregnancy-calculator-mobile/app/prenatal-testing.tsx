@@ -318,8 +318,6 @@ export default function PrenatalTestingScreen() {
           ))}
         </Animated.View>
 
-        <AskCard returnTo="/prenatal-testing" />
-
         <Animated.View
           entering={FadeInDown.delay(360).duration(400)}
           style={[
@@ -356,6 +354,8 @@ export default function PrenatalTestingScreen() {
             </Text>
           </TouchableOpacity>
         </Animated.View>
+
+        <AskCard returnTo="/prenatal-testing" />
       </ScrollView>
 
       <Modal
