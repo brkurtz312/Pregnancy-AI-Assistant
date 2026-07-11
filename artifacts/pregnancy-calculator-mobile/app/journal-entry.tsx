@@ -34,12 +34,14 @@ import {
   loadEntries,
   MEDIA_CATEGORY_LABELS,
   MOOD_OPTIONS,
+  replaceEntryId,
   upsertEntry,
   type JournalEntry,
   type JournalMedia,
   type JournalMediaCategory,
   type JournalMood,
 } from "@/lib/journal";
+import { apiUpsertJournalEntry, apiDeleteJournalEntry } from "@/lib/sync-api";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const MEDIA_CELL = (SCREEN_WIDTH - 32 - 8) / 3;
@@ -62,7 +64,7 @@ export default function JournalEntryScreen() {
   const { entryId } = useLocalSearchParams<{ entryId?: string }>();
   const isNew = !entryId;
 
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, getToken } = useAuth();
   const { data: profile } = useGetProfile({
     query: {
       enabled: !!isSignedIn,
@@ -133,6 +135,16 @@ export default function JournalEntryScreen() {
         updatedAt: new Date().toISOString(),
       };
       await upsertEntry(toSave);
+      if (isSignedIn) {
+        try {
+          const synced = await apiUpsertJournalEntry(toSave, getToken);
+          if (synced.id !== toSave.id) {
+            await replaceEntryId(toSave.id, synced.id);
+          }
+        } catch {
+          // Sync failed — data is saved locally and will sync on next load
+        }
+      }
       router.back();
     } catch (_err) {
       Alert.alert("Couldn't save", "Something went wrong. Please try again.");
@@ -151,6 +163,9 @@ export default function JournalEntryScreen() {
           text: "Delete",
           style: "destructive",
           onPress: async () => {
+            if (isSignedIn) {
+              apiDeleteJournalEntry(entry.id, getToken).catch(() => {});
+            }
             await deleteEntry(entry.id);
             router.back();
           },

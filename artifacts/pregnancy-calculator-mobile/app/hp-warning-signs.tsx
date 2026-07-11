@@ -38,7 +38,8 @@ const WHEN_IN_DOUBT = [
 const RESOURCES = [
   {
     name: "ACOG: Preeclampsia",
-    detail: "Signs, symptoms, and when to seek care for high blood pressure in pregnancy",
+    detail:
+      "Signs, symptoms, and when to seek care for high blood pressure in pregnancy",
     url: "https://www.acog.org/womens-health/faqs/preeclampsia-and-high-blood-pressure-during-pregnancy",
   },
   {
@@ -102,9 +103,9 @@ export default function HpWarningSignsScreen() {
         >
           <Ionicons name="shield-checkmark" size={18} color={colors.primary} />
           <Text style={[styles.reassureText, { color: colors.foreground }]}>
-            Knowing which symptoms require immediate attention is one of the most
-            important things you can do during pregnancy. When in doubt, always
-            call — your care team is there for exactly this.
+            Knowing which symptoms require immediate attention is one of the
+            most important things you can do during pregnancy. When in doubt,
+            always call — your care team is there for exactly this.
           </Text>
         </Animated.View>
 

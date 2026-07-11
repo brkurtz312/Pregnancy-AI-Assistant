@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -14,14 +14,17 @@ import {
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
+import { useAuth, useUser } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
 import {
+  cacheEntries,
   loadEntries,
   getAgeLabel,
   MOOD_OPTIONS,
   type JournalEntry,
   type JournalMedia,
 } from "@/lib/journal";
+import { apiLoadJournalEntries, apiUpsertJournalEntry } from "@/lib/sync-api";
 import { exportJournalPdf } from "@/lib/journal-pdf";
 import { usePass } from "@/hooks/usePass";
 import { PassGate } from "@/components/PassGate";
@@ -239,6 +242,9 @@ export default function JournalScreen() {
   const [showGate, setShowGate] = useState(false);
   const [exporting, setExporting] = useState(false);
   const { hasPass } = usePass();
+  const { isSignedIn, getToken } = useAuth();
+  const { user } = useUser();
+  const migratedForUserRef = useRef<string | null>(null);
 
   async function handleExportPdf() {
     if (exporting || entries.length === 0) return;
@@ -252,8 +258,80 @@ export default function JournalScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadEntries().then(setEntries);
-    }, []),
+      const userId = user?.id ?? null;
+      if (isSignedIn && userId) {
+        apiLoadJournalEntries(getToken)
+          .then(async (serverEntries) => {
+            const localEntries = await loadEntries();
+            const localById = new Map(localEntries.map((e) => [e.id, e]));
+
+            if (migratedForUserRef.current !== userId) {
+              migratedForUserRef.current = userId;
+              if (serverEntries.length === 0 && localEntries.length > 0) {
+                // First sign-in migration: push all local entries to server
+                // sequentially to avoid concurrent AsyncStorage ID rewrites.
+                // We build the final array with server UUIDs, then persist once.
+                const migrated: JournalEntry[] = [];
+                for (const e of localEntries) {
+                  try {
+                    const synced = await apiUpsertJournalEntry(e, getToken);
+                    migrated.push({ ...synced, media: e.media });
+                  } catch {
+                    migrated.push(e);
+                  }
+                }
+                // Single write: overwrites AsyncStorage with correct server IDs.
+                await cacheEntries(migrated);
+                setEntries(migrated);
+                return;
+              }
+            }
+
+            // Build the merged list: server entries (with local media re-attached)
+            // plus any local-only entries not yet on the server. Local-only entries
+            // have non-UUID IDs (created offline or whose prior sync failed).
+            const serverIds = new Set(serverEntries.map((se) => se.id));
+            const localOnlyEntries = localEntries.filter(
+              (e) => !serverIds.has(e.id),
+            );
+
+            // Best-effort: push local-only entries to server sequentially.
+            // Sequential avoids concurrent read-modify-write races on AsyncStorage.
+            // We collect results and write once at the end via cacheEntries.
+            const syncedLocalEntries: JournalEntry[] = [];
+            for (const e of localOnlyEntries) {
+              try {
+                const synced = await apiUpsertJournalEntry(e, getToken);
+                syncedLocalEntries.push({ ...synced, media: e.media });
+              } catch {
+                syncedLocalEntries.push(e);
+              }
+            }
+
+            const merged = [
+              ...serverEntries.map((se) => ({
+                ...se,
+                media: localById.get(se.id)?.media ?? [],
+              })),
+              ...syncedLocalEntries,
+            ].sort(
+              (a, b) =>
+                new Date(b.createdAt).getTime() -
+                new Date(a.createdAt).getTime(),
+            );
+            // Single write: overwrites AsyncStorage with the authoritative merged
+            // list (correct server UUIDs). No separate replaceEntryId calls needed.
+            await cacheEntries(merged);
+            setEntries(merged);
+          })
+          .catch(async () => {
+            const local = await loadEntries();
+            setEntries(local);
+          });
+      } else {
+        loadEntries().then(setEntries);
+      }
+    }, [isSignedIn, getToken, user]),
   );
 
   const bumpMedia = entries.flatMap((e) =>

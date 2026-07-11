@@ -5,7 +5,13 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -19,6 +25,7 @@ import {
 } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth, useUser } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
 import {
   BIRTH_PLAN_SECTIONS,
@@ -30,6 +37,10 @@ import {
   type BirthPlanField,
   type BirthPlanValue,
 } from "@/lib/birth-plan";
+import {
+  apiLoadBirthPlanAnswers,
+  apiSaveBirthPlanAnswers,
+} from "@/lib/sync-api";
 
 const BLANK_PDF_ASSET = require("@/assets/docs/sample-birth-plan.pdf");
 
@@ -239,25 +250,63 @@ export default function BirthPlanScreen() {
   const params = useLocalSearchParams<{ from?: string }>();
   const backLabel = params.from || "Get Ready";
 
+  const { isSignedIn, getToken } = useAuth();
+  const { user } = useUser();
+
   const [answers, setAnswers] = useState<BirthPlanAnswers>({});
   const [loaded, setLoaded] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [generated, setGenerated] = useState(false);
+  const migratedForUserRef = useRef<string | null>(null);
 
   useEffect(() => {
-    loadBirthPlanAnswers().then((a) => {
-      setAnswers(a);
-      setLoaded(true);
-    });
-  }, []);
+    const userId = user?.id ?? null;
+    if (isSignedIn && userId) {
+      apiLoadBirthPlanAnswers(getToken)
+        .then((serverAnswers) => {
+          if (migratedForUserRef.current !== userId) {
+            migratedForUserRef.current = userId;
+            if (serverAnswers === null) {
+              loadBirthPlanAnswers().then((local) => {
+                const hasLocal = Object.keys(local).length > 0;
+                if (hasLocal) {
+                  apiSaveBirthPlanAnswers(local, getToken).catch(() => {});
+                }
+                setAnswers(local);
+              });
+            } else {
+              setAnswers(serverAnswers);
+            }
+          } else {
+            setAnswers(serverAnswers ?? {});
+          }
+        })
+        .catch(() => {
+          loadBirthPlanAnswers().then(setAnswers);
+        })
+        .finally(() => setLoaded(true));
+    } else {
+      loadBirthPlanAnswers().then((a) => {
+        setAnswers(a);
+        setLoaded(true);
+      });
+    }
+  }, [isSignedIn, getToken, user]);
 
-  const setField = useCallback((id: string, value: BirthPlanValue) => {
-    setAnswers((prev) => {
-      const next = { ...prev, [id]: value };
-      saveBirthPlanAnswers(next);
-      return next;
-    });
-  }, []);
+  const setField = useCallback(
+    (id: string, value: BirthPlanValue) => {
+      setAnswers((prev) => {
+        const next = { ...prev, [id]: value };
+        if (isSignedIn) {
+          apiSaveBirthPlanAnswers(next, getToken).catch(() => {});
+        } else {
+          saveBirthPlanAnswers(next);
+        }
+        return next;
+      });
+    },
+    [isSignedIn, getToken],
+  );
 
   const answeredCount = useMemo(() => {
     return Object.values(answers).filter((v) => {
@@ -343,11 +392,9 @@ export default function BirthPlanScreen() {
             color={colors.primary}
           />
           <Text style={[styles.noteText, { color: colors.foreground }]}>
-            Your answers here are not collected or shared — they're saved on
-            your device only, so you can build and edit your birth plan
-            document. A birth plan is a great starting point, but be prepared
-            for changes as labor unfolds; review your plan with your ob-gyn well
-            before your due date.
+            {isSignedIn
+              ? "Your answers sync securely to your account so they're available on all your devices. A birth plan is a great starting point, but be prepared for changes as labor unfolds; review your plan with your ob-gyn well before your due date."
+              : "Your answers are saved on this device only when you're not signed in. Sign in to sync your birth plan across devices. A birth plan is a great starting point, but be prepared for changes as labor unfolds; review your plan with your ob-gyn well before your due date."}
           </Text>
         </Animated.View>
 

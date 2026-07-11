@@ -290,8 +290,8 @@ export function Learn() {
                     Support Person Series
                   </h3>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    A three-volume field guide for partners, family, and friends —
-                    from pregnancy through postpartum
+                    A three-volume field guide for partners, family, and friends
+                    — from pregnancy through postpartum
                   </p>
                   <p className="text-xs text-violet-600 mt-2 font-medium group-hover:underline">
                     Read the guides →
@@ -418,9 +418,7 @@ function SearchResults({
     );
   }
 
-  const grouped = (
-    ["videovault", "supportperson", "healthypregnancy"] as const
-  )
+  const grouped = (["videovault", "supportperson", "healthypregnancy"] as const)
     .map((section) => ({
       section,
       items: matches.filter((m) => m.section === section),

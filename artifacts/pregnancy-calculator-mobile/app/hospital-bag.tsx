@@ -2,7 +2,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +22,7 @@ import {
 } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth, useUser } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
 import { AskCard } from "@/components/AskCard";
 import {
@@ -25,6 +32,7 @@ import {
   saveHospitalBagChecklist,
   type HospitalBagCategory,
 } from "@/lib/hospital-bag";
+import { apiLoadHospitalBag, apiSaveHospitalBag } from "@/lib/sync-api";
 
 export default function HospitalBagScreen() {
   const colors = useColors();
@@ -32,21 +40,58 @@ export default function HospitalBagScreen() {
   const params = useLocalSearchParams<{ from?: string }>();
   const backLabel = params.from || "Labor and Delivery";
 
+  const { isSignedIn, getToken } = useAuth();
+  const { user } = useUser();
+
   const [categories, setCategories] = useState<HospitalBagCategory[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [newItemText, setNewItemText] = useState<Record<string, string>>({});
   const [generating, setGenerating] = useState(false);
+  const migratedForUserRef = useRef<string | null>(null);
 
   useEffect(() => {
-    loadHospitalBagChecklist()
-      .then(setCategories)
-      .finally(() => setLoaded(true));
-  }, []);
+    const userId = user?.id ?? null;
+    if (isSignedIn && userId) {
+      apiLoadHospitalBag(getToken)
+        .then((serverCategories) => {
+          if (migratedForUserRef.current !== userId) {
+            migratedForUserRef.current = userId;
+            if (serverCategories === null) {
+              loadHospitalBagChecklist().then((local) => {
+                apiSaveHospitalBag(local, getToken).catch(() => {});
+                setCategories(local);
+              });
+            } else {
+              setCategories(serverCategories);
+            }
+          } else {
+            loadHospitalBagChecklist().then((defaultLocal) => {
+              setCategories(serverCategories ?? defaultLocal);
+            });
+          }
+        })
+        .catch(() => {
+          loadHospitalBagChecklist().then(setCategories);
+        })
+        .finally(() => setLoaded(true));
+    } else {
+      loadHospitalBagChecklist()
+        .then(setCategories)
+        .finally(() => setLoaded(true));
+    }
+  }, [isSignedIn, getToken, user]);
 
-  const persist = useCallback((next: HospitalBagCategory[]) => {
-    setCategories(next);
-    saveHospitalBagChecklist(next);
-  }, []);
+  const persist = useCallback(
+    (next: HospitalBagCategory[]) => {
+      setCategories(next);
+      if (isSignedIn) {
+        apiSaveHospitalBag(next, getToken).catch(() => {});
+      } else {
+        saveHospitalBagChecklist(next);
+      }
+    },
+    [isSignedIn, getToken],
+  );
 
   const toggleItem = useCallback(
     (categoryId: string, itemId: string) => {

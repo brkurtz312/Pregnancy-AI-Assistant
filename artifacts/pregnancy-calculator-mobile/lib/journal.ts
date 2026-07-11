@@ -65,6 +65,15 @@ async function persistEntries(entries: JournalEntry[]): Promise<void> {
   await AsyncStorage.setItem(JOURNAL_KEY, JSON.stringify(entries));
 }
 
+/**
+ * Overwrites the local AsyncStorage cache with the provided entries.
+ * Call this after loading from the server so that `journal-entry.tsx`
+ * (which looks up entries by ID from AsyncStorage) can find server entries.
+ */
+export async function cacheEntries(entries: JournalEntry[]): Promise<void> {
+  await persistEntries(entries);
+}
+
 export async function upsertEntry(entry: JournalEntry): Promise<void> {
   const entries = await loadEntries();
   const idx = entries.findIndex((e) => e.id === entry.id);
@@ -74,6 +83,22 @@ export async function upsertEntry(entry: JournalEntry): Promise<void> {
     entries.unshift(entry);
   }
   await persistEntries(entries);
+}
+
+/**
+ * Renames an entry's ID in AsyncStorage. Used after a successful server sync
+ * to replace a locally-generated base36 ID with the server-assigned UUID so
+ * that future loads by ID (e.g. in journal-entry.tsx) find the right entry.
+ */
+export async function replaceEntryId(
+  oldId: string,
+  newId: string,
+): Promise<void> {
+  const entries = await loadEntries();
+  const updated = entries.map((e) =>
+    e.id === oldId ? { ...e, id: newId } : e,
+  );
+  await persistEntries(updated);
 }
 
 export async function deleteEntry(id: string): Promise<void> {
