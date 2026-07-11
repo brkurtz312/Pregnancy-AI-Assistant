@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { saveScribeNote, type PatientSummary } from "@/lib/scribe-note";
 
 const apiBase = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
@@ -28,13 +29,6 @@ type Phase =
   | "transcribed"
   | "generating"
   | "done";
-
-interface PatientSummary {
-  headline: string;
-  whatWasDiscussed: string;
-  nextSteps: string[];
-  rememberTo: string;
-}
 
 export default function ScribeScreen() {
   const colors = useColors();
@@ -126,7 +120,9 @@ export default function ScribeScreen() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Summary generation failed");
-      setNote(data.note as PatientSummary);
+      const summary = data.note as PatientSummary;
+      setNote(summary);
+      void saveScribeNote(summary);
       setPhase("done");
     } catch (err: unknown) {
       const msg =

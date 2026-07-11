@@ -601,22 +601,6 @@ function QuestionsToAskSection() {
           <Ionicons name="add" size={20} color={colors.primaryForeground} />
         </TouchableOpacity>
       </View>
-
-      <TouchableOpacity
-        style={[styles.summaryBtn, { backgroundColor: colors.primary }]}
-        onPress={() => router.push("/visit-summary")}
-      >
-        <Ionicons
-          name="document-text-outline"
-          size={18}
-          color={colors.primaryForeground}
-        />
-        <Text
-          style={[styles.summaryBtnText, { color: colors.primaryForeground }]}
-        >
-          View Visit Summary
-        </Text>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -759,11 +743,29 @@ export default function OfficeVisitScreen() {
           </Text>
         </Animated.View>
 
+        <Animated.View entering={FadeInDown.delay(40).duration(400)}>
+          <Text
+            style={[styles.sectionHeader, { color: colors.mutedForeground }]}
+          >
+            Prep for the Visit
+          </Text>
+        </Animated.View>
+
+        <Animated.View
+          entering={FadeInDown.delay(80).duration(400)}
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <QuestionsToAskSection />
+        </Animated.View>
+
         {isLoading && !data ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
         ) : (
           <Animated.View
-            entering={FadeInDown.delay(80).duration(400)}
+            entering={FadeInDown.delay(160).duration(400)}
             style={[
               styles.card,
               { backgroundColor: colors.card, borderColor: colors.border },
@@ -780,16 +782,6 @@ export default function OfficeVisitScreen() {
 
         <Animated.View
           entering={FadeInDown.delay(240).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <QuestionsToAskSection />
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(320).duration(400)}
           style={[
             styles.card,
             { backgroundColor: colors.card, borderColor: colors.border },
@@ -832,6 +824,39 @@ export default function OfficeVisitScreen() {
               </Text>
             </TouchableOpacity>
           </View>
+        </Animated.View>
+
+        <Animated.View
+          entering={FadeInDown.delay(320).duration(400)}
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <TouchableOpacity
+            style={styles.reportCard}
+            onPress={() => router.push("/visit-summary")}
+          >
+            <View style={styles.reportCardIcon}>
+              <Ionicons name="document-text" size={28} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.title, { color: colors.foreground }]}>
+                View Full Visit Report
+              </Text>
+              <Text
+                style={[styles.scribeDesc, { color: colors.mutedForeground }]}
+              >
+                Appointment log, questions, symptoms, and encounter notes — all
+                in one place.
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={colors.mutedForeground}
+            />
+          </TouchableOpacity>
         </Animated.View>
 
         <VisitModal
@@ -1061,5 +1086,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_400Regular",
     lineHeight: 21,
+  },
+  sectionHeader: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    marginBottom: 10,
+    marginTop: 4,
+  },
+  reportCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  reportCardIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
