@@ -565,15 +565,15 @@ export default function VisitSummaryScreen() {
 
         <TouchableOpacity
           style={[styles.exportBtn, { backgroundColor: colors.primary }]}
-          onPress={handleExport}
+          onPress={Platform.OS === "web" ? handleExport : handleViewInApp}
           disabled={exporting || viewing}
         >
-          {exporting ? (
+          {exporting || viewing ? (
             <ActivityIndicator color={colors.primaryForeground} />
           ) : (
             <>
               <Ionicons
-                name="share-outline"
+                name="document-text-outline"
                 size={18}
                 color={colors.primaryForeground}
               />
@@ -583,42 +583,11 @@ export default function VisitSummaryScreen() {
                   { color: colors.primaryForeground },
                 ]}
               >
-                View PDF
+                View Visit Report
               </Text>
             </>
           )}
         </TouchableOpacity>
-
-        {Platform.OS !== "web" && (
-          <TouchableOpacity
-            style={[
-              styles.exportBtn,
-              {
-                backgroundColor: colors.card,
-                borderWidth: 1,
-                borderColor: colors.border,
-                marginTop: 10,
-              },
-            ]}
-            onPress={handleViewInApp}
-            disabled={exporting || viewing}
-          >
-            {viewing ? (
-              <ActivityIndicator color={colors.primary} />
-            ) : (
-              <>
-                <Ionicons
-                  name="document-text-outline"
-                  size={18}
-                  color={colors.primary}
-                />
-                <Text style={[styles.exportBtnText, { color: colors.primary }]}>
-                  View PDF in App
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-        )}
       </ScrollView>
     </View>
   );

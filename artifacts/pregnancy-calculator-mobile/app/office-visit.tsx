@@ -530,6 +530,11 @@ function QuestionsToAskSection() {
   return (
     <View style={styles.container}>
       <Text style={[styles.title, { color: colors.foreground }]}>
+        Prep for the Visit
+      </Text>
+      <Text
+        style={[styles.questionsSubtitle, { color: colors.mutedForeground }]}
+      >
         What Questions Do You Want to Ask?
       </Text>
       <Text style={[styles.progress, { color: colors.mutedForeground }]}>
@@ -743,16 +748,8 @@ export default function OfficeVisitScreen() {
           </Text>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(40).duration(400)}>
-          <Text
-            style={[styles.sectionHeader, { color: colors.mutedForeground }]}
-          >
-            Prep for the Visit
-          </Text>
-        </Animated.View>
-
         <Animated.View
-          entering={FadeInDown.delay(80).duration(400)}
+          entering={FadeInDown.delay(40).duration(400)}
           style={[
             styles.card,
             { backgroundColor: colors.card, borderColor: colors.border },
@@ -980,6 +977,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_400Regular",
     lineHeight: 20,
+  },
+  questionsSubtitle: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+    marginTop: 2,
+    marginBottom: 6,
   },
   questionsHint: {
     fontSize: 13,
