@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useUser } from "@clerk/expo";
 import { router } from "expo-router";
 import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,

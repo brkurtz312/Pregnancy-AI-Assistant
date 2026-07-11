@@ -93,7 +93,11 @@ export default function IntimacyAfterDeliveryScreen() {
       const { uri } = await Print.printToFileAsync({ html });
       router.push({
         pathname: "/pdf-viewer",
-        params: { uri, title: "Resource Summary", shareTitle: "My Intimacy After Delivery Resource Summary" },
+        params: {
+          uri,
+          title: "Resource Summary",
+          shareTitle: "My Intimacy After Delivery Resource Summary",
+        },
       });
     } catch {
       Alert.alert(

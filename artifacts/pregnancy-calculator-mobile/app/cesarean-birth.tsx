@@ -90,7 +90,11 @@ export default function CesareanBirthScreen() {
       const { uri } = await Print.printToFileAsync({ html });
       router.push({
         pathname: "/pdf-viewer",
-        params: { uri, title: "Resource Summary", shareTitle: "My What About a Cesarean Resource Summary" },
+        params: {
+          uri,
+          title: "Resource Summary",
+          shareTitle: "My What About a Cesarean Resource Summary",
+        },
       });
     } catch {
       Alert.alert(

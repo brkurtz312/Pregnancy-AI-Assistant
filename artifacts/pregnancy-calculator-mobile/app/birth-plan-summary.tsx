@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,

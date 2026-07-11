@@ -196,7 +196,11 @@ export default function BreastfeedingScreen() {
       setGenerated(true);
       router.push({
         pathname: "/pdf-viewer",
-        params: { uri, title: "Resource Summary", shareTitle: "My Breastfeeding Resource Summary" },
+        params: {
+          uri,
+          title: "Resource Summary",
+          shareTitle: "My Breastfeeding Resource Summary",
+        },
       });
     } catch {
       Alert.alert(

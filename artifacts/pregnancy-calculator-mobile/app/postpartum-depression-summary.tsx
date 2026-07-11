@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
 import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useState } from "react";
 import {
@@ -56,7 +55,11 @@ export default function PostpartumDepressionSummaryScreen() {
       const { uri } = await Print.printToFileAsync({ html });
       router.push({
         pathname: "/pdf-viewer",
-        params: { uri, title: "Resource Summary", shareTitle: "My Postpartum Depression Resource Summary" },
+        params: {
+          uri,
+          title: "Resource Summary",
+          shareTitle: "My Postpartum Depression Resource Summary",
+        },
       });
     } catch {
       Alert.alert(

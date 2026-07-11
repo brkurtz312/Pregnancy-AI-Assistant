@@ -93,7 +93,11 @@ export default function PostpartumContraceptionScreen() {
       const { uri } = await Print.printToFileAsync({ html });
       router.push({
         pathname: "/pdf-viewer",
-        params: { uri, title: "Resource Summary", shareTitle: "My Postpartum Contraception Resource Summary" },
+        params: {
+          uri,
+          title: "Resource Summary",
+          shareTitle: "My Postpartum Contraception Resource Summary",
+        },
       });
     } catch {
       Alert.alert(

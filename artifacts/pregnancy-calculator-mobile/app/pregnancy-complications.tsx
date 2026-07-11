@@ -93,7 +93,11 @@ export default function PregnancyComplicationsScreen() {
       const { uri } = await Print.printToFileAsync({ html });
       router.push({
         pathname: "/pdf-viewer",
-        params: { uri, title: "Resource Summary", shareTitle: "My Pregnancy Complications Resource Summary" },
+        params: {
+          uri,
+          title: "Resource Summary",
+          shareTitle: "My Pregnancy Complications Resource Summary",
+        },
       });
     } catch {
       Alert.alert(

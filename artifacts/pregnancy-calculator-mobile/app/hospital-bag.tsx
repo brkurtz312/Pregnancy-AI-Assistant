@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -152,7 +151,11 @@ export default function HospitalBagScreen() {
       const { uri } = await Print.printToFileAsync({ html });
       router.push({
         pathname: "/pdf-viewer",
-        params: { uri, title: "Hospital Bag Checklist", shareTitle: "Hospital Bag Checklist" },
+        params: {
+          uri,
+          title: "Hospital Bag Checklist",
+          shareTitle: "Hospital Bag Checklist",
+        },
       });
     } catch {
       Alert.alert(

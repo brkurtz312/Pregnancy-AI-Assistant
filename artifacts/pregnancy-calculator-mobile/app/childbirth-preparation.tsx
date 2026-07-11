@@ -322,7 +322,11 @@ export default function ChildbirthPreparationScreen() {
       const { uri } = await Print.printToFileAsync({ html });
       router.push({
         pathname: "/pdf-viewer",
-        params: { uri, title: "Resource Summary", shareTitle: "My Preparing for Childbirth Resource Summary" },
+        params: {
+          uri,
+          title: "Resource Summary",
+          shareTitle: "My Preparing for Childbirth Resource Summary",
+        },
       });
     } catch {
       Alert.alert(

@@ -90,7 +90,11 @@ export default function LaborNaturalInducedScreen() {
       const { uri } = await Print.printToFileAsync({ html });
       router.push({
         pathname: "/pdf-viewer",
-        params: { uri, title: "Resource Summary", shareTitle: "My Labor: Natural or Induced Resource Summary" },
+        params: {
+          uri,
+          title: "Resource Summary",
+          shareTitle: "My Labor: Natural or Induced Resource Summary",
+        },
       });
     } catch {
       Alert.alert(
