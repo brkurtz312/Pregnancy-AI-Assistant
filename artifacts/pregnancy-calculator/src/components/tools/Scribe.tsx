@@ -63,7 +63,10 @@ interface ISpeechRecognitionEvent {
   resultIndex: number;
   results: {
     length: number;
-    [index: number]: { isFinal: boolean; [index: number]: { transcript: string } };
+    [index: number]: {
+      isFinal: boolean;
+      [index: number]: { transcript: string };
+    };
   };
 }
 
@@ -87,7 +90,9 @@ type SpeechRecognitionConstructor = new () => ISpeechRecognition;
 const getSpeechRecognition = (): SpeechRecognitionConstructor | null => {
   if (typeof window === "undefined") return null;
   const w = window as unknown as Record<string, unknown>;
-  return (w["SpeechRecognition"] || w["webkitSpeechRecognition"] || null) as SpeechRecognitionConstructor | null;
+  return (w["SpeechRecognition"] ||
+    w["webkitSpeechRecognition"] ||
+    null) as SpeechRecognitionConstructor | null;
 };
 
 export function Scribe() {
@@ -126,8 +131,7 @@ export function Scribe() {
       let interim = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
         if (event.results[i].isFinal) {
-          finalTranscriptRef.current +=
-            event.results[i][0].transcript + " ";
+          finalTranscriptRef.current += event.results[i][0].transcript + " ";
         } else {
           interim += event.results[i][0].transcript;
         }
@@ -137,9 +141,7 @@ export function Scribe() {
 
     recognition.onerror = (event) => {
       if (event.error !== "no-speech") {
-        setErrorMsg(
-          "Microphone error: " + event.error + ". Please try again.",
-        );
+        setErrorMsg("Microphone error: " + event.error + ". Please try again.");
         setStatus("error");
       }
     };
@@ -256,7 +258,9 @@ export function Scribe() {
     return (
       <Card className="p-8 rounded-2xl border-border/50 text-center space-y-3">
         <div className="text-4xl mb-2">🔒</div>
-        <h3 className="font-serif font-semibold text-lg">Sign in to use Scribe</h3>
+        <h3 className="font-serif font-semibold text-lg">
+          Sign in to use Scribe
+        </h3>
         <p className="text-sm text-muted-foreground max-w-sm mx-auto">
           The Visit Notes Scribe records your prenatal appointments and
           generates a plain-language summary just for you. Sign in to get
@@ -270,7 +274,9 @@ export function Scribe() {
     return (
       <Card className="p-8 rounded-2xl border-border/50 text-center space-y-3">
         <div className="text-4xl mb-2">🎙️</div>
-        <h3 className="font-serif font-semibold text-lg">Browser not supported</h3>
+        <h3 className="font-serif font-semibold text-lg">
+          Browser not supported
+        </h3>
         <p className="text-sm text-muted-foreground max-w-sm mx-auto">
           The Scribe uses your browser's built-in speech recognition, which
           requires Google Chrome or Microsoft Edge. Please open this page in
@@ -330,7 +336,10 @@ export function Scribe() {
         </p>
       </Card>
 
-      {(status === "idle" || status === "recording" || status === "stopped" || status === "error") && (
+      {(status === "idle" ||
+        status === "recording" ||
+        status === "stopped" ||
+        status === "error") && (
         <div className="space-y-4">
           <div className="flex flex-col items-center gap-4 py-4">
             {status !== "recording" ? (
@@ -349,13 +358,15 @@ export function Scribe() {
               </button>
             )}
             <p className="text-sm text-muted-foreground text-center">
-              {status === "idle" && "Tap the mic to start recording your appointment"}
+              {status === "idle" &&
+                "Tap the mic to start recording your appointment"}
               {status === "recording" && (
                 <span className="text-red-500 font-medium">
                   Recording… tap to stop
                 </span>
               )}
-              {status === "stopped" && "Recording stopped — review your transcript below"}
+              {status === "stopped" &&
+                "Recording stopped — review your transcript below"}
               {status === "error" && "Recording stopped"}
             </p>
           </div>
@@ -515,7 +526,9 @@ function SummaryView({
 
         {summary.rememberTo && (
           <div className="pt-2 border-t border-primary/10">
-            <p className="text-xs text-primary/80 italic">{summary.rememberTo}</p>
+            <p className="text-xs text-primary/80 italic">
+              {summary.rememberTo}
+            </p>
           </div>
         )}
       </Card>

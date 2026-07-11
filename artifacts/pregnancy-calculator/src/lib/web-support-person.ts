@@ -63,10 +63,7 @@ export const SUPPORT_PERSON_VOLUMES: SupportPersonVolume[] = [
 ];
 
 function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 export function buildSupportPersonHtml(vol: SupportPersonVolume): string {

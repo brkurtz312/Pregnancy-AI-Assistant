@@ -171,8 +171,7 @@ export const BIRTH_PLAN_SECTIONS: BirthPlanSection[] = [
           },
           {
             value: "support_cut_cord",
-            label:
-              "One of my support people to cut the umbilical cord",
+            label: "One of my support people to cut the umbilical cord",
           },
           { value: "dim_lights", label: "The lights to be dimmed" },
           {
@@ -293,10 +292,7 @@ export function saveBirthPlanAnswers(answers: BirthPlanAnswers): void {
   localStorage.setItem(BIRTH_PLAN_KEY, JSON.stringify(answers));
 }
 
-function fieldAnswerText(
-  field: BirthPlanField,
-  value: BirthPlanValue,
-): string {
+function fieldAnswerText(field: BirthPlanField, value: BirthPlanValue): string {
   if (value === undefined || value === null || value === "") return "—";
   if (field.type === "boolean") return value ? "Yes" : "No";
   if (field.type === "multi" && Array.isArray(value)) {
@@ -312,10 +308,7 @@ function fieldAnswerText(
 }
 
 function escapeHtml(s: string) {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 export function buildBirthPlanHtml(answers: BirthPlanAnswers): string {

@@ -19,103 +19,106 @@ interface DefaultItem {
   note?: string;
 }
 
-const DEFAULT_CATEGORIES: { id: string; title: string; items: DefaultItem[] }[] =
-  [
-    {
-      id: "paperwork",
-      title: "Paperwork & Essentials",
-      items: [
-        { label: "Photo ID and insurance card" },
-        {
-          label: "Hospital pre-registration paperwork",
-          note: "If your hospital offers pre-registration",
-        },
-        { label: "Printed copy of your birth plan (if you made one)" },
-        { label: "Pediatrician contact info" },
-        { label: "Phone and charger (a long cord helps)" },
-        {
-          label: "Small amount of cash",
-          note: "For vending machines or parking",
-        },
-      ],
-    },
-    {
-      id: "for-you-labor",
-      title: "For You — During Labor",
-      items: [
-        {
-          label: "Glasses if you wear contacts",
-          note: "You may need to remove contacts",
-        },
-        { label: "Comfortable robe or your own labor gown" },
-        { label: "Non-slip socks" },
-        { label: "Hair ties or a headband" },
-        {
-          label: "Lip balm",
-          note: "Hospital air and mouth breathing dry lips out fast",
-        },
-        { label: "Phone charger and portable speaker for a playlist" },
-        {
-          label: "Massage tools or a comfort item",
-          note: "Tennis ball, heating pad, or a favorite pillow",
-        },
-        {
-          label: "Snacks for early labor",
-          note: "Check with your care team on timing",
-        },
-      ],
-    },
-    {
-      id: "for-you-after",
-      title: "For You — After Delivery",
-      items: [
-        {
-          label: "Toiletries",
-          note: "Toothbrush, toothpaste, deodorant, shampoo",
-        },
-        { label: "2–3 pairs of comfortable, high-waisted underwear" },
-        { label: "Nursing bra or soft, supportive bra" },
-        { label: "Nursing pads" },
-        {
-          label: "Going-home outfit",
-          note: "Loose and comfortable — you'll still look pregnant",
-        },
-        { label: "Flip-flops or slides for the shower" },
-        {
-          label: "Phone charger (pack two if you can — they get borrowed!)",
-        },
-      ],
-    },
-    {
-      id: "for-baby",
-      title: "For Baby",
-      items: [
-        { label: "Going-home outfit, weather-appropriate" },
-        {
-          label: "Extra outfit in a smaller size",
-          note: "In case baby arrives small",
-        },
-        { label: "Swaddle blanket or receiving blankets" },
-        { label: "Hat and socks or booties" },
-        {
-          label: "Rear-facing infant car seat, installed",
-          note: "Hospitals typically won't discharge baby without one",
-        },
-      ],
-    },
-    {
-      id: "for-partner",
-      title: "For Your Partner or Support Person",
-      items: [
-        { label: "Change of clothes" },
-        { label: "Toiletries" },
-        { label: "Pillow and a light blanket for sleeping in the room" },
-        { label: "Snacks and a refillable water bottle" },
-        { label: "Phone charger" },
-        { label: "Camera or fully charged phone for photos/video" },
-      ],
-    },
-  ];
+const DEFAULT_CATEGORIES: {
+  id: string;
+  title: string;
+  items: DefaultItem[];
+}[] = [
+  {
+    id: "paperwork",
+    title: "Paperwork & Essentials",
+    items: [
+      { label: "Photo ID and insurance card" },
+      {
+        label: "Hospital pre-registration paperwork",
+        note: "If your hospital offers pre-registration",
+      },
+      { label: "Printed copy of your birth plan (if you made one)" },
+      { label: "Pediatrician contact info" },
+      { label: "Phone and charger (a long cord helps)" },
+      {
+        label: "Small amount of cash",
+        note: "For vending machines or parking",
+      },
+    ],
+  },
+  {
+    id: "for-you-labor",
+    title: "For You — During Labor",
+    items: [
+      {
+        label: "Glasses if you wear contacts",
+        note: "You may need to remove contacts",
+      },
+      { label: "Comfortable robe or your own labor gown" },
+      { label: "Non-slip socks" },
+      { label: "Hair ties or a headband" },
+      {
+        label: "Lip balm",
+        note: "Hospital air and mouth breathing dry lips out fast",
+      },
+      { label: "Phone charger and portable speaker for a playlist" },
+      {
+        label: "Massage tools or a comfort item",
+        note: "Tennis ball, heating pad, or a favorite pillow",
+      },
+      {
+        label: "Snacks for early labor",
+        note: "Check with your care team on timing",
+      },
+    ],
+  },
+  {
+    id: "for-you-after",
+    title: "For You — After Delivery",
+    items: [
+      {
+        label: "Toiletries",
+        note: "Toothbrush, toothpaste, deodorant, shampoo",
+      },
+      { label: "2–3 pairs of comfortable, high-waisted underwear" },
+      { label: "Nursing bra or soft, supportive bra" },
+      { label: "Nursing pads" },
+      {
+        label: "Going-home outfit",
+        note: "Loose and comfortable — you'll still look pregnant",
+      },
+      { label: "Flip-flops or slides for the shower" },
+      {
+        label: "Phone charger (pack two if you can — they get borrowed!)",
+      },
+    ],
+  },
+  {
+    id: "for-baby",
+    title: "For Baby",
+    items: [
+      { label: "Going-home outfit, weather-appropriate" },
+      {
+        label: "Extra outfit in a smaller size",
+        note: "In case baby arrives small",
+      },
+      { label: "Swaddle blanket or receiving blankets" },
+      { label: "Hat and socks or booties" },
+      {
+        label: "Rear-facing infant car seat, installed",
+        note: "Hospitals typically won't discharge baby without one",
+      },
+    ],
+  },
+  {
+    id: "for-partner",
+    title: "For Your Partner or Support Person",
+    items: [
+      { label: "Change of clothes" },
+      { label: "Toiletries" },
+      { label: "Pillow and a light blanket for sleeping in the room" },
+      { label: "Snacks and a refillable water bottle" },
+      { label: "Phone charger" },
+      { label: "Camera or fully charged phone for photos/video" },
+    ],
+  },
+];
 
 function defaultChecklist(): HospitalBagCategory[] {
   return DEFAULT_CATEGORIES.map((cat) => ({
@@ -183,10 +186,7 @@ export function resetHospitalBag(): HospitalBagCategory[] {
 }
 
 function escapeHtml(s: string) {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 export function buildHospitalBagHtml(

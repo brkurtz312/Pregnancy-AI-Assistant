@@ -10,9 +10,21 @@ import {
 import { printHtml } from "@/lib/print-html";
 
 const VOL_COLORS = [
-  { bg: "bg-rose-50", border: "border-rose-200/60", badge: "bg-primary/10 text-primary" },
-  { bg: "bg-violet-50/60", border: "border-violet-200/60", badge: "bg-violet-100 text-violet-700" },
-  { bg: "bg-emerald-50/60", border: "border-emerald-200/60", badge: "bg-emerald-100 text-emerald-700" },
+  {
+    bg: "bg-rose-50",
+    border: "border-rose-200/60",
+    badge: "bg-primary/10 text-primary",
+  },
+  {
+    bg: "bg-violet-50/60",
+    border: "border-violet-200/60",
+    badge: "bg-violet-100 text-violet-700",
+  },
+  {
+    bg: "bg-emerald-50/60",
+    border: "border-emerald-200/60",
+    badge: "bg-emerald-100 text-emerald-700",
+  },
 ];
 
 export function SupportPerson() {
@@ -57,9 +69,7 @@ interface VolumeCardProps {
 
 function VolumeCard({ vol, colors, isExpanded, onToggle }: VolumeCardProps) {
   return (
-    <Card
-      className={`rounded-2xl border overflow-hidden ${colors.border}`}
-    >
+    <Card className={`rounded-2xl border overflow-hidden ${colors.border}`}>
       <button
         onClick={onToggle}
         className={`w-full text-left p-5 ${colors.bg} transition-colors hover:brightness-[0.97]`}
@@ -104,7 +114,9 @@ function VolumeCard({ vol, colors, isExpanded, onToggle }: VolumeCardProps) {
             <ul className="space-y-2.5">
               {vol.highlights.map((h, i) => (
                 <li key={i} className="flex gap-2.5 text-sm text-foreground">
-                  <span className="text-primary shrink-0 mt-0.5 text-xs">◆</span>
+                  <span className="text-primary shrink-0 mt-0.5 text-xs">
+                    ◆
+                  </span>
                   <span className="leading-relaxed">{h}</span>
                 </li>
               ))}

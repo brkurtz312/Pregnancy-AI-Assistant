@@ -34,9 +34,7 @@ export function HospitalBag() {
           : {
               ...cat,
               items: cat.items.map((item) =>
-                item.id === itemId
-                  ? { ...item, checked: !item.checked }
-                  : item,
+                item.id === itemId ? { ...item, checked: !item.checked } : item,
               ),
             },
       ),
@@ -55,10 +53,7 @@ export function HospitalBag() {
           ? c
           : {
               ...c,
-              items: [
-                ...c.items,
-                { id, label, checked: false, custom: true },
-              ],
+              items: [...c.items, { id, label, checked: false, custom: true }],
             },
       ),
     );

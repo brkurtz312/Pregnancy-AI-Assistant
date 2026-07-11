@@ -35,13 +35,9 @@ export function VideoVault() {
   const isFiltered = search || selectedSource !== "All";
 
   if (activeTopic && !isFiltered) {
-    const display = filteredTopics.find((t) => t.id === activeTopic.id) ?? activeTopic;
-    return (
-      <TopicView
-        topic={display}
-        onBack={() => setActiveTopic(null)}
-      />
-    );
+    const display =
+      filteredTopics.find((t) => t.id === activeTopic.id) ?? activeTopic;
+    return <TopicView topic={display} onBack={() => setActiveTopic(null)} />;
   }
 
   return (
@@ -51,8 +47,8 @@ export function VideoVault() {
           Video Vault
         </h2>
         <p className="text-xs text-muted-foreground">
-          {totalVideos}+ curated videos from ACOG, CDC, AAP, NICHD &
-          more — {topicCount} topics
+          {totalVideos}+ curated videos from ACOG, CDC, AAP, NICHD & more —{" "}
+          {topicCount} topics
         </p>
       </div>
 

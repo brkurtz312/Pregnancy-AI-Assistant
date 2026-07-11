@@ -17,8 +17,7 @@ const EXTERNAL_RESOURCES = [
   },
   {
     title: "March of Dimes",
-    description:
-      "Pregnancy health, complications, and preterm birth resources",
+    description: "Pregnancy health, complications, and preterm birth resources",
     url: "https://www.marchofdimes.org",
     source: "March of Dimes",
     color: "#f97316",

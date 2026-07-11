@@ -138,9 +138,7 @@ export function Journal() {
         setDraft={setDraft}
         onSave={handleSave}
         onCancel={() => setView("list")}
-        onDelete={
-          editingId ? () => handleDelete(editingId) : undefined
-        }
+        onDelete={editingId ? () => handleDelete(editingId) : undefined}
         isEdit={view === "edit"}
       />
     );
@@ -195,7 +193,10 @@ export function Journal() {
             Capture how you're feeling, what you're thinking, and moments you
             don't want to forget.
           </p>
-          <Button onClick={openNew} className="rounded-2xl bg-primary hover:bg-primary/90">
+          <Button
+            onClick={openNew}
+            className="rounded-2xl bg-primary hover:bg-primary/90"
+          >
             <Plus className="w-4 h-4 mr-2" /> Write your first entry
           </Button>
         </div>
@@ -355,7 +356,9 @@ function EntryForm({
                 placeholder="0"
                 className="w-24 rounded-xl border-border/50 text-sm"
               />
-              <span className="text-sm text-muted-foreground">days postpartum</span>
+              <span className="text-sm text-muted-foreground">
+                days postpartum
+              </span>
             </div>
           ) : (
             <div className="flex items-center gap-2">

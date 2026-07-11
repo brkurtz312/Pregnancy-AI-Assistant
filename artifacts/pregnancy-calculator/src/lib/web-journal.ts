@@ -67,9 +67,7 @@ export function getJournalAgeLabel(entry: JournalEntry): string {
       return `Day ${entry.postpartumDays + 1} postpartum`;
     const weeks = Math.floor(entry.postpartumDays / 7);
     const days = entry.postpartumDays % 7;
-    return days > 0
-      ? `${weeks}w ${days}d postpartum`
-      : `${weeks}w postpartum`;
+    return days > 0 ? `${weeks}w ${days}d postpartum` : `${weeks}w postpartum`;
   }
   if (entry.gestationalWeeks !== undefined) {
     const d = entry.gestationalDays ?? 0;
