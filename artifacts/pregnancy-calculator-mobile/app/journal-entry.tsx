@@ -23,6 +23,9 @@ import {
 } from "@workspace/api-client-react";
 import { useAuth } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
+import { usePass } from "@/hooks/usePass";
+import { PassGate } from "@/components/PassGate";
+import { FREE_PHOTO_LIMIT } from "@/constants/free-limits";
 import { getGestationalAgeAtDate } from "@/lib/pregnancy-math";
 import {
   copyMediaToDocuments,
@@ -77,6 +80,8 @@ export default function JournalEntryScreen() {
 
   const [showPrompts, setShowPrompts] = useState(isNew);
   const [saving, setSaving] = useState(false);
+  const [showPhotoGate, setShowPhotoGate] = useState(false);
+  const { hasPass } = usePass();
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -199,6 +204,27 @@ export default function JournalEntryScreen() {
     type: "photo" | "video",
     category: JournalMediaCategory,
   ) {
+    if (
+      !hasPass &&
+      (category === "bump" || category === "ultrasound")
+    ) {
+      const saved = await loadEntries();
+      const savedCount = saved.reduce(
+        (n, e) =>
+          n +
+          e.media.filter(
+            (m) => m.category === "bump" || m.category === "ultrasound",
+          ).length,
+        0,
+      );
+      const currentCount = entry.media.filter(
+        (m) => m.category === "bump" || m.category === "ultrasound",
+      ).length;
+      if (savedCount + currentCount >= FREE_PHOTO_LIMIT) {
+        setShowPhotoGate(true);
+        return;
+      }
+    }
     try {
       const id = uuid();
       const localUri = await copyMediaToDocuments(uri, id, type);
@@ -516,6 +542,13 @@ export default function JournalEntryScreen() {
           </TouchableOpacity>
         )}
       </ScrollView>
+
+      <PassGate
+        visible={showPhotoGate}
+        onClose={() => setShowPhotoGate(false)}
+        title="Photo Limit Reached"
+        description="Free accounts can store up to 3 bump and ultrasound photos. Upgrade to the Full Pregnancy Pass to save unlimited photos throughout your journey."
+      />
     </KeyboardAvoidingView>
   );
 }

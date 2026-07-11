@@ -21,6 +21,9 @@ import {
   type JournalEntry,
   type JournalMedia,
 } from "@/lib/journal";
+import { usePass } from "@/hooks/usePass";
+import { PassGate } from "@/components/PassGate";
+import { FREE_JOURNAL_ENTRY_LIMIT } from "@/constants/free-limits";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const GRID_GAP = 4;
@@ -231,6 +234,8 @@ export default function JournalScreen() {
   const insets = useSafeAreaInsets();
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("journal");
+  const [showGate, setShowGate] = useState(false);
+  const { hasPass } = usePass();
 
   useFocusEffect(
     useCallback(() => {
@@ -285,7 +290,13 @@ export default function JournalScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.newBtn, { backgroundColor: ACCENT }]}
-          onPress={() => router.push("/journal-entry")}
+          onPress={() => {
+            if (!hasPass && entries.length >= FREE_JOURNAL_ENTRY_LIMIT) {
+              setShowGate(true);
+              return;
+            }
+            router.push("/journal-entry");
+          }}
           activeOpacity={0.85}
         >
           <Ionicons name="add" size={18} color="#fff" />
@@ -447,6 +458,13 @@ export default function JournalScreen() {
           )}
         </Animated.View>
       </ScrollView>
+
+      <PassGate
+        visible={showGate}
+        onClose={() => setShowGate(false)}
+        title="Journal Full"
+        description="You've used your 5 free journal entries. Upgrade to the Full Pregnancy Pass to write unlimited entries throughout your pregnancy."
+      />
     </View>
   );
 }

@@ -9,6 +9,9 @@ import {
   isAnthropicConfigured,
 } from "@workspace/integrations-anthropic-ai";
 import { requireAuth, type AuthedRequest } from "../../middlewares/auth";
+import { userHasPass } from "../../lib/entitlement";
+import { reserveUsage, refundUsage } from "../../lib/ai-usage";
+import { FREE_SCRIBE_LIMIT } from "../../lib/billing-config";
 
 const router: IRouter = Router();
 
@@ -114,6 +117,30 @@ router.post(
       return;
     }
 
+    const userId = req.userId;
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const hasPass = await userHasPass(userId);
+    let usageReserved = false;
+    if (!hasPass) {
+      const { reserved } = await reserveUsage(
+        `scribe:${userId}`,
+        "all-time",
+        FREE_SCRIBE_LIMIT,
+      );
+      if (!reserved) {
+        res.status(403).json({
+          code: "SCRIBE_LIMIT_REACHED",
+          error:
+            "You have used your free scribe session. Upgrade to the Full Pregnancy Pass for unlimited sessions.",
+        });
+        return;
+      }
+      usageReserved = true;
+    }
+
     const systemPrompt = mode === "soap" ? SOAP_SYSTEM : SUMMARY_SYSTEM;
 
     try {
@@ -141,6 +168,9 @@ router.post(
       try {
         parsed = JSON.parse(raw);
       } catch {
+        if (usageReserved) {
+          await refundUsage(`scribe:${userId}`, "all-time");
+        }
         req.log.warn(
           { raw },
           "scribe generate-note: failed to parse JSON from model",
@@ -153,6 +183,9 @@ router.post(
 
       res.json({ mode, note: parsed });
     } catch (err) {
+      if (usageReserved) {
+        await refundUsage(`scribe:${userId}`, "all-time");
+      }
       req.log.error({ err }, "scribe generate-note failed");
       res
         .status(502)

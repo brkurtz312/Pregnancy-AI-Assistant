@@ -33,6 +33,8 @@ import { getGestationalAgeAtDate } from "@/lib/pregnancy-math";
 import { getTimelineForWeeks } from "@/lib/prenatal-testing-content";
 import { loadQuestions, getSelectedQuestions } from "@/lib/visit-questions";
 import { loadScribeNote, type StoredScribeNote } from "@/lib/scribe-note";
+import { PassGate } from "@/components/PassGate";
+import { usePass } from "@/hooks/usePass";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -103,6 +105,8 @@ export default function VisitSummaryScreen() {
 
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
   const [scribeNote, setScribeNote] = useState<StoredScribeNote | null>(null);
+  const [showPassGate, setShowPassGate] = useState(false);
+  const { hasPass } = usePass();
 
   useEffect(() => {
     loadQuestions().then((items) =>
@@ -564,8 +568,27 @@ export default function VisitSummaryScreen() {
         </Animated.View>
 
         <TouchableOpacity
-          style={[styles.exportBtn, { backgroundColor: colors.primary }]}
-          onPress={Platform.OS === "web" ? handleExport : handleViewInApp}
+          style={[
+            styles.exportBtn,
+            {
+              backgroundColor: hasPass
+                ? colors.primary
+                : (colors.muted ?? "#f5f5f5"),
+              borderWidth: hasPass ? 0 : 1,
+              borderColor: colors.border,
+            },
+          ]}
+          onPress={() => {
+            if (!hasPass) {
+              setShowPassGate(true);
+              return;
+            }
+            if (Platform.OS === "web") {
+              void handleExport();
+            } else {
+              void handleViewInApp();
+            }
+          }}
           disabled={exporting || viewing}
         >
           {exporting || viewing ? (
@@ -573,21 +596,34 @@ export default function VisitSummaryScreen() {
           ) : (
             <>
               <Ionicons
-                name="document-text-outline"
+                name={hasPass ? "document-text-outline" : "lock-closed-outline"}
                 size={18}
-                color={colors.primaryForeground}
+                color={
+                  hasPass ? colors.primaryForeground : colors.mutedForeground
+                }
               />
               <Text
                 style={[
                   styles.exportBtnText,
-                  { color: colors.primaryForeground },
+                  {
+                    color: hasPass
+                      ? colors.primaryForeground
+                      : colors.mutedForeground,
+                  },
                 ]}
               >
-                View Visit Report
+                {hasPass ? "View Visit Report" : "Unlock to View Report"}
               </Text>
             </>
           )}
         </TouchableOpacity>
+
+        <PassGate
+          visible={showPassGate}
+          onClose={() => setShowPassGate(false)}
+          title="Full Pregnancy Pass"
+          description="View and share your complete visit report — including encounter notes, prep questions, and test timeline — as a beautiful PDF."
+        />
       </ScrollView>
     </View>
   );

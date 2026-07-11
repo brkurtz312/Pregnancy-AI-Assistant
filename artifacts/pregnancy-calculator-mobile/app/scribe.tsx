@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { saveScribeNote, type PatientSummary } from "@/lib/scribe-note";
+import { PassGate } from "@/components/PassGate";
 
 const apiBase = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
@@ -38,6 +39,7 @@ export default function ScribeScreen() {
   const [transcript, setTranscript] = useState("");
   const [note, setNote] = useState<PatientSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showPassGate, setShowPassGate] = useState(false);
 
   const recordingRef = useRef<Audio.Recording | null>(null);
 
@@ -119,6 +121,11 @@ export default function ScribeScreen() {
         body: JSON.stringify({ transcript, mode: "summary" }),
       });
       const data = await res.json();
+      if (res.status === 403 && data.code === "SCRIBE_LIMIT_REACHED") {
+        setPhase("transcribed");
+        setShowPassGate(true);
+        return;
+      }
       if (!res.ok) throw new Error(data.error ?? "Summary generation failed");
       const summary = data.note as PatientSummary;
       setNote(summary);
@@ -351,6 +358,13 @@ export default function ScribeScreen() {
           </View>
         )}
       </ScrollView>
+
+      <PassGate
+        visible={showPassGate}
+        onClose={() => setShowPassGate(false)}
+        title="Free Session Used"
+        description="You've used your free Visit Notes Scribe session. Upgrade to the Full Pregnancy Pass for unlimited appointment recordings and summaries."
+      />
     </SafeAreaView>
   );
 }
