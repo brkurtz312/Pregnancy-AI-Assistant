@@ -354,6 +354,7 @@ export default function ProfileScreen() {
     isSignedIn,
     firstName,
     zipCode,
+    prePregnancyWeight,
     providerName,
     providerPhone,
     providerAddress,
