@@ -283,6 +283,14 @@ function RootLayoutNav() {
           name="pdf-viewer"
           options={{ headerShown: false, presentation: "modal" }}
         />
+        <Stack.Screen
+          name="journal"
+          options={{ headerShown: false, presentation: "card" }}
+        />
+        <Stack.Screen
+          name="journal-entry"
+          options={{ headerShown: false, presentation: "card" }}
+        />
       </Stack>
       <WhatsNewModal
         version={appVersion}

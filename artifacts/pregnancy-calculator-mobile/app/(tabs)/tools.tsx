@@ -1050,8 +1050,47 @@ export default function ToolsScreen() {
           Pregnancy Tools
         </Text>
         <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
-          Track your symptoms, baby kicks, and contractions.
+          Journal your journey, track symptoms, kicks, and contractions.
         </Text>
+      </Animated.View>
+
+      <Animated.View
+        entering={FadeInDown.delay(40).duration(400)}
+        style={[
+          styles.card,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
+        <TouchableOpacity
+          style={styles.navCard}
+          onPress={() => router.push("/journal")}
+          activeOpacity={0.8}
+        >
+          <View
+            style={[
+              styles.navCardIcon,
+              { backgroundColor: (colors.primary ?? "#e86cad") + "18" },
+            ]}
+          >
+            <Ionicons name="book" size={22} color={colors.primary ?? "#e86cad"} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.navCardTitle, { color: colors.foreground }]}>
+              My Pregnancy Journal
+            </Text>
+            <Text
+              style={[styles.navCardSub, { color: colors.mutedForeground }]}
+            >
+              Write entries, attach bump photos, and save ultrasound images —
+              all stored privately on your phone.
+            </Text>
+          </View>
+          <Ionicons
+            name="chevron-forward"
+            size={18}
+            color={colors.mutedForeground}
+          />
+        </TouchableOpacity>
       </Animated.View>
 
       <Animated.View
@@ -1189,5 +1228,27 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
+  },
+  navCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  navCardIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  navCardTitle: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    marginBottom: 2,
+  },
+  navCardSub: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 18,
   },
 });

@@ -1,0 +1,624 @@
+import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
+import { router } from "expo-router";
+import React, { useCallback, useState } from "react";
+import {
+  Dimensions,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useFocusEffect } from "expo-router";
+import { useColors } from "@/hooks/useColors";
+import {
+  loadEntries,
+  getAgeLabel,
+  MOOD_OPTIONS,
+  type JournalEntry,
+  type JournalMedia,
+} from "@/lib/journal";
+
+const SCREEN_WIDTH = Dimensions.get("window").width;
+const GRID_GAP = 4;
+const GRID_PADDING = 16;
+const GRID_CELL = (SCREEN_WIDTH - GRID_PADDING * 2 - GRID_GAP) / 2;
+
+type Tab = "journal" | "bump" | "ultrasound";
+
+function formatEntryDate(iso: string) {
+  return new Date(iso).toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function getMoodEmoji(mood: JournalEntry["mood"]): string {
+  return MOOD_OPTIONS.find((m) => m.value === mood)?.emoji ?? "";
+}
+
+function EntryCard({
+  entry,
+  onPress,
+  colors,
+}: {
+  entry: JournalEntry;
+  onPress: () => void;
+  colors: ReturnType<typeof useColors>;
+}) {
+  const ageLabel = getAgeLabel(entry);
+  const moodEmoji = getMoodEmoji(entry.mood);
+  const firstPhoto = entry.media.find((m) => m.type === "photo");
+  const mediaCount = entry.media.length;
+
+  return (
+    <TouchableOpacity
+      style={[
+        styles.entryCard,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      <View style={styles.entryCardContent}>
+        <View style={{ flex: 1 }}>
+          <View style={styles.entryMeta}>
+            <Text
+              style={[styles.entryDate, { color: colors.mutedForeground }]}
+            >
+              {formatEntryDate(entry.createdAt)}
+            </Text>
+            {moodEmoji ? (
+              <Text style={styles.moodEmoji}>{moodEmoji}</Text>
+            ) : null}
+          </View>
+          {ageLabel ? (
+            <View
+              style={[
+                styles.agePill,
+                { backgroundColor: (colors.primary ?? "#e86cad") + "18" },
+              ]}
+            >
+              <Text
+                style={[styles.agePillText, { color: colors.primary }]}
+              >
+                {ageLabel}
+              </Text>
+            </View>
+          ) : null}
+          {entry.text ? (
+            <Text
+              style={[styles.entryPreview, { color: colors.foreground }]}
+              numberOfLines={3}
+            >
+              {entry.text}
+            </Text>
+          ) : (
+            <Text
+              style={[
+                styles.entryPreview,
+                { color: colors.mutedForeground, fontStyle: "italic" },
+              ]}
+            >
+              No text — tap to edit
+            </Text>
+          )}
+          {mediaCount > 0 && (
+            <View style={styles.mediaCountRow}>
+              <Ionicons
+                name="images-outline"
+                size={13}
+                color={colors.mutedForeground}
+              />
+              <Text
+                style={[
+                  styles.mediaCountText,
+                  { color: colors.mutedForeground },
+                ]}
+              >
+                {mediaCount} {mediaCount === 1 ? "photo" : "photos/videos"}
+              </Text>
+            </View>
+          )}
+        </View>
+        {firstPhoto ? (
+          <Image
+            source={{ uri: firstPhoto.uri }}
+            style={styles.entryThumb}
+            contentFit="cover"
+          />
+        ) : null}
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function PhotoGrid({
+  items,
+  onPress,
+  emptyIcon,
+  emptyText,
+  colors,
+}: {
+  items: { media: JournalMedia; entry: JournalEntry }[];
+  onPress: (entry: JournalEntry) => void;
+  emptyIcon: keyof typeof Ionicons.glyphMap;
+  emptyText: string;
+  colors: ReturnType<typeof useColors>;
+}) {
+  if (!items.length) {
+    return (
+      <View style={styles.emptyState}>
+        <Ionicons
+          name={emptyIcon}
+          size={48}
+          color={colors.mutedForeground}
+        />
+        <Text
+          style={[styles.emptyText, { color: colors.mutedForeground }]}
+        >
+          {emptyText}
+        </Text>
+      </View>
+    );
+  }
+
+  const rows: (typeof items)[] = [];
+  for (let i = 0; i < items.length; i += 2) {
+    rows.push(items.slice(i, i + 2));
+  }
+
+  return (
+    <View style={styles.gridContainer}>
+      {rows.map((row, ri) => (
+        <View key={ri} style={styles.gridRow}>
+          {row.map(({ media, entry }) => {
+            const ageLabel = getAgeLabel(entry);
+            return (
+              <TouchableOpacity
+                key={media.id}
+                style={[
+                  styles.gridCell,
+                  { backgroundColor: colors.muted, borderColor: colors.border },
+                ]}
+                onPress={() => onPress(entry)}
+                activeOpacity={0.85}
+              >
+                {media.type === "photo" ? (
+                  <Image
+                    source={{ uri: media.uri }}
+                    style={styles.gridImage}
+                    contentFit="cover"
+                  />
+                ) : (
+                  <View
+                    style={[
+                      styles.gridImage,
+                      {
+                        backgroundColor: colors.muted,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name="play-circle"
+                      size={40}
+                      color={colors.primary}
+                    />
+                  </View>
+                )}
+                {ageLabel ? (
+                  <View style={styles.gridLabel}>
+                    <Text
+                      style={[
+                        styles.gridLabelText,
+                        { color: colors.mutedForeground },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {ageLabel}
+                    </Text>
+                  </View>
+                ) : null}
+              </TouchableOpacity>
+            );
+          })}
+          {row.length === 1 && <View style={{ width: GRID_CELL }} />}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+export default function JournalScreen() {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const [activeTab, setActiveTab] = useState<Tab>("journal");
+
+  useFocusEffect(
+    useCallback(() => {
+      loadEntries().then(setEntries);
+    }, []),
+  );
+
+  const bumpMedia = entries.flatMap((e) =>
+    e.media
+      .filter((m) => m.category === "bump")
+      .map((m) => ({ media: m, entry: e })),
+  );
+
+  const ultrasoundMedia = entries.flatMap((e) =>
+    e.media
+      .filter((m) => m.category === "ultrasound")
+      .map((m) => ({ media: m, entry: e })),
+  );
+
+  const ACCENT = colors.primary ?? "#e86cad";
+  const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+    { key: "journal", label: "Journal", icon: "book-outline" },
+    { key: "bump", label: "Baby Bump", icon: "camera-outline" },
+    { key: "ultrasound", label: "Ultrasound", icon: "scan-outline" },
+  ];
+
+  return (
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+      <View
+        style={[
+          styles.header,
+          {
+            paddingTop: insets.top + 12,
+            borderBottomColor: colors.border,
+            backgroundColor: colors.background,
+          },
+        ]}
+      >
+        <TouchableOpacity
+          onPress={() => router.back()}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={styles.backBtn}
+        >
+          <Ionicons name="chevron-back" size={22} color={colors.foreground} />
+          <Text style={[styles.backText, { color: colors.foreground }]}>
+            Tools
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.newBtn, { backgroundColor: ACCENT }]}
+          onPress={() => router.push("/journal-entry")}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="add" size={18} color="#fff" />
+          <Text style={styles.newBtnText}>New Entry</Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingBottom: insets.bottom + 32 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <Animated.View entering={FadeInDown.duration(350)}>
+          <Text style={[styles.pageTitle, { color: colors.foreground }]}>
+            My Pregnancy Journal
+          </Text>
+          <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
+            Your personal record of this journey — from first heartbeat to
+            first steps.
+          </Text>
+        </Animated.View>
+
+        <Animated.View
+          entering={FadeInDown.delay(60).duration(350)}
+          style={styles.tabRow}
+        >
+          {TABS.map((tab) => {
+            const active = activeTab === tab.key;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                style={[
+                  styles.tabPill,
+                  {
+                    backgroundColor: active
+                      ? ACCENT
+                      : colors.muted ?? "#f5f5f5",
+                    borderColor: active ? ACCENT : colors.border,
+                  },
+                ]}
+                onPress={() => setActiveTab(tab.key)}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={tab.icon}
+                  size={13}
+                  color={active ? "#fff" : colors.mutedForeground}
+                />
+                <Text
+                  style={[
+                    styles.tabPillText,
+                    { color: active ? "#fff" : colors.mutedForeground },
+                  ]}
+                >
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(120).duration(350)}>
+          {activeTab === "journal" && (
+            <>
+              {entries.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Ionicons
+                    name="book-outline"
+                    size={48}
+                    color={colors.mutedForeground}
+                  />
+                  <Text
+                    style={[
+                      styles.emptyTitle,
+                      { color: colors.foreground },
+                    ]}
+                  >
+                    Your journal is empty
+                  </Text>
+                  <Text
+                    style={[
+                      styles.emptyText,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    Tap "New Entry" to capture your first moment.
+                  </Text>
+                </View>
+              ) : (
+                entries.map((entry) => (
+                  <EntryCard
+                    key={entry.id}
+                    entry={entry}
+                    colors={colors}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/journal-entry",
+                        params: { entryId: entry.id },
+                      })
+                    }
+                  />
+                ))
+              )}
+            </>
+          )}
+
+          {activeTab === "bump" && (
+            <>
+              <Text
+                style={[styles.gridSectionHint, { color: colors.mutedForeground }]}
+              >
+                Watch your bump grow — add bump photos to any journal entry.
+              </Text>
+              <PhotoGrid
+                items={bumpMedia}
+                onPress={(entry) =>
+                  router.push({
+                    pathname: "/journal-entry",
+                    params: { entryId: entry.id },
+                  })
+                }
+                emptyIcon="camera-outline"
+                emptyText={
+                  "No bump photos yet.\nAdd them when creating a journal entry."
+                }
+                colors={colors}
+              />
+            </>
+          )}
+
+          {activeTab === "ultrasound" && (
+            <>
+              <Text
+                style={[styles.gridSectionHint, { color: colors.mutedForeground }]}
+              >
+                Save your ultrasound images here for safekeeping.
+              </Text>
+              <PhotoGrid
+                items={ultrasoundMedia}
+                onPress={(entry) =>
+                  router.push({
+                    pathname: "/journal-entry",
+                    params: { entryId: entry.id },
+                  })
+                }
+                emptyIcon="scan-outline"
+                emptyText={
+                  "No ultrasound images yet.\nAdd them when creating a journal entry."
+                }
+                colors={colors}
+              />
+            </>
+          )}
+        </Animated.View>
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1 },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+  },
+  backBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  backText: {
+    fontSize: 16,
+    fontFamily: "Inter_500Medium",
+  },
+  newBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  newBtnText: {
+    color: "#fff",
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
+  scroll: {
+    paddingHorizontal: GRID_PADDING,
+    paddingTop: 16,
+  },
+  pageTitle: {
+    fontSize: 26,
+    fontFamily: "Inter_700Bold",
+    marginBottom: 4,
+  },
+  pageSub: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 21,
+    marginBottom: 20,
+  },
+  tabRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 20,
+  },
+  tabPill: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    paddingVertical: 9,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  tabPillText: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+  },
+  entryCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 12,
+  },
+  entryCardContent: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  entryMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 4,
+  },
+  entryDate: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+  },
+  moodEmoji: {
+    fontSize: 14,
+  },
+  agePill: {
+    alignSelf: "flex-start",
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginBottom: 8,
+  },
+  agePillText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+  entryPreview: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 20,
+  },
+  mediaCountRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 8,
+  },
+  mediaCountText: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+  },
+  entryThumb: {
+    width: 72,
+    height: 72,
+    borderRadius: 10,
+  },
+  gridSectionHint: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 19,
+    marginBottom: 16,
+  },
+  gridContainer: {
+    gap: GRID_GAP,
+  },
+  gridRow: {
+    flexDirection: "row",
+    gap: GRID_GAP,
+  },
+  gridCell: {
+    width: GRID_CELL,
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+  },
+  gridImage: {
+    width: GRID_CELL,
+    height: GRID_CELL,
+  },
+  gridLabel: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  gridLabelText: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+  },
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: 48,
+    gap: 12,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontFamily: "Inter_600SemiBold",
+  },
+  emptyText: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    lineHeight: 21,
+  },
+});
