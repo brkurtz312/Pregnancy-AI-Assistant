@@ -254,6 +254,9 @@ export default function JournalScreen() {
   const [showGate, setShowGate] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [syncFailed, setSyncFailed] = useState(false);
+  const [syncSucceeded, setSyncSucceeded] = useState(false);
+  const syncFailedRef = useRef(false);
+  const wasReconnectPendingRef = useRef(false);
   const { hasPass } = usePass();
   const { isSignedIn, getToken } = useAuth();
   const { user } = useUser();
@@ -272,8 +275,22 @@ export default function JournalScreen() {
     }
   }
 
+  useEffect(() => {
+    syncFailedRef.current = syncFailed;
+  }, [syncFailed]);
+
+  useEffect(() => {
+    if (!syncFailed && wasReconnectPendingRef.current) {
+      wasReconnectPendingRef.current = false;
+      setSyncSucceeded(true);
+    }
+  }, [syncFailed]);
+
   // Fire the latest sync function whenever connectivity is restored.
-  useNetReconnect(() => syncNowRef.current());
+  useNetReconnect(() => {
+    wasReconnectPendingRef.current = syncFailedRef.current;
+    syncNowRef.current();
+  });
 
   useFocusEffect(
     useCallback(() => {
@@ -428,7 +445,7 @@ export default function JournalScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <SyncBanner visible={syncFailed} />
+      <SyncBanner visible={syncFailed} synced={syncSucceeded} />
       <View
         style={[
           styles.header,

@@ -264,8 +264,14 @@ export default function BirthPlanScreen() {
   const [generating, setGenerating] = useState(false);
   const [generated, setGenerated] = useState(false);
   const [syncFailed, setSyncFailed] = useState(false);
+  const [syncSucceeded, setSyncSucceeded] = useState(false);
+  const syncFailedRef = useRef(false);
   const migratedForUserRef = useRef<string | null>(null);
   const answersRef = useRef<BirthPlanAnswers>(answers);
+
+  useEffect(() => {
+    syncFailedRef.current = syncFailed;
+  }, [syncFailed]);
 
   useEffect(() => {
     const userId = user?.id ?? null;
@@ -344,10 +350,12 @@ export default function BirthPlanScreen() {
 
   useNetReconnect(() => {
     if (!isSignedIn) return;
+    const wasPending = syncFailedRef.current;
     apiSaveBirthPlanAnswers(answersRef.current, getToken)
       .then(() => {
         setSyncFailed(false);
         clearPendingSync("birth-plan").catch(() => {});
+        if (wasPending) setSyncSucceeded(true);
       })
       .catch(() => {});
   });
@@ -392,7 +400,7 @@ export default function BirthPlanScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <SyncBanner visible={syncFailed} />
+      <SyncBanner visible={syncFailed} synced={syncSucceeded} />
       <View
         style={[
           styles.header,

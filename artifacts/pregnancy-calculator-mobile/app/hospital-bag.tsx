@@ -54,8 +54,14 @@ export default function HospitalBagScreen() {
   const [newItemText, setNewItemText] = useState<Record<string, string>>({});
   const [generating, setGenerating] = useState(false);
   const [syncFailed, setSyncFailed] = useState(false);
+  const [syncSucceeded, setSyncSucceeded] = useState(false);
+  const syncFailedRef = useRef(false);
   const migratedForUserRef = useRef<string | null>(null);
   const categoriesRef = useRef<HospitalBagCategory[]>(categories);
+
+  useEffect(() => {
+    syncFailedRef.current = syncFailed;
+  }, [syncFailed]);
 
   useEffect(() => {
     const userId = user?.id ?? null;
@@ -127,10 +133,12 @@ export default function HospitalBagScreen() {
 
   useNetReconnect(() => {
     if (!isSignedIn) return;
+    const wasPending = syncFailedRef.current;
     apiSaveHospitalBag(categoriesRef.current, getToken)
       .then(() => {
         setSyncFailed(false);
         clearPendingSync("hospital-bag").catch(() => {});
+        if (wasPending) setSyncSucceeded(true);
       })
       .catch(() => {});
   });
@@ -256,7 +264,7 @@ export default function HospitalBagScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <SyncBanner visible={syncFailed} />
+      <SyncBanner visible={syncFailed} synced={syncSucceeded} />
       <View
         style={[
           styles.header,
