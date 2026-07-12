@@ -26,6 +26,14 @@ if (!basePath) {
   );
 }
 
+if (!process.env.VITE_APP_URL) {
+  const replitDomains = process.env.REPLIT_DOMAINS;
+  if (replitDomains) {
+    const primaryDomain = replitDomains.split(",")[0].trim();
+    process.env.VITE_APP_URL = `https://${primaryDomain}`;
+  }
+}
+
 export default defineConfig({
   base: basePath,
   plugins: [
