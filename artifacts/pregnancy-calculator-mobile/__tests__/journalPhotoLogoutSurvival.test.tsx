@@ -240,6 +240,117 @@ describe("Journal photo survival — reindexMediaForEntry re-keys before logout"
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Partial-write safety — media index is written before the entry list
+//
+// If the process dies (or AsyncStorage throws) after the media index is
+// written but before persistEntries completes, the index must already reflect
+// the latest media so photos are not lost.  The entry list is the lossy side
+// of the write; the index is the recovery source.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("Partial-write safety — media index is durable even when persistEntries throws", () => {
+  // AsyncStorage.setItem in the jest mock is itself a jest.fn() that
+  // internally calls asMock.multiSet.  jest.spyOn wraps it in-place via
+  // mockImplementation, and mockRestore()/restoreAllMocks() do not reliably
+  // unwind the cross-reference chain when another jest.fn() is involved.
+  //
+  // To avoid this, we save and restore the property directly — no jest.spyOn
+  // — and clean up unconditionally in afterEach via try/finally so that a
+  // failing test cannot poison later suites.
+
+  let savedSetItem: (typeof AsyncStorage)["setItem"];
+
+  beforeEach(async () => {
+    savedSetItem = AsyncStorage.setItem; // snapshot before any replacement
+    await AsyncStorage.clear();
+  });
+
+  afterEach(async () => {
+    // Restore unconditionally — even if the test threw
+    (AsyncStorage as Record<string, unknown>)["setItem"] = savedSetItem;
+    await AsyncStorage.clear();
+  });
+
+  it("JOURNAL_KEY is not written when the JOURNAL_MEDIA_INDEX_KEY write throws", async () => {
+    // If the first write (media index) fails, the second write (entry list)
+    // must NOT be attempted — otherwise the entry list would be ahead of the
+    // index, which is exactly the out-of-sync state the task requires us to
+    // prevent.
+    const writtenKeys: string[] = [];
+
+    (AsyncStorage as Record<string, unknown>)["setItem"] = async (
+      key: string,
+      _value: string,
+    ) => {
+      writtenKeys.push(key);
+      if (key === JOURNAL_MEDIA_INDEX_KEY) {
+        throw new Error("Simulated AsyncStorage failure on media index write");
+      }
+    };
+
+    await expect(upsertEntry(ENTRY_WITH_PHOTO)).rejects.toThrow(
+      "Simulated AsyncStorage failure on media index write",
+    );
+
+    // The entry-list key must NOT appear in the writes because the media
+    // index write threw before we ever reached persistEntries.
+    expect(writtenKeys).toContain(JOURNAL_MEDIA_INDEX_KEY);
+    expect(writtenKeys).not.toContain(JOURNAL_KEY);
+  });
+
+  it("media index holds the photo even when the JOURNAL_KEY write throws", async () => {
+    // Replace setItem with a direct function (no jest.spyOn) so the restore
+    // in afterEach is a simple property assignment that always works.
+    const capturedWrites = new Map<string, string>();
+
+    (AsyncStorage as Record<string, unknown>)["setItem"] = async (
+      key: string,
+      value: string,
+    ) => {
+      if (key === JOURNAL_KEY) {
+        throw new Error("Simulated AsyncStorage failure on entry list write");
+      }
+      capturedWrites.set(key, value);
+    };
+
+    await expect(upsertEntry(ENTRY_WITH_PHOTO)).rejects.toThrow(
+      "Simulated AsyncStorage failure on entry list write",
+    );
+
+    // The media index write must have been captured before the entry write
+    // was even attempted — the photo must be in the captured payload.
+    expect(capturedWrites.has(JOURNAL_MEDIA_INDEX_KEY)).toBe(true);
+    const index = JSON.parse(
+      capturedWrites.get(JOURNAL_MEDIA_INDEX_KEY)!,
+    ) as Record<string, JournalMedia[]>;
+    expect(index[ENTRY_WITH_PHOTO.id]).toEqual([PHOTO]);
+  });
+
+  it("write order: JOURNAL_MEDIA_INDEX_KEY is always set before JOURNAL_KEY", async () => {
+    // Track write key order without calling through to AsyncStorage (the
+    // mock's setItem delegates to multiSet via a closure reference, so calling
+    // the original from inside a replacement triggers recursion).
+    const callOrder: string[] = [];
+
+    (AsyncStorage as Record<string, unknown>)["setItem"] = async (
+      key: string,
+      _value: string,
+    ) => {
+      callOrder.push(key);
+    };
+
+    await upsertEntry(ENTRY_WITH_PHOTO);
+
+    const indexPos = callOrder.indexOf(JOURNAL_MEDIA_INDEX_KEY);
+    const entryPos = callOrder.indexOf(JOURNAL_KEY);
+    expect(indexPos).toBeGreaterThanOrEqual(0);
+    expect(entryPos).toBeGreaterThanOrEqual(0);
+    // The media index must be written strictly before the entry list.
+    expect(indexPos).toBeLessThan(entryPos);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Corrupted media index — graceful degradation on parse failure
 // ─────────────────────────────────────────────────────────────────────────────
 

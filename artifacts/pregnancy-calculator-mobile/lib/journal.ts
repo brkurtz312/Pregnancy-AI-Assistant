@@ -191,11 +191,7 @@ export async function loadMediaIndex(): Promise<
 async function persistMediaIndex(
   index: Record<string, JournalMedia[]>,
 ): Promise<void> {
-  try {
-    await AsyncStorage.setItem(JOURNAL_MEDIA_INDEX_KEY, JSON.stringify(index));
-  } catch {
-    /* best-effort */
-  }
+  await AsyncStorage.setItem(JOURNAL_MEDIA_INDEX_KEY, JSON.stringify(index));
 }
 
 /**
@@ -258,11 +254,13 @@ export async function upsertEntry(entry: JournalEntry): Promise<void> {
   } else {
     entries.unshift(entry);
   }
-  // Keep the media index in sync so it can survive a clearJournalCache wipe.
-  await Promise.all([
-    persistEntries(entries),
-    updateMediaIndexForEntry(entry.id, entry.media),
-  ]);
+  // Write the media index first — it is the recovery source.  If the entry
+  // list write below fails (or the process is killed between the two writes),
+  // the index already reflects the latest media so photos are not lost.  The
+  // caller can safely retry upsertEntry; it will rebuild the entry list while
+  // the index remains correct.
+  await updateMediaIndexForEntry(entry.id, entry.media);
+  await persistEntries(entries);
 }
 
 /**
