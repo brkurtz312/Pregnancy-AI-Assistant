@@ -1,8 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { Asset } from "expo-asset";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
 import * as WebBrowser from "expo-web-browser";
-import React from "react";
+import React, { useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -35,6 +41,47 @@ const WHEN_IN_DOUBT = [
   "Go directly to the nearest emergency department if you cannot reach anyone and feel seriously unwell.",
 ];
 
+const PDF_ASSET = require("@/assets/docs/warning-signs-pregnancy.pdf");
+const HANDOUT_TITLE = "Warning Signs During Pregnancy";
+
+async function openHandoutPdf(setOpening: (v: boolean) => void) {
+  try {
+    setOpening(true);
+    const asset = Asset.fromModule(PDF_ASSET);
+    await asset.downloadAsync();
+    const sourceUri = asset.localUri ?? asset.uri;
+    if (!sourceUri) throw new Error("PDF asset has no resolvable URI");
+    const destUri = `${FileSystem.cacheDirectory}warning-signs-pregnancy.pdf`;
+    await FileSystem.copyAsync({ from: sourceUri, to: destUri });
+    if (Platform.OS === "web") {
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(destUri, {
+          mimeType: "application/pdf",
+          dialogTitle: HANDOUT_TITLE,
+          UTI: "com.adobe.pdf",
+        });
+      } else {
+        Alert.alert(
+          "Can't open PDF",
+          "Viewing files isn't available on this device.",
+        );
+      }
+      return;
+    }
+    router.push({
+      pathname: "/pdf-viewer",
+      params: { uri: destUri, title: HANDOUT_TITLE, shareTitle: HANDOUT_TITLE },
+    });
+  } catch {
+    Alert.alert(
+      "Can't open PDF",
+      "Something went wrong opening the handout. Please try again.",
+    );
+  } finally {
+    setOpening(false);
+  }
+}
+
 const RESOURCES = [
   {
     name: "ACOG: Preeclampsia",
@@ -57,6 +104,7 @@ const RESOURCES = [
 export default function HpWarningSignsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const [opening, setOpening] = useState(false);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -159,8 +207,32 @@ export default function HpWarningSignsScreen() {
           ))}
         </Animated.View>
 
+        <Animated.View entering={FadeInDown.delay(150).duration(400)}>
+          <TouchableOpacity
+            style={[
+              styles.pdfBtn,
+              { borderColor: colors.primary, backgroundColor: colors.card },
+            ]}
+            onPress={() => openHandoutPdf(setOpening)}
+            disabled={opening}
+          >
+            {opening ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Ionicons
+                name="document-text-outline"
+                size={18}
+                color={colors.primary}
+              />
+            )}
+            <Text style={[styles.pdfBtnText, { color: colors.primary }]}>
+              View Full Handout (PDF)
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
+
         <Animated.View
-          entering={FadeInDown.delay(150).duration(400)}
+          entering={FadeInDown.delay(190).duration(400)}
           style={[
             styles.card,
             { backgroundColor: colors.card, borderColor: colors.border },
@@ -267,6 +339,17 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     lineHeight: 20,
   },
+  pdfBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 12,
+    paddingVertical: 14,
+    borderWidth: 1.5,
+    marginBottom: 16,
+  },
+  pdfBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
   resourceItem: {
     flexDirection: "row",
     alignItems: "center",
