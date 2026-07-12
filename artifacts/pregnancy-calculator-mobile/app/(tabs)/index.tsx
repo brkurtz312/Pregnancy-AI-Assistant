@@ -552,11 +552,26 @@ export default function CalculatorScreen() {
   const autoLoadedRef = useRef(false);
 
   const router = useRouter();
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, userId } = useAuth();
   const { data: profile } = useGetProfile({
     query: { enabled: !!isSignedIn, queryKey: getGetProfileQueryKey() },
   });
   const updateProfileMutation = useUpdateProfile();
+
+  // Reset local due-date state when the signed-in user changes (account switch).
+  // Without this, switching from user A to user B in the same session leaves
+  // `results` and `autoLoadedRef` set to user A's values, so the profile effect
+  // below never fires for user B (its guard `!autoLoadedRef.current && !results`
+  // is false). Resetting on userId change lets the profile effect re-run cleanly
+  // for the incoming user.
+  const prevUserIdRef = useRef<string | null | undefined>(userId);
+  useEffect(() => {
+    if (prevUserIdRef.current !== userId) {
+      prevUserIdRef.current = userId;
+      setResults(null);
+      autoLoadedRef.current = false;
+    }
+  }, [userId]);
 
   // Auto-restore results from saved due date on first load
   useEffect(() => {
