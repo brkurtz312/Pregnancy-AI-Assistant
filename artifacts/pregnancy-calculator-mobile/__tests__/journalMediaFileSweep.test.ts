@@ -106,10 +106,7 @@ describe("sweepUnreferencedMediaFiles", () => {
 
   it("deletes all files when the media index is empty", async () => {
     mockGetInfoAsync.mockResolvedValue({ exists: true });
-    mockReadDirectoryAsync.mockResolvedValue([
-      "orphan-a.jpg",
-      "orphan-b.mp4",
-    ]);
+    mockReadDirectoryAsync.mockResolvedValue(["orphan-a.jpg", "orphan-b.mp4"]);
 
     // No index entry — both files are orphans
     await AsyncStorage.setItem(JOURNAL_MEDIA_INDEX_KEY, JSON.stringify({}));

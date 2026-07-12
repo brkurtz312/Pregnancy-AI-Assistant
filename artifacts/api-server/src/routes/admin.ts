@@ -1,4 +1,10 @@
-import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import {
+  Router,
+  type IRouter,
+  type Request,
+  type Response,
+  type NextFunction,
+} from "express";
 import { timingSafeEqual } from "node:crypto";
 import { db, appConfigTable } from "@workspace/db";
 import { eq, inArray, sql } from "drizzle-orm";
@@ -51,7 +57,11 @@ function resolveAdminToken(): string | null {
  * Middleware that verifies the admin bearer token.
  * Responds with 401 or 503 on failure; calls next() on success.
  */
-function requireAdminToken(req: Request, res: Response, next: NextFunction): void {
+function requireAdminToken(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
   const authHeader: string = req.headers.authorization ?? "";
   const bearerToken = authHeader.startsWith("Bearer ")
     ? authHeader.slice(7)
@@ -65,9 +75,9 @@ function requireAdminToken(req: Request, res: Response, next: NextFunction): voi
   const adminToken = resolveAdminToken();
 
   if (!adminToken) {
-    (req as Request & { log: { error: (...args: unknown[]) => void } }).log.error(
-      "Admin endpoint called but no token is configured",
-    );
+    (
+      req as Request & { log: { error: (...args: unknown[]) => void } }
+    ).log.error("Admin endpoint called but no token is configured");
     res.status(503).json({ error: "Admin check not configured" });
     return;
   }
@@ -167,13 +177,12 @@ const UpdateAlertConfigBody = z.object({
   alertFromEmail: z.email().max(320).nullable().optional(),
 });
 
-const KEY_MAP: Record<keyof z.infer<typeof UpdateAlertConfigBody>, AlertKey> =
-  {
-    alertSlackWebhookUrl: "alert_slack_webhook_url",
-    alertResendApiKey: "alert_resend_api_key",
-    alertEmail: "alert_email",
-    alertFromEmail: "alert_from_email",
-  };
+const KEY_MAP: Record<keyof z.infer<typeof UpdateAlertConfigBody>, AlertKey> = {
+  alertSlackWebhookUrl: "alert_slack_webhook_url",
+  alertResendApiKey: "alert_resend_api_key",
+  alertEmail: "alert_email",
+  alertFromEmail: "alert_from_email",
+};
 
 /**
  * PUT /api/admin/alert-config

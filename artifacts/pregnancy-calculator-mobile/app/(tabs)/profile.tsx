@@ -6,7 +6,9 @@ import {
   Alert,
   KeyboardAvoidingView,
   Linking,
+  Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
@@ -16,6 +18,9 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import DateTimePicker, {
+  type DateTimePickerEvent,
+} from "@react-native-community/datetimepicker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -34,6 +39,11 @@ import { usePass } from "@/hooks/usePass";
 import { formatPhone } from "@/lib/phone";
 import { useSettings } from "@/contexts/SettingsContext";
 import type { ThemeMode } from "@/contexts/SettingsContext";
+import {
+  calculateByDueDate,
+  formatDate,
+  getGestationalAgeAtDate,
+} from "@/lib/pregnancy-math";
 
 function CallButton({ phone }: { phone: string }) {
   const colors = useColors();
@@ -280,6 +290,8 @@ export default function ProfileScreen() {
   const [zipCode, setZipCode] = useState("");
   const [prePregnancyWeight, setPrePregnancyWeight] = useState("");
   const [weightUnit, setWeightUnit] = useState<"lbs" | "kg">("lbs");
+  const [deliveryDate, setDeliveryDate] = useState<Date | null>(null);
+  const [showDeliveryPicker, setShowDeliveryPicker] = useState(false);
   const [providerName, setProviderName] = useState("");
   const [providerPhone, setProviderPhone] = useState("");
   const [providerAddress, setProviderAddress] = useState("");
@@ -333,6 +345,9 @@ export default function ProfileScreen() {
       setHospitalName(profile.hospitalName ?? "");
       setHospitalPhone(formatPhone(profile.hospitalPhone ?? ""));
       setHospitalAddress(profile.hospitalAddress ?? "");
+      setDeliveryDate(
+        profile.deliveryDate ? new Date(profile.deliveryDate) : null,
+      );
     }
   }, [profile]);
 
@@ -345,6 +360,9 @@ export default function ProfileScreen() {
           zipCode: zipCode.trim() || null,
           prePregnancyWeight: prePregnancyWeight.trim()
             ? `${prePregnancyWeight.trim()} ${weightUnit}`
+            : null,
+          deliveryDate: deliveryDate
+            ? deliveryDate.toISOString().slice(0, 10)
             : null,
           providerName: providerName.trim() || null,
           providerPhone: providerPhone.trim() || null,
@@ -366,6 +384,7 @@ export default function ProfileScreen() {
     zipCode,
     prePregnancyWeight,
     weightUnit,
+    deliveryDate,
     providerName,
     providerPhone,
     providerAddress,
@@ -443,6 +462,318 @@ export default function ProfileScreen() {
             </Text>
           ) : (
             <>
+              {/* Pregnancy Summary card */}
+              {(() => {
+                const dueDateObj = profile?.dueDate
+                  ? new Date(profile.dueDate)
+                  : null;
+                if (!dueDateObj) return null;
+
+                const egaAnchor = deliveryDate ?? new Date();
+                const ega = getGestationalAgeAtDate(dueDateObj, egaAnchor);
+                const egaLabel = `${ega.weeks}w ${ega.days}d`;
+                const edcLabel = formatDate(dueDateObj);
+                const isDelivered = deliveryDate !== null;
+
+                const methodLabels: Record<string, string> = {
+                  lmp: "Last Menstrual Period (LMP)",
+                  due: "Known Due Date",
+                  conception: "Conception Date",
+                  ultrasound: "Ultrasound Dating",
+                };
+                const methodLabel =
+                  (profile?.eddMethod
+                    ? methodLabels[profile.eddMethod]
+                    : null) ?? "Calculator";
+
+                const isAndroid = Platform.OS === "android";
+
+                return (
+                  <View
+                    style={[
+                      styles.card,
+                      styles.summaryCard,
+                      {
+                        backgroundColor: colors.primary + "10",
+                        borderColor: colors.primary + "30",
+                      },
+                    ]}
+                  >
+                    <View style={styles.sectionHeader}>
+                      <Ionicons
+                        name="heart-circle-outline"
+                        size={20}
+                        color={colors.primary}
+                      />
+                      <Text
+                        style={[
+                          styles.sectionTitle,
+                          { color: colors.foreground },
+                        ]}
+                      >
+                        Pregnancy Summary
+                      </Text>
+                    </View>
+
+                    {/* EDC row */}
+                    <View style={styles.summaryRow}>
+                      <View style={styles.summaryLabelWrap}>
+                        <Text
+                          style={[
+                            styles.summaryLabel,
+                            { color: colors.mutedForeground },
+                          ]}
+                        >
+                          EDC (Due Date)
+                        </Text>
+                        <View
+                          style={[
+                            styles.methodBadge,
+                            { backgroundColor: colors.primary + "18" },
+                          ]}
+                        >
+                          <Ionicons
+                            name="information-circle-outline"
+                            size={11}
+                            color={colors.primary}
+                          />
+                          <Text
+                            style={[
+                              styles.methodBadgeText,
+                              { color: colors.primary },
+                            ]}
+                          >
+                            {methodLabel}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text
+                        style={[
+                          styles.summaryValue,
+                          { color: colors.foreground },
+                        ]}
+                      >
+                        {edcLabel}
+                      </Text>
+                    </View>
+
+                    {/* EGA row */}
+                    <View
+                      style={[
+                        styles.summaryRow,
+                        styles.summaryRowTop,
+                        { borderTopColor: colors.primary + "20" },
+                      ]}
+                    >
+                      <View style={styles.summaryLabelWrap}>
+                        <Text
+                          style={[
+                            styles.summaryLabel,
+                            { color: colors.mutedForeground },
+                          ]}
+                        >
+                          {isDelivered
+                            ? "EGA at Delivery"
+                            : "Current Gestational Age"}
+                        </Text>
+                        {isDelivered && (
+                          <View
+                            style={[
+                              styles.methodBadge,
+                              { backgroundColor: "#4a7ab518" },
+                            ]}
+                          >
+                            <Ionicons
+                              name="lock-closed-outline"
+                              size={11}
+                              color="#4a7ab5"
+                            />
+                            <Text
+                              style={[
+                                styles.methodBadgeText,
+                                { color: "#4a7ab5" },
+                              ]}
+                            >
+                              Frozen at delivery
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text
+                        style={[
+                          styles.summaryValue,
+                          { color: colors.foreground },
+                        ]}
+                      >
+                        {egaLabel}
+                      </Text>
+                    </View>
+
+                    {/* Delivery date picker */}
+                    <View
+                      style={[
+                        styles.summaryRow,
+                        styles.summaryRowTop,
+                        { borderTopColor: colors.primary + "20" },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.summaryLabel,
+                          { color: colors.mutedForeground },
+                        ]}
+                      >
+                        Date of Delivery
+                      </Text>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.deliveryDateBtn,
+                          {
+                            borderColor: isDelivered
+                              ? colors.primary
+                              : colors.border,
+                            backgroundColor: colors.card,
+                          },
+                        ]}
+                        onPress={() => setShowDeliveryPicker(true)}
+                      >
+                        <Ionicons
+                          name={
+                            isDelivered
+                              ? "checkmark-circle"
+                              : "calendar-outline"
+                          }
+                          size={15}
+                          color={
+                            isDelivered
+                              ? colors.primary
+                              : colors.mutedForeground
+                          }
+                        />
+                        <Text
+                          style={[
+                            styles.deliveryDateBtnText,
+                            {
+                              color: isDelivered
+                                ? colors.foreground
+                                : colors.mutedForeground,
+                            },
+                          ]}
+                        >
+                          {isDelivered
+                            ? formatDate(deliveryDate!)
+                            : "Not yet set"}
+                        </Text>
+                      </TouchableOpacity>
+
+                      {isDelivered && (
+                        <TouchableOpacity
+                          style={styles.clearDeliveryBtn}
+                          onPress={() => setDeliveryDate(null)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Ionicons
+                            name="close-circle"
+                            size={18}
+                            color={colors.mutedForeground}
+                          />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    {/* DateTimePicker — Android inline */}
+                    {isAndroid && showDeliveryPicker && (
+                      <DateTimePicker
+                        value={deliveryDate ?? new Date()}
+                        mode="date"
+                        display="default"
+                        maximumDate={new Date()}
+                        onChange={(
+                          _event: DateTimePickerEvent,
+                          date?: Date,
+                        ) => {
+                          setShowDeliveryPicker(false);
+                          if (date) setDeliveryDate(date);
+                        }}
+                      />
+                    )}
+
+                    {/* DateTimePicker — iOS modal sheet */}
+                    {!isAndroid && (
+                      <Modal
+                        visible={showDeliveryPicker}
+                        transparent
+                        animationType="slide"
+                      >
+                        <Pressable
+                          style={styles.pickerOverlay}
+                          onPress={() => setShowDeliveryPicker(false)}
+                        >
+                          <Pressable
+                            style={[
+                              styles.pickerSheet,
+                              { backgroundColor: colors.card },
+                            ]}
+                          >
+                            <View
+                              style={[
+                                styles.pickerHeader,
+                                { borderBottomColor: colors.border },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.pickerTitle,
+                                  { color: colors.foreground },
+                                ]}
+                              >
+                                Date of Delivery
+                              </Text>
+                              <TouchableOpacity
+                                onPress={() => setShowDeliveryPicker(false)}
+                              >
+                                <Text
+                                  style={[
+                                    styles.pickerDone,
+                                    { color: colors.primary },
+                                  ]}
+                                >
+                                  Done
+                                </Text>
+                              </TouchableOpacity>
+                            </View>
+                            <DateTimePicker
+                              value={deliveryDate ?? new Date()}
+                              mode="date"
+                              display="spinner"
+                              maximumDate={new Date()}
+                              onChange={(
+                                _event: DateTimePickerEvent,
+                                date?: Date,
+                              ) => {
+                                if (date) setDeliveryDate(date);
+                              }}
+                            />
+                          </Pressable>
+                        </Pressable>
+                      </Modal>
+                    )}
+
+                    <Text
+                      style={[
+                        styles.summaryHint,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      {isDelivered
+                        ? "EGA is frozen at the time of delivery. Tap × to clear."
+                        : "Set a delivery date to freeze EGA. Tap Save below."}
+                    </Text>
+                  </View>
+                );
+              })()}
+
               {/* About you section */}
               <View
                 style={[
@@ -1589,5 +1920,93 @@ const styles = StyleSheet.create({
   addContactBtnText: {
     fontSize: 14,
     fontFamily: "Inter_500Medium",
+  },
+  summaryCard: {
+    borderWidth: 1,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 6,
+    paddingVertical: 10,
+  },
+  summaryRowTop: {
+    borderTopWidth: 1,
+  },
+  summaryLabelWrap: {
+    gap: 4,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
+  },
+  summaryValue: {
+    fontSize: 16,
+    fontFamily: "Inter_600SemiBold",
+  },
+  methodBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    alignSelf: "flex-start",
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 20,
+  },
+  methodBadgeText: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+  },
+  deliveryDateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  deliveryDateBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+  },
+  clearDeliveryBtn: {
+    marginLeft: 4,
+  },
+  summaryHint: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    marginTop: 4,
+    lineHeight: 16,
+    fontStyle: "italic",
+  },
+  pickerOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.35)",
+  },
+  pickerSheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 32,
+  },
+  pickerHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+  },
+  pickerTitle: {
+    fontSize: 16,
+    fontFamily: "Inter_600SemiBold",
+  },
+  pickerDone: {
+    fontSize: 16,
+    fontFamily: "Inter_600SemiBold",
   },
 });

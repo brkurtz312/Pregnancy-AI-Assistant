@@ -605,9 +605,12 @@ export default function CalculatorScreen() {
 
       setResults(r);
       haptics.notification(Haptics.NotificationFeedbackType.Success);
-      // Save the EDD to the user's profile so it auto-loads next time
+      // Save the EDD and the method used to the user's profile
       updateProfileMutation.mutate({
-        data: { dueDate: r.edd.toISOString().slice(0, 10) },
+        data: {
+          dueDate: r.edd.toISOString().slice(0, 10),
+          eddMethod: method,
+        },
       });
     } catch {
       setError("Could not calculate. Please check your input.");

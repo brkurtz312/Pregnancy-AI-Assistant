@@ -56,7 +56,9 @@ function renderLanding() {
   );
 }
 
-function makePassValue(overrides: Partial<ReturnType<typeof UsePassModule.usePass>> = {}) {
+function makePassValue(
+  overrides: Partial<ReturnType<typeof UsePassModule.usePass>> = {},
+) {
   return {
     hasPass: false,
     isSignedIn: true,

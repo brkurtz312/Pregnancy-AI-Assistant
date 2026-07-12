@@ -423,6 +423,18 @@ export const GetProfileResponse = zod.object({
     .string()
     .nullish()
     .describe("ISO date string of the estimated due date (YYYY-MM-DD)"),
+  eddMethod: zod
+    .string()
+    .nullish()
+    .describe(
+      'Method used to determine the EDD (\"lmp\" | \"due\" | \"conception\" | \"ultrasound\")',
+    ),
+  deliveryDate: zod
+    .string()
+    .nullish()
+    .describe(
+      "Actual date of delivery (YYYY-MM-DD); when set, EGA is frozen at this date",
+    ),
   providerName: zod.string().nullish(),
   providerPhone: zod.string().nullish(),
   providerAddress: zod.string().nullish(),
@@ -471,6 +483,18 @@ export const UpdateProfileBody = zod.object({
     .string()
     .nullish()
     .describe("ISO date string of the estimated due date (YYYY-MM-DD)"),
+  eddMethod: zod
+    .string()
+    .nullish()
+    .describe(
+      'Method used to determine the EDD (\"lmp\" | \"due\" | \"conception\" | \"ultrasound\")',
+    ),
+  deliveryDate: zod
+    .string()
+    .nullish()
+    .describe(
+      "Actual date of delivery (YYYY-MM-DD); when set, EGA is frozen at this date",
+    ),
   providerName: zod.string().max(updateProfileBodyProviderNameMax).nullish(),
   providerPhone: zod.string().max(updateProfileBodyProviderPhoneMax).nullish(),
   providerAddress: zod
@@ -504,6 +528,18 @@ export const UpdateProfileResponse = zod.object({
     .string()
     .nullish()
     .describe("ISO date string of the estimated due date (YYYY-MM-DD)"),
+  eddMethod: zod
+    .string()
+    .nullish()
+    .describe(
+      'Method used to determine the EDD (\"lmp\" | \"due\" | \"conception\" | \"ultrasound\")',
+    ),
+  deliveryDate: zod
+    .string()
+    .nullish()
+    .describe(
+      "Actual date of delivery (YYYY-MM-DD); when set, EGA is frozen at this date",
+    ),
   providerName: zod.string().nullish(),
   providerPhone: zod.string().nullish(),
   providerAddress: zod.string().nullish(),

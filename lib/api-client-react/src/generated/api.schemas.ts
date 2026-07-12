@@ -331,6 +331,16 @@ export interface UserProfile {
    * @nullable
    */
   dueDate?: string | null;
+  /**
+   * Method used to determine the EDD ("lmp" | "due" | "conception" | "ultrasound")
+   * @nullable
+   */
+  eddMethod?: string | null;
+  /**
+   * Actual date of delivery (YYYY-MM-DD); when set, EGA is frozen at this date
+   * @nullable
+   */
+  deliveryDate?: string | null;
   /** @nullable */
   providerName?: string | null;
   /** @nullable */
@@ -380,6 +390,16 @@ export interface UpdateProfileBody {
    * @nullable
    */
   dueDate?: string | null;
+  /**
+   * Method used to determine the EDD ("lmp" | "due" | "conception" | "ultrasound")
+   * @nullable
+   */
+  eddMethod?: string | null;
+  /**
+   * Actual date of delivery (YYYY-MM-DD); when set, EGA is frozen at this date
+   * @nullable
+   */
+  deliveryDate?: string | null;
   /**
    * @maxLength 200
    * @nullable

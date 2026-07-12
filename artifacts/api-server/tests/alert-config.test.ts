@@ -129,7 +129,10 @@ describe("GET /api/admin/alert-config", () => {
   describe("with DB rows set", () => {
     it("returns plain email/fromEmail fields and masks secret fields", async () => {
       dbSelectWhere.mockResolvedValue([
-        { key: "alert_slack_webhook_url", value: "https://hooks.slack.com/T0123/B456/abcdefgh1234" },
+        {
+          key: "alert_slack_webhook_url",
+          value: "https://hooks.slack.com/T0123/B456/abcdefgh1234",
+        },
         { key: "alert_resend_api_key", value: "re_abc1234defgh5678" },
         { key: "alert_email", value: "ops@example.com" },
         { key: "alert_from_email", value: "alerts@example.com" },

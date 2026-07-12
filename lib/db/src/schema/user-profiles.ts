@@ -7,6 +7,10 @@ export const userProfilesTable = pgTable("user_profiles", {
   firstName: text("first_name"),
   zipCode: text("zip_code"),
   dueDate: text("due_date"),
+  // How the EDD was determined: "lmp" | "due" | "conception" | "ultrasound"
+  eddMethod: text("edd_method"),
+  // Actual date of delivery (ISO YYYY-MM-DD); when set, EGA is frozen at this date
+  deliveryDate: text("delivery_date"),
   providerName: text("provider_name"),
   providerPhone: text("provider_phone"),
   providerAddress: text("provider_address"),

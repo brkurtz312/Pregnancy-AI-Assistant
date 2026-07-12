@@ -1399,6 +1399,12 @@ components:
         dueDate:
           type: ["string", "null"]
           description: ISO date string of the estimated due date (YYYY-MM-DD)
+        eddMethod:
+          type: ["string", "null"]
+          description: Method used to determine the EDD ("lmp" | "due" | "conception" | "ultrasound")
+        deliveryDate:
+          type: ["string", "null"]
+          description: Actual date of delivery (YYYY-MM-DD); when set, EGA is frozen at this date
         providerName:
           type: ["string", "null"]
         providerPhone:
@@ -1429,6 +1435,12 @@ components:
         dueDate:
           type: ["string", "null"]
           description: ISO date string of the estimated due date (YYYY-MM-DD)
+        eddMethod:
+          type: ["string", "null"]
+          description: Method used to determine the EDD ("lmp" | "due" | "conception" | "ultrasound")
+        deliveryDate:
+          type: ["string", "null"]
+          description: Actual date of delivery (YYYY-MM-DD); when set, EGA is frozen at this date
         providerName:
           type: ["string", "null"]
           maxLength: 200
