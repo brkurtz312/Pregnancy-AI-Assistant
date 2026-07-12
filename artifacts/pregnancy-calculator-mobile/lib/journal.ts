@@ -135,14 +135,32 @@ export async function clearJournalCache(opts?: {
 /**
  * Loads the media index from AsyncStorage. Returns an empty object if nothing
  * has been stored yet or if the read fails.
+ *
+ * If the stored value exists but cannot be parsed as JSON (e.g. the key was
+ * corrupted by a partial write or storage-layer bug), this function logs a
+ * warning and returns {} so the app degrades gracefully — photos will
+ * temporarily disappear but the app will not crash.  The corrupted value is
+ * left in place so that a developer or diagnostic tool can inspect it; a
+ * subsequent upsertEntry call will overwrite it with a valid index.
  */
 export async function loadMediaIndex(): Promise<
   Record<string, JournalMedia[]>
 > {
+  let raw: string | null = null;
   try {
-    const raw = await AsyncStorage.getItem(JOURNAL_MEDIA_INDEX_KEY);
-    return raw ? (JSON.parse(raw) as Record<string, JournalMedia[]>) : {};
+    raw = await AsyncStorage.getItem(JOURNAL_MEDIA_INDEX_KEY);
   } catch {
+    return {};
+  }
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw) as Record<string, JournalMedia[]>;
+  } catch {
+    console.warn(
+      "[journal] Media index corrupted — could not parse JSON from",
+      JOURNAL_MEDIA_INDEX_KEY,
+      ". Photos will not appear until entries are re-saved.",
+    );
     return {};
   }
 }

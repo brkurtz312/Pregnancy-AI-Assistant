@@ -238,6 +238,81 @@ describe("Journal photo survival — reindexMediaForEntry re-keys before logout"
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Corrupted media index — graceful degradation on parse failure
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("Corrupted media index — loadMediaIndex degrades gracefully", () => {
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+  });
+
+  it("returns an empty object when the stored value is not valid JSON", async () => {
+    // Simulate storage corruption: the key exists but holds garbage bytes
+    await AsyncStorage.setItem(JOURNAL_MEDIA_INDEX_KEY, "}{not valid json}{");
+
+    const index = await loadMediaIndex();
+
+    // Must not throw; must return an empty object so the app keeps running
+    expect(index).toEqual({});
+  });
+
+  it("emits a console.warn (not an error) when JSON is corrupted", async () => {
+    const warnSpy = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    await AsyncStorage.setItem(JOURNAL_MEDIA_INDEX_KEY, "CORRUPTED");
+
+    await loadMediaIndex();
+
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy.mock.calls[0][0]).toMatch(/Media index corrupted/);
+
+    warnSpy.mockRestore();
+  });
+
+  it("does NOT emit a warning when the stored value is absent (empty storage)", async () => {
+    const warnSpy = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    await loadMediaIndex();
+
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+  });
+
+  it("does NOT emit a warning when the stored value is valid JSON", async () => {
+    const warnSpy = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    await upsertEntry(ENTRY_WITH_PHOTO);
+    await loadMediaIndex();
+
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+  });
+
+  it("a subsequent upsertEntry call overwrites the corrupt index with valid data", async () => {
+    // Seed corrupt value
+    await AsyncStorage.setItem(JOURNAL_MEDIA_INDEX_KEY, "CORRUPTED");
+
+    // Reading the corrupt index returns {} (graceful degradation)
+    const beforeUpsert = await loadMediaIndex();
+    expect(beforeUpsert).toEqual({});
+
+    // Writing a new entry rebuilds the index from scratch
+    await upsertEntry(ENTRY_WITH_PHOTO);
+
+    const afterUpsert = await loadMediaIndex();
+    expect(afterUpsert[ENTRY_WITH_PHOTO.id]).toEqual([PHOTO]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Cross-user isolation — User A's photos must NOT leak to User B
 //
 // The media index intentionally survives clearJournalCache() so that photos
