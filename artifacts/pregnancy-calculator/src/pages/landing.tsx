@@ -323,35 +323,61 @@ export default function LandingPage() {
               ))}
             </ul>
 
-            <Button
-              size="lg"
-              onClick={handleGetPass}
-              disabled={isStartingCheckout || hasPass}
-              className="relative w-full rounded-2xl gap-2 bg-white text-primary hover:bg-white/90 font-semibold shadow-sm disabled:opacity-70"
-              data-testid="button-plan-pass"
-            >
-              {isStartingCheckout ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Redirecting…
-                </>
-              ) : hasPass ? (
-                <>
-                  <Crown className="w-4 h-4" />
-                  Pass active
-                </>
-              ) : (
-                <>
-                  Get the Full Pass
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </Button>
-            <p className="relative text-center text-xs text-white/60">
-              {isSignedIn
-                ? "One-time payment — your pass follows your account across every device."
-                : "Sign in to unlock — your pass follows your account across every device."}
-            </p>
+            {hasPass ? (
+              <div
+                className="relative flex flex-col items-center gap-3 rounded-2xl bg-white/15 border border-white/30 px-6 py-5 text-center"
+                data-testid="pass-active-banner"
+              >
+                <span className="flex items-center justify-center w-11 h-11 rounded-full bg-white/25 shadow-inner">
+                  <Crown className="w-6 h-6 text-white" />
+                </span>
+                <div>
+                  <p className="font-semibold text-white text-base leading-tight">
+                    You have the Full Pass
+                  </p>
+                  <p className="text-white/70 text-xs mt-1">
+                    Unlimited AI support is active on your account.
+                  </p>
+                </div>
+                <Button
+                  asChild
+                  size="sm"
+                  className="relative gap-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white border border-white/30 shadow-none text-xs font-medium"
+                >
+                  <Link href="/app">
+                    Open the app
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </Button>
+              </div>
+            ) : (
+              <>
+                <Button
+                  size="lg"
+                  onClick={handleGetPass}
+                  disabled={isStartingCheckout}
+                  className="relative w-full rounded-2xl gap-2 bg-white text-primary hover:bg-white/90 font-semibold shadow-sm disabled:opacity-70"
+                  data-testid="button-plan-pass"
+                >
+                  {isStartingCheckout ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Redirecting…
+                    </>
+                  ) : (
+                    <>
+                      Get the Full Pass
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </Button>
+                <p className="relative text-center text-xs text-white/60">
+                  {isSignedIn
+                    ? "One-time payment — your pass follows your account across every device."
+                    : "Sign in to unlock — your pass follows your account across every device."}
+                </p>
+              </>
+            )}
           </div>
         </div>
       </section>
