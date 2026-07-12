@@ -187,6 +187,21 @@ describe("sendAlert — Slack channel", () => {
       allMessages.some((m) => m.includes("No alert channel configured")),
     ).toBe(true);
   });
+
+  it("logs 'No alert channel configured' when RESEND_API_KEY is set but ALERT_EMAIL is missing and Slack is absent", async () => {
+    clearAlertEnv();
+    process.env.RESEND_API_KEY = "re_test_key";
+    // ALERT_EMAIL intentionally not set
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await sendAlert(payload);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    const allMessages = errorSpy.mock.calls.map((c) => c.join(" "));
+    expect(
+      allMessages.some((m) => m.includes("No alert channel configured")),
+    ).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------

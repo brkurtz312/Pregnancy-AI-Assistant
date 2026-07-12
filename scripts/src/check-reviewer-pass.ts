@@ -156,7 +156,7 @@ export async function sendAlert(payload: AlertPayload): Promise<void> {
   }
 
   if (!sent) {
-    if (!slackWebhookUrl && !resendApiKey) {
+    if (!slackWebhookUrl && !(resendApiKey && alertEmail)) {
       console.error(
         "   ⚠️  No alert channel configured. Set alert_slack_webhook_url in",
       );
