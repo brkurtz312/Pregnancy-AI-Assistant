@@ -49,6 +49,7 @@ import {
   JOURNAL_MEDIA_INDEX_KEY,
   JOURNAL_OWNER_KEY,
   MediaIndexWriteError,
+  JournalKeyWriteError,
   setJournalCacheOwner,
 } from "@/lib/journal";
 import type { JournalEntry, JournalMedia } from "@/lib/journal";
@@ -304,9 +305,10 @@ describe("Partial-write safety — media index is durable even when persistEntri
     expect(writtenKeys).not.toContain(JOURNAL_KEY);
   });
 
-  it("media index holds the photo even when the JOURNAL_KEY write throws", async () => {
+  it("media index holds the photo even when the JOURNAL_KEY write throws (both attempts)", async () => {
     // Replace setItem with a direct function (no jest.spyOn) so the restore
     // in afterEach is a simple property assignment that always works.
+    // Both the first attempt and the retry will fail → JournalKeyWriteError.
     const capturedWrites = new Map<string, string>();
 
     (AsyncStorage as Record<string, unknown>)["setItem"] = async (
@@ -319,8 +321,9 @@ describe("Partial-write safety — media index is durable even when persistEntri
       capturedWrites.set(key, value);
     };
 
-    await expect(upsertEntry(ENTRY_WITH_PHOTO)).rejects.toThrow(
-      "Simulated AsyncStorage failure on entry list write",
+    // After one automatic retry both attempts failed → JournalKeyWriteError surfaces
+    await expect(upsertEntry(ENTRY_WITH_PHOTO)).rejects.toBeInstanceOf(
+      JournalKeyWriteError,
     );
 
     // The media index write must have been captured before the entry write
@@ -353,6 +356,62 @@ describe("Partial-write safety — media index is durable even when persistEntri
     expect(entryPos).toBeGreaterThanOrEqual(0);
     // The media index must be written strictly before the entry list.
     expect(indexPos).toBeLessThan(entryPos);
+  });
+
+  it("upsertEntry throws JournalKeyWriteError (not a plain Error) when both JOURNAL_KEY write attempts fail", async () => {
+    // This is the core regression guard for the entry-list protection:
+    // when persistEntries fails on both the initial attempt and the automatic
+    // retry, the caller receives a typed JournalKeyWriteError so it can show
+    // a targeted "Could not save entry — please try again" notice rather than
+    // letting the failure go unnoticed.
+    (AsyncStorage as Record<string, unknown>)["setItem"] = async (
+      key: string,
+      _value: string,
+    ) => {
+      if (key === JOURNAL_KEY) {
+        throw new Error("Simulated persistent AsyncStorage failure");
+      }
+    };
+
+    const err = await upsertEntry(ENTRY_WITH_PHOTO).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(JournalKeyWriteError);
+    expect((err as JournalKeyWriteError).name).toBe("JournalKeyWriteError");
+    expect((err as JournalKeyWriteError).message).toBe(
+      "Could not save journal entry list",
+    );
+  });
+
+  it("upsertEntry succeeds when the JOURNAL_KEY write fails once but succeeds on retry", async () => {
+    // Simulates a transient storage blip: the first attempt throws, the
+    // retry succeeds.  The entry must end up in AsyncStorage (checked via
+    // the real loadEntries) and no error must surface to the caller.
+    let journalKeyWriteCount = 0;
+    const realSetItem = savedSetItem; // captured in beforeEach
+
+    (AsyncStorage as Record<string, unknown>)["setItem"] = async (
+      key: string,
+      value: string,
+    ) => {
+      if (key === JOURNAL_KEY) {
+        journalKeyWriteCount += 1;
+        if (journalKeyWriteCount === 1) {
+          throw new Error("Simulated transient AsyncStorage failure");
+        }
+      }
+      // Delegate to the real implementation for all other writes (and for the
+      // retry) so that loadEntries can read the persisted data afterwards.
+      await realSetItem.call(AsyncStorage, key, value);
+    };
+
+    await expect(upsertEntry(ENTRY_WITH_PHOTO)).resolves.toBeUndefined();
+
+    // Restore so loadEntries can use the real AsyncStorage
+    (AsyncStorage as Record<string, unknown>)["setItem"] = savedSetItem;
+
+    const entries = await loadEntries();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].id).toBe(ENTRY_WITH_PHOTO.id);
   });
 });
 

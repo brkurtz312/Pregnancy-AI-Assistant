@@ -170,6 +170,25 @@ export class MediaIndexWriteError extends Error {
 }
 
 /**
+ * Thrown by `upsertEntry` when the JOURNAL_KEY (entry list) AsyncStorage write
+ * fails after one automatic retry — e.g. because storage is temporarily full.
+ * Callers that catch this error can show a targeted notice to the user
+ * ("Could not save journal entry, please try again") rather than a generic
+ * save-failure message.
+ *
+ * Because the media index is written *before* the entry list, a
+ * `JournalKeyWriteError` means the media index is already up to date.  The
+ * entry list can be recovered by retrying `upsertEntry` — it is idempotent.
+ */
+export class JournalKeyWriteError extends Error {
+  constructor(cause: unknown) {
+    super("Could not save journal entry list");
+    this.name = "JournalKeyWriteError";
+    this.cause = cause;
+  }
+}
+
+/**
  * Loads the media index from AsyncStorage. Returns an empty object if nothing
  * has been stored yet or if the read fails.
  *
@@ -293,7 +312,19 @@ export async function upsertEntry(entry: JournalEntry): Promise<void> {
   } catch (err) {
     throw new MediaIndexWriteError(err);
   }
-  await persistEntries(entries);
+  // Write the entry list.  Retry once on transient failure (e.g. a momentary
+  // storage hiccup).  If both attempts fail, surface a typed JournalKeyWriteError
+  // so callers can show a targeted "Could not save entry, please try again"
+  // notice rather than silently leaving the list out of date.
+  try {
+    await persistEntries(entries);
+  } catch {
+    try {
+      await persistEntries(entries);
+    } catch (secondErr) {
+      throw new JournalKeyWriteError(secondErr);
+    }
+  }
 }
 
 /**
