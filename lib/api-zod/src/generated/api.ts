@@ -587,3 +587,75 @@ export const UpdateContactResponse = zod.object({
 export const DeleteContactParams = zod.object({
   contactId: zod.coerce.string().uuid(),
 });
+
+/**
+ * Returns the current alert channel settings stored in app_config. Sensitive values (Resend API key, Slack webhook URL) are masked so callers can confirm a value is set without reading the secret. Each field is null when no DB row exists (the server falls back to the corresponding env var).
+
+ * @summary Get alert channel configuration
+ */
+export const GetAlertConfigResponse = zod
+  .object({
+    alertSlackWebhookUrl: zod
+      .string()
+      .nullable()
+      .describe("Masked Slack webhook URL, or null if not set in DB."),
+    alertResendApiKey: zod
+      .string()
+      .nullable()
+      .describe("Masked Resend API key, or null if not set in DB."),
+    alertEmail: zod
+      .string()
+      .nullable()
+      .describe("Recipient email address for alerts, or null if not set."),
+    alertFromEmail: zod
+      .string()
+      .nullable()
+      .describe("Sender email address for alerts, or null if not set."),
+  })
+  .describe(
+    "Current alert channel configuration. Sensitive values are masked.",
+  );
+
+/**
+ * Writes one or more alert channel settings to app_config. Pass null for a field to clear that key (server falls back to the env var). Omit a field entirely to leave it unchanged.
+
+ * @summary Update alert channel configuration
+ */
+export const updateAlertConfigBodyAlertSlackWebhookUrlMax = 2048;
+
+export const updateAlertConfigBodyAlertResendApiKeyMax = 500;
+
+export const updateAlertConfigBodyAlertEmailMax = 320;
+
+export const updateAlertConfigBodyAlertFromEmailMax = 320;
+
+export const UpdateAlertConfigBody = zod
+  .object({
+    alertSlackWebhookUrl: zod
+      .string()
+      .max(updateAlertConfigBodyAlertSlackWebhookUrlMax)
+      .nullish(),
+    alertResendApiKey: zod
+      .string()
+      .max(updateAlertConfigBodyAlertResendApiKeyMax)
+      .nullish(),
+    alertEmail: zod
+      .string()
+      .email()
+      .max(updateAlertConfigBodyAlertEmailMax)
+      .nullish(),
+    alertFromEmail: zod
+      .string()
+      .email()
+      .max(updateAlertConfigBodyAlertFromEmailMax)
+      .nullish(),
+  })
+  .describe(
+    "Fields to update. Omit a field to leave it unchanged. Set a field to null to clear the DB row (falls back to env var).\n",
+  );
+
+export const UpdateAlertConfigResponse = zod.object({
+  updated: zod
+    .array(zod.string())
+    .describe("List of app_config keys that were written or cleared."),
+});

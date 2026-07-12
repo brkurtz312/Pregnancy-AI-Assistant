@@ -17,6 +17,7 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AlertConfig,
   ApiError,
   AssistantQuery,
   AssistantReply,
@@ -45,6 +46,8 @@ import type {
   SupportContactList,
   SymptomLog,
   SymptomLogList,
+  UpdateAlertConfigBody,
+  UpdateAlertConfigResponse,
   UpdateKickSessionBody,
   UpdatePrenatalVisitBody,
   UpdateProfileBody,
@@ -2468,4 +2471,169 @@ export const useDeleteContact = <
   TContext
 > => {
   return useMutation(getDeleteContactMutationOptions(options));
+};
+
+/**
+ * Returns the current alert channel settings stored in app_config. Sensitive values (Resend API key, Slack webhook URL) are masked so callers can confirm a value is set without reading the secret. Each field is null when no DB row exists (the server falls back to the corresponding env var).
+
+ * @summary Get alert channel configuration
+ */
+export const getGetAlertConfigUrl = () => {
+  return `/api/admin/alert-config`;
+};
+
+export const getAlertConfig = async (
+  options?: RequestInit,
+): Promise<AlertConfig> => {
+  return customFetch<AlertConfig>(getGetAlertConfigUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAlertConfigQueryKey = () => {
+  return [`/api/admin/alert-config`] as const;
+};
+
+export const getGetAlertConfigQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAlertConfig>>,
+  TError = ErrorType<ApiError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAlertConfig>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAlertConfigQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAlertConfig>>> = ({
+    signal,
+  }) => getAlertConfig({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAlertConfig>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAlertConfigQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAlertConfig>>
+>;
+export type GetAlertConfigQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary Get alert channel configuration
+ */
+
+export function useGetAlertConfig<
+  TData = Awaited<ReturnType<typeof getAlertConfig>>,
+  TError = ErrorType<ApiError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAlertConfig>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAlertConfigQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Writes one or more alert channel settings to app_config. Pass null for a field to clear that key (server falls back to the env var). Omit a field entirely to leave it unchanged.
+
+ * @summary Update alert channel configuration
+ */
+export const getUpdateAlertConfigUrl = () => {
+  return `/api/admin/alert-config`;
+};
+
+export const updateAlertConfig = async (
+  updateAlertConfigBody: UpdateAlertConfigBody,
+  options?: RequestInit,
+): Promise<UpdateAlertConfigResponse> => {
+  return customFetch<UpdateAlertConfigResponse>(getUpdateAlertConfigUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateAlertConfigBody),
+  });
+};
+
+export const getUpdateAlertConfigMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAlertConfig>>,
+    TError,
+    { data: BodyType<UpdateAlertConfigBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAlertConfig>>,
+  TError,
+  { data: BodyType<UpdateAlertConfigBody> },
+  TContext
+> => {
+  const mutationKey = ["updateAlertConfig"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAlertConfig>>,
+    { data: BodyType<UpdateAlertConfigBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateAlertConfig(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAlertConfigMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAlertConfig>>
+>;
+export type UpdateAlertConfigMutationBody = BodyType<UpdateAlertConfigBody>;
+export type UpdateAlertConfigMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Update alert channel configuration
+ */
+export const useUpdateAlertConfig = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAlertConfig>>,
+    TError,
+    { data: BodyType<UpdateAlertConfigBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAlertConfig>>,
+  TError,
+  { data: BodyType<UpdateAlertConfigBody> },
+  TContext
+> => {
+  return useMutation(getUpdateAlertConfigMutationOptions(options));
 };

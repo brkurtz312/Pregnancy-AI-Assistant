@@ -420,6 +420,64 @@ export interface UpdateProfileBody {
   prePregnancyWeight?: string | null;
 }
 
+/**
+ * Current alert channel configuration. Sensitive values are masked.
+ */
+export interface AlertConfig {
+  /**
+   * Masked Slack webhook URL, or null if not set in DB.
+   * @nullable
+   */
+  alertSlackWebhookUrl: string | null;
+  /**
+   * Masked Resend API key, or null if not set in DB.
+   * @nullable
+   */
+  alertResendApiKey: string | null;
+  /**
+   * Recipient email address for alerts, or null if not set.
+   * @nullable
+   */
+  alertEmail: string | null;
+  /**
+   * Sender email address for alerts, or null if not set.
+   * @nullable
+   */
+  alertFromEmail: string | null;
+}
+
+/**
+ * Fields to update. Omit a field to leave it unchanged. Set a field to null to clear the DB row (falls back to env var).
+
+ */
+export interface UpdateAlertConfigBody {
+  /**
+   * @maxLength 2048
+   * @nullable
+   */
+  alertSlackWebhookUrl?: string | null;
+  /**
+   * @maxLength 500
+   * @nullable
+   */
+  alertResendApiKey?: string | null;
+  /**
+   * @maxLength 320
+   * @nullable
+   */
+  alertEmail?: string | null;
+  /**
+   * @maxLength 320
+   * @nullable
+   */
+  alertFromEmail?: string | null;
+}
+
+export interface UpdateAlertConfigResponse {
+  /** List of app_config keys that were written or cleared. */
+  updated: string[];
+}
+
 export type ListSymptomsParams = {
   /**
    * @minimum 1
