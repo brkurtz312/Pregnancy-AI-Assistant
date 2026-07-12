@@ -151,15 +151,19 @@ router.post("/admin/reviewer-check", requireAdminToken, async (req, res) => {
  *   401  — missing or invalid token
  *   503  — no admin token configured on the server
  */
-router.get("/admin/reviewer-check/status", requireAdminToken, async (req, res) => {
-  try {
-    const status = await getReviewerCheckStatus();
-    res.status(200).json(status);
-  } catch (err) {
-    req.log.error({ err }, "reviewer-check status read failed");
-    res.status(500).json({ error: "Failed to read reviewer check status" });
-  }
-});
+router.get(
+  "/admin/reviewer-check/status",
+  requireAdminToken,
+  async (req, res) => {
+    try {
+      const status = await getReviewerCheckStatus();
+      res.status(200).json(status);
+    } catch (err) {
+      req.log.error({ err }, "reviewer-check status read failed");
+      res.status(500).json({ error: "Failed to read reviewer check status" });
+    }
+  },
+);
 
 /**
  * GET /api/admin/alert-config

@@ -223,9 +223,7 @@ export function Learn() {
 
   if (view === "supportperson") {
     const volNum =
-      deepLink?.view === "supportperson"
-        ? Number(deepLink.itemId)
-        : undefined;
+      deepLink?.view === "supportperson" ? Number(deepLink.itemId) : undefined;
     return (
       <div className="space-y-4">
         <button

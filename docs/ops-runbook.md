@@ -64,9 +64,9 @@ Authorization: Bearer <ADMIN_CHECK_TOKEN>
 
 ```json
 {
-  "lastRunAt":  "2026-07-12T14:00:03.210Z",  // ISO-8601, or null if not yet run
-  "lastResult": "ok",                         // "ok" | "fail" | null
-  "lastReason": null                          // reason code when lastResult is "fail"
+  "lastRunAt": "2026-07-12T14:00:03.210Z", // ISO-8601, or null if not yet run
+  "lastResult": "ok", // "ok" | "fail" | null
+  "lastReason": null // reason code when lastResult is "fail"
 }
 ```
 

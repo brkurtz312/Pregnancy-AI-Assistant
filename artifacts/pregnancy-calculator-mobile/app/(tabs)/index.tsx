@@ -908,10 +908,7 @@ export default function CalculatorScreen() {
                     Warning Signs
                   </Text>
                   <Text
-                    style={[
-                      styles.warnBody,
-                      { color: colors.mutedForeground },
-                    ]}
+                    style={[styles.warnBody, { color: colors.mutedForeground }]}
                   >
                     Know when to seek immediate care
                   </Text>

@@ -59,16 +59,29 @@ async function setConfig(key: string, value: string | null): Promise<void> {
         });
     }
   } catch (err) {
-    logger.warn({ err, key }, "Failed to persist reviewer check status to app_config");
+    logger.warn(
+      { err, key },
+      "Failed to persist reviewer check status to app_config",
+    );
   }
 }
 
 /**
  * Returns a snapshot of the most recent scheduled check result.
- * Reads from app_config as the source of truth so the status survives
- * server restarts. Falls back to in-memory state if the DB is unavailable.
+ *
+ * When the scheduler has run at least once in the current process the
+ * in-memory `_state` is always up-to-date (record() keeps it in sync), so
+ * we return it directly without hitting the DB.
+ *
+ * On a cold start (before the first scheduler tick) we read from app_config
+ * so the last-known status survives a server restart. Falls back to the
+ * zeroed in-memory state if the DB is unavailable.
  */
 export async function getReviewerCheckStatus(): Promise<ReviewerCheckStatus> {
+  if (_state.lastRunAt !== null) {
+    return { ..._state };
+  }
+
   try {
     const [runAt, result, reason] = await Promise.all([
       getConfig(STATUS_KEYS.lastRunAt),
@@ -104,7 +117,9 @@ export async function getReviewerCheckStatus(): Promise<ReviewerCheckStatus> {
 export async function runReviewerPassCheck(): Promise<ReviewerCheckResult> {
   const timestamp = new Date().toISOString();
 
-  async function record(result: ReviewerCheckResult): Promise<ReviewerCheckResult> {
+  async function record(
+    result: ReviewerCheckResult,
+  ): Promise<ReviewerCheckResult> {
     _state.lastRunAt = result.timestamp;
     _state.lastResult = result.ok ? "ok" : "fail";
     _state.lastReason = result.reason ?? null;

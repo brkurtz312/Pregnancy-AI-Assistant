@@ -149,7 +149,7 @@ describe("runReviewerPassCheck", () => {
   });
 
   describe("pass is present (hasPass = true)", () => {
-    it("returns { ok: true, healed: false } and performs no DB writes", async () => {
+    it("returns { ok: true, healed: false } and performs no user-table DB writes", async () => {
       const result = await runReviewerPassCheck();
 
       expect(result.ok).toBe(true);
@@ -158,8 +158,11 @@ describe("runReviewerPassCheck", () => {
       expect(result.reason).toBeUndefined();
       expect(result.timestamp).toBeTruthy();
 
+      // No user-table update on the happy path
       expect(dbUpdateImpl).not.toHaveBeenCalled();
-      expect(dbInsertImpl).not.toHaveBeenCalled();
+      // record() persists lastRunAt + lastResult to app_config (2 inserts);
+      // lastReason=null triggers a db.delete (not mocked, caught silently).
+      expect(dbInsertImpl).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -179,7 +182,8 @@ describe("runReviewerPassCheck", () => {
 
       // DB update must have been called to heal the pass
       expect(dbUpdateImpl).toHaveBeenCalledTimes(1);
-      expect(dbInsertImpl).not.toHaveBeenCalled();
+      // record() persists lastRunAt + lastResult + lastReason (3 inserts)
+      expect(dbInsertImpl).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -197,9 +201,9 @@ describe("runReviewerPassCheck", () => {
       expect(result.reason).toBe("user_missing");
       expect(result.demoUserId).toBe(DEMO_USER_ID);
 
-      // DB insert (upsert) must have been called
-      expect(dbInsertImpl).toHaveBeenCalledTimes(1);
       expect(dbUpdateImpl).not.toHaveBeenCalled();
+      // 1 user upsert + record() persists lastRunAt + lastResult + lastReason
+      expect(dbInsertImpl).toHaveBeenCalledTimes(4);
     });
   });
 
@@ -207,7 +211,7 @@ describe("runReviewerPassCheck", () => {
     it("records lastResult='ok' and lastRunAt after a passing check", async () => {
       await runReviewerPassCheck();
 
-      const status = getReviewerCheckStatus();
+      const status = await getReviewerCheckStatus();
       expect(status.lastResult).toBe("ok");
       expect(status.lastReason).toBeNull();
       expect(status.lastRunAt).toBeTruthy();
@@ -221,7 +225,7 @@ describe("runReviewerPassCheck", () => {
 
       await runReviewerPassCheck();
 
-      const status = getReviewerCheckStatus();
+      const status = await getReviewerCheckStatus();
       expect(status.lastResult).toBe("fail");
       expect(status.lastReason).toBe("pass_revoked");
       expect(status.lastRunAt).toBeTruthy();
@@ -235,7 +239,7 @@ describe("runReviewerPassCheck", () => {
 
       await runReviewerPassCheck();
 
-      const status = getReviewerCheckStatus();
+      const status = await getReviewerCheckStatus();
       expect(status.lastResult).toBe("fail");
       expect(status.lastReason).toBe("user_missing");
     });

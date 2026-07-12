@@ -1101,9 +1101,9 @@ describe("Diverged-state recovery — phantom media index key from force-quit mi
 
     await pruneOrphanedMediaIndexKeys(knownIds);
 
-    const deletedUris = (deleteAsync.mock.calls as [string, ...unknown[]][]).map(
-      (call) => call[0],
-    );
+    const deletedUris = (
+      deleteAsync.mock.calls as [string, ...unknown[]][]
+    ).map((call) => call[0]);
     // The phantom photo file must have been scheduled for deletion.
     expect(deletedUris).toContain(PHANTOM_PHOTO.uri);
     // The real photo file must NOT have been deleted.

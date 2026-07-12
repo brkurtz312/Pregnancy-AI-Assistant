@@ -411,7 +411,6 @@ describe("Journal screen — orphaned media index keys cleaned up during sync", 
           throw new Error("Simulated storage-full error for prune write");
         }
         internalStore[key] = value;
-        return null;
       });
 
     try {
