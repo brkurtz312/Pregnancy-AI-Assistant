@@ -146,9 +146,9 @@ the start of each run:
 
 ## Pass / Fail criteria
 
-| Check | Pass | Fail |
-|-------|------|------|
-| Journal empty after sign-out | "Your journal is empty" shown, no entry cards visible | Any entry card from the previous session is visible on screen |
-| Hospital Bag reset after sign-out | Header shows "0 of N packed", all items unchecked, no custom items | Any item is checked, or a user-added custom item persists |
-| Birth Plan blank after sign-out | All fields empty (placeholder text only), privacy note says "saved on this device only" | Any previously typed answer is still shown in a text field |
-| State persists on re-navigation | Cleared state stays after navigating away and back to each screen | Data reappears when returning to a screen |
+| Check                             | Pass                                                                                    | Fail                                                          |
+| --------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Journal empty after sign-out      | "Your journal is empty" shown, no entry cards visible                                   | Any entry card from the previous session is visible on screen |
+| Hospital Bag reset after sign-out | Header shows "0 of N packed", all items unchecked, no custom items                      | Any item is checked, or a user-added custom item persists     |
+| Birth Plan blank after sign-out   | All fields empty (placeholder text only), privacy note says "saved on this device only" | Any previously typed answer is still shown in a text field    |
+| State persists on re-navigation   | Cleared state stays after navigating away and back to each screen                       | Data reappears when returning to a screen                     |

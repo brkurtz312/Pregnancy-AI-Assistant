@@ -300,6 +300,189 @@ describe("Journal — cold reinstall (AsyncStorage wiped)", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// JOURNAL — missing media after reinstall
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Scenario: the device's document directory was wiped (reinstall) but
+ * AsyncStorage still has cached entries with media URIs pointing to files
+ * that no longer exist. The merge path re-attaches those stale URIs from the
+ * local cache to the server entries. The JournalScreen must render the text
+ * entries without throwing, even though the Image source URIs are broken.
+ */
+
+const SERVER_JOURNAL_ENTRIES_WITH_MEDIA = [
+  {
+    id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    text: "First scan — everything looks perfect!",
+    mood: "excited",
+    gestationalWeeks: 12,
+    gestationalDays: 3,
+    postpartumDays: undefined,
+    createdAt: "2026-03-10T09:00:00.000Z",
+    updatedAt: "2026-03-10T09:00:00.000Z",
+    media: [
+      {
+        id: "media-001",
+        uri: "file:///var/mobile/Containers/Data/Application/GONE/journal-media/media-001.jpg",
+        type: "photo",
+        category: "bump",
+      },
+    ],
+  },
+  {
+    id: "11111111-2222-4333-8444-555555555555",
+    text: "Feeling movement for the first time!",
+    mood: "happy",
+    gestationalWeeks: 20,
+    gestationalDays: 1,
+    postpartumDays: undefined,
+    createdAt: "2026-04-15T14:00:00.000Z",
+    updatedAt: "2026-04-15T14:00:00.000Z",
+    media: [
+      {
+        id: "media-002",
+        uri: "file:///var/mobile/Containers/Data/Application/GONE/journal-media/media-002.jpg",
+        type: "photo",
+        category: "ultrasound",
+      },
+      {
+        id: "media-003",
+        uri: "file:///var/mobile/Containers/Data/Application/GONE/journal-media/media-003.mp4",
+        type: "video",
+        category: "general",
+      },
+    ],
+  },
+];
+
+// Local cache has entries that still reference the deleted file paths.
+// This mirrors a scenario where only the document directory was cleared
+// (file system wiped by reinstall) but AsyncStorage survived.
+const LOCAL_ENTRIES_STALE_MEDIA = SERVER_JOURNAL_ENTRIES_WITH_MEDIA.map(
+  (e) => ({ ...e }),
+);
+
+describe("Journal — missing media files after reinstall", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    setSignedIn();
+    mockCacheEntries.mockResolvedValue(undefined);
+    mockSetJournalCacheOwner.mockResolvedValue(undefined);
+    mockClearJournalCache.mockResolvedValue(undefined);
+    // Cache owner matches signed-in user — no cross-user wipe.
+    mockGetJournalCacheOwner.mockResolvedValue("user-reinstall");
+    // Local cache still has entries but their media URIs point to deleted files.
+    mockLoadEntries.mockResolvedValue(LOCAL_ENTRIES_STALE_MEDIA);
+  });
+
+  it("renders without throwing when server entries have media whose local files are gone", async () => {
+    jest.setTimeout(15000);
+    mockApiLoadJournal.mockResolvedValue(SERVER_JOURNAL_ENTRIES_WITH_MEDIA);
+
+    const JournalScreen = require("../app/journal").default;
+    let renderer: ReturnType<typeof create>;
+    expect(() => {
+      act(() => {
+        renderer = create(React.createElement(JournalScreen));
+      });
+    }).not.toThrow();
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // Component should still be mounted and not have thrown after async work
+    expect(renderer!.toJSON()).not.toBeNull();
+  });
+
+  it("displays entry text even when the attached media files no longer exist", async () => {
+    mockApiLoadJournal.mockResolvedValue(SERVER_JOURNAL_ENTRIES_WITH_MEDIA);
+
+    const JournalScreen = require("../app/journal").default;
+    let renderer: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(JournalScreen));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    const json = JSON.stringify(renderer!.toJSON());
+    expect(json).toContain("First scan — everything looks perfect!");
+    expect(json).toContain("Feeling movement for the first time!");
+  });
+
+  it("does not surface broken URI strings as visible text in any Text node", async () => {
+    mockApiLoadJournal.mockResolvedValue(SERVER_JOURNAL_ENTRIES_WITH_MEDIA);
+
+    const JournalScreen = require("../app/journal").default;
+    let renderer: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(JournalScreen));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // Walk the rendered tree and collect all string children of Text nodes.
+    // The broken file:// paths may appear in Image source *props* (fine — the
+    // user never sees props), but must not appear as a Text node's child string.
+    const STALE_PATH = "file:///var/mobile/Containers/Data/Application/GONE";
+    type RenderedNode =
+      | string
+      | {
+          type: string;
+          props: Record<string, unknown>;
+          children: RenderedNode[] | null;
+        }
+      | null;
+
+    function collectTextChildren(node: RenderedNode): string[] {
+      if (!node || typeof node === "string")
+        return typeof node === "string" ? [node] : [];
+      const results: string[] = [];
+      if (node.type === "Text" && Array.isArray(node.children)) {
+        for (const child of node.children) {
+          if (typeof child === "string") results.push(child);
+        }
+      }
+      if (Array.isArray(node.children)) {
+        for (const child of node.children) {
+          results.push(...collectTextChildren(child));
+        }
+      }
+      return results;
+    }
+
+    const root = renderer!.toJSON() as RenderedNode;
+    const textStrings = collectTextChildren(root);
+    for (const s of textStrings) {
+      expect(s).not.toContain(STALE_PATH);
+    }
+  });
+
+  it("shows the media count badge on entries that still have media metadata", async () => {
+    mockApiLoadJournal.mockResolvedValue(SERVER_JOURNAL_ENTRIES_WITH_MEDIA);
+
+    const JournalScreen = require("../app/journal").default;
+    let renderer: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(JournalScreen));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    const json = JSON.stringify(renderer!.toJSON());
+    // The media count row ("1 photo" / "2 photos/videos") should be present
+    // because local cache still holds the media metadata even if files are gone.
+    // This confirms the entry card renders fully rather than being skipped.
+    expect(json).toContain("photo");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // HOSPITAL BAG — cold reinstall
 // ─────────────────────────────────────────────────────────────────────────────
 
