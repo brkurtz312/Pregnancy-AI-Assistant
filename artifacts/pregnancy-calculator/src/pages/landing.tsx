@@ -1,5 +1,6 @@
+import { useEffect, useRef } from "react";
 import { Link } from "wouter";
-import { Show } from "@clerk/react";
+import { useAuth, Show } from "@clerk/react";
 import {
   Baby,
   Sparkles,
@@ -7,9 +8,11 @@ import {
   Check,
   ArrowRight,
   Infinity as InfinityIcon,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { usePass } from "@/hooks/use-pass";
 
 const FREE_FEATURES = [
   "All four calculation methods (LMP, due date, conception, ultrasound)",
@@ -48,7 +51,50 @@ const HIGHLIGHTS = [
   },
 ];
 
+const START_CHECKOUT_PARAM = "start_checkout";
+
 export default function LandingPage() {
+  const { isSignedIn } = useAuth();
+  const { startCheckout, isStartingCheckout, hasPass } = usePass();
+  const autoCheckoutFired = useRef(false);
+
+  // When the user returns from sign-in with ?start_checkout=1, auto-trigger
+  // checkout so they land directly in the purchase flow.
+  useEffect(() => {
+    if (!isSignedIn || autoCheckoutFired.current) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get(START_CHECKOUT_PARAM) !== "1") return;
+
+    autoCheckoutFired.current = true;
+
+    params.delete(START_CHECKOUT_PARAM);
+    const query = params.toString();
+    window.history.replaceState(
+      {},
+      "",
+      window.location.pathname +
+        (query ? `?${query}` : "") +
+        window.location.hash,
+    );
+
+    startCheckout();
+  }, [isSignedIn, startCheckout]);
+
+  function handleGetPass() {
+    if (isSignedIn) {
+      startCheckout();
+    } else {
+      const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const returnUrl =
+        window.location.pathname +
+        (window.location.search
+          ? `${window.location.search}&${START_CHECKOUT_PARAM}=1`
+          : `?${START_CHECKOUT_PARAM}=1`) +
+        window.location.hash;
+      window.location.href = `${basePath}/sign-in?redirect_url=${encodeURIComponent(returnUrl)}`;
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-primary/20">
       {/* Nav */}
@@ -278,19 +324,33 @@ export default function LandingPage() {
             </ul>
 
             <Button
-              asChild
               size="lg"
-              className="relative w-full rounded-2xl gap-2 bg-white text-primary hover:bg-white/90 font-semibold shadow-sm"
+              onClick={handleGetPass}
+              disabled={isStartingCheckout || hasPass}
+              className="relative w-full rounded-2xl gap-2 bg-white text-primary hover:bg-white/90 font-semibold shadow-sm disabled:opacity-70"
               data-testid="button-plan-pass"
             >
-              <Link href="/app">
-                Get the Full Pass
-                <ArrowRight className="w-4 h-4" />
-              </Link>
+              {isStartingCheckout ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Redirecting…
+                </>
+              ) : hasPass ? (
+                <>
+                  <Crown className="w-4 h-4" />
+                  Pass active
+                </>
+              ) : (
+                <>
+                  Get the Full Pass
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </Button>
             <p className="relative text-center text-xs text-white/60">
-              Sign in inside the app to unlock — your pass follows your account
-              across every device.
+              {isSignedIn
+                ? "One-time payment — your pass follows your account across every device."
+                : "Sign in to unlock — your pass follows your account across every device."}
             </p>
           </div>
         </div>
