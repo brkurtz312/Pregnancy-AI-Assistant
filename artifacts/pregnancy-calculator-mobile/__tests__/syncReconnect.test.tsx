@@ -21,6 +21,7 @@
 
 import React from "react";
 import { act, create } from "react-test-renderer";
+import { flushAsync } from "../test-helpers/testUtils";
 
 // ─── Shared RN mocks ──────────────────────────────────────────────────────────
 
@@ -259,9 +260,7 @@ describe("Journal — offline edits sync back on reconnect (useNetReconnect path
     });
 
     // Let the initial offline load settle.
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync(1);
 
     // Network is back — fire the reconnect callback captured from
     // useNetReconnect.  This mirrors what the hook does when NetInfo
@@ -269,7 +268,7 @@ describe("Journal — offline edits sync back on reconnect (useNetReconnect path
     expect(capturedReconnectCallback).not.toBeNull();
     await act(async () => {
       capturedReconnectCallback!();
-      await new Promise((r) => setTimeout(r, 0));
+      await new Promise<void>((r) => process.nextTick(r));
     });
 
     // Both offline entries must have been pushed after the reconnect.
@@ -297,13 +296,11 @@ describe("Journal — offline edits sync back on reconnect (useNetReconnect path
     act(() => {
       create(React.createElement(JournalScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync(1);
 
     await act(async () => {
       capturedReconnectCallback!();
-      await new Promise((r) => setTimeout(r, 0));
+      await new Promise<void>((r) => process.nextTick(r));
     });
 
     // Only 2 pushes — not 3 (server entry must not be re-uploaded).
@@ -328,13 +325,11 @@ describe("Journal — offline edits sync back on reconnect (useNetReconnect path
     act(() => {
       renderer = create(React.createElement(JournalScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync(1);
 
     await act(async () => {
       capturedReconnectCallback!();
-      await new Promise((r) => setTimeout(r, 0));
+      await new Promise<void>((r) => process.nextTick(r));
     });
 
     const json = JSON.stringify(renderer!.toJSON());
@@ -356,13 +351,11 @@ describe("Journal — offline edits sync back on reconnect (useNetReconnect path
     act(() => {
       create(React.createElement(JournalScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync(1);
 
     await act(async () => {
       capturedReconnectCallback!();
-      await new Promise((r) => setTimeout(r, 0));
+      await new Promise<void>((r) => process.nextTick(r));
     });
 
     // cacheEntries must be called with the authoritative merged result so the
@@ -394,13 +387,11 @@ describe("Journal — offline edits sync back on reconnect (useNetReconnect path
       });
     }).not.toThrow();
 
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync(1);
 
     await act(async () => {
       capturedReconnectCallback!();
-      await new Promise((r) => setTimeout(r, 0));
+      await new Promise<void>((r) => process.nextTick(r));
     });
 
     expect(renderer!.toJSON()).not.toBeNull();

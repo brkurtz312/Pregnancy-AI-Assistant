@@ -10,6 +10,10 @@
 import React from "react";
 import { Text, TouchableOpacity } from "react-native";
 import { act, create } from "react-test-renderer";
+import {
+  flushAsync,
+  useFakeTimersWithScheduler,
+} from "../test-helpers/testUtils";
 
 // ─── Shared RN mocks ──────────────────────────────────────────────────────────
 
@@ -178,42 +182,15 @@ function allTexts(root: ReturnType<typeof create>["root"]): string[] {
 // Hospital Bag — success toast after reconnect
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Flush all pending async work across multiple macrotask rounds.
- *
- * jest.useFakeTimers() replaces setImmediate which React's scheduler uses
- * internally, so a bare "await Promise.resolve()" can stall. By preserving
- * setImmediate/nextTick via doNotFake (see beforeEach) and using real
- * setTimeout via process.nextTick we keep React's work-loop alive while still
- * being able to advance the fake clock for the SyncBanner dismiss timer.
- *
- * Five rounds is enough to drain the hospital-bag useEffect chain (which has
- * getHospitalBagCacheOwner → apiLoadHospitalBag → setHospitalBagCacheOwner →
- * setCategories → setLoaded, each separated by a microtask checkpoint).
- */
-async function flushAsync(rounds = 5): Promise<void> {
-  for (let i = 0; i < rounds; i++) {
-    await act(async () => {
-      await new Promise<void>((r) => process.nextTick(r));
-    });
-  }
-}
-
 describe('Hospital Bag — "All changes saved" toast appears then auto-dismisses after reconnect', () => {
+  useFakeTimersWithScheduler();
+
   beforeEach(() => {
-    // Preserve setImmediate and nextTick so React's internal scheduler
-    // (which uses setImmediate in the RN/jest-expo environment) keeps working
-    // while we still fake setTimeout/setInterval for the 2 s dismiss timer.
-    jest.useFakeTimers({ doNotFake: ["setImmediate", "nextTick"] });
     jest.clearAllMocks();
     capturedReconnectCb = null;
     setSignedIn();
     mockSaveHospitalBag.mockResolvedValue(undefined);
     mockGetHospitalBagCacheOwner.mockResolvedValue(null);
-  });
-
-  afterEach(() => {
-    jest.useRealTimers();
   });
 
   it("shows green 'All changes saved' text on reconnect success and hides it after 2 s", async () => {

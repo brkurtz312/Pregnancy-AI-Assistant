@@ -15,6 +15,7 @@
 import React from "react";
 import { TouchableOpacity } from "react-native";
 import { act, create } from "react-test-renderer";
+import { flushAsync } from "../test-helpers/testUtils";
 
 // ─── Shared RN mocks ──────────────────────────────────────────────────────────
 
@@ -338,9 +339,7 @@ describe("Journal — retry local-only entries when connectivity is restored", (
     act(() => {
       create(React.createElement(JournalScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync(1);
 
     // After the offline failure the entry is NOT yet on the server
     expect(mockApiUpsertJournal).not.toHaveBeenCalled();
@@ -350,7 +349,7 @@ describe("Journal — retry local-only entries when connectivity is restored", (
     // Simulate the network coming back online
     await act(async () => {
       capturedReconnectCb!();
-      await new Promise((r) => setTimeout(r, 0));
+      await new Promise<void>((r) => process.nextTick(r));
     });
 
     // The full sync ran a second time
@@ -398,9 +397,7 @@ describe("Hospital Bag — retry save when connectivity is restored", () => {
     act(() => {
       renderer = create(React.createElement(HospitalBagScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync(1);
 
     // Trigger a checkbox toggle to invoke persist → apiSaveHospitalBag (fails)
     const root = renderer!.root;
@@ -412,7 +409,7 @@ describe("Hospital Bag — retry save when connectivity is restored", () => {
 
     await act(async () => {
       itemToggles[0].props.onPress();
-      await new Promise((r) => setTimeout(r, 0));
+      await new Promise<void>((r) => process.nextTick(r));
     });
 
     // First save attempt failed (offline); data written to AsyncStorage
@@ -425,7 +422,7 @@ describe("Hospital Bag — retry save when connectivity is restored", () => {
     // Simulate connectivity restored
     await act(async () => {
       capturedReconnectCb!();
-      await new Promise((r) => setTimeout(r, 0));
+      await new Promise<void>((r) => process.nextTick(r));
     });
 
     // Retry call succeeded — server now has the latest checklist
@@ -464,9 +461,7 @@ describe("Birth Plan — retry save when connectivity is restored", () => {
     act(() => {
       renderer = create(React.createElement(BirthPlanScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync(1);
 
     // Trigger a boolean field toggle → setField → apiSaveBirthPlanAnswers (fails)
     const root = renderer!.root;
@@ -478,7 +473,7 @@ describe("Birth Plan — retry save when connectivity is restored", () => {
 
     await act(async () => {
       fieldToggles[0].props.onPress();
-      await new Promise((r) => setTimeout(r, 0));
+      await new Promise<void>((r) => process.nextTick(r));
     });
 
     // First save attempt failed; data written locally as fallback
@@ -493,7 +488,7 @@ describe("Birth Plan — retry save when connectivity is restored", () => {
     // Simulate connectivity restored
     await act(async () => {
       capturedReconnectCb!();
-      await new Promise((r) => setTimeout(r, 0));
+      await new Promise<void>((r) => process.nextTick(r));
     });
 
     // Retry call succeeded — server now has the latest answers

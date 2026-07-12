@@ -23,6 +23,7 @@
 
 import React from "react";
 import { act, create } from "react-test-renderer";
+import { flushAsync } from "../test-helpers/testUtils";
 
 // ─── Shared RN mocks ──────────────────────────────────────────────────────────
 
@@ -104,27 +105,6 @@ jest.mock("@/components/SyncBanner", () => ({
 }));
 
 import { useAuth, useUser } from "@clerk/expo";
-
-/**
- * Flush all pending async work (promise microtasks + macrotask ticks).
- *
- * A single setTimeout(r, 0) tick is not always enough: the hospital-bag and
- * birth-plan useEffect chains have several nested .then() + inner await steps,
- * so they need multiple macrotask rounds to fully settle. Without enough rounds
- * the chains keep running after the test body returns; when Jest tears down the
- * module registry those in-flight callbacks try to import react-native modules
- * that no longer exist, producing "import after environment torn down" errors.
- *
- * Five rounds is conservative but cheap — each round is a single resolved
- * promise, so it adds < 1 ms of wall-clock time in a non-loaded test run.
- */
-async function flushAsync(rounds = 5): Promise<void> {
-  for (let i = 0; i < rounds; i++) {
-    await act(async () => {
-      await new Promise<void>((r) => setTimeout(r, 0));
-    });
-  }
-}
 
 const mockUseAuth = useAuth as jest.Mock;
 const mockUseUser = useUser as jest.Mock;

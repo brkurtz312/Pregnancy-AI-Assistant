@@ -104,10 +104,10 @@ real device.
 
 ## Pass / Fail criteria
 
-| Check                               | Pass                                                                                         | Fail                                                                       |
-| ----------------------------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Media badge visible before sign-out | "1 photo" badge shown on the entry card                                                      | No badge; photos not attached                                              |
-| Entry card visible after sign-in    | Entry card with text "Bump photo test entry" is present in the Journal list                  | Entry card is missing                                                      |
-| Media badge visible after sign-in   | "1 photo" badge is shown on the entry card after signing back in                             | Badge is absent even though the photo file is still on disk                |
-| Photo viewable in detail view       | Photo thumbnail is visible inside the entry detail; opens to full size when tapped           | Thumbnail is broken (grey/blank) or missing                                |
-| Survives second cycle               | "1 photo" badge still present after a second sign-out/sign-in cycle                          | Badge disappears on the second cycle (index lost on second clearJournalCache) |
+| Check                               | Pass                                                                               | Fail                                                                          |
+| ----------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Media badge visible before sign-out | "1 photo" badge shown on the entry card                                            | No badge; photos not attached                                                 |
+| Entry card visible after sign-in    | Entry card with text "Bump photo test entry" is present in the Journal list        | Entry card is missing                                                         |
+| Media badge visible after sign-in   | "1 photo" badge is shown on the entry card after signing back in                   | Badge is absent even though the photo file is still on disk                   |
+| Photo viewable in detail view       | Photo thumbnail is visible inside the entry detail; opens to full size when tapped | Thumbnail is broken (grey/blank) or missing                                   |
+| Survives second cycle               | "1 photo" badge still present after a second sign-out/sign-in cycle                | Badge disappears on the second cycle (index lost on second clearJournalCache) |

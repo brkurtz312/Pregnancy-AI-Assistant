@@ -117,7 +117,12 @@ const FAKE_CATEGORIES = [
     id: "cat-1",
     label: "Clothing",
     items: [
-      { id: "item-1", label: "Comfortable socks", checked: true, custom: false },
+      {
+        id: "item-1",
+        label: "Comfortable socks",
+        checked: true,
+        custom: false,
+      },
       { id: "item-2", label: "Robe", checked: false, custom: false },
     ],
   },
@@ -143,9 +148,7 @@ jest.mock("@/lib/sync-api", () => ({
   apiLoadBirthPlanAnswers: jest.fn(),
   apiSaveBirthPlanAnswers: jest.fn(),
   isServerUuid: jest.fn((id: string) =>
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      id,
-    ),
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id),
   ),
 }));
 
