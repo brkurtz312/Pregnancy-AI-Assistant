@@ -300,6 +300,235 @@ describe("Journal — cold reinstall (AsyncStorage wiped)", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// JOURNAL — offline edits merged back after partial pre-reinstall sync
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Scenario: the user made edits that only partially reached the server before
+ * reinstalling the app. After reinstall:
+ *   - The server holds the entries that were successfully synced (server UUIDs).
+ *   - AsyncStorage (simulated via mockLoadEntries) holds those same entries
+ *     PLUS additional entries with local IDs that never made it to the server.
+ *
+ * The incremental-sync loop (journal.tsx lines 354-403) must:
+ *   1. Detect the local-only entries (IDs not present in the server set).
+ *   2. Push each one via apiUpsertJournalEntry.
+ *   3. Include them in the final displayed list alongside the server entries.
+ */
+
+const LOCAL_ONLY_ENTRY_1 = {
+  id: "local-offline-abc",
+  text: "Offline note: packed hospital bag!",
+  mood: "calm",
+  gestationalWeeks: 36,
+  gestationalDays: 0,
+  postpartumDays: undefined,
+  createdAt: "2026-05-01T08:00:00.000Z",
+  updatedAt: "2026-05-01T08:00:00.000Z",
+  media: [],
+};
+
+const LOCAL_ONLY_ENTRY_2 = {
+  id: "local-offline-xyz",
+  text: "Offline note: contractions starting!",
+  mood: "anxious",
+  gestationalWeeks: 39,
+  gestationalDays: 2,
+  postpartumDays: undefined,
+  createdAt: "2026-05-20T22:00:00.000Z",
+  updatedAt: "2026-05-20T22:00:00.000Z",
+  media: [],
+};
+
+const SYNCED_LOCAL_ENTRY_1 = {
+  ...LOCAL_ONLY_ENTRY_1,
+  id: "cccccccc-dddd-4eee-8fff-aaaaaaaaaaaa",
+};
+
+const SYNCED_LOCAL_ENTRY_2 = {
+  ...LOCAL_ONLY_ENTRY_2,
+  id: "dddddddd-eeee-4fff-8000-bbbbbbbbbbbb",
+};
+
+describe("Journal — offline edits merged back after partial pre-reinstall sync", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    setSignedIn();
+    mockCacheEntries.mockResolvedValue(undefined);
+    mockSetJournalCacheOwner.mockResolvedValue(undefined);
+    mockClearJournalCache.mockResolvedValue(undefined);
+    // Cache owner matches the signed-in user — the prior partial sync stamped it.
+    // This means no cross-user wipe and the incremental path runs normally.
+    mockGetJournalCacheOwner.mockResolvedValue("user-reinstall");
+    // Local AsyncStorage: server entries that made it + local-only offline entries
+    mockLoadEntries.mockResolvedValue([
+      ...SERVER_JOURNAL_ENTRIES,
+      LOCAL_ONLY_ENTRY_1,
+      LOCAL_ONLY_ENTRY_2,
+    ]);
+  });
+
+  it("pushes local-only entries to the server via apiUpsertJournalEntry", async () => {
+    jest.setTimeout(15000);
+    // Server only has the two entries that synced before the reinstall
+    mockApiLoadJournal.mockResolvedValue(SERVER_JOURNAL_ENTRIES);
+
+    const mockApiUpsert = require("@/lib/sync-api")
+      .apiUpsertJournalEntry as jest.Mock;
+    mockApiUpsert
+      .mockResolvedValueOnce(SYNCED_LOCAL_ENTRY_1)
+      .mockResolvedValueOnce(SYNCED_LOCAL_ENTRY_2);
+
+    const JournalScreen = require("../app/journal").default;
+    act(() => {
+      create(React.createElement(JournalScreen));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // Both local-only entries must have been pushed
+    expect(mockApiUpsert).toHaveBeenCalledTimes(2);
+    expect(mockApiUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "local-offline-abc" }),
+      expect.any(Function),
+    );
+    expect(mockApiUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "local-offline-xyz" }),
+      expect.any(Function),
+    );
+  });
+
+  it("displays server entries and just-pushed local-only entries together", async () => {
+    mockApiLoadJournal.mockResolvedValue(SERVER_JOURNAL_ENTRIES);
+
+    const mockApiUpsert = require("@/lib/sync-api")
+      .apiUpsertJournalEntry as jest.Mock;
+    mockApiUpsert
+      .mockResolvedValueOnce(SYNCED_LOCAL_ENTRY_1)
+      .mockResolvedValueOnce(SYNCED_LOCAL_ENTRY_2);
+
+    const JournalScreen = require("../app/journal").default;
+    let renderer: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(JournalScreen));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    const json = JSON.stringify(renderer!.toJSON());
+    // Server entries must appear
+    expect(json).toContain("First scan — everything looks perfect!");
+    expect(json).toContain("Feeling movement for the first time!");
+    // Local-only entries must also appear after being pushed and merged in
+    expect(json).toContain("Offline note: packed hospital bag!");
+    expect(json).toContain("Offline note: contractions starting!");
+  });
+
+  it("does NOT push entries that already exist on the server (avoids duplicates)", async () => {
+    mockApiLoadJournal.mockResolvedValue(SERVER_JOURNAL_ENTRIES);
+
+    const mockApiUpsert = require("@/lib/sync-api")
+      .apiUpsertJournalEntry as jest.Mock;
+    mockApiUpsert
+      .mockResolvedValueOnce(SYNCED_LOCAL_ENTRY_1)
+      .mockResolvedValueOnce(SYNCED_LOCAL_ENTRY_2);
+
+    const JournalScreen = require("../app/journal").default;
+    act(() => {
+      create(React.createElement(JournalScreen));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // Only the two local-only entries should be upserted — not the two server entries
+    expect(mockApiUpsert).toHaveBeenCalledTimes(2);
+    expect(mockApiUpsert).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+      }),
+      expect.any(Function),
+    );
+    expect(mockApiUpsert).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "11111111-2222-4333-8444-555555555555",
+      }),
+      expect.any(Function),
+    );
+  });
+
+  it("still displays entries when one of the local-only pushes fails mid-flight", async () => {
+    mockApiLoadJournal.mockResolvedValue(SERVER_JOURNAL_ENTRIES);
+
+    const mockApiUpsert = require("@/lib/sync-api")
+      .apiUpsertJournalEntry as jest.Mock;
+    // First push succeeds, second fails (simulates a mid-flight network drop)
+    mockApiUpsert
+      .mockResolvedValueOnce(SYNCED_LOCAL_ENTRY_1)
+      .mockRejectedValueOnce(new Error("network timeout"));
+
+    const JournalScreen = require("../app/journal").default;
+    let renderer: ReturnType<typeof create>;
+    expect(() => {
+      act(() => {
+        renderer = create(React.createElement(JournalScreen));
+      });
+    }).not.toThrow();
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // Component should still be mounted and render entries
+    expect(renderer!.toJSON()).not.toBeNull();
+    const json = JSON.stringify(renderer!.toJSON());
+    // Successfully pushed entry must appear
+    expect(json).toContain("Offline note: packed hospital bag!");
+    // Failed entry is kept locally with its original id — still rendered
+    expect(json).toContain("Offline note: contractions starting!");
+  });
+
+  it("caches the final merged list (server + pushed local) into AsyncStorage", async () => {
+    mockApiLoadJournal.mockResolvedValue(SERVER_JOURNAL_ENTRIES);
+
+    const mockApiUpsert = require("@/lib/sync-api")
+      .apiUpsertJournalEntry as jest.Mock;
+    mockApiUpsert
+      .mockResolvedValueOnce(SYNCED_LOCAL_ENTRY_1)
+      .mockResolvedValueOnce(SYNCED_LOCAL_ENTRY_2);
+
+    const JournalScreen = require("../app/journal").default;
+    act(() => {
+      create(React.createElement(JournalScreen));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // cacheEntries must be called with the merged result so the next cold
+    // start has authoritative server UUIDs for every entry
+    expect(mockCacheEntries).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+        }),
+        expect.objectContaining({
+          id: "11111111-2222-4333-8444-555555555555",
+        }),
+        expect.objectContaining({
+          id: SYNCED_LOCAL_ENTRY_1.id,
+        }),
+        expect.objectContaining({
+          id: SYNCED_LOCAL_ENTRY_2.id,
+        }),
+      ]),
+    );
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // JOURNAL — missing media after reinstall
 // ─────────────────────────────────────────────────────────────────────────────
 
