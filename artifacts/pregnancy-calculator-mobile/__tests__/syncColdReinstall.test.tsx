@@ -159,6 +159,7 @@ jest.mock("@/lib/journal", () => ({
   clearJournalCache: jest.fn(async () => {}),
   loadMediaIndex: jest.fn(async () => ({})),
   reindexMediaForEntry: jest.fn(async () => {}),
+  pruneOrphanedMediaIndexKeys: jest.fn(async () => {}),
 }));
 
 jest.mock("@/lib/sync-api", () => ({

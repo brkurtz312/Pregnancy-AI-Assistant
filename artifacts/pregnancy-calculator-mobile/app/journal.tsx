@@ -22,6 +22,7 @@ import {
   getJournalCacheOwner,
   loadEntries,
   loadMediaIndex,
+  pruneOrphanedMediaIndexKeys,
   reindexMediaForEntry,
   setJournalCacheOwner,
   getAgeLabel,
@@ -408,6 +409,12 @@ export default function JournalScreen() {
                 (a, b) =>
                   new Date(b.createdAt).getTime() -
                   new Date(a.createdAt).getTime(),
+              );
+              // Evict any media index keys that no longer correspond to a known
+              // entry (e.g. entries deleted server-side that never went through
+              // the local deleteEntry path).
+              await pruneOrphanedMediaIndexKeys(
+                new Set(merged.map((e) => e.id)),
               );
               // Single write: overwrites AsyncStorage with the authoritative merged
               // list (correct server UUIDs). No separate replaceEntryId calls needed.

@@ -237,6 +237,27 @@ export async function replaceEntryId(
   await persistEntries(updated);
 }
 
+/**
+ * Removes any media index keys that are not present in `knownEntryIds`.
+ * Call this after building the merged entry list during a sync so that
+ * entries deleted server-side don't leave orphaned keys in the index.
+ */
+export async function pruneOrphanedMediaIndexKeys(
+  knownEntryIds: Set<string>,
+): Promise<void> {
+  const index = await loadMediaIndex();
+  let changed = false;
+  for (const key of Object.keys(index)) {
+    if (!knownEntryIds.has(key)) {
+      delete index[key];
+      changed = true;
+    }
+  }
+  if (changed) {
+    await persistMediaIndex(index);
+  }
+}
+
 export async function deleteEntry(id: string): Promise<void> {
   const entries = await loadEntries();
   const entry = entries.find((e) => e.id === id);
