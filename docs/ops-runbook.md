@@ -50,7 +50,48 @@ Set `REVIEWER_CHECK_INTERVAL_MS=0` in the server's environment to suppress
 the background scheduler (useful for unit-test environments). The scheduler
 does **not** run when this var is `0`.
 
+### Querying the last check result without digging through logs
+
+Use the admin status endpoint to inspect the most recent scheduled-check outcome
+directly, without a log search:
+
+```
+GET /api/admin/reviewer-check/status
+Authorization: Bearer <ADMIN_CHECK_TOKEN>
+```
+
+**Response (200)**
+
+```json
+{
+  "lastRunAt":  "2026-07-12T14:00:03.210Z",  // ISO-8601, or null if not yet run
+  "lastResult": "ok",                         // "ok" | "fail" | null
+  "lastReason": null                          // reason code when lastResult is "fail"
+}
+```
+
+Possible `lastReason` values: `no_demo_user_id`, `user_missing`, `pass_revoked`.
+
+**Auth notes**
+
+- Requires `Authorization: Bearer <token>` where the token matches the
+  `ADMIN_CHECK_TOKEN` env var on the server.
+- Returns **401** for a missing or wrong token, **503** if no token is configured
+  on the server.
+
+**Example (curl)**
+
+```sh
+curl -s \
+  -H "Authorization: Bearer $ADMIN_CHECK_TOKEN" \
+  https://<your-domain>/api/admin/reviewer-check/status | jq .
+```
+
+This endpoint reflects in-memory state — it resets to all-`null` on a server
+restart. Use the log-search approach above if you need the historical record.
+
 ### Source files
 
 - `artifacts/api-server/src/index.ts` — scheduler wiring and startup log
 - `artifacts/api-server/src/lib/reviewer-check.ts` — check logic and per-run logs
+- `artifacts/api-server/src/routes/admin.ts` — `GET /api/admin/reviewer-check/status` and auth middleware
