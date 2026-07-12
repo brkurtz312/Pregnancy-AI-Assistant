@@ -709,6 +709,59 @@ describe("Journal — missing media files after reinstall", () => {
     // This confirms the entry card renders fully rather than being skipped.
     expect(json).toContain("photo");
   });
+
+  it("renders the 'No text — tap to edit' fallback for media-only entries (no text body) with stale file URIs", async () => {
+    // Regression: a journal entry created with photos/video but no text has
+    // entry.text === "". After reinstall the file URIs are stale. The card
+    // must still appear (not be hidden or throw) and show the italic fallback.
+    const MEDIA_ONLY_ENTRIES = [
+      {
+        id: "ffffffff-0000-4111-8222-333333333333",
+        text: "",
+        mood: "happy",
+        gestationalWeeks: 28,
+        gestationalDays: 0,
+        postpartumDays: undefined,
+        createdAt: "2026-05-05T10:00:00.000Z",
+        updatedAt: "2026-05-05T10:00:00.000Z",
+        media: [
+          {
+            id: "media-only-001",
+            uri: "file:///var/mobile/Containers/Data/Application/GONE/journal-media/media-only-001.jpg",
+            type: "photo",
+            category: "bump",
+          },
+        ],
+      },
+    ];
+
+    mockApiLoadJournal.mockResolvedValue(MEDIA_ONLY_ENTRIES);
+    mockLoadEntries.mockResolvedValue(
+      MEDIA_ONLY_ENTRIES.map((e) => ({ ...e })),
+    );
+
+    const JournalScreen = require("../app/journal").default;
+    let renderer: ReturnType<typeof create>;
+
+    expect(() => {
+      act(() => {
+        renderer = create(React.createElement(JournalScreen));
+      });
+    }).not.toThrow();
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // The component must still be mounted
+    expect(renderer!.toJSON()).not.toBeNull();
+
+    const json = JSON.stringify(renderer!.toJSON());
+    // The "No text — tap to edit" italic fallback must appear for an empty-text entry
+    expect(json).toContain("No text");
+    // The media count badge must still appear (entry has one photo)
+    expect(json).toContain("photo");
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
