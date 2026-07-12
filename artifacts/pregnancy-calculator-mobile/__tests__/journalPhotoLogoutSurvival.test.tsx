@@ -27,7 +27,7 @@
 
 // expo-file-system/legacy is imported by lib/journal.ts at module load time.
 // Only documentDirectory is used at that point; the async methods are only
-// invoked by deleteEntry / copyMediaToDocuments which are not exercised here.
+// invoked by deleteEntry / copyMediaToDocuments / clearJournalCache (cross-user).
 jest.mock("expo-file-system/legacy", () => ({
   documentDirectory: "/tmp/",
   getInfoAsync: jest.fn(async () => ({ exists: true })),
@@ -35,6 +35,8 @@ jest.mock("expo-file-system/legacy", () => ({
   copyAsync: jest.fn(async () => {}),
   deleteAsync: jest.fn(async () => {}),
 }));
+
+import * as FileSystem from "expo-file-system/legacy";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -423,5 +425,104 @@ describe("Cross-user isolation — User A photos do NOT bleed into User B's jour
     expect(index[USER_B_ENTRY.id]).toEqual([USER_B_PHOTO]);
     expect(index[USER_A_ENTRY.id]).toBeUndefined();
     expect(Object.keys(index)).toHaveLength(1);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// On-disk file cleanup — cross-user login must delete User A's photo files
+//
+// When a different user signs in, clearJournalCache({ includeMediaIndex: true })
+// must call FileSystem.deleteAsync for every URI that was in the media index,
+// so that photo files don't accumulate on shared devices over time.
+//
+// Same-user logout/login (no flag) must NOT delete any files — photos must
+// survive on disk so they can reappear when the server entries are re-fetched.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("On-disk file cleanup — cross-user login deletes User A's photo files", () => {
+  const USER_A_PHOTO_1: JournalMedia = {
+    id: "photo-disk-a-001",
+    uri: "file:///Documents/journal-media/photo-disk-a-001.jpg",
+    type: "photo",
+    category: "bump",
+  };
+  const USER_A_PHOTO_2: JournalMedia = {
+    id: "photo-disk-a-002",
+    uri: "file:///Documents/journal-media/photo-disk-a-002.jpg",
+    type: "photo",
+    category: "ultrasound",
+  };
+
+  const USER_A_ENTRY_1: JournalEntry = {
+    id: "entry-disk-a-uuid-1",
+    text: "User A bump photo",
+    mood: "happy",
+    gestationalWeeks: 28,
+    gestationalDays: 0,
+    createdAt: "2026-05-01T10:00:00.000Z",
+    updatedAt: "2026-05-01T10:00:00.000Z",
+    media: [USER_A_PHOTO_1],
+  };
+  const USER_A_ENTRY_2: JournalEntry = {
+    id: "entry-disk-a-uuid-2",
+    text: "User A ultrasound",
+    mood: "excited",
+    gestationalWeeks: 20,
+    gestationalDays: 0,
+    createdAt: "2026-04-01T10:00:00.000Z",
+    updatedAt: "2026-04-01T10:00:00.000Z",
+    media: [USER_A_PHOTO_2],
+  };
+
+  const deleteAsync = FileSystem.deleteAsync as jest.Mock;
+
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+    deleteAsync.mockClear();
+    // Seed User A's session with two entries, each with a photo
+    await upsertEntry(USER_A_ENTRY_1);
+    await upsertEntry(USER_A_ENTRY_2);
+  });
+
+  it("deleteAsync is called for each of User A's on-disk photo files when User B signs in", async () => {
+    await clearJournalCache({ includeMediaIndex: true });
+
+    const deletedUris = deleteAsync.mock.calls.map(
+      (call: [string, ...unknown[]]) => call[0],
+    );
+    expect(deletedUris).toContain(USER_A_PHOTO_1.uri);
+    expect(deletedUris).toContain(USER_A_PHOTO_2.uri);
+  });
+
+  it("deleteAsync is called with idempotent: true so missing files are silently ignored", async () => {
+    await clearJournalCache({ includeMediaIndex: true });
+
+    for (const call of deleteAsync.mock.calls as [string, { idempotent: boolean }][]) {
+      expect(call[1]).toEqual({ idempotent: true });
+    }
+  });
+
+  it("deleteAsync is NOT called during a same-user logout/login (no-flag path)", async () => {
+    // Same-user logout: photos must stay on disk
+    await clearJournalCache();
+
+    expect(deleteAsync).not.toHaveBeenCalled();
+  });
+
+  it("media index is wiped after on-disk files are deleted", async () => {
+    await clearJournalCache({ includeMediaIndex: true });
+
+    const index = await loadMediaIndex();
+    expect(Object.keys(index)).toHaveLength(0);
+  });
+
+  it("deleteAsync is a no-op on cross-user clear when the media index is empty", async () => {
+    await AsyncStorage.clear();
+    deleteAsync.mockClear();
+
+    // Cross-user clear with an empty index: should not throw, deleteAsync not called
+    await clearJournalCache({ includeMediaIndex: true });
+
+    expect(deleteAsync).not.toHaveBeenCalled();
   });
 });

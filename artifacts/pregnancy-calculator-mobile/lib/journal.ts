@@ -114,7 +114,9 @@ export async function setJournalCacheOwner(userId: string): Promise<void> {
  *
  * Pass `{ includeMediaIndex: true }` when a *different* user signs in — this
  * additionally removes JOURNAL_MEDIA_INDEX_KEY so that User A's photo badges
- * cannot leak into User B's journal.  Omit the option (default false) for a
+ * cannot leak into User B's journal, and deletes any on-disk photo/video files
+ * that were referenced by the media index (preventing storage accumulation from
+ * multiple users sharing a device).  Omit the option (default false) for a
  * same-user logout/login cycle, where the media index must survive so that
  * on-device photos reappear after the server entries are re-fetched.
  */
@@ -124,6 +126,23 @@ export async function clearJournalCache(opts?: {
   try {
     const keys: string[] = [JOURNAL_KEY, JOURNAL_OWNER_KEY];
     if (opts?.includeMediaIndex) {
+      // Delete on-disk files for all media referenced in the index before
+      // wiping the index itself.  Files that have already been removed are
+      // skipped via idempotent: true.
+      const index = await loadMediaIndex();
+      const deletePromises: Promise<void>[] = [];
+      for (const mediaList of Object.values(index)) {
+        for (const media of mediaList) {
+          deletePromises.push(
+            FileSystem.deleteAsync(media.uri, { idempotent: true }).catch(
+              () => {
+                /* best-effort — ignore individual file errors */
+              },
+            ),
+          );
+        }
+      }
+      await Promise.all(deletePromises);
       keys.push(JOURNAL_MEDIA_INDEX_KEY);
     }
     await AsyncStorage.multiRemove(keys);
