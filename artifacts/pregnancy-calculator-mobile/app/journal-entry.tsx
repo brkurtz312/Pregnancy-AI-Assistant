@@ -31,6 +31,7 @@ import {
   copyMediaToDocuments,
   deleteEntry,
   getJournalPrompts,
+  JournalKeyWriteError,
   loadEntries,
   MEDIA_CATEGORY_LABELS,
   MediaIndexWriteError,
@@ -153,7 +154,12 @@ export default function JournalEntryScreen() {
       }
       router.back();
     } catch (err) {
-      if (err instanceof MediaIndexWriteError) {
+      if (err instanceof JournalKeyWriteError) {
+        Alert.alert(
+          "Could not save entry",
+          "Your entry could not be saved — please try again.",
+        );
+      } else if (err instanceof MediaIndexWriteError) {
         Alert.alert(
           "Could not save photo index",
           "Your device storage may be full. Photos might not reappear after signing out — please free up space and try again.",
