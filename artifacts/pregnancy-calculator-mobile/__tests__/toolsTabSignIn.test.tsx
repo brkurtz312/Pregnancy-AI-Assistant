@@ -27,15 +27,36 @@ jest.mock("@expo/vector-icons", () => ({
 }));
 
 jest.mock("@workspace/api-client-react", () => ({
-  useListSymptoms: jest.fn(() => ({ data: undefined, isLoading: false, refetch: jest.fn() })),
-  useCreateSymptom: jest.fn(() => ({ mutateAsync: jest.fn(), isPending: false })),
+  useListSymptoms: jest.fn(() => ({
+    data: undefined,
+    isLoading: false,
+    refetch: jest.fn(),
+  })),
+  useCreateSymptom: jest.fn(() => ({
+    mutateAsync: jest.fn(),
+    isPending: false,
+  })),
   useDeleteSymptom: jest.fn(() => ({ mutateAsync: jest.fn() })),
-  useListKickSessions: jest.fn(() => ({ data: undefined, isLoading: false, refetch: jest.fn() })),
-  useCreateKickSession: jest.fn(() => ({ mutateAsync: jest.fn(), isPending: false })),
+  useListKickSessions: jest.fn(() => ({
+    data: undefined,
+    isLoading: false,
+    refetch: jest.fn(),
+  })),
+  useCreateKickSession: jest.fn(() => ({
+    mutateAsync: jest.fn(),
+    isPending: false,
+  })),
   useUpdateKickSession: jest.fn(() => ({ mutateAsync: jest.fn() })),
   useDeleteKickSession: jest.fn(() => ({ mutateAsync: jest.fn() })),
-  useListContractions: jest.fn(() => ({ data: undefined, isLoading: false, refetch: jest.fn() })),
-  useCreateContraction: jest.fn(() => ({ mutateAsync: jest.fn(), isPending: false })),
+  useListContractions: jest.fn(() => ({
+    data: undefined,
+    isLoading: false,
+    refetch: jest.fn(),
+  })),
+  useCreateContraction: jest.fn(() => ({
+    mutateAsync: jest.fn(),
+    isPending: false,
+  })),
   useDeleteContraction: jest.fn(() => ({ mutateAsync: jest.fn() })),
 }));
 

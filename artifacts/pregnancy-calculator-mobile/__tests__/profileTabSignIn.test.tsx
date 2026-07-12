@@ -16,10 +16,19 @@ jest.mock("@expo/vector-icons", () => ({
 
 jest.mock("@workspace/api-client-react", () => ({
   useGetProfile: jest.fn(() => ({ data: undefined, isLoading: false })),
-  useUpdateProfile: jest.fn(() => ({ mutateAsync: jest.fn(), isPending: false })),
+  useUpdateProfile: jest.fn(() => ({
+    mutateAsync: jest.fn(),
+    isPending: false,
+  })),
   useListContacts: jest.fn(() => ({ data: undefined })),
-  useCreateContact: jest.fn(() => ({ mutateAsync: jest.fn(), isPending: false })),
-  useUpdateContact: jest.fn(() => ({ mutateAsync: jest.fn(), isPending: false })),
+  useCreateContact: jest.fn(() => ({
+    mutateAsync: jest.fn(),
+    isPending: false,
+  })),
+  useUpdateContact: jest.fn(() => ({
+    mutateAsync: jest.fn(),
+    isPending: false,
+  })),
   useDeleteContact: jest.fn(() => ({ mutateAsync: jest.fn() })),
   getGetProfileQueryKey: jest.fn(() => ["profile"]),
   getListContactsQueryKey: jest.fn(() => ["contacts"]),

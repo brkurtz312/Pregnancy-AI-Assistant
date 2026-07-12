@@ -12,7 +12,6 @@
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
-import * as ClerkReact from "@clerk/react";
 import * as ApiClientReact from "@workspace/api-client-react";
 import { PassProvider, usePass } from "@/hooks/use-pass";
 
