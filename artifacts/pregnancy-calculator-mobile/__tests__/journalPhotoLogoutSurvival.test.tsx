@@ -273,6 +273,25 @@ describe("Corrupted media index — loadMediaIndex degrades gracefully", () => {
     warnSpy.mockRestore();
   });
 
+  it("removes the corrupt AsyncStorage key immediately so photos reappear after restart", async () => {
+    // Simulate storage corruption
+    await AsyncStorage.setItem(JOURNAL_MEDIA_INDEX_KEY, "}{not valid json}{");
+
+    // Suppress the expected warning
+    const warnSpy = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    await loadMediaIndex();
+
+    warnSpy.mockRestore();
+
+    // The corrupt key must be gone — a subsequent app restart will now return {}
+    // from AsyncStorage.getItem rather than re-parsing the invalid value.
+    const raw = await AsyncStorage.getItem(JOURNAL_MEDIA_INDEX_KEY);
+    expect(raw).toBeNull();
+  });
+
   it("does NOT emit a warning when the stored value is absent (empty storage)", async () => {
     const warnSpy = jest
       .spyOn(console, "warn")
@@ -497,7 +516,10 @@ describe("On-disk file cleanup — cross-user login deletes User A's photo files
   it("deleteAsync is called with idempotent: true so missing files are silently ignored", async () => {
     await clearJournalCache({ includeMediaIndex: true });
 
-    for (const call of deleteAsync.mock.calls as [string, { idempotent: boolean }][]) {
+    for (const call of deleteAsync.mock.calls as [
+      string,
+      { idempotent: boolean },
+    ][]) {
       expect(call[1]).toEqual({ idempotent: true });
     }
   });
