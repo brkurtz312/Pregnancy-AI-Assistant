@@ -1,26 +1,27 @@
 /**
- * Playwright e2e: 'My Info' profile data never bleeds from user A to user B after
- * a same-device account switch — not even as a transient flash.
+ * Playwright e2e: profile data never bleeds from user A to user B after a
+ * same-device account switch — not even as a transient flash.
  *
- * Regression guard for the SessionWatcher clear() → invalidateQueries() ordering.
- * Without queryClient.clear() on sign-out followed by queryClient.invalidateQueries()
- * on the next sign-in, user A's cached providerName / hospitalName could appear
- * in the input fields while user B's profile fetch is still in-flight.
+ * Test 1 — My Info (providerName / hospitalName fields):
+ *   Regression guard for the SessionWatcher clear() → invalidateQueries() ordering.
+ *   Without queryClient.clear() on sign-out followed by queryClient.invalidateQueries()
+ *   on the next sign-in, user A's cached providerName / hospitalName could appear
+ *   in the input fields while user B's profile fetch is still in-flight.
+ *
+ * Test 2 — Calculator screen (due date / results panel):
+ *   The due date is the highest-visibility field: it is auto-loaded from the
+ *   profile and drives the entire ResultsDisplay panel on the Calculator tab.
+ *   If queryClient.clear() does not fire (or fires after the calculator re-renders),
+ *   user B will briefly see user A's due-date results before the fresh fetch
+ *   completes.  This test covers that regression with the same stall-and-inspect
+ *   technique used for My Info.
  *
  * Why the "no flash" check works:
- *   After user B signs in and the My Info tab is clicked, we intercept the
- *   GET /api/profile request and stall it for 800 ms. During that window the
- *   React Query cache is the only data source. If SessionWatcher's clear() fired
- *   correctly, the cache is empty and the input stays blank. If it didn't fire,
- *   the stale cache would fill the input with user A's value — caught immediately.
- *
- * Flow:
- *   1. Sign in as user A, fill in a unique providerName via the profile API,
- *      open My Info and assert the name is visible.
- *   2. Sign out — wait for sign-in button to confirm signed-out state (deterministic).
- *   3. Sign in as user B, intercept profile fetch, open My Info.
- *   4. Assert input is empty *before* the delayed response resolves (catches flash).
- *   5. Allow response to complete; assert input is still empty (user B has no data).
+ *   After user B signs in and the Calculator tab is visible, we intercept the
+ *   GET /api/profile request and stall it. During that window the React Query
+ *   cache is the only data source. If SessionWatcher's clear() fired correctly,
+ *   the cache is empty and no results panel appears. If it didn't fire, the stale
+ *   cache would populate results with user A's due date — caught immediately.
  *
  * Auth: uses @clerk/testing to bypass Clerk captcha so the sign-in form works
  * in automation. Requires CLERK_SECRET_KEY + VITE_CLERK_PUBLISHABLE_KEY in env.
@@ -104,6 +105,18 @@ async function saveProfileViaApi(
   if (!response.ok()) {
     throw new Error(
       `Failed to save profile via API: ${response.status()} ${await response.text()}`,
+    );
+  }
+}
+
+async function saveDueDateViaApi(page: Page, dueDate: string): Promise<void> {
+  const response = await page.request.put("/api/profile", {
+    data: { dueDate },
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!response.ok()) {
+    throw new Error(
+      `Failed to save due date via API: ${response.status()} ${await response.text()}`,
     );
   }
 }
@@ -226,6 +239,139 @@ test.describe("SessionWatcher — user-switch does not bleed profile data from A
 
     // ── Step 12: Confirm user B is actually authenticated (not signed out) ─────
     await expect(page.getByRole("button", { name: /my info/i })).toBeVisible();
+    await expect(page.getByTestId("button-sign-in")).not.toBeVisible();
+
+    // Clean up route interception.
+    await page.unroute("**/api/profile");
+  });
+
+  test("user B never sees user A's due-date results on the Calculator screen — not even as a transient flash — after an account switch on the same device", async ({
+    page,
+  }) => {
+    // A distinctive future due date that belongs only to user A.
+    // format(new Date("2027-06-15"), "MMMM d, yyyy") === "June 15, 2027"
+    const USER_A_DUE_DATE = "2027-06-15";
+    const USER_A_EDD_FORMATTED = "June 15, 2027";
+
+    // ── Step 1: Sign in as user A ──────────────────────────────────────────────
+    await setupClerkTestingToken({ page });
+    await signInViaUi(page, USER_A_EMAIL, SHARED_PASSWORD);
+
+    // ── Step 2: Save a distinctive due date for user A via the profile API ─────
+    await saveDueDateViaApi(page, USER_A_DUE_DATE);
+
+    // ── Step 3: Reload to trigger profile auto-load on the Calculator tab ──────
+    // The calculator page auto-loads results whenever profile.dueDate is set.
+    // After reload the page starts on the Calculator tab (default view).
+    await page.reload();
+    await page.waitForURL(/\/app/, { timeout: 15_000 });
+
+    // ── Step 4: Confirm user A's results panel is visible with their EDD ───────
+    const resultsSection = page.getByTestId("results-section");
+    await expect(resultsSection).toBeVisible({ timeout: 15_000 });
+    const eddEl = page.getByTestId("text-edd");
+    await expect(eddEl).toContainText(USER_A_EDD_FORMATTED, {
+      timeout: 10_000,
+    });
+
+    // ── Step 5: Sign out — wait for deterministic signed-out UI signal ─────────
+    await signOut(page);
+
+    // ── Step 6: Set up route interception BEFORE signing in as user B ─────────
+    // Stall GET /api/profile so we can inspect the Calculator UI while the cache
+    // is the only data source, catching any stale-cache leak that would flash
+    // user A's results (including their due date) to user B.
+    let resolveProfileFetch!: () => void;
+    const profileFetchGate = new Promise<void>(
+      (resolve) => (resolveProfileFetch = resolve),
+    );
+
+    await page.route("**/api/profile", async (route) => {
+      if (route.request().method() === "GET") {
+        await profileFetchGate;
+        await route.continue();
+      } else {
+        await route.continue();
+      }
+    });
+
+    // ── Step 7: Sign in as user B ──────────────────────────────────────────────
+    await setupClerkTestingToken({ page });
+    await signInViaUi(page, USER_B_EMAIL, SHARED_PASSWORD);
+
+    // ── Step 8: Confirm the Calculator tab is active (default landing page) ────
+    // After sign-in the app lands on the Calculator tab. We wait for the
+    // calculator card (the tab switcher) to be visible — this confirms React has
+    // rendered and any stale-cache re-render has already happened.
+    const calcTabButton = page.getByTestId("tab-lmp");
+    await expect(calcTabButton).toBeVisible({ timeout: 15_000 });
+
+    // ── Step 9: Assert IMMEDIATELY — results panel must NOT be visible ─────────
+    // The profile fetch is still stalled, so React Query can only show what is
+    // in the cache. If queryClient.clear() fired correctly on sign-out, the cache
+    // is empty and no results panel should appear. If stale data leaked, the panel
+    // would be visible with USER_A_EDD_FORMATTED — the regression we are catching.
+    const resultsPanelVisible = await page
+      .getByTestId("results-section")
+      .isVisible();
+    if (resultsPanelVisible) {
+      // Grab what EDD the panel shows so the error is maximally actionable.
+      const eddText = await page
+        .getByTestId("text-edd")
+        .textContent()
+        .catch(() => "(not found)");
+      throw new Error(
+        `REGRESSION: the Calculator results panel is visible for user B before ` +
+          `the profile response resolved. EDD shown: "${eddText}". ` +
+          `SessionWatcher did not clear the cache on sign-out. ` +
+          `User A's due date (${USER_A_EDD_FORMATTED}) may have leaked.`,
+      );
+    }
+
+    // ── Step 10: Release the stalled profile fetch ─────────────────────────────
+    resolveProfileFetch();
+
+    // Give the response time to land and the component to re-render.
+    await page.waitForTimeout(PROFILE_FETCH_DELAY_MS);
+
+    // ── Step 11: Assert AFTER fetch — results panel must still NOT appear ──────
+    // User B has no saved due date, so no results should be shown.
+    const resultsPanelVisibleAfterFetch = await page
+      .getByTestId("results-section")
+      .isVisible();
+    if (resultsPanelVisibleAfterFetch) {
+      const eddText = await page
+        .getByTestId("text-edd")
+        .textContent()
+        .catch(() => "(not found)");
+      throw new Error(
+        `REGRESSION: the Calculator results panel appeared for user B after ` +
+          `the profile response resolved. EDD shown: "${eddText}". ` +
+          `The server may have returned user A's due date for user B's session.`,
+      );
+    }
+
+    // ── Step 12: Belt-and-suspenders — poll for 1 s ───────────────────────────
+    // Ensures the results panel never transiently appeared during any
+    // intermediate render between steps 9 and 11.
+    const deadline = Date.now() + 1_000;
+    while (Date.now() < deadline) {
+      const visible = await page.getByTestId("results-section").isVisible();
+      if (visible) {
+        const eddText = await page
+          .getByTestId("text-edd")
+          .textContent()
+          .catch(() => "(not found)");
+        throw new Error(
+          `REGRESSION: user A's due-date results appeared in user B's Calculator ` +
+            `session during polling. EDD shown: "${eddText}".`,
+        );
+      }
+      await page.waitForTimeout(50);
+    }
+
+    // ── Step 13: Confirm user B is actually authenticated (not signed out) ─────
+    await expect(calcTabButton).toBeVisible();
     await expect(page.getByTestId("button-sign-in")).not.toBeVisible();
 
     // Clean up route interception.
