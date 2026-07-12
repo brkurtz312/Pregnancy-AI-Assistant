@@ -875,6 +875,54 @@ export default function CalculatorScreen() {
                   />
                 </>
               )}
+
+              {/* Warning Signs — always visible, safety shortcut */}
+              <TouchableOpacity
+                style={[
+                  styles.warnCard,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.destructive,
+                  },
+                ]}
+                onPress={() => router.push("/hp-warning-signs")}
+                activeOpacity={0.75}
+                testID="warning-signs-card"
+              >
+                <View
+                  style={[
+                    styles.warnIconWrap,
+                    { backgroundColor: `${colors.destructive}18` },
+                  ]}
+                >
+                  <Ionicons
+                    name="warning-outline"
+                    size={20}
+                    color={colors.destructive}
+                  />
+                </View>
+                <View style={styles.warnText}>
+                  <Text
+                    style={[styles.warnTitle, { color: colors.destructive }]}
+                  >
+                    Warning Signs
+                  </Text>
+                  <Text
+                    style={[
+                      styles.warnBody,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    Know when to seek immediate care
+                  </Text>
+                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={colors.destructive}
+                  style={{ opacity: 0.7 }}
+                />
+              </TouchableOpacity>
             </>
           )}
         </View>
@@ -1258,5 +1306,36 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontFamily: "Inter_600SemiBold",
+  },
+  warnCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    gap: 12,
+    marginTop: 4,
+  },
+  warnIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  warnText: {
+    flex: 1,
+    gap: 2,
+  },
+  warnTitle: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
+  warnBody: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 16,
   },
 });
