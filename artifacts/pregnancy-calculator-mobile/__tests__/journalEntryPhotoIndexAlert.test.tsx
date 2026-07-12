@@ -1,11 +1,11 @@
 /**
- * Screen-level test — photo-index alert in journal-entry.tsx
+ * Screen-level test — storage-full alert for MediaIndexWriteError in journal-entry.tsx
  *
  * Confirms that when `upsertEntry` throws a `MediaIndexWriteError` (e.g.
- * because device storage is full), `handleSave` shows the targeted
- * "Could not save photo index" alert rather than the generic "Couldn't save"
+ * because device storage is full), `handleSave` shows a targeted storage-full
+ * alert (title: "Could not save entry") rather than the generic "Couldn't save"
  * fallback.  Also confirms that a plain (non-MediaIndexWriteError) failure
- * does NOT trigger the photo-index alert.
+ * does NOT trigger the storage-full alert.
  *
  * Why a screen-level test?
  * The lib-level tests in journalPhotoLogoutSurvival.test.tsx already prove
@@ -168,7 +168,7 @@ describe("journal-entry.tsx — handleSave photo-index alert wiring", () => {
     alertSpy.mockRestore();
   });
 
-  it("shows 'Could not save photo index' alert when upsertEntry throws MediaIndexWriteError", async () => {
+  it("shows storage-full alert when upsertEntry throws MediaIndexWriteError", async () => {
     const { upsertEntry } = require("@/lib/journal") as {
       upsertEntry: jest.Mock;
     };
@@ -191,17 +191,17 @@ describe("journal-entry.tsx — handleSave photo-index alert wiring", () => {
 
     const calls = alertSpy.mock.calls;
 
-    const photoIndexCall = calls.find(
-      (args) => args[0] === "Could not save photo index",
+    const storageFullCall = calls.find(
+      (args) => args[0] === "Could not save entry",
     );
-    expect(photoIndexCall).toBeDefined();
-    expect(photoIndexCall![1]).toMatch(/storage may be full/i);
+    expect(storageFullCall).toBeDefined();
+    expect(storageFullCall![1]).toMatch(/storage/i);
 
     const genericCall = calls.find((args) => args[0] === "Couldn't save");
     expect(genericCall).toBeUndefined();
   });
 
-  it("does NOT show 'Could not save photo index' for a plain Error (shows generic alert instead)", async () => {
+  it("does NOT show the storage-full alert for a plain Error (shows generic alert instead)", async () => {
     const { upsertEntry } = require("@/lib/journal") as {
       upsertEntry: jest.Mock;
     };
@@ -225,9 +225,9 @@ describe("journal-entry.tsx — handleSave photo-index alert wiring", () => {
     const genericCall = calls.find((args) => args[0] === "Couldn't save");
     expect(genericCall).toBeDefined();
 
-    const photoIndexCall = calls.find(
-      (args) => args[0] === "Could not save photo index",
+    const storageFullWithStorageBody = calls.find(
+      (args) => args[0] === "Could not save entry" && /storage/i.test(args[1]),
     );
-    expect(photoIndexCall).toBeUndefined();
+    expect(storageFullWithStorageBody).toBeUndefined();
   });
 });

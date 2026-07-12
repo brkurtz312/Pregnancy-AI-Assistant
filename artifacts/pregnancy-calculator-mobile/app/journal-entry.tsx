@@ -157,12 +157,12 @@ export default function JournalEntryScreen() {
       if (err instanceof JournalKeyWriteError) {
         Alert.alert(
           "Could not save entry",
-          "Your entry could not be saved — please try again.",
+          "Could not save: your device storage may be full. Free up some space and try again — your draft is still here.",
         );
       } else if (err instanceof MediaIndexWriteError) {
         Alert.alert(
-          "Could not save photo index",
-          "Your device storage may be full. Photos might not reappear after signing out — please free up space and try again.",
+          "Could not save entry",
+          "Could not save: your device storage may be full. Free up some space and try again — your draft is still here.",
         );
       } else {
         Alert.alert("Couldn't save", "Something went wrong. Please try again.");

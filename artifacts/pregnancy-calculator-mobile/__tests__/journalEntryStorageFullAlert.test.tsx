@@ -196,7 +196,7 @@ describe("journal-entry.tsx — handleSave storage-full alert wiring", () => {
       (args) => args[0] === "Could not save entry",
     );
     expect(storageFullCall).toBeDefined();
-    expect(storageFullCall![1]).toMatch(/could not be saved/i);
+    expect(storageFullCall![1]).toMatch(/storage/i);
 
     const genericCall = calls.find((args) => args[0] === "Couldn't save");
     expect(genericCall).toBeUndefined();
