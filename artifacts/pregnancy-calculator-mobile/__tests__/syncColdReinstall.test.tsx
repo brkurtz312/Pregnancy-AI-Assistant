@@ -213,7 +213,6 @@ describe("Journal — cold reinstall (AsyncStorage wiped)", () => {
   });
 
   it("displays server entries when local AsyncStorage is empty (cold reinstall)", async () => {
-    jest.setTimeout(15000);
     mockApiLoadJournal.mockResolvedValue(SERVER_JOURNAL_ENTRIES);
 
     const JournalScreen = require("../app/journal").default;
@@ -226,7 +225,7 @@ describe("Journal — cold reinstall (AsyncStorage wiped)", () => {
     const json = JSON.stringify(renderer!.toJSON());
     expect(json).toContain("First scan — everything looks perfect!");
     expect(json).toContain("Feeling movement for the first time!");
-  });
+  }, 15000);
 
   it("caches server entries into AsyncStorage so subsequent offline loads work", async () => {
     mockApiLoadJournal.mockResolvedValue(SERVER_JOURNAL_ENTRIES);

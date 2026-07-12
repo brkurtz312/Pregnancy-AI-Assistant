@@ -48,6 +48,19 @@ interface MockUser {
 const mockUsers = new Map<string, MockUser>();
 
 // ---------------------------------------------------------------------------
+// Tracks customer IDs for which a paid checkout.session.completed has been
+// processed — regardless of whether a user row existed at that moment.
+//
+// This mirrors the real StripeSync behaviour: processWebhook writes the
+// payment to the stripe.payment_intents table, so the record survives even
+// when no app user row exists yet. userHasPass later queries that table as a
+// fallback (see entitlement.ts) and back-fills hasPass on the user row. The
+// succeededPayments set plays the same role here so the test exercises the
+// same two-phase "record now, grant on first load" guarantee.
+// ---------------------------------------------------------------------------
+const succeededPayments = new Set<string>();
+
+// ---------------------------------------------------------------------------
 // Stripe-compatible HMAC-SHA256 signature helpers.
 // Algorithm: HMAC-SHA256(key, "${timestamp}.${payload}") in hex.
 // The key is:
@@ -97,8 +110,16 @@ function verifyStripeSignature(
 
 vi.mock("../src/lib/stripeClient", () => ({
   // Lightly-stubbed StripeSync: verifies the signature with the test HMAC key,
-  // parses the event, and grants the pass to the matched user — the same net
-  // DB write the real StripeSync + entitlement pipeline would produce.
+  // parses the event, then models the real two-phase behaviour:
+  //
+  //   Phase 1 (processWebhook): record the paid customer ID in
+  //   succeededPayments — regardless of whether a user row exists yet.
+  //   This mirrors StripeSync writing a row to stripe.payment_intents.
+  //
+  //   Phase 2 (userHasPass): when the user row later exists and carries the
+  //   same stripeCustomerId, the entitlement mock finds it in
+  //   succeededPayments and back-fills hasPass — mirroring the real fallback
+  //   query in entitlement.ts that reads stripe.payment_intents.
   getStripeSync: async () => ({
     processWebhook: async (rawBody: Buffer, sig: string): Promise<void> => {
       verifyStripeSignature(rawBody, sig); // throws → handler returns 400
@@ -114,7 +135,11 @@ vi.mock("../src/lib/stripeClient", () => ({
       const session = event.data.object;
       if (session.payment_status !== "paid" || !session.customer) return;
 
-      // Grant the pass to the user that holds this Stripe customer ID.
+      // Always record the succeeded payment — the user row may not exist yet.
+      succeededPayments.add(session.customer);
+
+      // Also eagerly update any user row that already holds this customer ID,
+      // matching the fast path where the user row pre-dates the webhook.
       for (const user of mockUsers.values()) {
         if (user.stripeCustomerId === session.customer) {
           user.hasPass = true;
@@ -125,10 +150,21 @@ vi.mock("../src/lib/stripeClient", () => ({
   getUncachableStripeClient: vi.fn(),
 }));
 
-// Entitlement check reads from in-memory state — no DB required.
+// Entitlement check mirrors the real userHasPass two-phase logic:
+//   • Fast path: the hasPass flag on the user row.
+//   • Fallback: check succeededPayments by stripeCustomerId (equivalent to
+//     querying stripe.payment_intents in entitlement.ts). On a hit, back-fill
+//     hasPass on the user row so subsequent checks are instant.
 vi.mock("../src/lib/entitlement", () => ({
   userHasPass: async (userId: string): Promise<boolean> => {
-    return mockUsers.get(userId)?.hasPass ?? false;
+    const user = mockUsers.get(userId);
+    if (!user) return false;
+    if (user.hasPass) return true;
+    if (user.stripeCustomerId && succeededPayments.has(user.stripeCustomerId)) {
+      user.hasPass = true;
+      return true;
+    }
+    return false;
   },
 }));
 
@@ -143,6 +179,7 @@ const TEST_CUSTOMER_ID = "cus_test_stripe_flow";
 describe("checkout.session.completed → Pass entitlement (integration)", () => {
   beforeEach(() => {
     mockUsers.clear();
+    succeededPayments.clear();
     mockUsers.set(TEST_USER_ID, {
       id: TEST_USER_ID,
       stripeCustomerId: TEST_CUSTOMER_ID,
@@ -273,5 +310,69 @@ describe("checkout.session.completed → Pass entitlement (integration)", () => 
 
     // Pass must not have been granted despite the paid payload.
     expect(await userHasPass(TEST_USER_ID)).toBe(false);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Race-condition: webhook arrives before the user row exists.
+  //
+  // In production the checkout.session.completed webhook can fire while the
+  // user is still on the Stripe-hosted payment page — before they have ever
+  // opened the app and before getOrCreateUser has run. The stub previously
+  // iterated mockUsers and silently skipped the grant when no matching row was
+  // found, which did not replicate the real StripeSync behaviour.
+  //
+  // The real StripeSync writes to stripe.payment_intents regardless of whether
+  // a user row exists. When the user later loads the app, userHasPass falls
+  // back to querying that table and back-fills hasPass. The succeededPayments
+  // set in this test file plays exactly that role, so this test exercises the
+  // same two-phase guarantee end-to-end.
+  // ---------------------------------------------------------------------------
+  it("does not silently lose the pass when the webhook fires before the user row exists", async () => {
+    const { userHasPass } = await import("../src/lib/entitlement");
+
+    const EARLY_CUSTOMER_ID = "cus_arrives_before_user_row";
+    const LATE_USER_ID = "test_late_provisioned_user";
+
+    // Precondition: no user row exists for this Stripe customer.
+    expect(mockUsers.has(LATE_USER_ID)).toBe(false);
+
+    const payload = JSON.stringify({
+      id: "evt_integ_early_webhook_1",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          object: "checkout.session",
+          id: "cs_integ_early_1",
+          payment_status: "paid",
+          customer: EARLY_CUSTOMER_ID,
+          metadata: { userId: LATE_USER_ID },
+        },
+      },
+    });
+
+    const sig = makeStripeHeader(payload);
+    const res = await request(app)
+      .post("/api/stripe/webhook")
+      .set("stripe-signature", sig)
+      .set("Content-Type", "application/json")
+      .send(payload);
+
+    // Webhook must be accepted — returning a non-200 would cause Stripe to
+    // retry indefinitely, but a 200 with a persisted record is the correct
+    // contract (StripeSync writes to stripe.payment_intents).
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ received: true });
+
+    // Simulate the user's first app load: getOrCreateUser provisions the row
+    // and links it to the Stripe customer created at checkout time.
+    mockUsers.set(LATE_USER_ID, {
+      id: LATE_USER_ID,
+      stripeCustomerId: EARLY_CUSTOMER_ID,
+      hasPass: false,
+    });
+
+    // The pass must be discoverable via the stripe.payment_intents fallback
+    // (modelled by succeededPayments) — it must not have been silently lost.
+    expect(await userHasPass(LATE_USER_ID)).toBe(true);
   });
 });

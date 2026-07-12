@@ -955,7 +955,9 @@ describe("Storage-full scenario — both setItem calls throw leaves journal in p
     // Only the pre-existing entry must be present; the failed entry must not appear
     expect(entries).toHaveLength(1);
     expect(entries[0].id).toBe(PRE_EXISTING_ENTRY.id);
-    expect(entries.find((e) => e.id === NEW_ENTRY_WITH_PHOTO.id)).toBeUndefined();
+    expect(
+      entries.find((e) => e.id === NEW_ENTRY_WITH_PHOTO.id),
+    ).toBeUndefined();
   });
 
   it("loadMediaIndex returns the pre-upsert state when both setItem calls throw", async () => {
