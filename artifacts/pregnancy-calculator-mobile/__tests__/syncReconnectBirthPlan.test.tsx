@@ -98,7 +98,15 @@ jest.mock("@/lib/sync-queue", () => ({
 
 // ─── UI component / native mocks ──────────────────────────────────────────────
 
-jest.mock("@/components/SyncBanner", () => ({ SyncBanner: () => null }));
+type BannerProps = { visible: boolean; synced: boolean };
+const bannerRenders: BannerProps[] = [];
+
+jest.mock("@/components/SyncBanner", () => ({
+  SyncBanner: jest.fn((props: BannerProps) => {
+    bannerRenders.push({ visible: props.visible, synced: props.synced });
+    return null;
+  }),
+}));
 
 jest.mock("expo-haptics", () => ({
   impactAsync: jest.fn(async () => {}),
@@ -203,6 +211,7 @@ describe("Birth Plan — offline edits sync back on reconnect (useNetReconnect p
   beforeEach(() => {
     jest.clearAllMocks();
     capturedReconnectCallback = null;
+    bannerRenders.length = 0;
 
     mockLoadAnswers.mockResolvedValue(FAKE_ANSWERS);
   });
@@ -319,5 +328,74 @@ describe("Birth Plan — offline edits sync back on reconnect (useNetReconnect p
     });
 
     expect(renderer!.toJSON()).not.toBeNull();
+  });
+
+  it("does not double-save when the reconnect callback fires twice in rapid succession", async () => {
+    setSignedIn();
+
+    mockApiLoadBirthPlan.mockRejectedValueOnce(
+      new Error("Network request failed"),
+    );
+    mockApiSaveBirthPlan.mockResolvedValue(undefined);
+
+    const BirthPlanScreen = require("../app/birth-plan").default;
+    act(() => {
+      create(React.createElement(BirthPlanScreen));
+    });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(capturedReconnectCallback).not.toBeNull();
+
+    // Fire twice with no await in between — simulates rapid network flicker.
+    await act(async () => {
+      capturedReconnectCallback!();
+      capturedReconnectCallback!();
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // The guard must ensure only one save is issued despite two reconnect events.
+    expect(mockApiSaveBirthPlan).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not corrupt the success banner when reconnect fires twice rapidly after a pending sync", async () => {
+    setSignedIn();
+
+    mockApiLoadBirthPlan.mockRejectedValueOnce(
+      new Error("Network request failed"),
+    );
+    mockApiSaveBirthPlan.mockResolvedValue(undefined);
+
+    const BirthPlanScreen = require("../app/birth-plan").default;
+    act(() => {
+      create(React.createElement(BirthPlanScreen));
+    });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(capturedReconnectCallback).not.toBeNull();
+
+    // Fire twice: only the first should execute; second is dropped by the guard.
+    await act(async () => {
+      capturedReconnectCallback!();
+      capturedReconnectCallback!();
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // Exactly one save call — single in-flight sync, not two.
+    expect(mockApiSaveBirthPlan).toHaveBeenCalledTimes(1);
+
+    // The banner must never reach a contradictory state where both the error
+    // banner (visible) and success toast (synced) are true simultaneously.
+    const contradictory = bannerRenders.filter((r) => r.visible && r.synced);
+    expect(contradictory).toHaveLength(0);
+
+    // After the single successful save the error banner should be hidden.
+    const lastRender = bannerRenders[bannerRenders.length - 1];
+    expect(lastRender?.visible).toBe(false);
   });
 });

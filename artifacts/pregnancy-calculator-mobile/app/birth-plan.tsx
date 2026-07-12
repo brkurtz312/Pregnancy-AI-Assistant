@@ -266,6 +266,7 @@ export default function BirthPlanScreen() {
   const [syncFailed, setSyncFailed] = useState(false);
   const [syncSucceeded, setSyncSucceeded] = useState(false);
   const syncFailedRef = useRef(false);
+  const isSyncingRef = useRef(false);
   const migratedForUserRef = useRef<string | null>(null);
   const answersRef = useRef<BirthPlanAnswers>(answers);
 
@@ -350,6 +351,8 @@ export default function BirthPlanScreen() {
 
   useNetReconnect(() => {
     if (!isSignedIn) return;
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
     const wasPending = syncFailedRef.current;
     apiSaveBirthPlanAnswers(answersRef.current, getToken)
       .then(() => {
@@ -357,7 +360,10 @@ export default function BirthPlanScreen() {
         clearPendingSync("birth-plan").catch(() => {});
         if (wasPending) setSyncSucceeded(true);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        isSyncingRef.current = false;
+      });
   });
 
   const answeredCount = useMemo(() => {

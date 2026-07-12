@@ -98,7 +98,15 @@ jest.mock("@/lib/sync-queue", () => ({
 
 // ─── UI component / native mocks ──────────────────────────────────────────────
 
-jest.mock("@/components/SyncBanner", () => ({ SyncBanner: () => null }));
+type BannerProps = { visible: boolean; synced: boolean };
+const bannerRenders: BannerProps[] = [];
+
+jest.mock("@/components/SyncBanner", () => ({
+  SyncBanner: jest.fn((props: BannerProps) => {
+    bannerRenders.push({ visible: props.visible, synced: props.synced });
+    return null;
+  }),
+}));
 jest.mock("@/components/AskCard", () => ({ AskCard: () => null }));
 
 jest.mock("expo-haptics", () => ({
@@ -190,6 +198,7 @@ describe("Hospital Bag — offline edits sync back on reconnect (useNetReconnect
   beforeEach(() => {
     jest.clearAllMocks();
     capturedReconnectCallback = null;
+    bannerRenders.length = 0;
 
     mockLoadChecklist.mockResolvedValue(FAKE_CATEGORIES);
   });
@@ -298,5 +307,70 @@ describe("Hospital Bag — offline edits sync back on reconnect (useNetReconnect
     });
 
     expect(renderer!.toJSON()).not.toBeNull();
+  });
+
+  it("does not double-save when the reconnect callback fires twice in rapid succession", async () => {
+    setSignedIn();
+
+    mockApiLoadBag.mockRejectedValueOnce(new Error("Network request failed"));
+    mockApiSaveBag.mockResolvedValue(undefined);
+
+    const HospitalBagScreen = require("../app/hospital-bag").default;
+    act(() => {
+      create(React.createElement(HospitalBagScreen));
+    });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(capturedReconnectCallback).not.toBeNull();
+
+    // Fire twice with no await in between — simulates rapid network flicker.
+    await act(async () => {
+      capturedReconnectCallback!();
+      capturedReconnectCallback!();
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // The guard must ensure only one save is issued despite two reconnect events.
+    expect(mockApiSaveBag).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not corrupt the success banner when reconnect fires twice rapidly after a pending sync", async () => {
+    setSignedIn();
+
+    mockApiLoadBag.mockRejectedValueOnce(new Error("Network request failed"));
+    mockApiSaveBag.mockResolvedValue(undefined);
+
+    const HospitalBagScreen = require("../app/hospital-bag").default;
+    act(() => {
+      create(React.createElement(HospitalBagScreen));
+    });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(capturedReconnectCallback).not.toBeNull();
+
+    // Fire twice: only the first should execute; second is dropped by the guard.
+    await act(async () => {
+      capturedReconnectCallback!();
+      capturedReconnectCallback!();
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // Exactly one save call — single in-flight sync, not two.
+    expect(mockApiSaveBag).toHaveBeenCalledTimes(1);
+
+    // The banner must never reach a contradictory state where both the error
+    // banner (visible) and success toast (synced) are true simultaneously.
+    const contradictory = bannerRenders.filter((r) => r.visible && r.synced);
+    expect(contradictory).toHaveLength(0);
+
+    // After the single successful save the error banner should be hidden.
+    const lastRender = bannerRenders[bannerRenders.length - 1];
+    expect(lastRender?.visible).toBe(false);
   });
 });

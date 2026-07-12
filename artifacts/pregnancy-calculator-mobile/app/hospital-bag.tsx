@@ -56,6 +56,7 @@ export default function HospitalBagScreen() {
   const [syncFailed, setSyncFailed] = useState(false);
   const [syncSucceeded, setSyncSucceeded] = useState(false);
   const syncFailedRef = useRef(false);
+  const isSyncingRef = useRef(false);
   const migratedForUserRef = useRef<string | null>(null);
   const categoriesRef = useRef<HospitalBagCategory[]>(categories);
 
@@ -133,6 +134,8 @@ export default function HospitalBagScreen() {
 
   useNetReconnect(() => {
     if (!isSignedIn) return;
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
     const wasPending = syncFailedRef.current;
     apiSaveHospitalBag(categoriesRef.current, getToken)
       .then(() => {
@@ -140,7 +143,10 @@ export default function HospitalBagScreen() {
         clearPendingSync("hospital-bag").catch(() => {});
         if (wasPending) setSyncSucceeded(true);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        isSyncingRef.current = false;
+      });
   });
 
   const toggleItem = useCallback(
