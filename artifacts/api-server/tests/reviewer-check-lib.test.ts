@@ -56,7 +56,10 @@ vi.mock("../src/lib/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { runReviewerPassCheck, getReviewerCheckStatus } from "../src/lib/reviewer-check";
+import {
+  runReviewerPassCheck,
+  getReviewerCheckStatus,
+} from "../src/lib/reviewer-check";
 
 // ---------------------------------------------------------------------------
 // Env snapshot helpers
@@ -81,7 +84,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  if (ORIGINAL_DEMO_USER_ID === undefined) delete process.env.REVIEWER_DEMO_USER_ID;
+  if (ORIGINAL_DEMO_USER_ID === undefined)
+    delete process.env.REVIEWER_DEMO_USER_ID;
   else process.env.REVIEWER_DEMO_USER_ID = ORIGINAL_DEMO_USER_ID;
 });
 

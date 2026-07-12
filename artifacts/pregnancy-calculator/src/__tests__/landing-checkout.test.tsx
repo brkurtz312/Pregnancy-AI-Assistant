@@ -91,7 +91,9 @@ describe("Landing page — checkout button", () => {
   it("signed-in: clicking 'Get the Full Pass' calls startCheckout()", async () => {
     const startCheckout = vi.fn();
 
-    vi.mocked(ClerkReact.useAuth).mockReturnValue({ isSignedIn: true });
+    vi.mocked(ClerkReact.useAuth).mockReturnValue({
+      isSignedIn: true,
+    } as ReturnType<typeof ClerkReact.useAuth>);
     vi.mocked(UsePassModule.usePass).mockReturnValue(
       makePassValue({ startCheckout }),
     );
@@ -115,7 +117,9 @@ describe("Landing page — checkout button", () => {
     };
     vi.stubGlobal("location", locationStub);
 
-    vi.mocked(ClerkReact.useAuth).mockReturnValue({ isSignedIn: false });
+    vi.mocked(ClerkReact.useAuth).mockReturnValue({
+      isSignedIn: false,
+    } as ReturnType<typeof ClerkReact.useAuth>);
     vi.mocked(UsePassModule.usePass).mockReturnValue(
       makePassValue({ isSignedIn: false }),
     );
@@ -147,7 +151,9 @@ describe("Landing page — checkout button", () => {
     // before the component mounts.
     window.history.pushState(null, "", "/?start_checkout=1");
 
-    vi.mocked(ClerkReact.useAuth).mockReturnValue({ isSignedIn: true });
+    vi.mocked(ClerkReact.useAuth).mockReturnValue({
+      isSignedIn: true,
+    } as ReturnType<typeof ClerkReact.useAuth>);
     vi.mocked(UsePassModule.usePass).mockReturnValue(
       makePassValue({ startCheckout }),
     );

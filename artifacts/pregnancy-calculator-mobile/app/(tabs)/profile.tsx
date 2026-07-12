@@ -39,11 +39,7 @@ import { usePass } from "@/hooks/usePass";
 import { formatPhone } from "@/lib/phone";
 import { useSettings } from "@/contexts/SettingsContext";
 import type { ThemeMode } from "@/contexts/SettingsContext";
-import {
-  calculateByDueDate,
-  formatDate,
-  getGestationalAgeAtDate,
-} from "@/lib/pregnancy-math";
+import { formatDate, getGestationalAgeAtDate } from "@/lib/pregnancy-math";
 
 function CallButton({ phone }: { phone: string }) {
   const colors = useColors();

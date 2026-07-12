@@ -20,15 +20,15 @@ The first run fires **30 seconds after boot**. Subsequent runs fire every
 Use the Replit deployment log viewer (or the `fetch_deployment_logs` agent
 tool) and filter for these strings:
 
-| Event | Log message | Severity |
-|---|---|---|
-| Scheduler started at boot | `Reviewer pass health check scheduler started` | info |
-| Check passed (system healthy) | `Reviewer pass check passed` | info |
-| Check failed (non-fatal) | `Scheduled reviewer pass check failed` | warn |
-| Check crashed | `Scheduled reviewer pass check crashed` | error |
-| Access code missing | `Reviewer access code not configured` | error |
-| Clerk key missing | `CLERK_SECRET_KEY missing` | error |
-| Clerk unreachable | `Clerk API returned non-OK status` / `Clerk API unreachable` | error |
+| Event                         | Log message                                                  | Severity |
+| ----------------------------- | ------------------------------------------------------------ | -------- |
+| Scheduler started at boot     | `Reviewer pass health check scheduler started`               | info     |
+| Check passed (system healthy) | `Reviewer pass check passed`                                 | info     |
+| Check failed (non-fatal)      | `Scheduled reviewer pass check failed`                       | warn     |
+| Check crashed                 | `Scheduled reviewer pass check crashed`                      | error    |
+| Access code missing           | `Reviewer access code not configured`                        | error    |
+| Clerk key missing             | `CLERK_SECRET_KEY missing`                                   | error    |
+| Clerk unreachable             | `Clerk API returned non-OK status` / `Clerk API unreachable` | error    |
 
 **Confirmed healthy in production** (verified 2026-07-12): the startup log and
 the 30-second initial "Reviewer pass check passed" entry both appear consistently

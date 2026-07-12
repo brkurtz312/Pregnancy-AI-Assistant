@@ -9,7 +9,10 @@ import { timingSafeEqual } from "node:crypto";
 import { db, appConfigTable } from "@workspace/db";
 import { eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod/v4";
-import { runReviewerPassCheck, getReviewerCheckStatus } from "../lib/reviewer-check";
+import {
+  runReviewerPassCheck,
+  getReviewerCheckStatus,
+} from "../lib/reviewer-check";
 
 const router: IRouter = Router();
 
@@ -148,13 +151,9 @@ router.post("/admin/reviewer-check", requireAdminToken, async (req, res) => {
  *   401  — missing or invalid token
  *   503  — no admin token configured on the server
  */
-router.get(
-  "/admin/reviewer-check/status",
-  requireAdminToken,
-  (_req, res) => {
-    res.status(200).json(getReviewerCheckStatus());
-  },
-);
+router.get("/admin/reviewer-check/status", requireAdminToken, (_req, res) => {
+  res.status(200).json(getReviewerCheckStatus());
+});
 
 /**
  * GET /api/admin/alert-config
