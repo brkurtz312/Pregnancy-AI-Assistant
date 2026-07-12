@@ -45,6 +45,8 @@ import {
   loadEntries,
   JOURNAL_KEY,
   JOURNAL_MEDIA_INDEX_KEY,
+  JOURNAL_OWNER_KEY,
+  setJournalCacheOwner,
 } from "@/lib/journal";
 import type { JournalEntry, JournalMedia } from "@/lib/journal";
 
@@ -232,5 +234,119 @@ describe("Journal photo survival — reindexMediaForEntry re-keys before logout"
     expect(index[SERVER_UUID]).toBeUndefined();
     // Original entry still intact
     expect(index[LOCAL_ID]).toEqual([PHOTO]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cross-user isolation — User A's photos must NOT leak to User B
+//
+// The media index intentionally survives clearJournalCache() so that photos
+// reappear after a same-user logout/login.  But when a DIFFERENT user signs in
+// on the same device the index must be cleared, otherwise User B would see
+// User A's photo badge on unrelated journal entries.
+//
+// The fix: clearJournalCache({ includeMediaIndex: true }) is called from
+// journal.tsx when cacheOwner !== null && cacheOwner !== userId.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("Cross-user isolation — User A photos do NOT bleed into User B's journal", () => {
+  const USER_A_ID = "user-aaaaaaaa-1111-4222-8333-aaaaaaaaaaaa";
+  const USER_B_ID = "user-bbbbbbbb-1111-4222-8333-bbbbbbbbbbbb";
+
+  const USER_A_PHOTO: JournalMedia = {
+    id: "photo-user-a-001",
+    uri: "file:///Documents/journal-media/photo-user-a-001.jpg",
+    type: "photo",
+    category: "bump",
+  };
+
+  const USER_A_ENTRY: JournalEntry = {
+    id: "entry-user-a-uuid",
+    text: "User A bump photo",
+    mood: "happy",
+    gestationalWeeks: 28,
+    gestationalDays: 0,
+    createdAt: "2026-05-01T10:00:00.000Z",
+    updatedAt: "2026-05-01T10:00:00.000Z",
+    media: [USER_A_PHOTO],
+  };
+
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+    // Seed User A's session: entry + media index + cache owner
+    await upsertEntry(USER_A_ENTRY);
+    await setJournalCacheOwner(USER_A_ID);
+  });
+
+  it("media index holds User A's photo before any account switch", async () => {
+    const index = await loadMediaIndex();
+    expect(index[USER_A_ENTRY.id]).toEqual([USER_A_PHOTO]);
+  });
+
+  it("clearJournalCache({ includeMediaIndex: true }) wipes the media index (cross-user path)", async () => {
+    // This is what journal.tsx calls when cacheOwner !== null && cacheOwner !== userId
+    await clearJournalCache({ includeMediaIndex: true });
+
+    const raw = await AsyncStorage.getItem(JOURNAL_MEDIA_INDEX_KEY);
+    expect(raw).toBeNull();
+  });
+
+  it("loadMediaIndex returns empty after cross-user clearJournalCache — User A's photo badge is gone", async () => {
+    // Simulate: User B signs in, cross-user path is triggered
+    await clearJournalCache({ includeMediaIndex: true });
+
+    const index = await loadMediaIndex();
+    // User B's fresh journal must see no photos from User A
+    expect(Object.keys(index)).toHaveLength(0);
+    expect(index[USER_A_ENTRY.id]).toBeUndefined();
+  });
+
+  it("JOURNAL_KEY and JOURNAL_OWNER_KEY are also cleared on cross-user switch", async () => {
+    await clearJournalCache({ includeMediaIndex: true });
+
+    const entries = await AsyncStorage.getItem(JOURNAL_KEY);
+    const owner = await AsyncStorage.getItem(JOURNAL_OWNER_KEY);
+    expect(entries).toBeNull();
+    expect(owner).toBeNull();
+  });
+
+  it("same-user clearJournalCache (no flag) still preserves the media index", async () => {
+    // Same-user logout/login: photos must survive so they reappear after re-login
+    await clearJournalCache();
+
+    const index = await loadMediaIndex();
+    expect(index[USER_A_ENTRY.id]).toEqual([USER_A_PHOTO]);
+  });
+
+  it("after cross-user wipe, User B's own photos can be stored without contamination from User A", async () => {
+    const USER_B_PHOTO: JournalMedia = {
+      id: "photo-user-b-001",
+      uri: "file:///Documents/journal-media/photo-user-b-001.jpg",
+      type: "photo",
+      category: "ultrasound",
+    };
+    const USER_B_ENTRY: JournalEntry = {
+      id: "entry-user-b-uuid",
+      text: "User B ultrasound",
+      mood: "excited",
+      gestationalWeeks: 20,
+      gestationalDays: 0,
+      createdAt: "2026-06-01T10:00:00.000Z",
+      updatedAt: "2026-06-01T10:00:00.000Z",
+      media: [USER_B_PHOTO],
+    };
+
+    // Cross-user switch clears User A's index
+    await clearJournalCache({ includeMediaIndex: true });
+
+    // User B writes their own entry
+    await upsertEntry(USER_B_ENTRY);
+    await setJournalCacheOwner(USER_B_ID);
+
+    const index = await loadMediaIndex();
+    // Only User B's photo is present; User A's is gone
+    expect(index[USER_B_ENTRY.id]).toEqual([USER_B_PHOTO]);
+    expect(index[USER_A_ENTRY.id]).toBeUndefined();
+    expect(Object.keys(index)).toHaveLength(1);
   });
 });

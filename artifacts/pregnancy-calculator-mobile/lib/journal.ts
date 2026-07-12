@@ -111,11 +111,22 @@ export async function setJournalCacheOwner(userId: string): Promise<void> {
 
 /**
  * Wipes the local journal entry cache and its owner record.
- * Call this when a different user signs in so their session starts clean.
+ *
+ * Pass `{ includeMediaIndex: true }` when a *different* user signs in — this
+ * additionally removes JOURNAL_MEDIA_INDEX_KEY so that User A's photo badges
+ * cannot leak into User B's journal.  Omit the option (default false) for a
+ * same-user logout/login cycle, where the media index must survive so that
+ * on-device photos reappear after the server entries are re-fetched.
  */
-export async function clearJournalCache(): Promise<void> {
+export async function clearJournalCache(opts?: {
+  includeMediaIndex?: boolean;
+}): Promise<void> {
   try {
-    await AsyncStorage.multiRemove([JOURNAL_KEY, JOURNAL_OWNER_KEY]);
+    const keys: string[] = [JOURNAL_KEY, JOURNAL_OWNER_KEY];
+    if (opts?.includeMediaIndex) {
+      keys.push(JOURNAL_MEDIA_INDEX_KEY);
+    }
+    await AsyncStorage.multiRemove(keys);
   } catch {
     /* best-effort */
   }

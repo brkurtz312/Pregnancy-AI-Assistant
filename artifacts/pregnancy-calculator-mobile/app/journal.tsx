@@ -314,7 +314,9 @@ export default function JournalScreen() {
           getJournalCacheOwner()
             .then(async (cacheOwner) => {
               if (cacheOwner !== null && cacheOwner !== userId) {
-                await clearJournalCache();
+                // Cross-user switch: also clear the media index so that User A's
+                // photo badges cannot leak into User B's journal view.
+                await clearJournalCache({ includeMediaIndex: true });
               }
             })
             .then(() => apiLoadJournalEntries(getToken))
