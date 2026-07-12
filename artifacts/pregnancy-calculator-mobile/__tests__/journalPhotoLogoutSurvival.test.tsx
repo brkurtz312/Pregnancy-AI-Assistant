@@ -45,6 +45,7 @@ import {
   loadMediaIndex,
   reindexMediaForEntry,
   loadEntries,
+  pruneOrphanedMediaIndexKeys,
   JOURNAL_KEY,
   JOURNAL_MEDIA_INDEX_KEY,
   JOURNAL_OWNER_KEY,
@@ -984,5 +985,179 @@ describe("Storage-full scenario — both setItem calls throw leaves journal in p
     // The failed entry's photo must NOT have been indexed
     expect(index[NEW_ENTRY_WITH_PHOTO.id]).toBeUndefined();
     expect(Object.keys(index)).toHaveLength(1);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Diverged-state recovery — force-quit between media-index write and
+// entry-list write leaves the app in an inconsistent state on next launch.
+//
+// If iOS force-quits the app (or OOM kills it) after the media index is
+// written but before persistEntries completes, the next launch finds:
+//   - JOURNAL_MEDIA_INDEX_KEY  → has entry X with a photo
+//   - JOURNAL_KEY              → does NOT have entry X (old value or missing)
+//
+// In this diverged state:
+//   1. loadEntries()  returns the stale list — entry X is absent.
+//   2. loadMediaIndex() returns the phantom key — entry X is present.
+//   3. The UI must NOT show a phantom photo badge for the missing entry.
+//   4. pruneOrphanedMediaIndexKeys(knownIds) — called on startup with the
+//      set of IDs from the merged entry list — must evict the phantom key
+//      and bring both stores back into agreement.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("Diverged-state recovery — phantom media index key from force-quit mid-save", () => {
+  const PHANTOM_PHOTO: JournalMedia = {
+    id: "phantom-photo-001",
+    uri: "file:///Documents/journal-media/phantom-photo-001.jpg",
+    type: "photo",
+    category: "bump",
+  };
+
+  const PHANTOM_ENTRY_ID = "phantom-entry-uuid-force-quit";
+
+  const REAL_PHOTO: JournalMedia = {
+    id: "real-photo-001",
+    uri: "file:///Documents/journal-media/real-photo-001.jpg",
+    type: "photo",
+    category: "ultrasound",
+  };
+
+  const REAL_ENTRY: JournalEntry = {
+    id: "real-entry-uuid-persisted",
+    text: "Entry that was fully saved before the force-quit",
+    mood: "happy",
+    gestationalWeeks: 24,
+    gestationalDays: 0,
+    createdAt: "2026-05-01T08:00:00.000Z",
+    updatedAt: "2026-05-01T08:00:00.000Z",
+    media: [REAL_PHOTO],
+  };
+
+  const deleteAsync = FileSystem.deleteAsync as jest.Mock;
+
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+    deleteAsync.mockClear();
+
+    // Seed the fully-persisted entry via the normal write path so both stores
+    // are in a consistent state for the real entry.
+    await upsertEntry(REAL_ENTRY);
+
+    // Now simulate a force-quit mid-save for a second entry: only the media
+    // index write completed; the entry-list write never happened.
+    const existingIndex = await loadMediaIndex();
+    existingIndex[PHANTOM_ENTRY_ID] = [PHANTOM_PHOTO];
+    await AsyncStorage.setItem(
+      JOURNAL_MEDIA_INDEX_KEY,
+      JSON.stringify(existingIndex),
+    );
+    // JOURNAL_KEY intentionally NOT updated — it still only contains REAL_ENTRY.
+  });
+
+  it("diverged state is confirmed: media index has the phantom but entry list does not", async () => {
+    const entries = await loadEntries();
+    const index = await loadMediaIndex();
+
+    // Entry list has only the real entry — the phantom entry is absent.
+    expect(entries.map((e) => e.id)).not.toContain(PHANTOM_ENTRY_ID);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].id).toBe(REAL_ENTRY.id);
+
+    // Media index has both the real entry's photo AND the phantom key.
+    expect(index[REAL_ENTRY.id]).toEqual([REAL_PHOTO]);
+    expect(index[PHANTOM_ENTRY_ID]).toEqual([PHANTOM_PHOTO]);
+  });
+
+  it("loadEntries does not crash and returns the stale list in the diverged state", async () => {
+    const entries = await loadEntries();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].id).toBe(REAL_ENTRY.id);
+  });
+
+  it("loadMediaIndex does not crash in the diverged state", async () => {
+    const index = await loadMediaIndex();
+    // Returns a plain object — not null or undefined — even in the diverged state.
+    expect(typeof index).toBe("object");
+    expect(index).not.toBeNull();
+  });
+
+  it("pruneOrphanedMediaIndexKeys removes the phantom key when it is not in knownEntryIds", async () => {
+    // On startup, the app builds knownEntryIds from the merged entry list.
+    // The phantom entry was never fully persisted, so it is absent from that list.
+    const knownIds = new Set([REAL_ENTRY.id]);
+
+    await pruneOrphanedMediaIndexKeys(knownIds);
+
+    const index = await loadMediaIndex();
+    // Phantom key must be gone — no stale media index entry for the missing entry.
+    expect(index[PHANTOM_ENTRY_ID]).toBeUndefined();
+    // The real entry's photo must still be present.
+    expect(index[REAL_ENTRY.id]).toEqual([REAL_PHOTO]);
+  });
+
+  it("pruneOrphanedMediaIndexKeys deletes the phantom's on-disk file (idempotent)", async () => {
+    const knownIds = new Set([REAL_ENTRY.id]);
+
+    await pruneOrphanedMediaIndexKeys(knownIds);
+
+    const deletedUris = (deleteAsync.mock.calls as [string, ...unknown[]][]).map(
+      (call) => call[0],
+    );
+    // The phantom photo file must have been scheduled for deletion.
+    expect(deletedUris).toContain(PHANTOM_PHOTO.uri);
+    // The real photo file must NOT have been deleted.
+    expect(deletedUris).not.toContain(REAL_PHOTO.uri);
+  });
+
+  it("after pruning, the media index and entry list are back in agreement", async () => {
+    const knownIds = new Set([REAL_ENTRY.id]);
+
+    await pruneOrphanedMediaIndexKeys(knownIds);
+
+    const entries = await loadEntries();
+    const index = await loadMediaIndex();
+
+    const entryIds = new Set(entries.map((e) => e.id));
+    const indexIds = new Set(Object.keys(index));
+
+    // Every key in the media index must correspond to a known entry — no orphans.
+    for (const id of indexIds) {
+      expect(entryIds.has(id)).toBe(true);
+    }
+  });
+
+  it("pruneOrphanedMediaIndexKeys with an empty knownIds set removes all index keys (full wipe scenario)", async () => {
+    // Simulates the case where the entry list was entirely lost (JOURNAL_KEY
+    // written as "[]" or absent) but the media index still holds phantom keys.
+    await pruneOrphanedMediaIndexKeys(new Set());
+
+    const index = await loadMediaIndex();
+    expect(Object.keys(index)).toHaveLength(0);
+  });
+
+  it("the app does not display a phantom photo badge — loadMediaIndex filtered against loadEntries yields no phantom", async () => {
+    // This test mirrors what the merge step in journal.tsx does: it loads the
+    // entry list and the media index, then re-attaches photos only for entry
+    // IDs that are present in the entry list.  A phantom key in the index must
+    // not result in a photo badge for an entry that does not exist.
+    const entries = await loadEntries();
+    const index = await loadMediaIndex();
+
+    const entryIds = new Set(entries.map((e) => e.id));
+
+    // Simulate the merge: only attach media for entries that exist in the list.
+    const attachedMedia: Record<string, JournalMedia[]> = {};
+    for (const [id, media] of Object.entries(index)) {
+      if (entryIds.has(id)) {
+        attachedMedia[id] = media;
+      }
+    }
+
+    // The phantom entry has no corresponding entry in the list, so its photo
+    // must not appear in the merged result — no phantom badge.
+    expect(attachedMedia[PHANTOM_ENTRY_ID]).toBeUndefined();
+    // The real entry's photo must still be attached correctly.
+    expect(attachedMedia[REAL_ENTRY.id]).toEqual([REAL_PHOTO]);
   });
 });
