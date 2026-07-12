@@ -46,6 +46,13 @@ const PHOTO_B: JournalMedia = {
   category: "ultrasound",
 };
 
+const VIDEO_A: JournalMedia = {
+  id: "video-aaa",
+  uri: "file:///tmp/journal-media/video-aaa.mp4",
+  type: "video",
+  category: "general",
+};
+
 const ENTRY_A: JournalEntry = {
   id: "entry-aaa",
   text: "Entry A",
@@ -170,6 +177,37 @@ describe("pruneOrphanedMediaIndexKeys", () => {
 
     const index = await loadMediaIndex();
     expect(Object.keys(index)).toHaveLength(0);
+  });
+
+  it("calls deleteAsync for the orphaned video URI (.mp4) when an entry with a video is evicted", async () => {
+    const VIDEO_ENTRY: JournalEntry = {
+      id: "entry-video",
+      text: "Video Entry",
+      mood: "happy",
+      gestationalWeeks: 28,
+      gestationalDays: 0,
+      createdAt: "2026-07-01T10:00:00.000Z",
+      updatedAt: "2026-07-01T10:00:00.000Z",
+      media: [VIDEO_A],
+    };
+
+    await upsertEntry(ENTRY_A);
+    await upsertEntry(VIDEO_ENTRY);
+
+    mockDeleteAsync.mockClear();
+
+    // Server-side delete removed VIDEO_ENTRY — only ENTRY_A is known
+    await pruneOrphanedMediaIndexKeys(new Set([ENTRY_A.id]));
+
+    // The .mp4 file must have been deleted
+    expect(mockDeleteAsync).toHaveBeenCalledWith(VIDEO_A.uri, {
+      idempotent: true,
+    });
+    // The surviving entry's photo must NOT have been deleted
+    const deletedUris = mockDeleteAsync.mock.calls.map(
+      (call: unknown[]) => call[0],
+    );
+    expect(deletedUris).not.toContain(PHOTO_A.uri);
   });
 
   it("does not write to AsyncStorage when nothing was pruned", async () => {
