@@ -295,4 +295,64 @@ describe("Journal screen — orphaned media index keys cleaned up during sync", 
     const json = JSON.stringify(renderer!.toJSON());
     expect(json).toContain("This entry survives on the server");
   });
+
+  it("does not render a photo badge for the entry deleted on the server", async () => {
+    // Scenario: user had entry X on the server with a local photo. While offline,
+    // another device deleted entry X on the server. The media index still holds
+    // the photo for X (only the local deleteEntry path removes it). The local
+    // entry cache was already cleared by a previous logout/login cycle so the
+    // deleted entry is NOT in localEntries — it exists only as an orphaned key
+    // in the media index.
+    //
+    // After the next sync the merge produces a list that does not include X.
+    // pruneOrphanedMediaIndexKeys evicts the stale key. The rendered journal
+    // list must NOT show the photo badge (URI) for the deleted entry.
+
+    const SURVIVING_PHOTO: JournalMedia = {
+      id: "photo-keeps-001",
+      uri: "file:///tmp/journal-media/photo-keeps-001.jpg",
+      type: "photo",
+      category: "bump",
+    };
+
+    // Local cache: only the surviving entry (deleted entry is absent)
+    await AsyncStorage.setItem(
+      JOURNAL_KEY,
+      JSON.stringify([{ ...SURVIVING_ENTRY, media: [SURVIVING_PHOTO] }]),
+    );
+    await AsyncStorage.setItem(JOURNAL_OWNER_KEY, "user-orphan-test");
+
+    // Media index: surviving entry's photo + orphaned key for the deleted entry
+    await AsyncStorage.setItem(
+      JOURNAL_MEDIA_INDEX_KEY,
+      JSON.stringify({
+        [SURVIVING_ENTRY.id]: [SURVIVING_PHOTO],
+        [DELETED_ENTRY_ID]: ORPHANED_MEDIA,
+      }),
+    );
+
+    // Server returns only the surviving entry — the deleted entry is absent
+    mockApiLoadJournal.mockResolvedValue([{ ...SURVIVING_ENTRY, media: [] }]);
+
+    const JournalScreen = require("../app/journal").default;
+    let renderer: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(JournalScreen));
+    });
+    await flushAsync();
+
+    const json = JSON.stringify(renderer!.toJSON());
+
+    // The orphaned photo URI must NOT appear anywhere in the rendered tree
+    expect(json).not.toContain(ORPHANED_MEDIA[0].uri);
+
+    // The surviving entry's photo badge IS present (confirms the merge
+    // re-attached media correctly for entries still on the server)
+    expect(json).toContain(SURVIVING_PHOTO.uri);
+
+    // The media index must also be clean — orphaned key is gone
+    const indexAfterSync = await loadMediaIndex();
+    expect(indexAfterSync[DELETED_ENTRY_ID]).toBeUndefined();
+    expect(indexAfterSync[SURVIVING_ENTRY.id]).toEqual([SURVIVING_PHOTO]);
+  });
 });
