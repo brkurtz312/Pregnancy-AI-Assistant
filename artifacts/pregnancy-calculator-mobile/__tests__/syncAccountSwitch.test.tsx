@@ -179,10 +179,7 @@ jest.mock("@/lib/birth-plan", () => ({
 // ─── Imports ──────────────────────────────────────────────────────────────────
 
 import { useAuth, useUser } from "@clerk/expo";
-import {
-  apiLoadHospitalBag,
-  apiLoadBirthPlanAnswers,
-} from "@/lib/sync-api";
+import { apiLoadHospitalBag, apiLoadBirthPlanAnswers } from "@/lib/sync-api";
 import {
   getHospitalBagCacheOwner,
   setHospitalBagCacheOwner,
@@ -243,7 +240,12 @@ const USER_B_BAG = [
     id: "paperwork",
     title: "Paperwork",
     items: [
-      { id: "p-0", label: "User B insurance card", checked: true, custom: false },
+      {
+        id: "p-0",
+        label: "User B insurance card",
+        checked: true,
+        custom: false,
+      },
     ],
   },
 ];
