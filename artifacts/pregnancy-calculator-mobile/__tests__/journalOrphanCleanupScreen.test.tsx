@@ -195,7 +195,6 @@ describe("Journal screen — orphaned media index keys cleaned up during sync", 
   });
 
   it("removes the media index key for an entry that the server no longer returns", async () => {
-
     // Seed: local cache has both entries (surviving + the one deleted server-side)
     const localEntries: JournalEntry[] = [
       SURVIVING_ENTRY,

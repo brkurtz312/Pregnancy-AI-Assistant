@@ -48,6 +48,7 @@ import {
   JOURNAL_KEY,
   JOURNAL_MEDIA_INDEX_KEY,
   JOURNAL_OWNER_KEY,
+  MediaIndexWriteError,
   setJournalCacheOwner,
 } from "@/lib/journal";
 import type { JournalEntry, JournalMedia } from "@/lib/journal";
@@ -288,9 +289,14 @@ describe("Partial-write safety — media index is durable even when persistEntri
       }
     };
 
-    await expect(upsertEntry(ENTRY_WITH_PHOTO)).rejects.toThrow(
-      "Simulated AsyncStorage failure on media index write",
+    // upsertEntry now wraps media-index failures as MediaIndexWriteError
+    const warnSpy = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+    await expect(upsertEntry(ENTRY_WITH_PHOTO)).rejects.toBeInstanceOf(
+      MediaIndexWriteError,
     );
+    warnSpy.mockRestore();
 
     // The entry-list key must NOT appear in the writes because the media
     // index write threw before we ever reached persistEntries.
@@ -657,5 +663,127 @@ describe("On-disk file cleanup — cross-user login deletes User A's photo files
     await clearJournalCache({ includeMediaIndex: true });
 
     expect(deleteAsync).not.toHaveBeenCalled();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AsyncStorage write failure — visible signal, not silent data loss
+//
+// When persistMediaIndex throws (e.g. storage full), the failure must:
+//   1. Emit a console.warn so it is visible in device/CI logs.
+//   2. Cause upsertEntry to throw a MediaIndexWriteError (not a generic Error)
+//      so that the UI layer can show a targeted notice to the user.
+//   3. NOT silently swallow the error and leave the app in an inconsistent state.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("AsyncStorage write failure — persistMediaIndex emits a visible warning", () => {
+  let savedSetItem: (typeof AsyncStorage)["setItem"];
+
+  beforeEach(async () => {
+    savedSetItem = AsyncStorage.setItem;
+    await AsyncStorage.clear();
+  });
+
+  afterEach(async () => {
+    (AsyncStorage as Record<string, unknown>)["setItem"] = savedSetItem;
+    await AsyncStorage.clear();
+  });
+
+  it("console.warn is called when the media index write throws", async () => {
+    const warnSpy = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    (AsyncStorage as Record<string, unknown>)["setItem"] = async (
+      key: string,
+      _value: string,
+    ) => {
+      if (key === JOURNAL_MEDIA_INDEX_KEY) {
+        throw new Error("AsyncStorage full");
+      }
+    };
+
+    await expect(upsertEntry(ENTRY_WITH_PHOTO)).rejects.toThrow();
+
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy.mock.calls[0][0]).toMatch(/Failed to persist media index/);
+
+    warnSpy.mockRestore();
+  });
+
+  it("upsertEntry throws MediaIndexWriteError (not a plain Error) when media index write fails", async () => {
+    (AsyncStorage as Record<string, unknown>)["setItem"] = async (
+      key: string,
+      _value: string,
+    ) => {
+      if (key === JOURNAL_MEDIA_INDEX_KEY) {
+        throw new Error("AsyncStorage full");
+      }
+    };
+
+    const warnSpy = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    let caught: unknown;
+    try {
+      await upsertEntry(ENTRY_WITH_PHOTO);
+    } catch (err) {
+      caught = err;
+    }
+    warnSpy.mockRestore();
+
+    expect(caught).toBeInstanceOf(MediaIndexWriteError);
+    expect((caught as MediaIndexWriteError).message).toBe(
+      "Could not save photo index",
+    );
+  });
+
+  it("MediaIndexWriteError preserves the original cause", async () => {
+    const originalError = new Error("AsyncStorage full");
+
+    (AsyncStorage as Record<string, unknown>)["setItem"] = async (
+      key: string,
+      _value: string,
+    ) => {
+      if (key === JOURNAL_MEDIA_INDEX_KEY) {
+        throw originalError;
+      }
+    };
+
+    const warnSpy = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    let caught: unknown;
+    try {
+      await upsertEntry(ENTRY_WITH_PHOTO);
+    } catch (err) {
+      caught = err;
+    }
+    warnSpy.mockRestore();
+
+    expect((caught as MediaIndexWriteError).cause).toBe(originalError);
+  });
+
+  it("the failure is NOT silently swallowed — upsertEntry rejects", async () => {
+    (AsyncStorage as Record<string, unknown>)["setItem"] = async (
+      key: string,
+      _value: string,
+    ) => {
+      if (key === JOURNAL_MEDIA_INDEX_KEY) {
+        throw new Error("AsyncStorage full");
+      }
+    };
+
+    const warnSpy = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    await expect(upsertEntry(ENTRY_WITH_PHOTO)).rejects.toBeInstanceOf(
+      MediaIndexWriteError,
+    );
+
+    warnSpy.mockRestore();
   });
 });

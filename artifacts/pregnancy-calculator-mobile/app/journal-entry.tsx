@@ -33,6 +33,7 @@ import {
   getJournalPrompts,
   loadEntries,
   MEDIA_CATEGORY_LABELS,
+  MediaIndexWriteError,
   MOOD_OPTIONS,
   replaceEntryId,
   upsertEntry,
@@ -151,8 +152,15 @@ export default function JournalEntryScreen() {
         }
       }
       router.back();
-    } catch (_err) {
-      Alert.alert("Couldn't save", "Something went wrong. Please try again.");
+    } catch (err) {
+      if (err instanceof MediaIndexWriteError) {
+        Alert.alert(
+          "Could not save photo index",
+          "Your device storage may be full. Photos might not reappear after signing out — please free up space and try again.",
+        );
+      } else {
+        Alert.alert("Couldn't save", "Something went wrong. Please try again.");
+      }
     } finally {
       setSaving(false);
     }

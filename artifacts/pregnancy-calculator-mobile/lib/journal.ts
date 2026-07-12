@@ -152,6 +152,24 @@ export async function clearJournalCache(opts?: {
 }
 
 /**
+ * Thrown by `upsertEntry` (and any other caller of `persistMediaIndex`) when
+ * the AsyncStorage write for the media index fails — e.g. because storage is
+ * full.  Callers that catch this error can show a targeted notice to the user
+ * ("Could not save photo index") rather than a generic save-failure message.
+ *
+ * Because the media index is written *before* the entry list, a
+ * `MediaIndexWriteError` also means the entry list was NOT updated.  The user
+ * should be prompted to retry the full save.
+ */
+export class MediaIndexWriteError extends Error {
+  constructor(cause: unknown) {
+    super("Could not save photo index");
+    this.name = "MediaIndexWriteError";
+    this.cause = cause;
+  }
+}
+
+/**
  * Loads the media index from AsyncStorage. Returns an empty object if nothing
  * has been stored yet or if the read fails.
  *
@@ -191,7 +209,15 @@ export async function loadMediaIndex(): Promise<
 async function persistMediaIndex(
   index: Record<string, JournalMedia[]>,
 ): Promise<void> {
-  await AsyncStorage.setItem(JOURNAL_MEDIA_INDEX_KEY, JSON.stringify(index));
+  try {
+    await AsyncStorage.setItem(JOURNAL_MEDIA_INDEX_KEY, JSON.stringify(index));
+  } catch (err) {
+    console.warn(
+      "[journal] Failed to persist media index — photos may not reappear after signing out.",
+      err,
+    );
+    throw err;
+  }
 }
 
 /**
@@ -259,7 +285,14 @@ export async function upsertEntry(entry: JournalEntry): Promise<void> {
   // the index already reflects the latest media so photos are not lost.  The
   // caller can safely retry upsertEntry; it will rebuild the entry list while
   // the index remains correct.
-  await updateMediaIndexForEntry(entry.id, entry.media);
+  //
+  // Wrap in MediaIndexWriteError so callers can distinguish a photo-index
+  // failure (needs a targeted user notice) from a general persistence error.
+  try {
+    await updateMediaIndexForEntry(entry.id, entry.media);
+  } catch (err) {
+    throw new MediaIndexWriteError(err);
+  }
   await persistEntries(entries);
 }
 
@@ -307,11 +340,9 @@ export async function pruneOrphanedMediaIndexKeys(
     if (!knownEntryIds.has(key)) {
       for (const media of index[key]) {
         deletePromises.push(
-          FileSystem.deleteAsync(media.uri, { idempotent: true }).catch(
-            () => {
-              /* best-effort — ignore individual file errors */
-            },
-          ),
+          FileSystem.deleteAsync(media.uri, { idempotent: true }).catch(() => {
+            /* best-effort — ignore individual file errors */
+          }),
         );
       }
       delete index[key];
