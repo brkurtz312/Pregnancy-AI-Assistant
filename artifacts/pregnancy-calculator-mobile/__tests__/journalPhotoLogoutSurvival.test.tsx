@@ -846,3 +846,141 @@ describe("AsyncStorage write failure — persistMediaIndex emits a visible warni
     warnSpy.mockRestore();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Storage-full scenario — both setItem calls throw
+//
+// When a device runs out of storage, AsyncStorage.setItem can throw for every
+// write attempt.  In that case upsertEntry must:
+//   1. Propagate the error to the caller (no silent swallow).
+//   2. Leave the journal entry list in its pre-upsert state — the new entry
+//      must NOT appear in loadEntries.
+//   3. Leave the media index in its pre-upsert state — the new entry's media
+//      must NOT appear in loadMediaIndex.
+//
+// This is guaranteed by the write ordering in upsertEntry: the media-index
+// write is attempted first.  When it throws (MediaIndexWriteError), the entry
+// list write is never attempted, so both AsyncStorage keys remain at their
+// last-known-good state.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("Storage-full scenario — both setItem calls throw leaves journal in pre-upsert state", () => {
+  let savedSetItem: (typeof AsyncStorage)["setItem"];
+
+  const PRE_EXISTING_PHOTO: JournalMedia = {
+    id: "pre-existing-photo-001",
+    uri: "file:///Documents/journal-media/pre-existing-photo-001.jpg",
+    type: "photo",
+    category: "bump",
+  };
+  const PRE_EXISTING_ENTRY: JournalEntry = {
+    id: "pre-existing-entry-uuid",
+    text: "Entry that existed before storage ran out",
+    mood: "happy",
+    gestationalWeeks: 24,
+    gestationalDays: 0,
+    createdAt: "2026-05-01T08:00:00.000Z",
+    updatedAt: "2026-05-01T08:00:00.000Z",
+    media: [PRE_EXISTING_PHOTO],
+  };
+
+  const NEW_ENTRY_WITH_PHOTO: JournalEntry = {
+    id: "new-entry-uuid-storage-full",
+    text: "Entry that could not be saved because storage was full",
+    mood: "anxious",
+    gestationalWeeks: 25,
+    gestationalDays: 0,
+    createdAt: "2026-05-08T10:00:00.000Z",
+    updatedAt: "2026-05-08T10:00:00.000Z",
+    media: [
+      {
+        id: "new-photo-storage-full-001",
+        uri: "file:///Documents/journal-media/new-photo-storage-full-001.jpg",
+        type: "photo",
+        category: "ultrasound",
+      },
+    ],
+  };
+
+  beforeEach(async () => {
+    savedSetItem = AsyncStorage.setItem;
+    await AsyncStorage.clear();
+    // Seed a pre-existing entry so we can verify state does NOT change
+    await upsertEntry(PRE_EXISTING_ENTRY);
+  });
+
+  afterEach(async () => {
+    (AsyncStorage as Record<string, unknown>)["setItem"] = savedSetItem;
+    await AsyncStorage.clear();
+  });
+
+  it("upsertEntry propagates the error (MediaIndexWriteError) when both setItem calls throw", async () => {
+    const warnSpy = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    (AsyncStorage as Record<string, unknown>)["setItem"] = async (
+      _key: string,
+      _value: string,
+    ) => {
+      throw new Error("Device storage full");
+    };
+
+    await expect(upsertEntry(NEW_ENTRY_WITH_PHOTO)).rejects.toBeInstanceOf(
+      MediaIndexWriteError,
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it("loadEntries returns the pre-upsert state when both setItem calls throw", async () => {
+    const warnSpy = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    (AsyncStorage as Record<string, unknown>)["setItem"] = async (
+      _key: string,
+      _value: string,
+    ) => {
+      throw new Error("Device storage full");
+    };
+
+    await upsertEntry(NEW_ENTRY_WITH_PHOTO).catch(() => {});
+
+    // Restore so loadEntries can read from real AsyncStorage
+    (AsyncStorage as Record<string, unknown>)["setItem"] = savedSetItem;
+    warnSpy.mockRestore();
+
+    const entries = await loadEntries();
+    // Only the pre-existing entry must be present; the failed entry must not appear
+    expect(entries).toHaveLength(1);
+    expect(entries[0].id).toBe(PRE_EXISTING_ENTRY.id);
+    expect(entries.find((e) => e.id === NEW_ENTRY_WITH_PHOTO.id)).toBeUndefined();
+  });
+
+  it("loadMediaIndex returns the pre-upsert state when both setItem calls throw", async () => {
+    const warnSpy = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    (AsyncStorage as Record<string, unknown>)["setItem"] = async (
+      _key: string,
+      _value: string,
+    ) => {
+      throw new Error("Device storage full");
+    };
+
+    await upsertEntry(NEW_ENTRY_WITH_PHOTO).catch(() => {});
+
+    // Restore so loadMediaIndex can read from real AsyncStorage
+    (AsyncStorage as Record<string, unknown>)["setItem"] = savedSetItem;
+    warnSpy.mockRestore();
+
+    const index = await loadMediaIndex();
+    // Pre-existing entry's media must be unchanged
+    expect(index[PRE_EXISTING_ENTRY.id]).toEqual([PRE_EXISTING_PHOTO]);
+    // The failed entry's photo must NOT have been indexed
+    expect(index[NEW_ENTRY_WITH_PHOTO.id]).toBeUndefined();
+    expect(Object.keys(index)).toHaveLength(1);
+  });
+});
