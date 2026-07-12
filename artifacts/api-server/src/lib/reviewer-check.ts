@@ -21,16 +21,17 @@ export interface ReviewerCheckStatus {
   lastReason: ReviewerCheckReason | null;
 }
 
+const STATUS_KEYS = {
+  lastRunAt: "reviewer_check_last_run_at",
+  lastResult: "reviewer_check_last_result",
+  lastReason: "reviewer_check_last_reason",
+} as const;
+
 const _state: ReviewerCheckStatus = {
   lastRunAt: null,
   lastResult: null,
   lastReason: null,
 };
-
-/** Returns a snapshot of the most recent scheduled check result. */
-export function getReviewerCheckStatus(): ReviewerCheckStatus {
-  return { ..._state };
-}
 
 async function getConfig(key: string): Promise<string | null> {
   try {
@@ -41,6 +42,47 @@ async function getConfig(key: string): Promise<string | null> {
     return row?.value ?? null;
   } catch {
     return null;
+  }
+}
+
+async function setConfig(key: string, value: string | null): Promise<void> {
+  try {
+    if (value === null) {
+      await db.delete(appConfigTable).where(eq(appConfigTable.key, key));
+    } else {
+      await db
+        .insert(appConfigTable)
+        .values({ key, value })
+        .onConflictDoUpdate({
+          target: appConfigTable.key,
+          set: { value, updatedAt: sql`now()` },
+        });
+    }
+  } catch (err) {
+    logger.warn({ err, key }, "Failed to persist reviewer check status to app_config");
+  }
+}
+
+/**
+ * Returns a snapshot of the most recent scheduled check result.
+ * Reads from app_config as the source of truth so the status survives
+ * server restarts. Falls back to in-memory state if the DB is unavailable.
+ */
+export async function getReviewerCheckStatus(): Promise<ReviewerCheckStatus> {
+  try {
+    const [runAt, result, reason] = await Promise.all([
+      getConfig(STATUS_KEYS.lastRunAt),
+      getConfig(STATUS_KEYS.lastResult),
+      getConfig(STATUS_KEYS.lastReason),
+    ]);
+
+    return {
+      lastRunAt: runAt,
+      lastResult: (result as "ok" | "fail" | null) ?? null,
+      lastReason: (reason as ReviewerCheckReason | null) ?? null,
+    };
+  } catch {
+    return { ..._state };
   }
 }
 
@@ -62,10 +104,17 @@ async function getConfig(key: string): Promise<string | null> {
 export async function runReviewerPassCheck(): Promise<ReviewerCheckResult> {
   const timestamp = new Date().toISOString();
 
-  function record(result: ReviewerCheckResult): ReviewerCheckResult {
+  async function record(result: ReviewerCheckResult): Promise<ReviewerCheckResult> {
     _state.lastRunAt = result.timestamp;
     _state.lastResult = result.ok ? "ok" : "fail";
     _state.lastReason = result.reason ?? null;
+
+    await Promise.all([
+      setConfig(STATUS_KEYS.lastRunAt, result.timestamp),
+      setConfig(STATUS_KEYS.lastResult, result.ok ? "ok" : "fail"),
+      setConfig(STATUS_KEYS.lastReason, result.reason ?? null),
+    ]);
+
     return result;
   }
 
