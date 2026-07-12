@@ -1,16 +1,16 @@
-import { db, appConfigTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, appConfigTable, usersTable } from "@workspace/db";
+import { eq, sql } from "drizzle-orm";
 import { logger } from "./logger";
 
-const CLERK_API = "https://api.clerk.com/v1";
-
 export type ReviewerCheckReason =
-  | "no_access_code"
-  | "no_clerk_key"
-  | "clerk_unreachable";
+  | "no_demo_user_id"
+  | "user_missing"
+  | "pass_revoked";
 
 export interface ReviewerCheckResult {
   ok: boolean;
+  demoUserId: string | null;
+  healed: boolean;
   timestamp: string;
   reason?: ReviewerCheckReason;
 }
@@ -45,16 +45,19 @@ async function getConfig(key: string): Promise<string | null> {
 }
 
 /**
- * Verifies the reviewer sign-in system is fully operational:
- *   1. A reviewer access code is configured
- *   2. CLERK_SECRET_KEY is present
- *   3. The Clerk API is reachable with that key
+ * Verifies the demo reviewer account has its pass intact:
+ *   1. Resolves the demo user ID (DB config row takes priority over env var)
+ *   2. Checks the user row in the database
+ *   3. If the row is missing, upserts it with hasPass=true (healed)
+ *   4. If hasPass is false, restores it to true (healed)
+ *   5. If hasPass is already true, returns ok=true with no writes
  *
  * Called from POST /api/admin/reviewer-check so it runs against whichever
- * DATABASE_URL and Clerk instance the server is connected to (prod in production).
+ * DATABASE_URL the server is connected to (prod in production).
  *
- * Each reviewer sign-in now creates a unique isolated Clerk account, so there
- * is no single "demo user" to monitor — the system check is the right signal.
+ * The demo user ID is resolved from (in priority order):
+ *   1. app_config row with key "reviewer_demo_user_id"
+ *   2. REVIEWER_DEMO_USER_ID environment variable
  */
 export async function runReviewerPassCheck(): Promise<ReviewerCheckResult> {
   const timestamp = new Date().toISOString();
@@ -66,45 +69,68 @@ export async function runReviewerPassCheck(): Promise<ReviewerCheckResult> {
     return result;
   }
 
-  // 1. Access code must be configured
-  const dbCode = await getConfig("reviewer_access_code");
-  const accessCode =
-    dbCode ??
-    process.env.REVIEWER_ACCESS_CODE ??
-    process.env.DEV_ACCESS_CODE ??
-    null;
+  // 1. Resolve demo user ID — DB config takes priority over env var
+  const dbUserId = await getConfig("reviewer_demo_user_id");
+  const demoUserId = dbUserId ?? process.env.REVIEWER_DEMO_USER_ID ?? null;
 
-  if (!accessCode) {
+  if (!demoUserId) {
     logger.error(
-      "Reviewer access code not configured (checked app_config + env)",
+      "Demo user ID not configured (checked app_config + REVIEWER_DEMO_USER_ID env)",
     );
-    return record({ ok: false, timestamp, reason: "no_access_code" });
-  }
-
-  // 2. Clerk secret key must be present
-  const clerkKey = process.env.CLERK_SECRET_KEY;
-  if (!clerkKey) {
-    logger.error("CLERK_SECRET_KEY missing — reviewer sign-in will fail");
-    return record({ ok: false, timestamp, reason: "no_clerk_key" });
-  }
-
-  // 3. Clerk API must be reachable (lightweight read, no user creation)
-  try {
-    const res = await fetch(`${CLERK_API}/users?limit=1`, {
-      headers: { Authorization: `Bearer ${clerkKey}` },
+    return record({
+      ok: false,
+      demoUserId: null,
+      healed: false,
+      timestamp,
+      reason: "no_demo_user_id",
     });
-    if (!res.ok) {
-      logger.error(
-        { status: res.status },
-        "Clerk API returned non-OK status — reviewer sign-in will fail",
-      );
-      return record({ ok: false, timestamp, reason: "clerk_unreachable" });
-    }
-  } catch (err) {
-    logger.error({ err }, "Clerk API unreachable — reviewer sign-in will fail");
-    return record({ ok: false, timestamp, reason: "clerk_unreachable" });
   }
 
-  logger.info("Reviewer pass check passed");
-  return record({ ok: true, timestamp });
+  // 2. Look up the user row
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, demoUserId));
+
+  if (!user) {
+    // User row is missing — upsert with hasPass: true
+    await db
+      .insert(usersTable)
+      .values({ id: demoUserId, hasPass: true })
+      .onConflictDoUpdate({
+        target: usersTable.id,
+        set: { hasPass: true, updatedAt: sql`now()` },
+      });
+    logger.warn(
+      { demoUserId },
+      "Demo user row was missing; created with hasPass=true",
+    );
+    return record({
+      ok: false,
+      demoUserId,
+      healed: true,
+      timestamp,
+      reason: "user_missing",
+    });
+  }
+
+  if (!user.hasPass) {
+    // Pass was revoked — restore it
+    await db
+      .update(usersTable)
+      .set({ hasPass: true, updatedAt: sql`now()` })
+      .where(eq(usersTable.id, demoUserId));
+    logger.warn({ demoUserId }, "Demo user hasPass was false; healed to true");
+    return record({
+      ok: false,
+      demoUserId,
+      healed: true,
+      timestamp,
+      reason: "pass_revoked",
+    });
+  }
+
+  // Pass is present — all good
+  logger.info({ demoUserId }, "Reviewer pass check passed");
+  return record({ ok: true, demoUserId, healed: false, timestamp });
 }

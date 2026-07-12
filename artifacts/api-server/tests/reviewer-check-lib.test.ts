@@ -1,69 +1,88 @@
 /**
  * Unit tests for runReviewerPassCheck (src/lib/reviewer-check.ts).
  *
- * The check now verifies system readiness (access code configured, Clerk key
- * present, Clerk API reachable) rather than inspecting a single demo user row.
+ * The check looks up the demo user ID from DB config (preferred) or an env
+ * var, then reads the user row's hasPass flag. A revoked or missing pass is
+ * healed with a DB write and reported back so callers can alert.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 // ---------------------------------------------------------------------------
-// DB mock — only getConfig (appConfigTable select) is called now
+// DB mock
+//
+// Two db.select() calls are made per run:
+//   call 1 — getConfig("reviewer_demo_user_id")   → app_config row or []
+//   call 2 — user row lookup                       → users row or []
+//
+// db.update().set().where() is called when hasPass=false (heal).
+// db.insert().values().onConflictDoUpdate() is called when row is missing.
 // ---------------------------------------------------------------------------
 
 const dbSelectImpl = vi.fn();
+const dbUpdateImpl = vi.fn(async () => []);
+const dbInsertImpl = vi.fn(async () => []);
 
 vi.mock("@workspace/db", () => {
-  const appConfigTable = { key: "key" };
-
   return {
-    appConfigTable,
+    appConfigTable: { key: "key" },
+    usersTable: { id: "id" },
     db: {
-      select: (_projection?: unknown) => ({
-        from: (_table: unknown) => ({
-          where: (_cond: unknown) => dbSelectImpl(),
+      select: () => ({
+        from: () => ({
+          where: () => dbSelectImpl(),
+        }),
+      }),
+      update: () => ({
+        set: () => ({
+          where: () => dbUpdateImpl(),
+        }),
+      }),
+      insert: () => ({
+        values: () => ({
+          onConflictDoUpdate: () => dbInsertImpl(),
         }),
       }),
     },
   };
 });
 
+vi.mock("drizzle-orm", () => ({
+  eq: () => ({}),
+  sql: () => ({}),
+}));
+
 // Suppress logger output in tests
 vi.mock("../src/lib/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-const fetchMock = vi.fn(async () =>
-  Promise.resolve({ ok: true, status: 200, text: async () => "" } as Response),
-);
-vi.stubGlobal("fetch", fetchMock);
-
-import { runReviewerPassCheck } from "../src/lib/reviewer-check";
+import { runReviewerPassCheck, getReviewerCheckStatus } from "../src/lib/reviewer-check";
 
 // ---------------------------------------------------------------------------
 // Env snapshot helpers
 // ---------------------------------------------------------------------------
 
-const ORIGINAL_CLERK_KEY = process.env.CLERK_SECRET_KEY;
-const ORIGINAL_DEV_CODE = process.env.DEV_ACCESS_CODE;
+const ORIGINAL_DEMO_USER_ID = process.env.REVIEWER_DEMO_USER_ID;
+
+const DEMO_USER_ID = "user_demo_123";
+
+function setupHappyPath() {
+  // call 1: getConfig returns null (no DB row for reviewer_demo_user_id)
+  // call 2: user row found with hasPass=true
+  dbSelectImpl
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce([{ id: DEMO_USER_ID, hasPass: true }]);
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
-  dbSelectImpl.mockResolvedValue([]); // getConfig returns null by default
-  fetchMock.mockResolvedValue({
-    ok: true,
-    status: 200,
-    text: async () => "",
-  } as Response);
-  // Set up a working environment by default
-  process.env.CLERK_SECRET_KEY = "sk_test_fake_clerk_key";
-  process.env.DEV_ACCESS_CODE = "test-code-123";
+  process.env.REVIEWER_DEMO_USER_ID = DEMO_USER_ID;
+  setupHappyPath();
 });
 
 afterEach(() => {
-  if (ORIGINAL_CLERK_KEY === undefined) delete process.env.CLERK_SECRET_KEY;
-  else process.env.CLERK_SECRET_KEY = ORIGINAL_CLERK_KEY;
-  if (ORIGINAL_DEV_CODE === undefined) delete process.env.DEV_ACCESS_CODE;
-  else process.env.DEV_ACCESS_CODE = ORIGINAL_DEV_CODE;
+  if (ORIGINAL_DEMO_USER_ID === undefined) delete process.env.REVIEWER_DEMO_USER_ID;
+  else process.env.REVIEWER_DEMO_USER_ID = ORIGINAL_DEMO_USER_ID;
 });
 
 // ---------------------------------------------------------------------------
@@ -71,77 +90,150 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("runReviewerPassCheck", () => {
-  describe("healthy system", () => {
-    it("returns { ok: true } when code, key, and Clerk API are all good", async () => {
+  describe("demo user ID resolution", () => {
+    it("uses the env var when no DB config row exists", async () => {
+      // Default beforeEach: DB returns no config row, env var is set
       const result = await runReviewerPassCheck();
 
       expect(result.ok).toBe(true);
+      expect(result.demoUserId).toBe(DEMO_USER_ID);
+      expect(result.healed).toBe(false);
+    });
+
+    it("prefers the demo user ID from app_config DB over the env var", async () => {
+      const dbUserId = "user_from_db_config";
+      // call 1: DB config has reviewer_demo_user_id
+      // call 2: user row found with hasPass=true
+      dbSelectImpl
+        .mockReset()
+        .mockResolvedValueOnce([{ value: dbUserId }])
+        .mockResolvedValueOnce([{ id: dbUserId, hasPass: true }]);
+      process.env.REVIEWER_DEMO_USER_ID = "user_from_env_should_not_be_used";
+
+      const result = await runReviewerPassCheck();
+
+      expect(result.ok).toBe(true);
+      expect(result.demoUserId).toBe(dbUserId);
+    });
+
+    it("returns ok=false with reason='no_demo_user_id' when neither DB nor env provides an ID", async () => {
+      dbSelectImpl.mockReset().mockResolvedValueOnce([]); // no DB config row
+      delete process.env.REVIEWER_DEMO_USER_ID;
+
+      const result = await runReviewerPassCheck();
+
+      expect(result.ok).toBe(false);
+      expect(result.reason).toBe("no_demo_user_id");
+      expect(result.demoUserId).toBeNull();
+      expect(result.healed).toBe(false);
+      // Should not reach user row lookup
+      expect(dbSelectImpl).toHaveBeenCalledTimes(1);
+    });
+
+    it("falls back to env var when the DB select throws", async () => {
+      // DB throws during getConfig — should gracefully fall back to env var
+      dbSelectImpl
+        .mockReset()
+        .mockRejectedValueOnce(new Error("DB connection lost"))
+        .mockResolvedValueOnce([{ id: DEMO_USER_ID, hasPass: true }]);
+
+      const result = await runReviewerPassCheck();
+
+      expect(result.ok).toBe(true);
+      expect(result.demoUserId).toBe(DEMO_USER_ID);
+    });
+  });
+
+  describe("pass is present (hasPass = true)", () => {
+    it("returns { ok: true, healed: false } and performs no DB writes", async () => {
+      const result = await runReviewerPassCheck();
+
+      expect(result.ok).toBe(true);
+      expect(result.healed).toBe(false);
+      expect(result.demoUserId).toBe(DEMO_USER_ID);
       expect(result.reason).toBeUndefined();
       expect(result.timestamp).toBeTruthy();
 
-      // Should call Clerk API to verify connectivity
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-      const [url] = fetchMock.mock.calls[0] as [string];
-      expect(url).toContain("clerk.com");
-    });
-
-    it("prefers access code from app_config DB over env var", async () => {
-      dbSelectImpl.mockResolvedValueOnce([{ value: "db-access-code" }]);
-
-      const result = await runReviewerPassCheck();
-
-      expect(result.ok).toBe(true);
+      expect(dbUpdateImpl).not.toHaveBeenCalled();
+      expect(dbInsertImpl).not.toHaveBeenCalled();
     });
   });
 
-  describe("no access code configured", () => {
-    it("returns { ok: false, reason: 'no_access_code' } when no code is set", async () => {
-      dbSelectImpl.mockResolvedValue([]); // no DB row
-      delete process.env.DEV_ACCESS_CODE;
-      delete process.env.REVIEWER_ACCESS_CODE;
+  describe("pass is revoked (hasPass = false)", () => {
+    it("calls db.update with { hasPass: true } and returns { ok: false, healed: true, reason: 'pass_revoked' }", async () => {
+      dbSelectImpl
+        .mockReset()
+        .mockResolvedValueOnce([]) // getConfig → no DB row for user ID
+        .mockResolvedValueOnce([{ id: DEMO_USER_ID, hasPass: false }]); // user exists but hasPass=false
 
       const result = await runReviewerPassCheck();
 
       expect(result.ok).toBe(false);
-      expect(result.reason).toBe("no_access_code");
-      // Should not reach Clerk API check
-      expect(fetchMock).not.toHaveBeenCalled();
+      expect(result.healed).toBe(true);
+      expect(result.reason).toBe("pass_revoked");
+      expect(result.demoUserId).toBe(DEMO_USER_ID);
+
+      // DB update must have been called to heal the pass
+      expect(dbUpdateImpl).toHaveBeenCalledTimes(1);
+      expect(dbInsertImpl).not.toHaveBeenCalled();
     });
   });
 
-  describe("no Clerk secret key", () => {
-    it("returns { ok: false, reason: 'no_clerk_key' } when CLERK_SECRET_KEY is absent", async () => {
-      delete process.env.CLERK_SECRET_KEY;
+  describe("user row is missing", () => {
+    it("calls db.insert (upsert) and returns { ok: false, healed: true, reason: 'user_missing' }", async () => {
+      dbSelectImpl
+        .mockReset()
+        .mockResolvedValueOnce([]) // getConfig → no DB row for user ID
+        .mockResolvedValueOnce([]); // user lookup → no row
 
       const result = await runReviewerPassCheck();
 
       expect(result.ok).toBe(false);
-      expect(result.reason).toBe("no_clerk_key");
-      expect(fetchMock).not.toHaveBeenCalled();
+      expect(result.healed).toBe(true);
+      expect(result.reason).toBe("user_missing");
+      expect(result.demoUserId).toBe(DEMO_USER_ID);
+
+      // DB insert (upsert) must have been called
+      expect(dbInsertImpl).toHaveBeenCalledTimes(1);
+      expect(dbUpdateImpl).not.toHaveBeenCalled();
     });
   });
 
-  describe("Clerk API unreachable", () => {
-    it("returns { ok: false, reason: 'clerk_unreachable' } when Clerk returns non-OK", async () => {
-      fetchMock.mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-        text: async () => "Unauthorized",
-      } as Response);
+  describe("getReviewerCheckStatus state recording", () => {
+    it("records lastResult='ok' and lastRunAt after a passing check", async () => {
+      await runReviewerPassCheck();
 
-      const result = await runReviewerPassCheck();
-
-      expect(result.ok).toBe(false);
-      expect(result.reason).toBe("clerk_unreachable");
+      const status = getReviewerCheckStatus();
+      expect(status.lastResult).toBe("ok");
+      expect(status.lastReason).toBeNull();
+      expect(status.lastRunAt).toBeTruthy();
     });
 
-    it("returns { ok: false, reason: 'clerk_unreachable' } when fetch throws", async () => {
-      fetchMock.mockRejectedValueOnce(new Error("Network error"));
+    it("records lastResult='fail' and the reason after a revoked-pass check", async () => {
+      dbSelectImpl
+        .mockReset()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ id: DEMO_USER_ID, hasPass: false }]);
 
-      const result = await runReviewerPassCheck();
+      await runReviewerPassCheck();
 
-      expect(result.ok).toBe(false);
-      expect(result.reason).toBe("clerk_unreachable");
+      const status = getReviewerCheckStatus();
+      expect(status.lastResult).toBe("fail");
+      expect(status.lastReason).toBe("pass_revoked");
+      expect(status.lastRunAt).toBeTruthy();
+    });
+
+    it("records lastResult='fail' and reason='user_missing' when the user row is absent", async () => {
+      dbSelectImpl
+        .mockReset()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      await runReviewerPassCheck();
+
+      const status = getReviewerCheckStatus();
+      expect(status.lastResult).toBe("fail");
+      expect(status.lastReason).toBe("user_missing");
     });
   });
 });
