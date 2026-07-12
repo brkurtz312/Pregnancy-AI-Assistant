@@ -15,6 +15,23 @@ export interface ReviewerCheckResult {
   reason?: ReviewerCheckReason;
 }
 
+export interface ReviewerCheckStatus {
+  lastRunAt: string | null;
+  lastResult: "ok" | "fail" | null;
+  lastReason: ReviewerCheckReason | null;
+}
+
+const _state: ReviewerCheckStatus = {
+  lastRunAt: null,
+  lastResult: null,
+  lastReason: null,
+};
+
+/** Returns a snapshot of the most recent scheduled check result. */
+export function getReviewerCheckStatus(): ReviewerCheckStatus {
+  return { ..._state };
+}
+
 async function getConfig(key: string): Promise<string | null> {
   try {
     const [row] = await db
@@ -42,6 +59,13 @@ async function getConfig(key: string): Promise<string | null> {
 export async function runReviewerPassCheck(): Promise<ReviewerCheckResult> {
   const timestamp = new Date().toISOString();
 
+  function record(result: ReviewerCheckResult): ReviewerCheckResult {
+    _state.lastRunAt = result.timestamp;
+    _state.lastResult = result.ok ? "ok" : "fail";
+    _state.lastReason = result.reason ?? null;
+    return result;
+  }
+
   // 1. Access code must be configured
   const dbCode = await getConfig("reviewer_access_code");
   const accessCode =
@@ -54,14 +78,14 @@ export async function runReviewerPassCheck(): Promise<ReviewerCheckResult> {
     logger.error(
       "Reviewer access code not configured (checked app_config + env)",
     );
-    return { ok: false, timestamp, reason: "no_access_code" };
+    return record({ ok: false, timestamp, reason: "no_access_code" });
   }
 
   // 2. Clerk secret key must be present
   const clerkKey = process.env.CLERK_SECRET_KEY;
   if (!clerkKey) {
     logger.error("CLERK_SECRET_KEY missing — reviewer sign-in will fail");
-    return { ok: false, timestamp, reason: "no_clerk_key" };
+    return record({ ok: false, timestamp, reason: "no_clerk_key" });
   }
 
   // 3. Clerk API must be reachable (lightweight read, no user creation)
@@ -74,13 +98,13 @@ export async function runReviewerPassCheck(): Promise<ReviewerCheckResult> {
         { status: res.status },
         "Clerk API returned non-OK status — reviewer sign-in will fail",
       );
-      return { ok: false, timestamp, reason: "clerk_unreachable" };
+      return record({ ok: false, timestamp, reason: "clerk_unreachable" });
     }
   } catch (err) {
     logger.error({ err }, "Clerk API unreachable — reviewer sign-in will fail");
-    return { ok: false, timestamp, reason: "clerk_unreachable" };
+    return record({ ok: false, timestamp, reason: "clerk_unreachable" });
   }
 
   logger.info("Reviewer pass check passed");
-  return { ok: true, timestamp };
+  return record({ ok: true, timestamp });
 }

@@ -9,7 +9,7 @@ import { timingSafeEqual } from "node:crypto";
 import { db, appConfigTable } from "@workspace/db";
 import { eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod/v4";
-import { runReviewerPassCheck } from "../lib/reviewer-check";
+import { runReviewerPassCheck, getReviewerCheckStatus } from "../lib/reviewer-check";
 
 const router: IRouter = Router();
 
@@ -128,6 +128,33 @@ router.post("/admin/reviewer-check", requireAdminToken, async (req, res) => {
     res.status(500).json({ error: "Check failed — see server logs" });
   }
 });
+
+/**
+ * GET /api/admin/reviewer-check/status
+ *
+ * Returns the most recent result from the background reviewer pass health
+ * check scheduler — without requiring a log search.
+ *
+ * Fields:
+ *   lastRunAt    — ISO-8601 timestamp of the most recent run, or null if the
+ *                  scheduler has not yet fired since the server started.
+ *   lastResult   — "ok" | "fail" | null
+ *   lastReason   — reason code when lastResult is "fail", otherwise null
+ *
+ * Auth: Bearer token matched against ADMIN_CHECK_TOKEN env var.
+ *
+ * Responses:
+ *   200 { lastRunAt, lastResult, lastReason }
+ *   401  — missing or invalid token
+ *   503  — no admin token configured on the server
+ */
+router.get(
+  "/admin/reviewer-check/status",
+  requireAdminToken,
+  (_req, res) => {
+    res.status(200).json(getReviewerCheckStatus());
+  },
+);
 
 /**
  * GET /api/admin/alert-config
