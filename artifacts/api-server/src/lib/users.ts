@@ -58,3 +58,26 @@ export async function grantPass(id: string): Promise<void> {
     })
     .where(eq(usersTable.id, id));
 }
+
+/** Revokes the Full Pregnancy Pass for the given user. Idempotent. */
+export async function revokePass(id: string): Promise<void> {
+  await db
+    .update(usersTable)
+    .set({ hasPass: false, updatedAt: sql`now()` })
+    .where(eq(usersTable.id, id));
+}
+
+/**
+ * Revokes the Full Pregnancy Pass for any user linked to the given Stripe
+ * customer ID. Called when a charge.refunded or payment_intent.payment_failed
+ * webhook is received so the denormalized hasPass flag is cleared promptly,
+ * preventing the fast-path from returning true for a refunded payment.
+ */
+export async function revokePassByStripeCustomerId(
+  stripeCustomerId: string,
+): Promise<void> {
+  await db
+    .update(usersTable)
+    .set({ hasPass: false, updatedAt: sql`now()` })
+    .where(eq(usersTable.stripeCustomerId, stripeCustomerId));
+}

@@ -108,6 +108,23 @@ function verifyStripeSignature(
 // Mocks — must appear before `import app` (vi.mock is hoisted by Vitest).
 // ---------------------------------------------------------------------------
 
+// Stub for users.ts — intercepts revokePassByStripeCustomerId so the webhook
+// handler's revocation path mutates in-memory state instead of hitting the DB.
+// Also removes the customer from succeededPayments so the entitlement mock's
+// fallback path (which mirrors the stripe.payment_intents query) agrees that
+// the payment is no longer succeeded — matching the real StripeSync behaviour
+// where it updates the payment status to 'refunded' in its own table.
+vi.mock("../src/lib/users", () => ({
+  revokePassByStripeCustomerId: async (customerId: string): Promise<void> => {
+    succeededPayments.delete(customerId);
+    for (const user of mockUsers.values()) {
+      if (user.stripeCustomerId === customerId) {
+        user.hasPass = false;
+      }
+    }
+  },
+}));
+
 vi.mock("../src/lib/stripeClient", () => ({
   // Lightly-stubbed StripeSync: verifies the signature with the test HMAC key,
   // parses the event, then models the real two-phase behaviour:
@@ -310,6 +327,146 @@ describe("checkout.session.completed → Pass entitlement (integration)", () => 
 
     // Pass must not have been granted despite the paid payload.
     expect(await userHasPass(TEST_USER_ID)).toBe(false);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Pass revocation: charge.refunded
+  //
+  // A successful payment may be refunded (e.g. the user disputes the charge or
+  // requests a refund). When Stripe fires charge.refunded the webhook handler
+  // must clear the denormalized hasPass flag so the next userHasPass call does
+  // not return true via the fast-path.
+  // ---------------------------------------------------------------------------
+  it("revokes the Pass after a valid charge.refunded event", async () => {
+    const { userHasPass } = await import("../src/lib/entitlement");
+
+    // Precondition: user already holds the pass (e.g. from a prior checkout).
+    mockUsers.set(TEST_USER_ID, {
+      id: TEST_USER_ID,
+      stripeCustomerId: TEST_CUSTOMER_ID,
+      hasPass: true,
+    });
+    succeededPayments.add(TEST_CUSTOMER_ID);
+    expect(await userHasPass(TEST_USER_ID)).toBe(true);
+
+    const payload = JSON.stringify({
+      id: "evt_integ_refund_1",
+      type: "charge.refunded",
+      data: {
+        object: {
+          object: "charge",
+          id: "ch_integ_refund_1",
+          customer: TEST_CUSTOMER_ID,
+          refunded: true,
+        },
+      },
+    });
+
+    const sig = makeStripeHeader(payload);
+
+    const res = await request(app)
+      .post("/api/stripe/webhook")
+      .set("stripe-signature", sig)
+      .set("Content-Type", "application/json")
+      .send(payload);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ received: true });
+
+    // hasPass must be cleared — a refunded payment no longer grants access.
+    expect(await userHasPass(TEST_USER_ID)).toBe(false);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Pass revocation: payment_intent.payment_failed
+  //
+  // A payment that was marked succeeded can later fail (e.g. chargeback, bank
+  // reversal). The webhook handler must revoke the pass in the same way it does
+  // for an explicit refund.
+  // ---------------------------------------------------------------------------
+  it("revokes the Pass after a valid payment_intent.payment_failed event", async () => {
+    const { userHasPass } = await import("../src/lib/entitlement");
+
+    // Precondition: user already holds the pass.
+    mockUsers.set(TEST_USER_ID, {
+      id: TEST_USER_ID,
+      stripeCustomerId: TEST_CUSTOMER_ID,
+      hasPass: true,
+    });
+    succeededPayments.add(TEST_CUSTOMER_ID);
+    expect(await userHasPass(TEST_USER_ID)).toBe(true);
+
+    const payload = JSON.stringify({
+      id: "evt_integ_pi_failed_1",
+      type: "payment_intent.payment_failed",
+      data: {
+        object: {
+          object: "payment_intent",
+          id: "pi_integ_failed_1",
+          customer: TEST_CUSTOMER_ID,
+          status: "requires_payment_method",
+        },
+      },
+    });
+
+    const sig = makeStripeHeader(payload);
+
+    const res = await request(app)
+      .post("/api/stripe/webhook")
+      .set("stripe-signature", sig)
+      .set("Content-Type", "application/json")
+      .send(payload);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ received: true });
+
+    // hasPass must be cleared — a failed payment no longer grants access.
+    expect(await userHasPass(TEST_USER_ID)).toBe(false);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Revocation bad signature: must not revoke the pass.
+  //
+  // A spoofed refund event with an invalid signature must be rejected (400)
+  // and must not revoke an active pass.
+  // ---------------------------------------------------------------------------
+  it("does not revoke the Pass when the charge.refunded signature is invalid", async () => {
+    const { userHasPass } = await import("../src/lib/entitlement");
+
+    // Precondition: user already holds the pass.
+    mockUsers.set(TEST_USER_ID, {
+      id: TEST_USER_ID,
+      stripeCustomerId: TEST_CUSTOMER_ID,
+      hasPass: true,
+    });
+    succeededPayments.add(TEST_CUSTOMER_ID);
+
+    const payload = JSON.stringify({
+      id: "evt_integ_refund_badsig_1",
+      type: "charge.refunded",
+      data: {
+        object: {
+          object: "charge",
+          id: "ch_integ_refund_badsig_1",
+          customer: TEST_CUSTOMER_ID,
+          refunded: true,
+        },
+      },
+    });
+
+    // Sign with the wrong secret — handler must reject with 400.
+    const wrongSig = makeStripeHeader(payload, "totally_wrong_secret_xyz");
+
+    const res = await request(app)
+      .post("/api/stripe/webhook")
+      .set("stripe-signature", wrongSig)
+      .set("Content-Type", "application/json")
+      .send(payload);
+
+    expect(res.status).toBe(400);
+
+    // Pass must remain intact — the spoofed event must have no effect.
+    expect(await userHasPass(TEST_USER_ID)).toBe(true);
   });
 
   // ---------------------------------------------------------------------------

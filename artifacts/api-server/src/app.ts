@@ -9,6 +9,7 @@ import {
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { getStripeSync } from "./lib/stripeClient";
+import { revokePassByStripeCustomerId } from "./lib/users";
 
 const app: Express = express();
 
@@ -56,6 +57,29 @@ app.post(
     try {
       const sync = await getStripeSync();
       await sync.processWebhook(req.body, sig);
+
+      // processWebhook already verified the HMAC signature, so it is safe to
+      // parse the raw body. For refund and payment-failure events we must
+      // explicitly clear the denormalized hasPass flag — StripeSync updates the
+      // stripe.payment_intents table, but the fast-path in userHasPass reads
+      // hasPass directly and would keep returning true for a refunded user.
+      try {
+        const event = JSON.parse(req.body.toString("utf8")) as {
+          type: string;
+          data: { object: { customer?: string } };
+        };
+        const REVOCATION_EVENTS = new Set([
+          "charge.refunded",
+          "payment_intent.payment_failed",
+        ]);
+        if (REVOCATION_EVENTS.has(event.type) && event.data.object.customer) {
+          await revokePassByStripeCustomerId(event.data.object.customer);
+        }
+      } catch {
+        // Non-fatal: the StripeSync tables are still updated correctly.
+        req.log.error("Failed to revoke pass after refund/failure webhook");
+      }
+
       res.status(200).json({ received: true });
     } catch (err) {
       req.log.error({ err }, "Stripe webhook processing failed");
