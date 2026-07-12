@@ -21,6 +21,8 @@ import {
   clearJournalCache,
   getJournalCacheOwner,
   loadEntries,
+  loadMediaIndex,
+  reindexMediaForEntry,
   setJournalCacheOwner,
   getAgeLabel,
   MOOD_OPTIONS,
@@ -331,6 +333,11 @@ export default function JournalScreen() {
                     try {
                       const synced = await apiUpsertJournalEntry(e, getToken);
                       migrated.push({ ...synced, media: e.media });
+                      // Re-key the media index so the new server UUID can be
+                      // found by the fallback lookup in future merge passes.
+                      if (synced?.id && synced.id !== e.id) {
+                        await reindexMediaForEntry(e.id, synced.id);
+                      }
                     } catch {
                       migrated.push(e);
                       anyMigrateFailed = true;
@@ -368,16 +375,33 @@ export default function JournalScreen() {
                 try {
                   const synced = await apiUpsertJournalEntry(e, getToken);
                   syncedLocalEntries.push({ ...synced, media: e.media });
+                  // Re-key the media index so the new server UUID can be
+                  // found by the fallback lookup in future merge passes.
+                  if (synced?.id && synced.id !== e.id) {
+                    await reindexMediaForEntry(e.id, synced.id);
+                  }
                 } catch {
                   syncedLocalEntries.push(e);
                   anySyncFailed = true;
                 }
               }
 
+              // Load the media index as a fallback for the re-attachment below.
+              // When the user logs out and back in (or when a different user signs
+              // in and clearJournalCache wipes JOURNAL_KEY), `localById` is empty
+              // so `localById.get(se.id)?.media` returns undefined for every server
+              // entry — silently dropping all photos even though the files are still
+              // on disk.  The media index lives under JOURNAL_MEDIA_INDEX_KEY which
+              // is intentionally excluded from clearJournalCache, so it survives the
+              // wipe and lets us re-link the on-disk files to their entries here.
+              const mediaIndex = await loadMediaIndex();
+
               const merged = [
                 ...serverEntries.map((se) => ({
                   ...se,
-                  media: localById.get(se.id)?.media ?? [],
+                  // Prefer the full local cache entry (fast path); fall back to the
+                  // media index (survives cache wipe); default to no media.
+                  media: localById.get(se.id)?.media ?? mediaIndex[se.id] ?? [],
                 })),
                 ...syncedLocalEntries,
               ].sort(

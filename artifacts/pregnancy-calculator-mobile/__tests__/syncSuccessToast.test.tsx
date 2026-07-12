@@ -125,19 +125,14 @@ jest.mock("@/lib/sync-api", () => ({
   apiLoadBirthPlanAnswers: jest.fn(),
   apiSaveBirthPlanAnswers: jest.fn(),
   isServerUuid: jest.fn((id: string) =>
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      id,
-    ),
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id),
   ),
 }));
 
 // ─── Imports (after mocks) ────────────────────────────────────────────────────
 
 import { useAuth, useUser } from "@clerk/expo";
-import {
-  apiLoadHospitalBag,
-  apiSaveHospitalBag,
-} from "@/lib/sync-api";
+import { apiLoadHospitalBag, apiSaveHospitalBag } from "@/lib/sync-api";
 import {
   loadHospitalBagChecklist,
   saveHospitalBagChecklist,

@@ -6,6 +6,15 @@ export const JOURNAL_OWNER_KEY = "@journal_cache_owner_v1";
 export const JOURNAL_MEDIA_DIR =
   (FileSystem.documentDirectory ?? "") + "journal-media/";
 
+/**
+ * Stores a mapping of { [entryId]: JournalMedia[] } in AsyncStorage under a
+ * key that is intentionally NOT wiped by `clearJournalCache`. Media files
+ * survive a cache wipe (they live on disk), so keeping this index lets the
+ * merge step in journal.tsx re-link those files to their server entries even
+ * after the main entry cache has been cleared for a cross-user switch.
+ */
+export const JOURNAL_MEDIA_INDEX_KEY = "@journal_media_index_v1";
+
 export type JournalMediaCategory = "general" | "bump" | "ultrasound";
 export type JournalMood =
   | "happy"
@@ -112,6 +121,83 @@ export async function clearJournalCache(): Promise<void> {
   }
 }
 
+/**
+ * Loads the media index from AsyncStorage. Returns an empty object if nothing
+ * has been stored yet or if the read fails.
+ */
+export async function loadMediaIndex(): Promise<
+  Record<string, JournalMedia[]>
+> {
+  try {
+    const raw = await AsyncStorage.getItem(JOURNAL_MEDIA_INDEX_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, JournalMedia[]>) : {};
+  } catch {
+    return {};
+  }
+}
+
+async function persistMediaIndex(
+  index: Record<string, JournalMedia[]>,
+): Promise<void> {
+  try {
+    await AsyncStorage.setItem(JOURNAL_MEDIA_INDEX_KEY, JSON.stringify(index));
+  } catch {
+    /* best-effort */
+  }
+}
+
+/**
+ * Records (or clears) the media array for a single entry in the media index.
+ * Pass an empty array to clear the entry's media without removing the key.
+ * This is called by `upsertEntry` automatically.
+ */
+async function updateMediaIndexForEntry(
+  entryId: string,
+  media: JournalMedia[],
+): Promise<void> {
+  const index = await loadMediaIndex();
+  if (media.length === 0) {
+    delete index[entryId];
+  } else {
+    index[entryId] = media;
+  }
+  await persistMediaIndex(index);
+}
+
+/**
+ * Re-keys the media index when a local ID is promoted to a server UUID.
+ * Both the migration path and the localOnlyEntries sync path in journal.tsx
+ * call apiUpsertJournalEntry, which can return a different (server-assigned)
+ * ID. Without this re-key, the index entry remains under the old local ID and
+ * the fallback lookup in the merge step misses after a clearJournalCache wipe.
+ *
+ * Safe to call even when oldId === newId (no-op) or when oldId is not in the
+ * index (no-op).
+ */
+export async function reindexMediaForEntry(
+  oldId: string,
+  newId: string,
+): Promise<void> {
+  if (oldId === newId) return;
+  const index = await loadMediaIndex();
+  if (oldId in index) {
+    index[newId] = index[oldId];
+    delete index[oldId];
+    await persistMediaIndex(index);
+  }
+}
+
+/**
+ * Removes an entry's media record from the index. Called by `deleteEntry`.
+ */
+async function removeEntryFromMediaIndex(entryId: string): Promise<void> {
+  const index = await loadMediaIndex();
+  if (entryId in index) {
+    delete index[entryId];
+    await persistMediaIndex(index);
+  }
+}
+
 export async function upsertEntry(entry: JournalEntry): Promise<void> {
   const entries = await loadEntries();
   const idx = entries.findIndex((e) => e.id === entry.id);
@@ -120,7 +206,11 @@ export async function upsertEntry(entry: JournalEntry): Promise<void> {
   } else {
     entries.unshift(entry);
   }
-  await persistEntries(entries);
+  // Keep the media index in sync so it can survive a clearJournalCache wipe.
+  await Promise.all([
+    persistEntries(entries),
+    updateMediaIndexForEntry(entry.id, entry.media),
+  ]);
 }
 
 /**
@@ -136,6 +226,14 @@ export async function replaceEntryId(
   const updated = entries.map((e) =>
     e.id === oldId ? { ...e, id: newId } : e,
   );
+  // Re-key the media index so the server UUID finds the right media list after
+  // a local-id → server-UUID promotion.
+  const index = await loadMediaIndex();
+  if (oldId in index) {
+    index[newId] = index[oldId];
+    delete index[oldId];
+    await persistMediaIndex(index);
+  }
   await persistEntries(updated);
 }
 
@@ -151,7 +249,10 @@ export async function deleteEntry(id: string): Promise<void> {
       }
     }
   }
-  await persistEntries(entries.filter((e) => e.id !== id));
+  await Promise.all([
+    persistEntries(entries.filter((e) => e.id !== id)),
+    removeEntryFromMediaIndex(id),
+  ]);
 }
 
 export async function copyMediaToDocuments(

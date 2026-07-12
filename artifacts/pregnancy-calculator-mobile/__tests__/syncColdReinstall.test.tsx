@@ -136,6 +136,8 @@ jest.mock("@/lib/journal", () => ({
   getJournalCacheOwner: jest.fn(async () => null),
   setJournalCacheOwner: jest.fn(async () => {}),
   clearJournalCache: jest.fn(async () => {}),
+  loadMediaIndex: jest.fn(async () => ({})),
+  reindexMediaForEntry: jest.fn(async () => {}),
 }));
 
 jest.mock("@/lib/sync-api", () => ({
@@ -161,6 +163,7 @@ import {
   getJournalCacheOwner,
   setJournalCacheOwner,
   clearJournalCache,
+  reindexMediaForEntry,
 } from "@/lib/journal";
 
 const mockApiLoadJournal = apiLoadJournalEntries as jest.Mock;
@@ -761,6 +764,146 @@ describe("Journal — missing media files after reinstall", () => {
     expect(json).toContain("No text");
     // The media count badge must still appear (entry has one photo)
     expect(json).toContain("photo");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// JOURNAL — media index re-keyed when local ID promoted to server UUID
+// ─────────────────────────────────────────────────────────────────────────────
+
+const mockReindexMediaForEntry = reindexMediaForEntry as jest.Mock;
+
+describe("Journal — media index re-keyed on server UUID promotion", () => {
+  /**
+   * Regression: an entry created offline gets a local base36 ID, which the
+   * media index stores. On the first sync the entry is pushed to the server and
+   * gets a real UUID. If reindexMediaForEntry is NOT called, the media index
+   * still holds the old local ID. After clearJournalCache the fallback lookup
+   * `mediaIndex[serverUUID]` misses and photos are lost.
+   */
+  const LOCAL_ID = "abc123def456";
+  const SERVER_UUID = "cccccccc-dddd-4eee-8fff-aaaaaaaaaaaa";
+  const PHOTO_MEDIA = [
+    {
+      id: "photo-001",
+      uri: "file:///var/mobile/journal-media/photo-001.jpg",
+      type: "photo",
+      category: "bump",
+    },
+  ];
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    setSignedIn();
+    mockCacheEntries.mockResolvedValue(undefined);
+    mockSetJournalCacheOwner.mockResolvedValue(undefined);
+    mockClearJournalCache.mockResolvedValue(undefined);
+    mockReindexMediaForEntry.mockResolvedValue(undefined);
+    // No existing cache owner → fresh install path
+    mockGetJournalCacheOwner.mockResolvedValue(null);
+  });
+
+  it("calls reindexMediaForEntry when a local-only entry is promoted to a server UUID", async () => {
+    jest.setTimeout(15000);
+
+    // Server has no entries yet — will enter the migration branch if local > 0
+    // and serverEntries.length === 0 with migratedForUserRef not set.
+    // Use the localOnlyEntries branch instead: server has entries, local has one
+    // extra with a local ID.
+    const serverEntry = {
+      id: SERVER_UUID,
+      text: "Weekly check-in",
+      mood: "happy",
+      gestationalWeeks: 24,
+      gestationalDays: 0,
+      postpartumDays: undefined,
+      createdAt: "2026-04-01T09:00:00.000Z",
+      updatedAt: "2026-04-01T09:00:00.000Z",
+      media: [],
+    };
+    const localEntry = {
+      id: LOCAL_ID,
+      text: "First ultrasound photo!",
+      mood: "excited",
+      gestationalWeeks: 20,
+      gestationalDays: 2,
+      postpartumDays: undefined,
+      createdAt: "2026-03-10T09:00:00.000Z",
+      updatedAt: "2026-03-10T09:00:00.000Z",
+      media: PHOTO_MEDIA,
+    };
+
+    mockApiLoadJournal.mockResolvedValue([serverEntry]);
+    mockLoadEntries.mockResolvedValue([localEntry]);
+
+    const mockApiUpsert = require("@/lib/sync-api")
+      .apiUpsertJournalEntry as jest.Mock;
+    // Server promotes the local ID to a UUID
+    mockApiUpsert.mockResolvedValue({
+      ...localEntry,
+      id: "eeeeeeee-1111-4222-8333-444444444444",
+    });
+
+    const { loadMediaIndex: mockLoadMediaIndex } = require("@/lib/journal") as {
+      loadMediaIndex: jest.Mock;
+    };
+    mockLoadMediaIndex.mockResolvedValue({});
+
+    const JournalScreen = require("../app/journal").default;
+    act(() => {
+      create(React.createElement(JournalScreen));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // reindexMediaForEntry must have been called with the old local ID and
+    // the new server UUID so future fallback lookups find the media.
+    expect(mockReindexMediaForEntry).toHaveBeenCalledWith(
+      LOCAL_ID,
+      "eeeeeeee-1111-4222-8333-444444444444",
+    );
+  });
+
+  it("re-attaches photos via the media index fallback after cache wipe", async () => {
+    // Scenario: entry was previously synced (local ID promoted to server UUID,
+    // reindexMediaForEntry already called). Now the cache was cleared and the
+    // user signs back in. The media index still holds the server UUID key.
+    const serverEntry = {
+      id: SERVER_UUID,
+      text: "Beautiful bump photo",
+      mood: "happy",
+      gestationalWeeks: 28,
+      gestationalDays: 0,
+      postpartumDays: undefined,
+      createdAt: "2026-05-01T09:00:00.000Z",
+      updatedAt: "2026-05-01T09:00:00.000Z",
+      media: [],
+    };
+    mockApiLoadJournal.mockResolvedValue([serverEntry]);
+    // Local cache was wiped — no local entries
+    mockLoadEntries.mockResolvedValue([]);
+
+    // Media index has the server UUID key with the photo (survived cache wipe)
+    const { loadMediaIndex: mockLoadMediaIndex } = require("@/lib/journal") as {
+      loadMediaIndex: jest.Mock;
+    };
+    mockLoadMediaIndex.mockResolvedValue({ [SERVER_UUID]: PHOTO_MEDIA });
+
+    const JournalScreen = require("../app/journal").default;
+    let renderer: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(JournalScreen));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // The media count badge ("1 photo") must appear — confirming the fallback
+    // lookup mediaIndex[SERVER_UUID] successfully re-attached the photo.
+    const json = JSON.stringify(renderer!.toJSON());
+    expect(json).toContain("photo");
+    expect(json).toContain("Beautiful bump photo");
   });
 });
 
