@@ -97,10 +97,65 @@ ON CONFLICT (identifier, period_key) DO UPDATE SET count = 5, updated_at = now()
 13. `[Browser]` Navigate to `/`; `[Verify]` `badge-pass-active` is shown again — the
     pass is tied to the Clerk account, not the device.
 
+## Plan 3 — anonymous visitor hits the weekly free limit (403 FREE_LIMIT_REACHED)
+
+Goal: confirm the IP-keyed metering path works for visitors who never sign in.
+
+Strategy: make **one** real AI request to let the server create the `ip:*` row, discover
+the identifier from the DB, then upsert it to the weekly cap so the very next request is
+blocked — only one Anthropic call is made.
+
+1. `[New Context]` — no Clerk sign-in; the browser must have no existing auth cookies.
+2. `[Browser]` Navigate to `/`.
+3. `[Verify]` Account bar shows `button-sign-in` (no `badge-free-remaining`, no
+   `badge-pass-active`).
+4. `[Browser]` Run the LMP calculation (`tab-lmp` selected by default; set
+   `input-lmp-date` to `2026-01-13`, click `button-calculate-lmp`). Wait for
+   `ai-assistant-section` to appear.
+5. `[Browser]` Ask "Is it safe to eat sushi?" via `input-question` + `button-send`.
+   Wait for either `message-assistant` (success) or `limit-reached-prompt` (already
+   blocked). A successful reply is expected here — this is the **discovery request**.
+   Note the approximate time so the DB query in step 6 can be scoped to this request.
+6. `[DB]` Find the identifier the server created for this anonymous request.
+   Scope by current period and updated_at to avoid picking up a stale row from a
+   previous test run on the shared dev DB:
+   ```sql
+   SELECT identifier FROM ai_usage
+   WHERE identifier LIKE 'ip:%'
+     AND period_key = to_char((now() at time zone 'utc'), 'IYYY"-W"IW')
+     AND updated_at >= now() - interval '2 minutes'
+   ORDER BY updated_at DESC
+   LIMIT 1;
+   ```
+   Note the returned value (e.g. `ip:203.0.113.4`). If no row is found, the discovery
+   request was blocked by a burst/daily limiter before metering ran — try again or
+   check that the rate limiter store is reachable.
+7. `[DB]` Upsert that identifier to the weekly cap:
+   ```sql
+   INSERT INTO ai_usage (identifier, period_key, count, updated_at)
+   VALUES ('<identifier from step 6>',
+           to_char((now() at time zone 'utc'), 'IYYY"-W"IW'), 5, now())
+   ON CONFLICT (identifier, period_key) DO UPDATE SET count = 5, updated_at = now();
+   ```
+8. `[DB]` Confirm: `SELECT count FROM ai_usage WHERE identifier = '<identifier>'` = 5.
+9. `[Browser]` Ask a second question: "What should I expect at my 20-week scan?" via
+   `input-question` + `button-send`.
+10. `[Verify]` `limit-reached-prompt` appears; no `message-assistant` was produced.
+    Because the visitor is **signed out**, the prompt shows `link-sign-in-limit` ("Sign
+    in to unlock the pass…"), **not** `button-unlock-pass-inline` (that button only
+    renders for signed-in users). Confirm `link-sign-in-limit` is visible and the
+    inline "Unlock Full Pass" checkout button is absent.
+
 ## Notes / gotchas
 
 - `button-unlock-pass` is `disabled` only while `checkout.isPending`; right after the
   click it is briefly disabled before redirecting to Stripe — not a bug.
 - Seeding `ai_usage` (instead of making 5 real AI calls) keeps Plan 1 fast/cheap and
   avoids paid Anthropic usage; the 403 returns before any model call.
-- Tests share the dev DB; always use unique `nanoid` emails.
+- Plan 3 uses one real AI call (the discovery request in step 5) because the anonymous
+  IP isn't known ahead of time. All subsequent blocking is done by DB seeding, so only
+  one Anthropic call is needed rather than five.
+- The `ip:*` identifier is the leftmost value from `X-Forwarded-For` as parsed by
+  `getClientIp`. In the Replit dev environment this is typically the testing browser's
+  network address; the exact value is what the DB row reveals.
+- Tests share the dev DB; always use unique `nanoid` emails for Plans 1 and 2.
