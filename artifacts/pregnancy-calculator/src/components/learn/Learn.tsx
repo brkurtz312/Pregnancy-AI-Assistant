@@ -19,6 +19,11 @@ import { HEALTHY_PREGNANCY_ARTICLES } from "@/lib/web-healthy-pregnancy";
 
 type LearnView = "hub" | "videovault" | "supportperson" | "healthypregnancy";
 
+interface DeepLink {
+  view: LearnView;
+  itemId: string;
+}
+
 const EXTERNAL_RESOURCES = [
   {
     title: "ACOG Patient Resources",
@@ -76,6 +81,7 @@ interface SearchResult {
   icon: string;
   color: string;
   view: LearnView;
+  itemId: string;
 }
 
 function buildSearchIndex(): SearchResult[] {
@@ -89,6 +95,7 @@ function buildSearchIndex(): SearchResult[] {
       icon: topic.icon,
       color: "#8b5cf6",
       view: "videovault",
+      itemId: topic.id,
     });
   }
 
@@ -100,6 +107,7 @@ function buildSearchIndex(): SearchResult[] {
       icon: ["📖", "📋", "🎉"][vol.volumeNumber - 1],
       color: "#7c3aed",
       view: "supportperson",
+      itemId: String(vol.volumeNumber),
     });
   }
 
@@ -111,6 +119,7 @@ function buildSearchIndex(): SearchResult[] {
       icon: article.emoji,
       color: article.color,
       view: "healthypregnancy",
+      itemId: article.id,
     });
   }
 
@@ -185,32 +194,47 @@ const ALL_RESULTS = buildSearchIndex();
 
 export function Learn() {
   const [view, setView] = useState<LearnView>("hub");
+  const [deepLink, setDeepLink] = useState<DeepLink | null>(null);
   const [query, setQuery] = useState("");
+
+  function navigateTo(v: LearnView, itemId?: string) {
+    setView(v);
+    setDeepLink(itemId ? { view: v, itemId } : null);
+    setQuery("");
+  }
 
   if (view === "videovault") {
     return (
       <div className="space-y-4">
         <button
-          onClick={() => setView("hub")}
+          onClick={() => navigateTo("hub")}
           className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
         >
           ← Back to Learn
         </button>
-        <VideoVault />
+        <VideoVault
+          initialTopicId={
+            deepLink?.view === "videovault" ? deepLink.itemId : undefined
+          }
+        />
       </div>
     );
   }
 
   if (view === "supportperson") {
+    const volNum =
+      deepLink?.view === "supportperson"
+        ? Number(deepLink.itemId)
+        : undefined;
     return (
       <div className="space-y-4">
         <button
-          onClick={() => setView("hub")}
+          onClick={() => navigateTo("hub")}
           className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
         >
           ← Back to Learn
         </button>
-        <SupportPerson />
+        <SupportPerson initialVolumeNumber={volNum} />
       </div>
     );
   }
@@ -219,12 +243,16 @@ export function Learn() {
     return (
       <div className="space-y-4">
         <button
-          onClick={() => setView("hub")}
+          onClick={() => navigateTo("hub")}
           className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
         >
           ← Back to Learn
         </button>
-        <HealthyPregnancy />
+        <HealthyPregnancy
+          initialArticleId={
+            deepLink?.view === "healthypregnancy" ? deepLink.itemId : undefined
+          }
+        />
       </div>
     );
   }
@@ -246,16 +274,13 @@ export function Learn() {
       {query.trim() ? (
         <SearchResults
           query={query}
-          onNavigate={(v) => {
-            setView(v);
-            setQuery("");
-          }}
+          onNavigate={(v, itemId) => navigateTo(v, itemId)}
         />
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2">
             <Card
-              onClick={() => setView("videovault")}
+              onClick={() => navigateTo("videovault")}
               className="p-5 cursor-pointer hover:bg-muted/30 transition-colors border-border/50 rounded-2xl group"
             >
               <div className="flex items-start gap-4">
@@ -278,7 +303,7 @@ export function Learn() {
             </Card>
 
             <Card
-              onClick={() => setView("supportperson")}
+              onClick={() => navigateTo("supportperson")}
               className="p-5 cursor-pointer hover:bg-muted/30 transition-colors border-border/50 rounded-2xl group"
             >
               <div className="flex items-start gap-4">
@@ -301,7 +326,7 @@ export function Learn() {
             </Card>
 
             <Card
-              onClick={() => setView("healthypregnancy")}
+              onClick={() => navigateTo("healthypregnancy")}
               className="p-5 cursor-pointer hover:bg-muted/30 transition-colors border-border/50 rounded-2xl group sm:col-span-2"
             >
               <div className="flex items-start gap-4">
@@ -398,7 +423,7 @@ function SearchResults({
   onNavigate,
 }: {
   query: string;
-  onNavigate: (view: LearnView) => void;
+  onNavigate: (view: LearnView, itemId: string) => void;
 }) {
   const matches = useMemo(
     () => ALL_RESULTS.filter((r) => matchesQuery(r, query)),
@@ -440,7 +465,7 @@ function SearchResults({
             {items.map((item) => (
               <button
                 key={`${item.section}-${item.label}`}
-                onClick={() => onNavigate(item.view)}
+                onClick={() => onNavigate(item.view, item.itemId)}
                 className="w-full text-left flex items-center gap-3 p-3 rounded-xl border border-border/50 hover:bg-muted/30 transition-colors group"
               >
                 <div

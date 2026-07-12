@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { ChevronDown, ChevronUp, Info } from "lucide-react";
 import {
@@ -6,8 +6,23 @@ import {
   type HealthyPregnancyArticle,
 } from "@/lib/web-healthy-pregnancy";
 
-export function HealthyPregnancy() {
-  const [expanded, setExpanded] = useState<string | null>(null);
+interface HealthyPregnancyProps {
+  initialArticleId?: string;
+}
+
+export function HealthyPregnancy({ initialArticleId }: HealthyPregnancyProps) {
+  const [expanded, setExpanded] = useState<string | null>(
+    initialArticleId ?? null,
+  );
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  useEffect(() => {
+    if (!initialArticleId) return;
+    const el = cardRefs.current.get(initialArticleId);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [initialArticleId]);
 
   return (
     <div className="space-y-5">
@@ -22,14 +37,21 @@ export function HealthyPregnancy() {
 
       <div className="space-y-3">
         {HEALTHY_PREGNANCY_ARTICLES.map((article) => (
-          <ArticleCard
+          <div
             key={article.id}
-            article={article}
-            isExpanded={expanded === article.id}
-            onToggle={() =>
-              setExpanded(expanded === article.id ? null : article.id)
-            }
-          />
+            ref={(el) => {
+              if (el) cardRefs.current.set(article.id, el);
+              else cardRefs.current.delete(article.id);
+            }}
+          >
+            <ArticleCard
+              article={article}
+              isExpanded={expanded === article.id}
+              onToggle={() =>
+                setExpanded(expanded === article.id ? null : article.id)
+              }
+            />
+          </div>
         ))}
       </div>
 

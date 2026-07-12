@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Search, ExternalLink, ChevronRight, ArrowLeft } from "lucide-react";
@@ -10,11 +10,29 @@ import {
   type VideoVaultTopic,
 } from "@/lib/web-video-vault";
 
-export function VideoVault() {
+interface VideoVaultProps {
+  initialTopicId?: string;
+}
+
+export function VideoVault({ initialTopicId }: VideoVaultProps) {
   const [search, setSearch] = useState("");
   const [selectedSource, setSelectedSource] = useState("All");
   const [activeTopic, setActiveTopic] = useState<VideoVaultTopic | null>(null);
+  const [highlightTopicId, setHighlightTopicId] = useState<string | undefined>(
+    initialTopicId,
+  );
+  const topicRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const { totalVideos, topicCount } = getVideoVaultTotals();
+
+  useEffect(() => {
+    if (!initialTopicId) return;
+    const el = topicRefs.current.get(initialTopicId);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    const timer = setTimeout(() => setHighlightTopicId(undefined), 2500);
+    return () => clearTimeout(timer);
+  }, [initialTopicId]);
 
   const filteredTopics = useMemo(() => {
     if (!search && selectedSource === "All") return VIDEO_VAULT_TOPICS;
@@ -115,27 +133,38 @@ export function VideoVault() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {VIDEO_VAULT_TOPICS.map((topic) => (
-            <Card
+            <div
               key={topic.id}
-              onClick={() => setActiveTopic(topic)}
-              className="p-4 cursor-pointer hover:bg-muted/30 transition-colors border-border/50 rounded-2xl group"
+              ref={(el) => {
+                if (el) topicRefs.current.set(topic.id, el);
+                else topicRefs.current.delete(topic.id);
+              }}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">{topic.icon}</span>
-                  <div>
-                    <p className="text-sm font-medium text-foreground leading-snug">
-                      {topic.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {topic.videos.length} video
-                      {topic.videos.length !== 1 ? "s" : ""}
-                    </p>
+              <Card
+                onClick={() => setActiveTopic(topic)}
+                className={`p-4 cursor-pointer hover:bg-muted/30 transition-all border-border/50 rounded-2xl group ${
+                  highlightTopicId === topic.id
+                    ? "ring-2 ring-primary bg-primary/5"
+                    : ""
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{topic.icon}</span>
+                    <div>
+                      <p className="text-sm font-medium text-foreground leading-snug">
+                        {topic.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {topic.videos.length} video
+                        {topic.videos.length !== 1 ? "s" : ""}
+                      </p>
+                    </div>
                   </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors shrink-0" />
                 </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors shrink-0" />
-              </div>
-            </Card>
+              </Card>
+            </div>
           ))}
         </div>
       )}

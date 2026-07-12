@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Printer, ChevronDown, ChevronUp } from "lucide-react";
@@ -27,8 +27,23 @@ const VOL_COLORS = [
   },
 ];
 
-export function SupportPerson() {
-  const [expanded, setExpanded] = useState<number | null>(null);
+interface SupportPersonProps {
+  initialVolumeNumber?: number;
+}
+
+export function SupportPerson({ initialVolumeNumber }: SupportPersonProps) {
+  const [expanded, setExpanded] = useState<number | null>(
+    initialVolumeNumber ?? null,
+  );
+  const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+
+  useEffect(() => {
+    if (!initialVolumeNumber) return;
+    const el = cardRefs.current.get(initialVolumeNumber);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [initialVolumeNumber]);
 
   return (
     <div className="space-y-5">
@@ -43,17 +58,24 @@ export function SupportPerson() {
 
       <div className="space-y-4">
         {SUPPORT_PERSON_VOLUMES.map((vol, idx) => (
-          <VolumeCard
+          <div
             key={vol.volumeNumber}
-            vol={vol}
-            colors={VOL_COLORS[idx]}
-            isExpanded={expanded === vol.volumeNumber}
-            onToggle={() =>
-              setExpanded(
-                expanded === vol.volumeNumber ? null : vol.volumeNumber,
-              )
-            }
-          />
+            ref={(el) => {
+              if (el) cardRefs.current.set(vol.volumeNumber, el);
+              else cardRefs.current.delete(vol.volumeNumber);
+            }}
+          >
+            <VolumeCard
+              vol={vol}
+              colors={VOL_COLORS[idx]}
+              isExpanded={expanded === vol.volumeNumber}
+              onToggle={() =>
+                setExpanded(
+                  expanded === vol.volumeNumber ? null : vol.volumeNumber,
+                )
+              }
+            />
+          </div>
         ))}
       </div>
     </div>
