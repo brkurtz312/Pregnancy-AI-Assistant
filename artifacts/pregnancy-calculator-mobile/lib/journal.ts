@@ -291,18 +291,34 @@ export async function replaceEntryId(
  * Removes any media index keys that are not present in `knownEntryIds`.
  * Call this after building the merged entry list during a sync so that
  * entries deleted server-side don't leave orphaned keys in the index.
+ *
+ * For each evicted key, the on-disk photo/video files referenced by that
+ * entry are deleted via FileSystem.deleteAsync (idempotent: true) so that
+ * a server-side delete on one device also frees storage on every other
+ * device the next time it syncs.
  */
 export async function pruneOrphanedMediaIndexKeys(
   knownEntryIds: Set<string>,
 ): Promise<void> {
   const index = await loadMediaIndex();
   let changed = false;
+  const deletePromises: Promise<void>[] = [];
   for (const key of Object.keys(index)) {
     if (!knownEntryIds.has(key)) {
+      for (const media of index[key]) {
+        deletePromises.push(
+          FileSystem.deleteAsync(media.uri, { idempotent: true }).catch(
+            () => {
+              /* best-effort — ignore individual file errors */
+            },
+          ),
+        );
+      }
       delete index[key];
       changed = true;
     }
   }
+  await Promise.all(deletePromises);
   if (changed) {
     await persistMediaIndex(index);
   }

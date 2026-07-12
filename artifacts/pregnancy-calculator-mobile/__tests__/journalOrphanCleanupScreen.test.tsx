@@ -39,6 +39,9 @@ jest.mock("expo-file-system/legacy", () => ({
   deleteAsync: jest.fn(async () => {}),
 }));
 
+import * as FileSystem from "expo-file-system/legacy";
+const mockDeleteAsync = FileSystem.deleteAsync as jest.Mock;
+
 jest.mock("react-native-reanimated", () =>
   require("react-native-reanimated/mock"),
 );
@@ -180,14 +183,18 @@ const ORPHANED_MEDIA: JournalMedia[] = [
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("Journal screen — orphaned media index keys cleaned up during sync", () => {
+  beforeAll(() => {
+    jest.setTimeout(15000);
+  });
+
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockDeleteAsync.mockClear();
     setSignedIn();
     await AsyncStorage.clear();
   });
 
   it("removes the media index key for an entry that the server no longer returns", async () => {
-    jest.setTimeout(15000);
 
     // Seed: local cache has both entries (surviving + the one deleted server-side)
     const localEntries: JournalEntry[] = [
@@ -227,6 +234,11 @@ describe("Journal screen — orphaned media index keys cleaned up during sync", 
     // The stale media index key must be gone after the merge
     const indexAfterSync = await loadMediaIndex();
     expect(indexAfterSync[DELETED_ENTRY_ID]).toBeUndefined();
+
+    // The on-disk file for the orphaned photo must have been deleted
+    expect(mockDeleteAsync).toHaveBeenCalledWith(ORPHANED_MEDIA[0].uri, {
+      idempotent: true,
+    });
   });
 
   it("keeps the media index key for entries that are still present on the server", async () => {

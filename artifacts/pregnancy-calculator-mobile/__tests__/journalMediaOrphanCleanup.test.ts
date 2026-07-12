@@ -6,6 +6,11 @@
  * where a server-side delete causes an entry to disappear from serverEntries
  * during a sync, but the local deleteEntry path was never called, leaving a
  * stale media index key behind.
+ *
+ * Also verifies that the actual on-disk files are deleted via
+ * FileSystem.deleteAsync (idempotent: true) when a key is evicted, so that a
+ * photo deleted on one device is also removed from disk on the other device's
+ * next sync.
  */
 
 jest.mock("expo-file-system/legacy", () => ({
@@ -17,12 +22,15 @@ jest.mock("expo-file-system/legacy", () => ({
 }));
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as FileSystem from "expo-file-system/legacy";
 import {
   upsertEntry,
   loadMediaIndex,
   pruneOrphanedMediaIndexKeys,
 } from "@/lib/journal";
 import type { JournalEntry, JournalMedia } from "@/lib/journal";
+
+const mockDeleteAsync = FileSystem.deleteAsync as jest.Mock;
 
 const PHOTO_A: JournalMedia = {
   id: "photo-aaa",
@@ -63,6 +71,7 @@ const ENTRY_B: JournalEntry = {
 describe("pruneOrphanedMediaIndexKeys", () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
+    mockDeleteAsync.mockClear();
   });
 
   it("removes index keys not present in the known-entry set", async () => {
@@ -76,6 +85,60 @@ describe("pruneOrphanedMediaIndexKeys", () => {
     const index = await loadMediaIndex();
     expect(index[ENTRY_A.id]).toEqual([PHOTO_A]);
     expect(index[ENTRY_B.id]).toBeUndefined();
+  });
+
+  it("calls deleteAsync for the orphaned photo URI when an entry is evicted", async () => {
+    await upsertEntry(ENTRY_A);
+    await upsertEntry(ENTRY_B);
+
+    mockDeleteAsync.mockClear();
+
+    // Server-side delete removed ENTRY_B — only ENTRY_A is known
+    await pruneOrphanedMediaIndexKeys(new Set([ENTRY_A.id]));
+
+    // The on-disk file for PHOTO_B must have been deleted
+    expect(mockDeleteAsync).toHaveBeenCalledWith(PHOTO_B.uri, {
+      idempotent: true,
+    });
+    // The surviving entry's photo must NOT have been deleted
+    const deletedUris = mockDeleteAsync.mock.calls.map(
+      (call: unknown[]) => call[0],
+    );
+    expect(deletedUris).not.toContain(PHOTO_A.uri);
+  });
+
+  it("calls deleteAsync for every photo in each evicted entry", async () => {
+    const MULTI_PHOTO_ENTRY: JournalEntry = {
+      ...ENTRY_B,
+      media: [PHOTO_B, PHOTO_A],
+    };
+    await upsertEntry(ENTRY_A);
+    await upsertEntry(MULTI_PHOTO_ENTRY);
+
+    mockDeleteAsync.mockClear();
+
+    await pruneOrphanedMediaIndexKeys(new Set());
+
+    const deletedUris = mockDeleteAsync.mock.calls.map(
+      (call: unknown[]) => call[0],
+    );
+    expect(deletedUris).toContain(PHOTO_A.uri);
+    expect(deletedUris).toContain(PHOTO_B.uri);
+    expect(mockDeleteAsync).toHaveBeenCalledWith(expect.any(String), {
+      idempotent: true,
+    });
+  });
+
+  it("does not call deleteAsync for entries that remain known", async () => {
+    await upsertEntry(ENTRY_A);
+    await upsertEntry(ENTRY_B);
+
+    mockDeleteAsync.mockClear();
+
+    // Both entries are still present on the server — nothing evicted
+    await pruneOrphanedMediaIndexKeys(new Set([ENTRY_A.id, ENTRY_B.id]));
+
+    expect(mockDeleteAsync).not.toHaveBeenCalled();
   });
 
   it("keeps all index keys when all entries are still known", async () => {
