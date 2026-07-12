@@ -280,6 +280,52 @@ describe("main() — no Clerk key", () => {
   });
 });
 
+describe("main() — Clerk API unreachable, Resend email channel only", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockClear();
+    selectWhereImpl.mockReset();
+    selectWhereImpl.mockResolvedValue([]); // no DB config rows
+    clearAlertEnv();
+    process.env.DEV_ACCESS_CODE = "test-code";
+    process.env.CLERK_SECRET_KEY = "sk_test_fake";
+    process.env.RESEND_API_KEY = "re_test_key";
+    process.env.ALERT_EMAIL = "oncall@example.com";
+    // No ALERT_SLACK_WEBHOOK_URL set
+  });
+
+  it("exits 1 and POSTs to Resend when Clerk API is unreachable and only email channel is configured", async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        text: async () => "",
+      } as Response)
+      .mockResolvedValue({
+        ok: true,
+        status: 200,
+        text: async () => "",
+      } as Response);
+
+    const exitSpy = mockProcessExit();
+
+    await expect(main()).rejects.toThrow("process.exit(1)");
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+
+    const resendCall = fetchMock.mock.calls.find(
+      ([url]) => (url as string) === "https://api.resend.com/emails",
+    );
+    expect(resendCall).toBeDefined();
+
+    // No Slack call should have been made
+    const slackCall = fetchMock.mock.calls.find(([url]) =>
+      (url as string).includes("hooks.slack.com"),
+    );
+    expect(slackCall).toBeUndefined();
+  });
+});
+
 describe("main() — Clerk API unreachable", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", fetchMock);
