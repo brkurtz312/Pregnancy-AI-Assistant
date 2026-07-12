@@ -91,47 +91,59 @@ describe("POST /api/ai/ask daily rate-limit protection", () => {
     expect(res.status).toBe(503);
   });
 
-  it("blocks the 121st request from the same IP with 429", { timeout: 30_000 }, async () => {
-    const ip = "198.51.100.10";
+  it(
+    "blocks the 121st request from the same IP with 429",
+    { timeout: 30_000 },
+    async () => {
+      const ip = "198.51.100.10";
 
-    // The aiDailyLimiter allows up to 120 requests per 24-hour window.
-    // All 120 should reach the stub handler and get 503.
-    for (let i = 0; i < 120; i++) {
-      const res = await askAI(ip);
+      // The aiDailyLimiter allows up to 120 requests per 24-hour window.
+      // All 120 should reach the stub handler and get 503.
+      for (let i = 0; i < 120; i++) {
+        const res = await askAI(ip);
+        expect(res.status).toBe(503);
+      }
+
+      // The 121st request from the same IP must be blocked before it reaches the
+      // handler — the daily rate limiter fires and returns 429.
+      const blocked = await askAI(ip);
+      expect(blocked.status).toBe(429);
+    },
+  );
+
+  it(
+    "includes Retry-After in the 429 response",
+    { timeout: 30_000 },
+    async () => {
+      const ip = "198.51.100.11";
+
+      for (let i = 0; i < 120; i++) {
+        await askAI(ip);
+      }
+
+      const blocked = await askAI(ip);
+      expect(blocked.status).toBe(429);
+      // The handler sets Retry-After so clients know when to retry.
+      expect(blocked.headers["retry-after"]).toBeTruthy();
+    },
+  );
+
+  it(
+    "does not rate-limit a different IP even when another IP is exhausted",
+    { timeout: 30_000 },
+    async () => {
+      const exhaustedIp = "198.51.100.20";
+      const freshIp = "198.51.100.21";
+
+      // Exhaust the daily limit for exhaustedIp.
+      for (let i = 0; i < 120; i++) {
+        await askAI(exhaustedIp);
+      }
+      expect((await askAI(exhaustedIp)).status).toBe(429);
+
+      // A completely different IP must still be served normally (gets 503, not 429).
+      const res = await askAI(freshIp);
       expect(res.status).toBe(503);
-    }
-
-    // The 121st request from the same IP must be blocked before it reaches the
-    // handler — the daily rate limiter fires and returns 429.
-    const blocked = await askAI(ip);
-    expect(blocked.status).toBe(429);
-  });
-
-  it("includes Retry-After in the 429 response", { timeout: 30_000 }, async () => {
-    const ip = "198.51.100.11";
-
-    for (let i = 0; i < 120; i++) {
-      await askAI(ip);
-    }
-
-    const blocked = await askAI(ip);
-    expect(blocked.status).toBe(429);
-    // The handler sets Retry-After so clients know when to retry.
-    expect(blocked.headers["retry-after"]).toBeTruthy();
-  });
-
-  it("does not rate-limit a different IP even when another IP is exhausted", { timeout: 30_000 }, async () => {
-    const exhaustedIp = "198.51.100.20";
-    const freshIp = "198.51.100.21";
-
-    // Exhaust the daily limit for exhaustedIp.
-    for (let i = 0; i < 120; i++) {
-      await askAI(exhaustedIp);
-    }
-    expect((await askAI(exhaustedIp)).status).toBe(429);
-
-    // A completely different IP must still be served normally (gets 503, not 429).
-    const res = await askAI(freshIp);
-    expect(res.status).toBe(503);
-  });
+    },
+  );
 });
