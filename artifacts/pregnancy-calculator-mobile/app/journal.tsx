@@ -347,7 +347,17 @@ export default function JournalScreen() {
                       // Re-key the media index so the new server UUID can be
                       // found by the fallback lookup in future merge passes.
                       if (synced?.id && synced.id !== e.id) {
-                        await reindexMediaForEntry(e.id, synced.id);
+                        try {
+                          await reindexMediaForEntry(e.id, synced.id);
+                        } catch (reindexErr) {
+                          console.warn(
+                            "[journal] migration: reindexMediaForEntry failed for entry",
+                            e.id,
+                            "— photos may not reappear after a cache wipe.",
+                            reindexErr,
+                          );
+                          anyMigrateFailed = true;
+                        }
                       }
                     } catch {
                       migrated.push(e);
@@ -389,7 +399,17 @@ export default function JournalScreen() {
                   // Re-key the media index so the new server UUID can be
                   // found by the fallback lookup in future merge passes.
                   if (synced?.id && synced.id !== e.id) {
-                    await reindexMediaForEntry(e.id, synced.id);
+                    try {
+                      await reindexMediaForEntry(e.id, synced.id);
+                    } catch (reindexErr) {
+                      console.warn(
+                        "[journal] sync: reindexMediaForEntry failed for entry",
+                        e.id,
+                        "— photos may not reappear after a cache wipe.",
+                        reindexErr,
+                      );
+                      anySyncFailed = true;
+                    }
                   }
                 } catch {
                   syncedLocalEntries.push(e);
@@ -423,9 +443,18 @@ export default function JournalScreen() {
               // Evict any media index keys that no longer correspond to a known
               // entry (e.g. entries deleted server-side that never went through
               // the local deleteEntry path).
-              await pruneOrphanedMediaIndexKeys(
-                new Set(merged.map((e) => e.id)),
-              );
+              // Best-effort: a storage failure here must not abort the sync —
+              // stale keys will be cleaned up on the next successful sync.
+              try {
+                await pruneOrphanedMediaIndexKeys(
+                  new Set(merged.map((e) => e.id)),
+                );
+              } catch (pruneErr) {
+                console.warn(
+                  "[journal] sync: pruneOrphanedMediaIndexKeys failed — stale index keys may remain until the next sync.",
+                  pruneErr,
+                );
+              }
               // Single write: overwrites AsyncStorage with the authoritative merged
               // list (correct server UUIDs). No separate replaceEntryId calls needed.
               await cacheEntries(merged);

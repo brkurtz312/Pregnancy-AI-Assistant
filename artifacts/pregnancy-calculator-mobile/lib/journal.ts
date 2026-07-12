@@ -276,7 +276,19 @@ export async function reindexMediaForEntry(
   if (oldId in index) {
     index[newId] = index[oldId];
     delete index[oldId];
-    await persistMediaIndex(index);
+    try {
+      await persistMediaIndex(index);
+    } catch (err) {
+      console.warn(
+        "[journal] reindexMediaForEntry: failed to persist media index after re-keying",
+        oldId,
+        "→",
+        newId,
+        "— photos may not be found after ID promotion.",
+        err,
+      );
+      throw err;
+    }
   }
 }
 
@@ -287,7 +299,17 @@ async function removeEntryFromMediaIndex(entryId: string): Promise<void> {
   const index = await loadMediaIndex();
   if (entryId in index) {
     delete index[entryId];
-    await persistMediaIndex(index);
+    try {
+      await persistMediaIndex(index);
+    } catch (err) {
+      console.warn(
+        "[journal] removeEntryFromMediaIndex: failed to persist media index after removing entry",
+        entryId,
+        "— orphaned index key may remain until the next prune.",
+        err,
+      );
+      throw err;
+    }
   }
 }
 
@@ -346,7 +368,19 @@ export async function replaceEntryId(
   if (oldId in index) {
     index[newId] = index[oldId];
     delete index[oldId];
-    await persistMediaIndex(index);
+    try {
+      await persistMediaIndex(index);
+    } catch (err) {
+      console.warn(
+        "[journal] replaceEntryId: failed to persist media index after re-keying",
+        oldId,
+        "→",
+        newId,
+        "— photos may not be found after ID promotion.",
+        err,
+      );
+      throw err;
+    }
   }
   await persistEntries(updated);
 }
@@ -382,7 +416,15 @@ export async function pruneOrphanedMediaIndexKeys(
   }
   await Promise.all(deletePromises);
   if (changed) {
-    await persistMediaIndex(index);
+    try {
+      await persistMediaIndex(index);
+    } catch (err) {
+      console.warn(
+        "[journal] pruneOrphanedMediaIndexKeys: failed to persist media index after pruning orphaned keys — stale index entries may remain until the next sync.",
+        err,
+      );
+      throw err;
+    }
   }
 }
 
