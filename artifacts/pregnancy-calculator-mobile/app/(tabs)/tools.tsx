@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useUser } from "@clerk/expo";
 import * as Haptics from "expo-haptics";
 import * as haptics from "@/lib/haptics";
-import { router } from "expo-router";
+import { router, useRouter } from "expo-router";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   ActivityIndicator,
@@ -1011,6 +1011,7 @@ export default function ToolsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { isSignedIn } = useUser();
+  const nav = useRouter();
 
   if (!isSignedIn) {
     return (
@@ -1032,6 +1033,13 @@ export default function ToolsScreen() {
           Your symptom logs, kick counts, and contraction history sync securely
           across devices.
         </Text>
+        <TouchableOpacity
+          onPress={() => nav.push("/(auth)/sign-in")}
+          style={[styles.signInBtn, { backgroundColor: colors.primary }]}
+        >
+          <Ionicons name="log-in-outline" size={18} color="#fff" />
+          <Text style={styles.signInBtnText}>Sign In</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -1254,5 +1262,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_400Regular",
     lineHeight: 18,
+  },
+  signInBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 24,
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    marginTop: 8,
+  },
+  signInBtnText: {
+    color: "#fff",
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
   },
 });
