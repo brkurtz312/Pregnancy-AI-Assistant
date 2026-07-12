@@ -386,6 +386,58 @@ export async function pruneOrphanedMediaIndexKeys(
   }
 }
 
+/**
+ * Scans JOURNAL_MEDIA_DIR and deletes any `.jpg` / `.mp4` file whose filename
+ * is not referenced by any entry in the current media index.
+ *
+ * This closes the gap where `copyMediaToDocuments` succeeds (the file lands on
+ * disk) but the subsequent index write or entry-list write never completes —
+ * e.g. the network call failed mid-sync, the process was killed, or storage
+ * was momentarily full.  `pruneOrphanedMediaIndexKeys` only runs on a
+ * successful server sync so it cannot clean up these files; this sweep catches
+ * them at any point after launch.
+ *
+ * The function is intentionally best-effort: any error at the directory-read
+ * or individual-file-delete level is silently swallowed so a storage glitch
+ * never blocks the app from opening.
+ */
+export async function sweepUnreferencedMediaFiles(): Promise<void> {
+  try {
+    const info = await FileSystem.getInfoAsync(JOURNAL_MEDIA_DIR);
+    if (!info.exists) return;
+
+    const files = await FileSystem.readDirectoryAsync(JOURNAL_MEDIA_DIR);
+    if (files.length === 0) return;
+
+    const index = await loadMediaIndex();
+
+    // Build the set of bare filenames referenced by the media index.
+    const referencedFilenames = new Set<string>();
+    for (const mediaList of Object.values(index)) {
+      for (const media of mediaList) {
+        const filename = media.uri.split("/").pop();
+        if (filename) referencedFilenames.add(filename);
+      }
+    }
+
+    const deletePromises: Promise<void>[] = [];
+    for (const filename of files) {
+      if (!referencedFilenames.has(filename)) {
+        deletePromises.push(
+          FileSystem.deleteAsync(JOURNAL_MEDIA_DIR + filename, {
+            idempotent: true,
+          }).catch(() => {
+            /* best-effort — ignore individual file errors */
+          }),
+        );
+      }
+    }
+    await Promise.all(deletePromises);
+  } catch {
+    /* best-effort — do not crash the app if the sweep fails */
+  }
+}
+
 export async function deleteEntry(id: string): Promise<void> {
   const entries = await loadEntries();
   const entry = entries.find((e) => e.id === id);

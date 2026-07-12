@@ -25,6 +25,7 @@ import {
   pruneOrphanedMediaIndexKeys,
   reindexMediaForEntry,
   setJournalCacheOwner,
+  sweepUnreferencedMediaFiles,
   getAgeLabel,
   MOOD_OPTIONS,
   type JournalEntry,
@@ -267,6 +268,13 @@ export default function JournalScreen() {
   // Holds the latest sync function so useNetReconnect can call it without
   // capturing a stale closure or needing extra state as a trigger.
   const syncNowRef = useRef<() => void>(() => {});
+
+  // On mount: sweep any orphaned files that accumulated from past failed syncs.
+  // This catches the case where copyMediaToDocuments succeeded but the
+  // index/entry write never completed (network failure, process killed, etc.).
+  useEffect(() => {
+    sweepUnreferencedMediaFiles().catch(() => {});
+  }, []);
 
   async function handleExportPdf() {
     if (exporting || entries.length === 0) return;
