@@ -62,7 +62,10 @@ function secretKey(secret: string): Buffer {
     : Buffer.from(secret, "utf8");
 }
 
-function makeStripeHeader(payload: string, secret: string = TEST_WEBHOOK_SECRET): string {
+function makeStripeHeader(
+  payload: string,
+  secret: string = TEST_WEBHOOK_SECRET,
+): string {
   const ts = Math.floor(Date.now() / 1000);
   const sig = createHmac("sha256", secretKey(secret))
     .update(`${ts}.${payload}`)
@@ -70,7 +73,11 @@ function makeStripeHeader(payload: string, secret: string = TEST_WEBHOOK_SECRET)
   return `t=${ts},v1=${sig}`;
 }
 
-function verifyStripeSignature(rawBody: Buffer, header: string, secret: string = TEST_WEBHOOK_SECRET): void {
+function verifyStripeSignature(
+  rawBody: Buffer,
+  header: string,
+  secret: string = TEST_WEBHOOK_SECRET,
+): void {
   const ts = header.match(/t=(\d+)/)?.[1];
   const sigs = [...header.matchAll(/v1=([0-9a-f]+)/g)].map((m) => m[1]);
   if (!ts || !sigs.length) throw new Error("Invalid Stripe-Signature header");

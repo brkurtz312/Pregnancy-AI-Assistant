@@ -145,17 +145,12 @@ jest.mock("@/lib/sync-api", () => ({
   apiLoadBirthPlanAnswers: jest.fn(),
   apiSaveBirthPlanAnswers: jest.fn(),
   isServerUuid: jest.fn((id: string) =>
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      id,
-    ),
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id),
   ),
 }));
 
 import { useAuth, useUser } from "@clerk/expo";
-import {
-  apiLoadJournalEntries,
-  apiUpsertJournalEntry,
-} from "@/lib/sync-api";
+import { apiLoadJournalEntries, apiUpsertJournalEntry } from "@/lib/sync-api";
 
 const mockUseAuth = useAuth as jest.Mock;
 const mockUseUser = useUser as jest.Mock;
@@ -261,10 +256,7 @@ describe("Journal screen — offline entry photos reappear under new server UUID
   it("photo from the promoted entry is visible in the rendered journal list", async () => {
     jest.setTimeout(15000);
 
-    await AsyncStorage.setItem(
-      JOURNAL_KEY,
-      JSON.stringify([LOCAL_ENTRY]),
-    );
+    await AsyncStorage.setItem(JOURNAL_KEY, JSON.stringify([LOCAL_ENTRY]));
     await AsyncStorage.setItem(JOURNAL_OWNER_KEY, "user-offline-photo-test");
     await AsyncStorage.setItem(
       JOURNAL_MEDIA_INDEX_KEY,

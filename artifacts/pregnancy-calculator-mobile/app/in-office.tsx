@@ -549,6 +549,25 @@ export default function InOfficeScreen() {
             <Ionicons name="chevron-forward" size={18} color={colors.primary} />
           </TouchableOpacity>
         </Animated.View>
+
+        {/* Exit mode */}
+        <Animated.View entering={FadeInDown.delay(240).duration(350)}>
+          <TouchableOpacity
+            style={styles.exitBtn}
+            onPress={() => router.replace("/(tabs)")}
+          >
+            <Ionicons
+              name="exit-outline"
+              size={18}
+              color={colors.mutedForeground}
+            />
+            <Text
+              style={[styles.exitBtnText, { color: colors.mutedForeground }]}
+            >
+              Exit In-Office Mode
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
       </ScrollView>
     </View>
   );
@@ -767,5 +786,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "Inter_400Regular",
     lineHeight: 17,
+  },
+  exitBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 32,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#00000015",
+    backgroundColor: "#00000008",
+  },
+  exitBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
   },
 });

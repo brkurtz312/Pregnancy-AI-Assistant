@@ -147,7 +147,7 @@ export default function AtFacilityScreen() {
         <View style={styles.headerBadge}>
           <Ionicons name="heart-outline" size={14} color="#4a7ab5" />
           <Text style={[styles.headerBadgeText, { color: "#4a7ab5" }]}>
-            Birthing Facility Mode
+            Labor &amp; Delivery Mode
           </Text>
         </View>
         <Text style={styles.headerTitle}>{facilityName}</Text>
@@ -543,6 +543,25 @@ export default function AtFacilityScreen() {
             </Text>
           </View>
         </Animated.View>
+
+        {/* Exit mode */}
+        <Animated.View entering={FadeInDown.delay(240).duration(350)}>
+          <TouchableOpacity
+            style={styles.exitBtn}
+            onPress={() => router.replace("/(tabs)")}
+          >
+            <Ionicons
+              name="exit-outline"
+              size={18}
+              color={colors.mutedForeground}
+            />
+            <Text
+              style={[styles.exitBtnText, { color: colors.mutedForeground }]}
+            >
+              Exit Labor &amp; Delivery Mode
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
       </ScrollView>
     </View>
   );
@@ -783,5 +802,23 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     lineHeight: 20,
     fontStyle: "italic",
+  },
+  exitBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 32,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#00000015",
+    backgroundColor: "#00000008",
+  },
+  exitBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
   },
 });

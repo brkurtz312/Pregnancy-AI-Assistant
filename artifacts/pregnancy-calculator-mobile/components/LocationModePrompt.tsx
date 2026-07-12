@@ -62,7 +62,7 @@ async function detectProximity(
     if (coords && haversineMeters(user, coords) <= PROXIMITY_THRESHOLD_METERS) {
       return {
         mode: "facility",
-        name: facilityName || "the birthing facility",
+        name: facilityName || "your birthing facility",
       };
     }
   }
@@ -132,7 +132,7 @@ export function LocationModeGate() {
   if (!prompt) return null;
 
   const isProvider = prompt.mode === "provider";
-  const modeLabel = isProvider ? "In-Office Mode" : "Birthing Facility Mode";
+  const modeLabel = isProvider ? "In-Office Mode" : "Labor & Delivery Mode";
   const modeDesc = isProvider
     ? "View your questions, symptom log, and visit checklist."
     : "Access your birth plan, contraction timer, and hospital bag.";
