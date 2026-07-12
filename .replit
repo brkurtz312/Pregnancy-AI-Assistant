@@ -46,6 +46,10 @@ args = "Reviewer Pass Health Check"
 task = "workflow.run"
 args = "check-whats-new"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "unit-tests"
+
 [[workflows.workflow]]
 name = "typecheck"
 author = "agent"
@@ -111,6 +115,17 @@ isValidation = true
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/scripts run check-whats-new"
+
+[[workflows.workflow]]
+name = "unit-tests"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run test"
+
+[workflows.workflow.metadata]
+isValidation = true
 
 [agent]
 stack = "PNPM_WORKSPACE"
