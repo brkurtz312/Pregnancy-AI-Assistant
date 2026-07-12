@@ -366,4 +366,81 @@ describe("Journal screen — orphaned media index keys cleaned up during sync", 
     expect(indexAfterSync[DELETED_ENTRY_ID]).toBeUndefined();
     expect(indexAfterSync[SURVIVING_ENTRY.id]).toEqual([SURVIVING_PHOTO]);
   });
+
+  // NOTE: This test is intentionally last.  Its AsyncStorage.setItem spy writes
+  // directly to __INTERNAL_MOCK_STORAGE__ (bypassing the normal async mock chain)
+  // to avoid dangling Promises that could leak into subsequent tests.  Keeping it
+  // last means any residual in-flight work has nowhere to corrupt.
+  it("completes sync and renders entries even when the prune write to AsyncStorage fails", async () => {
+    // Seed AsyncStorage with data before replacing setItem — these writes go
+    // through the real in-memory mock so the sync has something to work with.
+    await AsyncStorage.setItem(JOURNAL_KEY, JSON.stringify([SURVIVING_ENTRY]));
+    await AsyncStorage.setItem(JOURNAL_OWNER_KEY, "user-orphan-test");
+    // Orphaned key: DELETED_ENTRY_ID will be absent from the server response,
+    // which causes pruneOrphanedMediaIndexKeys to attempt a write.
+    await AsyncStorage.setItem(
+      JOURNAL_MEDIA_INDEX_KEY,
+      JSON.stringify({ [DELETED_ENTRY_ID]: ORPHANED_MEDIA }),
+    );
+
+    // Server only returns the surviving entry — prune write is needed.
+    mockApiLoadJournal.mockResolvedValue([SURVIVING_ENTRY]);
+
+    // Intercept console.warn before rendering.
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    // Replace setItem so only the JOURNAL_MEDIA_INDEX_KEY write fails.
+    //
+    // IMPORTANT: for passing keys we write directly to __INTERNAL_MOCK_STORAGE__
+    // rather than delegating to the real asMock.setItem.  The real asMock.setItem
+    // is async (it awaits asMock.multiSet), which adds extra microtask ticks to the
+    // sync chain and can leave cacheEntries/setJournalCacheOwner in-flight when the
+    // test ends.  Writing synchronously here eliminates that async depth so the spy
+    // does not produce dangling Promises.  The test is also positioned last to
+    // ensure any residual async has no subsequent test to corrupt.
+    type MockedStorage = typeof AsyncStorage & {
+      __INTERNAL_MOCK_STORAGE__: Record<string, string>;
+    };
+    const internalStore = (AsyncStorage as MockedStorage)
+      .__INTERNAL_MOCK_STORAGE__;
+    const setItemSpy = jest
+      .spyOn(AsyncStorage, "setItem")
+      .mockImplementation(async (key: string, value: string) => {
+        if (key === JOURNAL_MEDIA_INDEX_KEY) {
+          // Simulates a storage-full error that only affects the prune write.
+          throw new Error("Simulated storage-full error for prune write");
+        }
+        internalStore[key] = value;
+        return null;
+      });
+
+    try {
+      const JournalScreen = require("../app/journal").default;
+      let renderer: ReturnType<typeof create>;
+      act(() => {
+        renderer = create(React.createElement(JournalScreen));
+      });
+      await flushAsync();
+
+      // The sync must complete — the surviving entry must appear in the
+      // rendered tree even though the prune write failed.
+      const json = JSON.stringify(renderer!.toJSON());
+      expect(json).toContain("This entry survives on the server");
+
+      // At least one warn must reference pruneOrphanedMediaIndexKeys so that
+      // the journal.tsx catch block (and the lib-level catch block) are proven
+      // to have fired.
+      const allWarnMessages = warnSpy.mock.calls.map((args) =>
+        args.map(String).join(" "),
+      );
+      expect(
+        allWarnMessages.some((msg) =>
+          msg.includes("pruneOrphanedMediaIndexKeys"),
+        ),
+      ).toBe(true);
+    } finally {
+      warnSpy.mockRestore();
+      setItemSpy.mockRestore();
+    }
+  });
 });
