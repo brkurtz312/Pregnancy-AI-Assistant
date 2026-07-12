@@ -15,6 +15,22 @@ export const JOURNAL_MEDIA_DIR =
  */
 export const JOURNAL_MEDIA_INDEX_KEY = "@journal_media_index_v1";
 
+/**
+ * Tracks how many consecutive times persistMediaIndex has failed.
+ * Written best-effort to a key that is separate from the index itself so that
+ * a full-storage condition does not prevent us from recording the failure count
+ * (the counter value is tiny — a single small integer — while the index may be
+ * large enough to trigger the storage-full error in the first place).
+ */
+export const JOURNAL_MEDIA_INDEX_FAIL_COUNT_KEY =
+  "@journal_media_index_fail_count_v1";
+
+/**
+ * Number of consecutive persistMediaIndex failures after which the app should
+ * prompt the user to free device storage.
+ */
+export const MEDIA_INDEX_PERSIST_FAIL_THRESHOLD = 3;
+
 export type JournalMediaCategory = "general" | "bump" | "ultrasound";
 export type JournalMood =
   | "happy"
@@ -225,16 +241,59 @@ export async function loadMediaIndex(): Promise<
   }
 }
 
+/**
+ * Returns the number of consecutive persistMediaIndex failures recorded in
+ * AsyncStorage.  Returns 0 if the key is missing, unreadable, or unparseable.
+ * This is intentionally a best-effort read — callers should not rely on its
+ * exact value being up-to-date when AsyncStorage itself is degraded.
+ */
+export async function getMediaIndexFailCount(): Promise<number> {
+  try {
+    const raw = await AsyncStorage.getItem(JOURNAL_MEDIA_INDEX_FAIL_COUNT_KEY);
+    if (!raw) return 0;
+    const n = parseInt(raw, 10);
+    return isNaN(n) ? 0 : n;
+  } catch {
+    return 0;
+  }
+}
+
+async function incrementMediaIndexFailCount(): Promise<void> {
+  try {
+    const current = await getMediaIndexFailCount();
+    await AsyncStorage.setItem(
+      JOURNAL_MEDIA_INDEX_FAIL_COUNT_KEY,
+      String(current + 1),
+    );
+  } catch {
+    /* best-effort — ignore if the counter write itself fails */
+  }
+}
+
+async function resetMediaIndexFailCount(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(JOURNAL_MEDIA_INDEX_FAIL_COUNT_KEY);
+  } catch {
+    /* best-effort */
+  }
+}
+
 async function persistMediaIndex(
   index: Record<string, JournalMedia[]>,
 ): Promise<void> {
   try {
     await AsyncStorage.setItem(JOURNAL_MEDIA_INDEX_KEY, JSON.stringify(index));
+    // Success — reset the consecutive-failure counter so that a storage-full
+    // warning that was previously shown clears on the next screen focus.
+    await resetMediaIndexFailCount();
   } catch (err) {
     console.warn(
       "[journal] Failed to persist media index — photos may not reappear after signing out.",
       err,
     );
+    // Best-effort: record the failure so the UI can warn the user after
+    // MEDIA_INDEX_PERSIST_FAIL_THRESHOLD consecutive failures.
+    await incrementMediaIndexFailCount();
     throw err;
   }
 }

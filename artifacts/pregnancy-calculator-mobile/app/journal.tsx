@@ -20,8 +20,10 @@ import {
   cacheEntries,
   clearJournalCache,
   getJournalCacheOwner,
+  getMediaIndexFailCount,
   loadEntries,
   loadMediaIndex,
+  MEDIA_INDEX_PERSIST_FAIL_THRESHOLD,
   pruneOrphanedMediaIndexKeys,
   reindexMediaForEntry,
   setJournalCacheOwner,
@@ -259,6 +261,7 @@ export default function JournalScreen() {
   const [exporting, setExporting] = useState(false);
   const [syncFailed, setSyncFailed] = useState(false);
   const [syncSucceeded, setSyncSucceeded] = useState(false);
+  const [showStorageWarning, setShowStorageWarning] = useState(false);
   const syncFailedRef = useRef(false);
   const wasReconnectPendingRef = useRef(false);
   const { hasPass } = usePass();
@@ -275,6 +278,20 @@ export default function JournalScreen() {
   useEffect(() => {
     sweepUnreferencedMediaFiles().catch(() => {});
   }, []);
+
+  // On every focus: check whether the media-index persist counter has crossed
+  // the threshold. If so, surface a non-blocking banner so the user knows to
+  // free device storage. The banner clears once the counter resets (i.e. the
+  // next successful persistMediaIndex write after they free space).
+  useFocusEffect(
+    useCallback(() => {
+      getMediaIndexFailCount()
+        .then((count) => {
+          setShowStorageWarning(count >= MEDIA_INDEX_PERSIST_FAIL_THRESHOLD);
+        })
+        .catch(() => {});
+    }, []),
+  );
 
   async function handleExportPdf() {
     if (exporting || entries.length === 0) return;
@@ -515,7 +532,15 @@ export default function JournalScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <SyncBanner visible={syncFailed} synced={syncSucceeded} />
+      <SyncBanner
+        visible={syncFailed || showStorageWarning}
+        synced={syncSucceeded}
+        message={
+          showStorageWarning
+            ? "Device storage may be full — photos are not being saved. Free up space to fix this."
+            : "Saved locally — will sync when you're back online."
+        }
+      />
       <View
         style={[
           styles.header,

@@ -125,6 +125,8 @@ jest.mock("@/lib/journal", () => ({
   reindexMediaForEntry: jest.fn(async () => {}),
   pruneOrphanedMediaIndexKeys: jest.fn(async () => {}),
   sweepUnreferencedMediaFiles: jest.fn(async () => {}),
+  getMediaIndexFailCount: jest.fn(async () => 0),
+  MEDIA_INDEX_PERSIST_FAIL_THRESHOLD: 3,
 }));
 
 // ─── Hospital-bag-specific mocks ──────────────────────────────────────────────
