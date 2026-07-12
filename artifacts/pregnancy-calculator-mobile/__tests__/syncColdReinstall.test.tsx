@@ -105,6 +105,27 @@ jest.mock("@/components/SyncBanner", () => ({
 
 import { useAuth, useUser } from "@clerk/expo";
 
+/**
+ * Flush all pending async work (promise microtasks + macrotask ticks).
+ *
+ * A single setTimeout(r, 0) tick is not always enough: the hospital-bag and
+ * birth-plan useEffect chains have several nested .then() + inner await steps,
+ * so they need multiple macrotask rounds to fully settle. Without enough rounds
+ * the chains keep running after the test body returns; when Jest tears down the
+ * module registry those in-flight callbacks try to import react-native modules
+ * that no longer exist, producing "import after environment torn down" errors.
+ *
+ * Five rounds is conservative but cheap — each round is a single resolved
+ * promise, so it adds < 1 ms of wall-clock time in a non-loaded test run.
+ */
+async function flushAsync(rounds = 5): Promise<void> {
+  for (let i = 0; i < rounds; i++) {
+    await act(async () => {
+      await new Promise<void>((r) => setTimeout(r, 0));
+    });
+  }
+}
+
 const mockUseAuth = useAuth as jest.Mock;
 const mockUseUser = useUser as jest.Mock;
 
@@ -219,9 +240,7 @@ describe("Journal — cold reinstall (AsyncStorage wiped)", () => {
     act(() => {
       renderer = create(React.createElement(JournalScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     const json = JSON.stringify(renderer!.toJSON());
     expect(json).toContain("First scan — everything looks perfect!");
@@ -235,9 +254,7 @@ describe("Journal — cold reinstall (AsyncStorage wiped)", () => {
     act(() => {
       create(React.createElement(JournalScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     // cacheEntries must be called so the next cold start has local data
     expect(mockCacheEntries).toHaveBeenCalledWith(
@@ -259,9 +276,7 @@ describe("Journal — cold reinstall (AsyncStorage wiped)", () => {
     act(() => {
       create(React.createElement(JournalScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     // A null owner means first install — must NOT wipe anything
     expect(mockClearJournalCache).not.toHaveBeenCalled();
@@ -274,9 +289,7 @@ describe("Journal — cold reinstall (AsyncStorage wiped)", () => {
     act(() => {
       create(React.createElement(JournalScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     expect(mockSetJournalCacheOwner).toHaveBeenCalledWith("user-reinstall");
   });
@@ -293,9 +306,7 @@ describe("Journal — cold reinstall (AsyncStorage wiped)", () => {
     act(() => {
       create(React.createElement(JournalScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     // No migration push should happen when server already has entries
     expect(mockApiUpsert).not.toHaveBeenCalled();
@@ -386,9 +397,7 @@ describe("Journal — offline edits merged back after partial pre-reinstall sync
     act(() => {
       create(React.createElement(JournalScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     // Both local-only entries must have been pushed
     expect(mockApiUpsert).toHaveBeenCalledTimes(2);
@@ -416,9 +425,7 @@ describe("Journal — offline edits merged back after partial pre-reinstall sync
     act(() => {
       renderer = create(React.createElement(JournalScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     const json = JSON.stringify(renderer!.toJSON());
     // Server entries must appear
@@ -442,9 +449,7 @@ describe("Journal — offline edits merged back after partial pre-reinstall sync
     act(() => {
       create(React.createElement(JournalScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     // Only the two local-only entries should be upserted — not the two server entries
     expect(mockApiUpsert).toHaveBeenCalledTimes(2);
@@ -480,9 +485,7 @@ describe("Journal — offline edits merged back after partial pre-reinstall sync
       });
     }).not.toThrow();
 
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     // Component should still be mounted and render entries
     expect(renderer!.toJSON()).not.toBeNull();
@@ -506,9 +509,7 @@ describe("Journal — offline edits merged back after partial pre-reinstall sync
     act(() => {
       create(React.createElement(JournalScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     // cacheEntries must be called with the merged result so the next cold
     // start has authoritative server UUIDs for every entry
@@ -620,9 +621,7 @@ describe("Journal — missing media files after reinstall", () => {
       });
     }).not.toThrow();
 
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     // Component should still be mounted and not have thrown after async work
     expect(renderer!.toJSON()).not.toBeNull();
@@ -636,9 +635,7 @@ describe("Journal — missing media files after reinstall", () => {
     act(() => {
       renderer = create(React.createElement(JournalScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     const json = JSON.stringify(renderer!.toJSON());
     expect(json).toContain("First scan — everything looks perfect!");
@@ -653,9 +650,7 @@ describe("Journal — missing media files after reinstall", () => {
     act(() => {
       renderer = create(React.createElement(JournalScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     // Walk the rendered tree and collect all string children of Text nodes.
     // The broken file:// paths may appear in Image source *props* (fine — the
@@ -702,9 +697,7 @@ describe("Journal — missing media files after reinstall", () => {
     act(() => {
       renderer = create(React.createElement(JournalScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     const json = JSON.stringify(renderer!.toJSON());
     // The media count row ("1 photo" / "2 photos/videos") should be present
@@ -752,9 +745,7 @@ describe("Journal — missing media files after reinstall", () => {
       });
     }).not.toThrow();
 
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     // The component must still be mounted
     expect(renderer!.toJSON()).not.toBeNull();
@@ -853,9 +844,7 @@ describe("Journal — media index re-keyed on server UUID promotion", () => {
     act(() => {
       create(React.createElement(JournalScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     // reindexMediaForEntry must have been called with the old local ID and
     // the new server UUID so future fallback lookups find the media.
@@ -895,9 +884,7 @@ describe("Journal — media index re-keyed on server UUID promotion", () => {
     act(() => {
       renderer = create(React.createElement(JournalScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     // The media count badge ("1 photo") must appear — confirming the fallback
     // lookup mediaIndex[SERVER_UUID] successfully re-attached the photo.
@@ -995,9 +982,7 @@ describe("Hospital Bag — cold reinstall (AsyncStorage wiped)", () => {
     act(() => {
       renderer = create(React.createElement(HospitalBagScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     const json = JSON.stringify(renderer!.toJSON());
     expect(json).toContain("Paperwork");
@@ -1011,9 +996,7 @@ describe("Hospital Bag — cold reinstall (AsyncStorage wiped)", () => {
     act(() => {
       create(React.createElement(HospitalBagScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     // The server call must have been made
     expect(mockApiLoadHospitalBag).toHaveBeenCalled();
@@ -1028,9 +1011,7 @@ describe("Hospital Bag — cold reinstall (AsyncStorage wiped)", () => {
     act(() => {
       create(React.createElement(HospitalBagScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     expect(mockClearHospitalBagCache).not.toHaveBeenCalled();
   });
@@ -1042,9 +1023,7 @@ describe("Hospital Bag — cold reinstall (AsyncStorage wiped)", () => {
     act(() => {
       create(React.createElement(HospitalBagScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     expect(mockSetHospitalBagCacheOwner).toHaveBeenCalledWith("user-reinstall");
   });
@@ -1057,9 +1036,7 @@ describe("Hospital Bag — cold reinstall (AsyncStorage wiped)", () => {
     act(() => {
       renderer = create(React.createElement(HospitalBagScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     // Photo ID is checked on the server — must appear checked in the UI
     // The rendered JSON will contain the item label regardless; what matters
@@ -1167,9 +1144,7 @@ describe("Birth Plan — cold reinstall (AsyncStorage wiped)", () => {
     act(() => {
       create(React.createElement(BirthPlanScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     expect(mockApiLoadBirthPlan).toHaveBeenCalled();
     // When server returns answers, loadBirthPlanAnswers should NOT be called
@@ -1184,9 +1159,7 @@ describe("Birth Plan — cold reinstall (AsyncStorage wiped)", () => {
     act(() => {
       create(React.createElement(BirthPlanScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     expect(mockClearBirthPlanCache).not.toHaveBeenCalled();
   });
@@ -1198,9 +1171,7 @@ describe("Birth Plan — cold reinstall (AsyncStorage wiped)", () => {
     act(() => {
       create(React.createElement(BirthPlanScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     expect(mockSetBirthPlanCacheOwner).toHaveBeenCalledWith("user-reinstall");
   });
@@ -1217,9 +1188,7 @@ describe("Birth Plan — cold reinstall (AsyncStorage wiped)", () => {
     act(() => {
       create(React.createElement(BirthPlanScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     // No migration push when server already has answers
     expect(mockApiSave).not.toHaveBeenCalled();
@@ -1236,9 +1205,7 @@ describe("Birth Plan — cold reinstall (AsyncStorage wiped)", () => {
     act(() => {
       renderer = create(React.createElement(BirthPlanScreen));
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flushAsync();
 
     const json = JSON.stringify(renderer!.toJSON());
     // The birth plan section titles should appear in the rendered output

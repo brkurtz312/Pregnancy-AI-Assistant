@@ -178,9 +178,33 @@ function allTexts(root: ReturnType<typeof create>["root"]): string[] {
 // Hospital Bag — success toast after reconnect
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Flush all pending async work across multiple macrotask rounds.
+ *
+ * jest.useFakeTimers() replaces setImmediate which React's scheduler uses
+ * internally, so a bare "await Promise.resolve()" can stall. By preserving
+ * setImmediate/nextTick via doNotFake (see beforeEach) and using real
+ * setTimeout via process.nextTick we keep React's work-loop alive while still
+ * being able to advance the fake clock for the SyncBanner dismiss timer.
+ *
+ * Five rounds is enough to drain the hospital-bag useEffect chain (which has
+ * getHospitalBagCacheOwner → apiLoadHospitalBag → setHospitalBagCacheOwner →
+ * setCategories → setLoaded, each separated by a microtask checkpoint).
+ */
+async function flushAsync(rounds = 5): Promise<void> {
+  for (let i = 0; i < rounds; i++) {
+    await act(async () => {
+      await new Promise<void>((r) => process.nextTick(r));
+    });
+  }
+}
+
 describe('Hospital Bag — "All changes saved" toast appears then auto-dismisses after reconnect', () => {
   beforeEach(() => {
-    jest.useFakeTimers();
+    // Preserve setImmediate and nextTick so React's internal scheduler
+    // (which uses setImmediate in the RN/jest-expo environment) keeps working
+    // while we still fake setTimeout/setInterval for the 2 s dismiss timer.
+    jest.useFakeTimers({ doNotFake: ["setImmediate", "nextTick"] });
     jest.clearAllMocks();
     capturedReconnectCb = null;
     setSignedIn();
@@ -210,10 +234,9 @@ describe('Hospital Bag — "All changes saved" toast appears then auto-dismisses
       renderer = create(React.createElement(HospitalBagScreen));
     });
 
-    // Let mount effects settle (Promise microtasks)
-    await act(async () => {
-      await Promise.resolve();
-    });
+    // Drain the full hospital-bag useEffect async chain so loaded=true and
+    // the category items (toggle buttons) are rendered before we look for them.
+    await flushAsync();
 
     // Trigger a checkbox toggle → persist → apiSaveHospitalBag (fails offline)
     const root = renderer!.root;
@@ -225,7 +248,7 @@ describe('Hospital Bag — "All changes saved" toast appears then auto-dismisses
 
     await act(async () => {
       itemToggles[0].props.onPress();
-      await Promise.resolve();
+      await new Promise<void>((r) => process.nextTick(r));
     });
 
     // The offline banner is now visible (syncFailed=true); success toast not yet shown
@@ -237,7 +260,7 @@ describe('Hospital Bag — "All changes saved" toast appears then auto-dismisses
     // Simulate the network coming back online — retry succeeds
     await act(async () => {
       capturedReconnectCb!();
-      await Promise.resolve();
+      await new Promise<void>((r) => process.nextTick(r));
     });
 
     // "All changes saved" should now be visible in the tree
