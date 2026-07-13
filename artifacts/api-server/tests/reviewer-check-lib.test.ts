@@ -15,17 +15,29 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 //   call 2 — user row lookup                       → users row or []
 //
 // db.update().set().where() is called when hasPass=false (heal).
-// db.insert().values().onConflictDoUpdate() is called when row is missing.
+//
+// db.insert() is called for two distinct purposes that the tests need to
+// count separately:
+//   • dbInsertAppConfigImpl — setConfig() upserts into app_config (record())
+//   • dbInsertUsersImpl     — user-row upsert when the demo user is missing
+//
+// db.delete().where() is called by setConfig() when value is null
+// (e.g. lastReason on a passing check).
 // ---------------------------------------------------------------------------
 
 const dbSelectImpl = vi.fn();
 const dbUpdateImpl = vi.fn(async () => []);
-const dbInsertImpl = vi.fn(async () => []);
+const dbInsertAppConfigImpl = vi.fn(async () => []);
+const dbInsertUsersImpl = vi.fn(async () => []);
+const dbDeleteImpl = vi.fn(async () => []);
 
 vi.mock("@workspace/db", () => {
+  const appConfigTable = { key: "key" };
+  const usersTable = { id: "id" };
+
   return {
-    appConfigTable: { key: "key" },
-    usersTable: { id: "id" },
+    appConfigTable,
+    usersTable,
     db: {
       select: () => ({
         from: () => ({
@@ -37,10 +49,16 @@ vi.mock("@workspace/db", () => {
           where: () => dbUpdateImpl(),
         }),
       }),
-      insert: () => ({
+      insert: (table: unknown) => ({
         values: () => ({
-          onConflictDoUpdate: () => dbInsertImpl(),
+          onConflictDoUpdate: () =>
+            table === appConfigTable
+              ? dbInsertAppConfigImpl()
+              : dbInsertUsersImpl(),
         }),
+      }),
+      delete: () => ({
+        where: () => dbDeleteImpl(),
       }),
     },
   };
@@ -158,11 +176,13 @@ describe("runReviewerPassCheck", () => {
       expect(result.reason).toBeUndefined();
       expect(result.timestamp).toBeTruthy();
 
-      // No user-table update on the happy path
+      // No user-table writes on the happy path
       expect(dbUpdateImpl).not.toHaveBeenCalled();
-      // record() persists lastRunAt + lastResult to app_config (2 inserts);
-      // lastReason=null triggers a db.delete (not mocked, caught silently).
-      expect(dbInsertImpl).toHaveBeenCalledTimes(2);
+      expect(dbInsertUsersImpl).not.toHaveBeenCalled();
+      // record() upserts lastRunAt + lastResult into app_config (2 inserts);
+      // lastReason=null triggers db.delete (not an insert)
+      expect(dbInsertAppConfigImpl).toHaveBeenCalledTimes(2);
+      expect(dbDeleteImpl).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -180,10 +200,11 @@ describe("runReviewerPassCheck", () => {
       expect(result.reason).toBe("pass_revoked");
       expect(result.demoUserId).toBe(DEMO_USER_ID);
 
-      // DB update must have been called to heal the pass
+      // DB update must have been called to heal the pass; no user-row inserts
       expect(dbUpdateImpl).toHaveBeenCalledTimes(1);
-      // record() persists lastRunAt + lastResult + lastReason (3 inserts)
-      expect(dbInsertImpl).toHaveBeenCalledTimes(3);
+      expect(dbInsertUsersImpl).not.toHaveBeenCalled();
+      // record() upserts lastRunAt + lastResult + lastReason into app_config
+      expect(dbInsertAppConfigImpl).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -202,8 +223,10 @@ describe("runReviewerPassCheck", () => {
       expect(result.demoUserId).toBe(DEMO_USER_ID);
 
       expect(dbUpdateImpl).not.toHaveBeenCalled();
-      // 1 user upsert + record() persists lastRunAt + lastResult + lastReason
-      expect(dbInsertImpl).toHaveBeenCalledTimes(4);
+      // Exactly one user-row upsert to create the missing demo user
+      expect(dbInsertUsersImpl).toHaveBeenCalledTimes(1);
+      // record() upserts lastRunAt + lastResult + lastReason into app_config
+      expect(dbInsertAppConfigImpl).toHaveBeenCalledTimes(3);
     });
   });
 
