@@ -95,6 +95,11 @@ export default function ScribeScreen() {
         body: formData,
       });
       const data = await res.json();
+      if (res.status === 403 && data.code === "SCRIBE_LIMIT_REACHED") {
+        setPhase("idle");
+        setShowPassGate(true);
+        return;
+      }
       if (!res.ok) throw new Error(data.error ?? "Transcription failed");
 
       setTranscript(data.transcript);

@@ -136,6 +136,99 @@ function findBtn(
 
 const MOCK_TRANSCRIPT = "Doctor said everything looks great.";
 
+describe("ScribeScreen — SCRIBE_LIMIT_REACHED at transcribe step (mobile)", () => {
+  let renderer: ReturnType<typeof create>;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+
+    // /api/scribe/transcribe → 403 SCRIBE_LIMIT_REACHED (limit hit before upload completes)
+    (global.fetch as jest.Mock) = jest.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      json: jest.fn().mockResolvedValue({
+        code: "SCRIBE_LIMIT_REACHED",
+        error: "You have used your free scribe session.",
+      }),
+    });
+
+    act(() => {
+      renderer = create(React.createElement(ScribeScreen));
+    });
+    await flushAsync();
+  }, 15000);
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  /** Drive the screen from idle → recording → transcribe-step 403. */
+  async function driveToTranscribeLimitReached() {
+    // Step 1 — start recording
+    const startBtn = findBtn(renderer.root, "Start Recording");
+    expect(startBtn).toBeDefined();
+    await act(async () => {
+      startBtn!.props.onPress();
+    });
+    await flushAsync();
+
+    // Step 2 — stop recording (triggers transcribe fetch which returns 403)
+    const allTouchables = renderer.root.findAllByType(TouchableOpacity);
+    const stopBtn = allTouchables.find((btn) => {
+      const style = btn.props.style;
+      if (Array.isArray(style)) {
+        return style.some(
+          (s: Record<string, unknown>) =>
+            s && typeof s === "object" && s.backgroundColor === "#ef4444",
+        );
+      }
+      return (
+        style &&
+        typeof style === "object" &&
+        style.backgroundColor === "#ef4444"
+      );
+    });
+    expect(stopBtn).toBeDefined();
+    await act(async () => {
+      stopBtn!.props.onPress();
+    });
+    await flushAsync(8);
+  }
+
+  it("shows the PassGate upgrade modal when transcribe returns SCRIBE_LIMIT_REACHED", async () => {
+    await driveToTranscribeLimitReached();
+
+    const json = JSON.stringify(renderer.toJSON());
+    expect(json).toContain("Free Session Used");
+  });
+
+  it("does NOT surface a generic error message when transcribe returns SCRIBE_LIMIT_REACHED", async () => {
+    await driveToTranscribeLimitReached();
+
+    const json = JSON.stringify(renderer.toJSON());
+    expect(json).not.toContain("You have used your free scribe session");
+    expect(json).not.toContain("Transcription failed");
+  });
+
+  it("returns to idle phase (no transcript shown) after transcribe limit hit", async () => {
+    await driveToTranscribeLimitReached();
+
+    const json = JSON.stringify(renderer.toJSON());
+    // No transcript text or generate button — screen is back at idle
+    expect(json).not.toContain("Create My Visit Summary");
+    expect(json).not.toContain("WHAT WAS RECORDED");
+    // Start Recording button should be present (idle phase)
+    expect(json).toContain("Start Recording");
+  });
+
+  it("shows the Unlock Full Pregnancy Pass CTA in the PassGate", async () => {
+    await driveToTranscribeLimitReached();
+
+    const json = JSON.stringify(renderer.toJSON());
+    expect(json).toContain("Unlock Full Pregnancy Pass");
+  });
+});
+
 describe("ScribeScreen — SCRIBE_LIMIT_REACHED handling (mobile)", () => {
   let renderer: ReturnType<typeof create>;
 
