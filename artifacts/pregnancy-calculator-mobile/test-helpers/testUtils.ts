@@ -29,6 +29,22 @@
  *    act() callback so that React's scheduler callbacks fire within the scope
  *    of the same act() call, allowing act() to drain the work and return.
  *
+ * Fake-timer audit result
+ * ───────────────────────
+ * Every test file in __tests__/ has been audited for bare jest.useFakeTimers()
+ * calls.  None exist — all fake-timer setup goes through
+ * `useFakeTimersWithScheduler` (currently used by syncColdReinstall and
+ * syncSuccessToast).  The `flushAsync` fix (items 1–3 above) therefore covers
+ * all active fake-timer callers automatically.
+ *
+ * Rule for future test files
+ * ──────────────────────────
+ * If you need to control setTimeout in a new test file, use
+ * `useFakeTimersWithScheduler()` — never call `jest.useFakeTimers()` directly.
+ * Files that call useFakeTimersWithScheduler and use flushAsync(N) with a
+ * large N (≥ 8) should also add `jest.setTimeout(15000)` at the file top so
+ * the tests have headroom under concurrent CI load.
+ *
  * Usage
  * ─────
  *   // Replace bare setTimeout(r, 0) or inline process.nextTick flushes:
