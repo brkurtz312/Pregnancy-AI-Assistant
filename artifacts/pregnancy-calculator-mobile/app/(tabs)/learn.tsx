@@ -39,7 +39,7 @@ function buildSearchIndex(): SearchResult[] {
       sublabel: `${topic.videos.length} video${topic.videos.length !== 1 ? "s" : ""}`,
       icon: topic.icon,
       color: "#8b5cf6",
-      route: "/video-vault",
+      route: `/video-vault?topic=${topic.id}`,
     });
   }
 

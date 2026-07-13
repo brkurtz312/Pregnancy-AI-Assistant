@@ -75,9 +75,7 @@ describe("search index integrity", () => {
     for (const article of HEALTHY_PREGNANCY_ARTICLES) {
       expect(typeof article.id).toBe("string");
       expect(article.id.length).toBeGreaterThan(0);
-      const found = HEALTHY_PREGNANCY_ARTICLES.find(
-        (a) => a.id === article.id,
-      );
+      const found = HEALTHY_PREGNANCY_ARTICLES.find((a) => a.id === article.id);
       expect(found).toBeDefined();
       expect(found?.title).toBe(article.title);
     }
@@ -282,7 +280,9 @@ describe("Learn — end-to-end deep-link flow", () => {
 
   it("shows the search input on the hub view", () => {
     renderLearn();
-    const input = screen.getByPlaceholderText(/search videos, articles, guides/i);
+    const input = screen.getByPlaceholderText(
+      /search videos, articles, guides/i,
+    );
     expect(input).toBeDefined();
   });
 

@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import React, { useMemo, useState } from "react";
 import {
@@ -85,12 +85,14 @@ function VideoRow({ video }: { video: VideoVaultVideo }) {
 function TopicCard({
   topic,
   delay,
+  initialOpen = false,
 }: {
   topic: VideoVaultTopic;
   delay: number;
+  initialOpen?: boolean;
 }) {
   const colors = useColors();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
 
   return (
     <Animated.View
@@ -140,6 +142,7 @@ function TopicCard({
 export default function VideoVaultScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { topic: deepLinkTopicId } = useLocalSearchParams<{ topic?: string }>();
   const [search, setSearch] = useState("");
   const [filterSource, setFilterSource] = useState("All");
 
@@ -304,7 +307,12 @@ export default function VideoVaultScreen() {
           </Animated.View>
         ) : (
           filtered.map((topic, i) => (
-            <TopicCard key={topic.id} topic={topic} delay={100 + i * 30} />
+            <TopicCard
+              key={topic.id}
+              topic={topic}
+              delay={100 + i * 30}
+              initialOpen={!!deepLinkTopicId && topic.id === deepLinkTopicId}
+            />
           ))
         )}
 
