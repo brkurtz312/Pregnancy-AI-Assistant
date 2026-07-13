@@ -78,6 +78,7 @@ import {
   runReviewerPassCheck,
   getReviewerCheckStatus,
 } from "../src/lib/reviewer-check";
+import { logger } from "../src/lib/logger";
 
 // ---------------------------------------------------------------------------
 // Env snapshot helpers
@@ -227,6 +228,43 @@ describe("runReviewerPassCheck", () => {
       expect(dbInsertUsersImpl).toHaveBeenCalledTimes(1);
       // record() upserts lastRunAt + lastResult + lastReason into app_config
       expect(dbInsertAppConfigImpl).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  describe("DB-persist failure in setConfig (record step)", () => {
+    it("still resolves with the correct result and warns when db.insert throws during record()", async () => {
+      // Happy path: user has hasPass=true (no user-table writes)
+      // Make the app_config insert throw to simulate a DB failure in setConfig
+      dbInsertAppConfigImpl.mockRejectedValue(new Error("DB write failure"));
+
+      const result = await runReviewerPassCheck();
+
+      // runReviewerPassCheck should still resolve with the correct result despite the DB failure
+      expect(result.ok).toBe(true);
+      expect(result.healed).toBe(false);
+      expect(result.demoUserId).toBe(DEMO_USER_ID);
+
+      // setConfig swallows the error and logs a warning
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ key: expect.any(String) }),
+        "Failed to persist reviewer check status to app_config",
+      );
+    });
+
+    it("still resolves with the correct result and warns when db.delete throws during record()", async () => {
+      // Happy path: lastReason=null triggers db.delete in setConfig; make it throw
+      dbDeleteImpl.mockRejectedValue(new Error("DB delete failure"));
+
+      const result = await runReviewerPassCheck();
+
+      expect(result.ok).toBe(true);
+      expect(result.healed).toBe(false);
+      expect(result.demoUserId).toBe(DEMO_USER_ID);
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ key: expect.any(String) }),
+        "Failed to persist reviewer check status to app_config",
+      );
     });
   });
 

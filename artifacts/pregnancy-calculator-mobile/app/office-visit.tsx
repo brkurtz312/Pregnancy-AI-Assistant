@@ -30,6 +30,8 @@ import {
   useListSymptoms,
   useListKickSessions,
   useListContractions,
+  useGetProfile,
+  getGetProfileQueryKey,
   type PrenatalVisit,
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
@@ -38,6 +40,12 @@ import {
   saveQuestions,
   type QuestionItem,
 } from "@/lib/visit-questions";
+import {
+  scheduleAppointmentReminder,
+  cancelAppointmentReminder,
+} from "@/lib/appointment-reminders";
+import { getGestationalAgeAtDate } from "@/lib/pregnancy-math";
+import { getVisitExpectation } from "@/constants/prenatal-visit-expectations";
 
 function formatDateTime(iso: string) {
   const d = new Date(iso);
@@ -267,6 +275,8 @@ function VisitModal({
   onSave,
   initial,
   saving,
+  defaultDate,
+  mode,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -278,9 +288,11 @@ function VisitModal({
   }) => void;
   initial?: PrenatalVisit | null;
   saving: boolean;
+  defaultDate?: Date;
+  mode?: "schedule" | "log";
 }) {
   const colors = useColors();
-  const [visitDate, setVisitDate] = useState(new Date());
+  const [visitDate, setVisitDate] = useState(defaultDate ?? new Date());
   const [weight, setWeight] = useState("");
   const [weightUnit, setWeightUnit] = useState<"lbs" | "kg">("lbs");
   const [bloodPressure, setBloodPressure] = useState("");
@@ -288,7 +300,9 @@ function VisitModal({
 
   useEffect(() => {
     if (visible) {
-      setVisitDate(initial ? new Date(initial.visitDate) : new Date());
+      setVisitDate(
+        initial ? new Date(initial.visitDate) : (defaultDate ?? new Date()),
+      );
       const raw = initial?.weight ?? "";
       const unitMatch = raw.match(/\b(lbs|kg)\s*$/i);
       if (unitMatch) {
@@ -300,7 +314,7 @@ function VisitModal({
       setBloodPressure(initial?.bloodPressure ?? "");
       setNotes(initial?.notes ?? "");
     }
-  }, [visible, initial]);
+  }, [visible, initial, defaultDate]);
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
@@ -311,7 +325,11 @@ function VisitModal({
           <ScrollView showsVerticalScrollIndicator={false}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.foreground }]}>
-                {initial ? "Edit Visit" : "Add Visit"}
+                {initial
+                  ? "Edit Appointment"
+                  : mode === "schedule"
+                    ? "Schedule Appointment"
+                    : "Log Visit"}
               </Text>
               <TouchableOpacity onPress={onClose}>
                 <Ionicons
@@ -455,6 +473,159 @@ function VisitModal({
         </View>
       </View>
     </Modal>
+  );
+}
+
+// ─── Upcoming Appointments Section ───────────────────────────────────────────
+
+function UpcomingAppointmentsSection({
+  upcoming,
+  onSchedule,
+  onEdit,
+  onDelete,
+  dueDate,
+}: {
+  upcoming: PrenatalVisit[];
+  onSchedule: () => void;
+  onEdit: (v: PrenatalVisit) => void;
+  onDelete: (id: number) => void;
+  dueDate: string | null | undefined;
+}) {
+  const colors = useColors();
+
+  function gaLabel(visitDateIso: string) {
+    if (!dueDate) return null;
+    const { weeks, days } = getGestationalAgeAtDate(
+      new Date(dueDate),
+      new Date(visitDateIso),
+    );
+    if (weeks < 4 || weeks > 45) return null;
+    return `${weeks}w ${days}d`;
+  }
+
+  function expectationLabel(visitDateIso: string) {
+    if (!dueDate) return null;
+    const { weeks } = getGestationalAgeAtDate(
+      new Date(dueDate),
+      new Date(visitDateIso),
+    );
+    if (weeks < 4 || weeks > 45) return null;
+    return getVisitExpectation(weeks).label;
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.row}>
+        <Text style={[styles.title, { color: colors.foreground }]}>
+          Upcoming Appointments
+        </Text>
+        <TouchableOpacity
+          style={[styles.addBtn, { backgroundColor: colors.primary }]}
+          onPress={onSchedule}
+        >
+          <Ionicons name="add" size={14} color={colors.primaryForeground} />
+          <Text
+            style={[styles.addBtnText, { color: colors.primaryForeground }]}
+          >
+            Schedule
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {upcoming.length === 0 && (
+        <TouchableOpacity
+          style={[
+            styles.emptyUpcomingCard,
+            {
+              backgroundColor: colors.primary + "0D",
+              borderColor: colors.primary + "33",
+            },
+          ]}
+          onPress={onSchedule}
+        >
+          <Ionicons name="calendar-outline" size={24} color={colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text
+              style={[styles.emptyUpcomingTitle, { color: colors.foreground }]}
+            >
+              No upcoming appointments
+            </Text>
+            <Text
+              style={[
+                styles.emptyUpcomingSub,
+                { color: colors.mutedForeground },
+              ]}
+            >
+              Schedule your next visit to receive a day-before reminder.
+            </Text>
+          </View>
+          <Ionicons
+            name="chevron-forward"
+            size={16}
+            color={colors.mutedForeground}
+          />
+        </TouchableOpacity>
+      )}
+
+      {upcoming.map((item) => {
+        const ga = gaLabel(item.visitDate);
+        const exp = expectationLabel(item.visitDate);
+        return (
+          <TouchableOpacity
+            key={item.id}
+            style={[
+              styles.upcomingItem,
+              {
+                backgroundColor: colors.primary + "0D",
+                borderColor: colors.primary + "33",
+              },
+            ]}
+            onPress={() => onEdit(item)}
+          >
+            <View
+              style={[styles.upcomingDot, { backgroundColor: colors.primary }]}
+            />
+            <View style={styles.itemMain}>
+              <Text style={[styles.itemDate, { color: colors.foreground }]}>
+                {formatDateTime(item.visitDate)}
+              </Text>
+              {ga ? (
+                <Text
+                  style={[styles.itemMeta, { color: colors.mutedForeground }]}
+                >
+                  {ga}
+                  {exp ? ` · ${exp}` : ""}
+                </Text>
+              ) : null}
+              {item.notes ? (
+                <Text
+                  style={[styles.itemMeta, { color: colors.mutedForeground }]}
+                  numberOfLines={1}
+                >
+                  {item.notes}
+                </Text>
+              ) : null}
+            </View>
+            <TouchableOpacity
+              onPress={() => onDelete(item.id)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons
+                name="trash-outline"
+                size={18}
+                color={colors.mutedForeground}
+              />
+            </TouchableOpacity>
+          </TouchableOpacity>
+        );
+      })}
+
+      {upcoming.length > 0 && (
+        <Text style={[styles.upcomingHint, { color: colors.mutedForeground }]}>
+          You'll receive a reminder the morning before each appointment.
+        </Text>
+      )}
+    </View>
   );
 }
 
@@ -973,6 +1144,11 @@ export default function OfficeVisitScreen() {
   const insets = useSafeAreaInsets();
   const { isSignedIn } = useUser();
 
+  const { data: profileData } = useGetProfile({
+    query: { queryKey: getGetProfileQueryKey(), enabled: !!isSignedIn },
+  });
+  const dueDate = profileData?.dueDate ?? null;
+
   const { data, isLoading, refetch } = useListPrenatalVisits({
     limit: 50,
     offset: 0,
@@ -982,58 +1158,123 @@ export default function OfficeVisitScreen() {
   const deleteMutation = useDeletePrenatalVisit();
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [modalMode, setModalMode] = useState<"schedule" | "log">("log");
+  const [modalDefaultDate, setModalDefaultDate] = useState<Date | undefined>(
+    undefined,
+  );
   const [editing, setEditing] = useState<PrenatalVisit | null>(null);
 
   const items = useMemo(() => data?.items ?? [], [data?.items]);
   const now = Date.now();
   const past = useMemo(
-    () => items.filter((v) => new Date(v.visitDate).getTime() <= now),
+    () =>
+      items
+        .filter((v) => new Date(v.visitDate).getTime() <= now)
+        .sort(
+          (a, b) =>
+            new Date(b.visitDate).getTime() - new Date(a.visitDate).getTime(),
+        ),
+    [items, now],
+  );
+  const upcoming = useMemo(
+    () =>
+      items
+        .filter((v) => new Date(v.visitDate).getTime() > now)
+        .sort(
+          (a, b) =>
+            new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime(),
+        ),
     [items, now],
   );
 
   const openAdd = useCallback(() => {
     setEditing(null);
+    setModalMode("log");
+    setModalDefaultDate(undefined);
+    setModalVisible(true);
+  }, []);
+
+  const openAddUpcoming = useCallback(() => {
+    setEditing(null);
+    setModalMode("schedule");
+    // Default to one week from now
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    d.setHours(10, 0, 0, 0);
+    setModalDefaultDate(d);
     setModalVisible(true);
   }, []);
 
   const openEdit = useCallback((v: PrenatalVisit) => {
     setEditing(v);
+    setModalMode(
+      new Date(v.visitDate).getTime() > Date.now() ? "schedule" : "log",
+    );
+    setModalDefaultDate(undefined);
     setModalVisible(true);
   }, []);
 
   const handleSave = useCallback(
-    async (data: {
+    async (saveData: {
       visitDate: Date;
       weight: string;
       bloodPressure: string;
       notes: string;
     }) => {
       const payload = {
-        visitDate: data.visitDate.toISOString(),
-        weight: data.weight.trim() || null,
-        bloodPressure: data.bloodPressure.trim() || null,
-        notes: data.notes.trim() || null,
+        visitDate: saveData.visitDate.toISOString(),
+        weight: saveData.weight.trim() || null,
+        bloodPressure: saveData.bloodPressure.trim() || null,
+        notes: saveData.notes.trim() || null,
       };
+
       if (editing) {
+        // Cancel old reminder before updating
+        await cancelAppointmentReminder(editing.id);
         await updateMutation.mutateAsync({ id: editing.id, data: payload });
+        // Reschedule if still in the future
+        if (saveData.visitDate.getTime() > Date.now() && dueDate) {
+          const { weeks } = getGestationalAgeAtDate(
+            new Date(dueDate),
+            saveData.visitDate,
+          );
+          await scheduleAppointmentReminder(
+            editing.id,
+            saveData.visitDate,
+            weeks,
+          );
+        }
       } else {
-        await createMutation.mutateAsync({ data: payload });
+        const created = await createMutation.mutateAsync({ data: payload });
+        // Schedule reminder for new future appointments
+        if (saveData.visitDate.getTime() > Date.now() && dueDate) {
+          const { weeks } = getGestationalAgeAtDate(
+            new Date(dueDate),
+            saveData.visitDate,
+          );
+          await scheduleAppointmentReminder(
+            created.id,
+            saveData.visitDate,
+            weeks,
+          );
+        }
       }
       setModalVisible(false);
       setEditing(null);
       refetch();
     },
-    [editing, createMutation, updateMutation, refetch],
+    [editing, createMutation, updateMutation, refetch, dueDate],
   );
 
   const handleDelete = useCallback(
     (id: number) => {
-      Alert.alert("Delete", "Remove this visit?", [
+      Alert.alert("Delete", "Remove this appointment?", [
         { text: "Cancel", style: "cancel" },
         {
           text: "Delete",
           style: "destructive",
           onPress: async () => {
+            await cancelAppointmentReminder(id);
             await deleteMutation.mutateAsync({ id });
             refetch();
           },
@@ -1117,20 +1358,38 @@ export default function OfficeVisitScreen() {
         {isLoading && !data ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
         ) : (
-          <Animated.View
-            entering={FadeInDown.delay(160).duration(400)}
-            style={[
-              styles.card,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <AppointmentLogSection
-              past={past}
-              onAdd={openAdd}
-              onEdit={openEdit}
-              onDelete={handleDelete}
-            />
-          </Animated.View>
+          <>
+            <Animated.View
+              entering={FadeInDown.delay(120).duration(400)}
+              style={[
+                styles.card,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <UpcomingAppointmentsSection
+                upcoming={upcoming}
+                onSchedule={openAddUpcoming}
+                onEdit={openEdit}
+                onDelete={handleDelete}
+                dueDate={dueDate}
+              />
+            </Animated.View>
+
+            <Animated.View
+              entering={FadeInDown.delay(160).duration(400)}
+              style={[
+                styles.card,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <AppointmentLogSection
+                past={past}
+                onAdd={openAdd}
+                onEdit={openEdit}
+                onDelete={handleDelete}
+              />
+            </Animated.View>
+          </>
         )}
 
         <Animated.View
@@ -1221,6 +1480,8 @@ export default function OfficeVisitScreen() {
           onSave={handleSave}
           initial={editing}
           saving={createMutation.isPending || updateMutation.isPending}
+          defaultDate={modalDefaultDate}
+          mode={modalMode}
         />
       </ScrollView>
     </View>
@@ -1479,5 +1740,46 @@ const styles = StyleSheet.create({
   viewPdfBtnText: {
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
+  },
+  emptyUpcomingCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 4,
+  },
+  emptyUpcomingTitle: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    marginBottom: 2,
+  },
+  emptyUpcomingSub: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 17,
+  },
+  upcomingItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    marginBottom: 8,
+  },
+  upcomingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginTop: 5,
+    flexShrink: 0,
+  },
+  upcomingHint: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    marginTop: 4,
   },
 });

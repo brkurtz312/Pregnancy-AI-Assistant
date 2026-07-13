@@ -9,7 +9,8 @@ export const HEALTHY_PREGNANCY_ROUTE_IDS = [
   "/hp-warning-signs",
 ] as const;
 
-export type HealthyPregnancyRouteId = (typeof HEALTHY_PREGNANCY_ROUTE_IDS)[number];
+export type HealthyPregnancyRouteId =
+  (typeof HEALTHY_PREGNANCY_ROUTE_IDS)[number];
 
 export interface HealthyPregnancyTopic {
   icon: string;

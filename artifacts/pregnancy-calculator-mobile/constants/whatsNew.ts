@@ -27,6 +27,21 @@ export interface WhatsNewEntry {
  * the build before it reaches the App Store.
  */
 export const WHATS_NEW: Record<string, WhatsNewEntry> = {
+  "1.0.7": {
+    headline: "Appointment Reminders",
+    items: [
+      {
+        icon: "calendar-outline",
+        title: "Schedule Upcoming Appointments",
+        body: "Add future prenatal visits in Office Visits or right from In-Office Mode. Your upcoming appointments are shown at the top of the Office Visits screen.",
+      },
+      {
+        icon: "notifications-outline",
+        title: "Day-Before Reminders",
+        body: "The morning before each appointment you'll receive a reminder with a preview of what your provider is likely to discuss based on your gestational age.",
+      },
+    ],
+  },
   "1.0.6": {
     headline: "What's new in this update",
     items: [

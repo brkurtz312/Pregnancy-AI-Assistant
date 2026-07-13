@@ -235,6 +235,50 @@ export default function InOfficeScreen() {
           </TouchableOpacity>
         </Animated.View>
 
+        {/* Schedule Next Appointment */}
+        <Animated.View entering={FadeInDown.delay(60).duration(350)}>
+          <TouchableOpacity
+            style={[
+              styles.scheduleCard,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+              },
+            ]}
+            onPress={() => router.push("/office-visit")}
+          >
+            <View
+              style={[
+                styles.scheduleIconWrap,
+                { backgroundColor: colors.primary + "18" },
+              ]}
+            >
+              <Ionicons
+                name="calendar-outline"
+                size={20}
+                color={colors.primary}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={[styles.scheduleTitle, { color: colors.foreground }]}
+              >
+                Schedule Next Appointment
+              </Text>
+              <Text
+                style={[styles.scheduleSub, { color: colors.mutedForeground }]}
+              >
+                Add a future visit and get a day-before reminder
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={colors.mutedForeground}
+            />
+          </TouchableOpacity>
+        </Animated.View>
+
         {/* Pre-Visit Checklist */}
         <Animated.View entering={FadeInDown.delay(80).duration(350)}>
           <View
@@ -804,5 +848,30 @@ const styles = StyleSheet.create({
   exitBtnText: {
     fontSize: 14,
     fontFamily: "Inter_500Medium",
+  },
+  scheduleCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+  },
+  scheduleIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scheduleTitle: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    marginBottom: 2,
+  },
+  scheduleSub: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 17,
   },
 });
