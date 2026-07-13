@@ -21,6 +21,14 @@
  *    `useFakeTimersWithScheduler` preserves setImmediate and nextTick while
  *    still faking setTimeout / setInterval so the test can advance the clock.
  *
+ * 3. Fake timers + async act() interaction — React's async act() can hang
+ *    indefinitely waiting for its internal setTimeout(0) readiness check to
+ *    fire.  When fake timers are active that callback never fires unless
+ *    timers are advanced explicitly, so act() never returns and the test
+ *    times out.  The fix is to call jest.advanceTimersByTime(0) INSIDE the
+ *    act() callback so that React's scheduler callbacks fire within the scope
+ *    of the same act() call, allowing act() to drain the work and return.
+ *
  * Usage
  * ─────
  *   // Replace bare setTimeout(r, 0) or inline process.nextTick flushes:
@@ -44,10 +52,25 @@ import { act } from "react-test-renderer";
  * Uses process.nextTick (never faked by jest.useFakeTimers) so it is safe
  * whether real or fake timers are active.  Each round is a single resolved
  * promise, adding < 1 ms of wall-clock time in a non-loaded test run.
+ *
+ * When fake timers are active (detected via jest.isMockFunction(global.setTimeout)),
+ * each round also calls jest.advanceTimersByTime(0) INSIDE the act() callback
+ * before awaiting the nextTick.  This fires any pending setTimeout(0) callbacks
+ * that React's scheduler enqueued so that act() can see the work, drain it,
+ * and return — rather than hanging indefinitely waiting for a faked timer that
+ * would never fire on its own.
  */
 export async function flushAsync(rounds = 5): Promise<void> {
+  const usingFakeTimers = jest.isMockFunction(global.setTimeout);
   for (let i = 0; i < rounds; i++) {
     await act(async () => {
+      // When fake timers are active, fire any pending setTimeout(0) callbacks
+      // (e.g. React's internal scheduler readiness check) before awaiting the
+      // nextTick promise.  Doing this inside act() ensures the resulting React
+      // work is flushed within the same act() scope so act() can return cleanly.
+      if (usingFakeTimers) {
+        jest.advanceTimersByTime(0);
+      }
       await new Promise<void>((r) => process.nextTick(r));
     });
   }
@@ -67,6 +90,9 @@ export async function flushAsync(rounds = 5): Promise<void> {
  *
  * setTimeout / setInterval are still faked, so tests can call
  * jest.advanceTimersByTime() to control dismiss timers, debounces, etc.
+ * flushAsync() automatically advances the fake clock by 0 ms per round to
+ * drain React scheduler's setTimeout(0) callbacks — no manual timer
+ * advancement is needed in most tests.
  */
 export function useFakeTimersWithScheduler(): void {
   beforeEach(() => {
