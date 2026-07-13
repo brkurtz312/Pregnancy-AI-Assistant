@@ -234,4 +234,38 @@ describe("journal-entry.tsx — handleSave storage-full alert wiring", () => {
     );
     expect(storageFullCall).toBeUndefined();
   });
+
+  it("generic fallback — shows correct body text and does not trigger storage-full path", async () => {
+    const { upsertEntry } = require("@/lib/journal") as {
+      upsertEntry: jest.Mock;
+    };
+    upsertEntry.mockRejectedValue(new Error("Network request failed"));
+
+    const renderer = renderJournalEntryScreen();
+
+    const inputs = renderer.root.findAllByType(TextInput);
+    await act(async () => {
+      inputs[0].props.onChangeText("My journal entry text");
+    });
+
+    const saveButton = findSaveButton(renderer);
+    await act(async () => {
+      saveButton.props.onPress();
+    });
+    await flushAsync();
+
+    const calls = alertSpy.mock.calls;
+
+    const genericCall = calls.find((args) => args[0] === "Couldn't save");
+    expect(genericCall).toBeDefined();
+    expect(genericCall![1]).toBe("Something went wrong. Please try again.");
+
+    const storageFullCall = calls.find(
+      (args) => args[0] === "Could not save entry",
+    );
+    expect(storageFullCall).toBeUndefined();
+
+    const { router } = require("expo-router");
+    expect(router.back).not.toHaveBeenCalled();
+  });
 });
