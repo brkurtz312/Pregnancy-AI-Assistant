@@ -233,6 +233,9 @@ describe("journal-entry.tsx — handleSave storage-full alert wiring", () => {
       (args) => args[0] === "Could not save entry",
     );
     expect(storageFullCall).toBeUndefined();
+
+    const { router } = require("expo-router");
+    expect(router.back).not.toHaveBeenCalled();
   });
 
   it("generic fallback — shows correct body text and does not trigger storage-full path", async () => {
