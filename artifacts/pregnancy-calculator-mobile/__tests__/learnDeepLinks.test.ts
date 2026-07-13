@@ -17,6 +17,9 @@
  *      caught by the type-checker.
  */
 
+import * as fs from "fs";
+import * as path from "path";
+
 import { VIDEO_VAULT_TOPICS } from "@/lib/video-vault";
 import { SUPPORT_PERSON_VOLUMES } from "@/lib/support-person-survival";
 import { HEALTHY_PREGNANCY_TOPICS } from "@/lib/healthy-pregnancy-topics";
@@ -461,6 +464,41 @@ describe("VideoVaultScreen — deepLinkTopicId → initialOpen mapping", () => {
     expect(secondNav.find((s) => s.id === firstTopic.id)?.initialOpen).toBe(
       false,
     );
+  });
+});
+
+// ─── 7b. HealthyPregnancy route → file cross-reference ───────────────────────
+//
+// Each topic.route must have a matching Expo Router screen file in app/.
+// If a route is renamed in the data but the file is not (or vice versa),
+// navigation silently breaks at runtime. This test catches that mismatch
+// at CI time by reading the filesystem.
+
+describe("HealthyPregnancy topic routes match app/ screen files", () => {
+  // __dirname is __tests__/, so app/ is one level up
+  const appDir = path.join(__dirname, "..", "app");
+
+  it("every topic.route has a corresponding hp-*.tsx file in app/", () => {
+    for (const topic of HEALTHY_PREGNANCY_TOPICS) {
+      // e.g. "/hp-travel" → "hp-travel.tsx"
+      const filename = topic.route.replace(/^\//, "") + ".tsx";
+      const fullPath = path.join(appDir, filename);
+      expect(fs.existsSync(fullPath)).toBe(true);
+    }
+  });
+
+  it("every app/hp-*.tsx file has a matching route in HEALTHY_PREGNANCY_TOPICS", () => {
+    const hpFiles = fs
+      .readdirSync(appDir)
+      .filter((f) => f.startsWith("hp-") && f.endsWith(".tsx"));
+
+    const knownRoutes = new Set(
+      HEALTHY_PREGNANCY_TOPICS.map((t) => t.route.replace(/^\//, "") + ".tsx"),
+    );
+
+    for (const file of hpFiles) {
+      expect(knownRoutes.has(file)).toBe(true);
+    }
   });
 });
 
