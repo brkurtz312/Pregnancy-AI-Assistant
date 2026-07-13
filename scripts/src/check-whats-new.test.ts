@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
+import { spawnSync } from "child_process";
+import { writeFileSync, rmSync, mkdtempSync } from "fs";
+import { tmpdir } from "os";
+import { join, resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 import { checkWhatsNew } from "./check-whats-new.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const appJson = (version: string) => JSON.stringify({ expo: { version } });
 
@@ -68,5 +75,79 @@ describe("checkWhatsNew — malformed input", () => {
     );
     expect(result.ok).toBe(false);
     expect(result.message).toContain("missing or empty");
+  });
+});
+
+// ── CLI integration tests ─────────────────────────────────────────────────────
+// Spawns the real script entry point as a child process with temp fixture files
+// so that a refactor of the file-reading plumbing or the isMain guard is caught.
+
+const tsxBin = resolve(__dirname, "../../node_modules/.bin/tsx");
+const scriptPath = resolve(__dirname, "./check-whats-new.ts");
+
+function runCli(
+  appJsonContent: string,
+  whatsNewContent: string,
+): { exitCode: number; stdout: string; stderr: string } {
+  const dir = mkdtempSync(join(tmpdir(), "check-whats-new-"));
+  const appJsonPath = join(dir, "app.json");
+  const whatsNewPath = join(dir, "whatsNew.ts");
+
+  try {
+    writeFileSync(appJsonPath, appJsonContent, "utf8");
+    writeFileSync(whatsNewPath, whatsNewContent, "utf8");
+
+    const result = spawnSync(tsxBin, [scriptPath], {
+      env: {
+        ...process.env,
+        CHECK_WHATS_NEW_APP_JSON_PATH: appJsonPath,
+        CHECK_WHATS_NEW_WHATS_NEW_PATH: whatsNewPath,
+      },
+      encoding: "utf8",
+    });
+
+    return {
+      exitCode: result.status ?? 1,
+      stdout: result.stdout ?? "",
+      stderr: result.stderr ?? "",
+    };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+describe("check-whats-new CLI — integration", () => {
+  it("exits 0 and prints a success message when the version key is present", () => {
+    const { exitCode, stdout } = runCli(
+      appJson("1.5.0"),
+      whatsNewWith("1.4.0", "1.5.0"),
+    );
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("1.5.0");
+  });
+
+  it("exits 1 and prints the missing-version message when the key is absent", () => {
+    const { exitCode, stderr } = runCli(
+      appJson("2.1.0"),
+      whatsNewWith("2.0.0"),
+    );
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("2.1.0");
+    expect(stderr).toContain("What's New entry missing");
+  });
+
+  it("exits 1 when app.json is invalid JSON", () => {
+    const { exitCode, stderr } = runCli("{bad json}", whatsNewWith("1.0.0"));
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("not valid JSON");
+  });
+
+  it("exits 1 when expo.version is absent from app.json", () => {
+    const { exitCode, stderr } = runCli(
+      JSON.stringify({ expo: {} }),
+      whatsNewWith("1.0.0"),
+    );
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("missing or empty");
   });
 });
