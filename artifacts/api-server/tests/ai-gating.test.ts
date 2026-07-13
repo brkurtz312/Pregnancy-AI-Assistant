@@ -394,7 +394,9 @@ describe("POST /api/ai/weekly-insight cache is flushed on server restart", () =>
 
     vi.clearAllMocks();
     isAnthropicConfigured.mockReturnValue(true);
-    anthropicCreate.mockResolvedValue(fakeAnswer("Fresh insight after restart."));
+    anthropicCreate.mockResolvedValue(
+      fakeAnswer("Fresh insight after restart."),
+    );
 
     // --- Step 2: Simulate a server restart. ---
     // vi.resetModules() clears the module registry so the next dynamic import

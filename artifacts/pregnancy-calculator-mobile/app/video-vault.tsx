@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   FlatList,
   ScrollView,
@@ -93,6 +93,10 @@ function TopicCard({
 }) {
   const colors = useColors();
   const [open, setOpen] = useState(initialOpen);
+
+  useEffect(() => {
+    if (initialOpen) setOpen(true);
+  }, [initialOpen]);
 
   return (
     <Animated.View

@@ -264,8 +264,8 @@ describe("alert cooldown", () => {
 
     const rejectingDispatch = vi
       .fn<[{ subject: string; body: string }], Promise<void>>()
-      .mockRejectedValueOnce(new Error("network blip"))  // first call: dispatch crashes
-      .mockResolvedValue(undefined);                      // subsequent calls: ok
+      .mockRejectedValueOnce(new Error("network blip")) // first call: dispatch crashes
+      .mockResolvedValue(undefined); // subsequent calls: ok
 
     const check = vi.fn().mockResolvedValue(failResult("pass_revoked"));
     const cooldownMs = 60_000;

@@ -245,8 +245,6 @@ describe("Journal — offline edits sync back on reconnect (useNetReconnect path
   });
 
   it("pushes local-only entries via apiUpsertJournalEntry when the reconnect callback fires", async () => {
-    jest.setTimeout(15000);
-
     // First call (mount, offline): the API is unreachable.
     // Second call (reconnect): the API is back and returns the server set.
     mockApiLoadJournal
@@ -284,7 +282,7 @@ describe("Journal — offline edits sync back on reconnect (useNetReconnect path
       expect.objectContaining({ id: "local-offline-reconnect-002" }),
       expect.any(Function),
     );
-  });
+  }, 15000);
 
   it("does NOT push the entry that was already on the server before going offline", async () => {
     mockApiLoadJournal

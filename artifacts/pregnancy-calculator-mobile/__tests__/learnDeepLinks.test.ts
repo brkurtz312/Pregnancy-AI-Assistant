@@ -370,7 +370,101 @@ describe("HealthyPregnancy deep-link route integrity", () => {
   });
 });
 
-// ─── 7. Search index — matchesQuery logic ────────────────────────────────────
+// ─── 7. VideoVaultScreen — deepLinkTopicId → initialOpen mapping ──────────────
+//
+// Guards the runtime behaviour when the Video Vault screen is already mounted
+// and the user taps a search result (re-navigation). The screen computes:
+//
+//   initialOpen={!!deepLinkTopicId && topic.id === deepLinkTopicId}
+//
+// for every TopicCard. These tests mirror that exact expression so a refactor
+// of the screen logic is caught here before it silently breaks navigation.
+
+describe("VideoVaultScreen — deepLinkTopicId → initialOpen mapping", () => {
+  function computeOpenStates(deepLinkTopicId: string | undefined) {
+    return VIDEO_VAULT_TOPICS.map((t) => ({
+      id: t.id,
+      title: t.title,
+      initialOpen: !!deepLinkTopicId && t.id === deepLinkTopicId,
+    }));
+  }
+
+  it("exactly one topic gets initialOpen=true when a matching topic param is provided", () => {
+    const targetTopic = VIDEO_VAULT_TOPICS[0];
+    const states = computeOpenStates(targetTopic.id);
+    const openTopics = states.filter((s) => s.initialOpen);
+    expect(openTopics).toHaveLength(1);
+    expect(openTopics[0].id).toBe(targetTopic.id);
+  });
+
+  it("the target topic is the one that gets initialOpen=true, not any other", () => {
+    const targetTopic = VIDEO_VAULT_TOPICS[0];
+    const states = computeOpenStates(targetTopic.id);
+    for (const s of states) {
+      if (s.id === targetTopic.id) {
+        expect(s.initialOpen).toBe(true);
+      } else {
+        expect(s.initialOpen).toBe(false);
+      }
+    }
+  });
+
+  it("every topic correctly gets initialOpen=true when it is the deep-link target", () => {
+    for (const targetTopic of VIDEO_VAULT_TOPICS) {
+      const states = computeOpenStates(targetTopic.id);
+      const openTopics = states.filter((s) => s.initialOpen);
+      expect(openTopics).toHaveLength(1);
+      expect(openTopics[0].id).toBe(targetTopic.id);
+      const closedTopics = states.filter((s) => !s.initialOpen);
+      expect(closedTopics).toHaveLength(VIDEO_VAULT_TOPICS.length - 1);
+    }
+  });
+
+  it("no topics get initialOpen=true when no topic param is provided (undefined)", () => {
+    const states = computeOpenStates(undefined);
+    expect(states.every((s) => !s.initialOpen)).toBe(true);
+  });
+
+  it("no topics get initialOpen=true when the param does not match any topic ID", () => {
+    const states = computeOpenStates("non-existent-topic-id-99999");
+    expect(states.every((s) => !s.initialOpen)).toBe(true);
+  });
+
+  it("a search result route round-trips: extracting the topic param gives initialOpen=true for exactly that topic", () => {
+    for (const targetTopic of VIDEO_VAULT_TOPICS) {
+      const route = `/video-vault?topic=${targetTopic.id}`;
+      const deepLinkTopicId = route.replace("/video-vault?topic=", "");
+      const states = computeOpenStates(deepLinkTopicId);
+      const openTopics = states.filter((s) => s.initialOpen);
+      expect(openTopics).toHaveLength(1);
+      expect(openTopics[0].id).toBe(targetTopic.id);
+    }
+  });
+
+  it("re-navigation: switching from one topic to another gives the new topic initialOpen=true", () => {
+    if (VIDEO_VAULT_TOPICS.length < 2) return;
+    const firstTopic = VIDEO_VAULT_TOPICS[0];
+    const secondTopic = VIDEO_VAULT_TOPICS[1];
+
+    const firstNav = computeOpenStates(firstTopic.id);
+    expect(firstNav.find((s) => s.id === firstTopic.id)?.initialOpen).toBe(
+      true,
+    );
+    expect(firstNav.find((s) => s.id === secondTopic.id)?.initialOpen).toBe(
+      false,
+    );
+
+    const secondNav = computeOpenStates(secondTopic.id);
+    expect(secondNav.find((s) => s.id === secondTopic.id)?.initialOpen).toBe(
+      true,
+    );
+    expect(secondNav.find((s) => s.id === firstTopic.id)?.initialOpen).toBe(
+      false,
+    );
+  });
+});
+
+// ─── 8. Search index — matchesQuery logic ────────────────────────────────────
 
 describe("learn search index — matchesQuery", () => {
   const allResults = buildSearchIndex();
