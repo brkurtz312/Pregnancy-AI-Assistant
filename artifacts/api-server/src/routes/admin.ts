@@ -330,7 +330,10 @@ router.post("/admin/test-alert", requireAdminToken, async (req, res) => {
       .where(inArray(appConfigTable.key, [...ALERT_CONFIG_KEYS]));
     byKey = new Map(rows.map((r) => [r.key, r.value]));
   } catch (err) {
-    req.log.warn({ err }, "test-alert: could not read app_config, using env vars");
+    req.log.warn(
+      { err },
+      "test-alert: could not read app_config, using env vars",
+    );
   }
 
   const slackWebhookUrl =
@@ -369,8 +372,15 @@ router.post("/admin/test-alert", requireAdminToken, async (req, res) => {
       });
       if (!slackRes.ok) {
         const text = await slackRes.text().catch(() => "(unreadable)");
-        channels.push({ channel: "slack", ok: false, error: `HTTP ${slackRes.status}: ${text}` });
-        req.log.error({ status: slackRes.status }, "test-alert: Slack webhook failed");
+        channels.push({
+          channel: "slack",
+          ok: false,
+          error: `HTTP ${slackRes.status}: ${text}`,
+        });
+        req.log.error(
+          { status: slackRes.status },
+          "test-alert: Slack webhook failed",
+        );
       } else {
         channels.push({ channel: "slack", ok: true });
         req.log.info("test-alert: Slack webhook delivered");
@@ -401,8 +411,15 @@ router.post("/admin/test-alert", requireAdminToken, async (req, res) => {
       });
       if (!emailRes.ok) {
         const text = await emailRes.text().catch(() => "(unreadable)");
-        channels.push({ channel: "email", ok: false, error: `HTTP ${emailRes.status}: ${text}` });
-        req.log.error({ status: emailRes.status }, "test-alert: Resend email failed");
+        channels.push({
+          channel: "email",
+          ok: false,
+          error: `HTTP ${emailRes.status}: ${text}`,
+        });
+        req.log.error(
+          { status: emailRes.status },
+          "test-alert: Resend email failed",
+        );
       } else {
         channels.push({ channel: "email", ok: true });
         req.log.info({ to: alertEmail }, "test-alert: Resend email delivered");

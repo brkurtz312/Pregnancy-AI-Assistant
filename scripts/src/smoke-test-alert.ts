@@ -147,8 +147,7 @@ async function main(): Promise<void> {
   if (config.resendApiKey && config.alertEmail) {
     channelCount++;
     const from =
-      config.alertFromEmail ??
-      `alerts@${config.alertEmail.split("@")[1]}`;
+      config.alertFromEmail ?? `alerts@${config.alertEmail.split("@")[1]}`;
     console.log(`Testing Resend email (→ ${config.alertEmail})…`);
     try {
       const ok = await testResend(config.resendApiKey, config.alertEmail, from);
