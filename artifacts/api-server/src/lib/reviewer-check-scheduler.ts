@@ -39,6 +39,14 @@ function parseEnvMs(key: string, defaultMs: number): number {
 // Scheduler state (module-level so it persists across interval ticks)
 // ---------------------------------------------------------------------------
 
+// NOTE: intentional restart behaviour — the cooldown does NOT survive a server
+// restart. Because `lastAlertSentAt` is module-level state, it is reset to
+// null whenever the Node process exits and restarts (e.g. a deploy or crash
+// recovery). This means an alert will fire on the very first failing check
+// after a restart, even if one was sent shortly before the process went down.
+// This is the desired behaviour: a restart is treated as a fresh start so that
+// a failure which caused the restart is never silently swallowed by a stale
+// cooldown from the previous process lifetime.
 let lastAlertSentAt: number | null = null;
 
 /** Resets the cooldown state — used in tests to isolate runs. */

@@ -255,6 +255,35 @@ describe("alert cooldown", () => {
     expect(dispatch).toHaveBeenCalledTimes(2);
   });
 
+  it("fires an alert immediately after a simulated server restart even within what would have been the cooldown window", async () => {
+    vi.useFakeTimers();
+
+    const dispatch = vi.fn().mockResolvedValue(undefined);
+    const check = vi.fn().mockResolvedValue(failResult("pass_revoked"));
+    const cooldownMs = 60_000; // 1-minute cooldown
+    const opts = { cooldownMs, _runCheck: check, _dispatch: dispatch };
+
+    // First failure → alert fires, cooldown starts
+    await runScheduledCheck(opts);
+    expect(dispatch).toHaveBeenCalledTimes(1);
+
+    // Advance time only slightly — still well within the cooldown window
+    vi.advanceTimersByTime(5_000);
+
+    // Verify the cooldown is active (second call is suppressed)
+    await runScheduledCheck(opts);
+    expect(dispatch).toHaveBeenCalledTimes(1);
+
+    // Simulate a server restart: module-level state is wiped, time has NOT
+    // advanced past the cooldown. resetSchedulerState() models what happens
+    // when the Node process exits and restarts.
+    resetSchedulerState();
+
+    // Failure again immediately after restart → cooldown is gone → alert fires
+    await runScheduledCheck(opts);
+    expect(dispatch).toHaveBeenCalledTimes(2);
+  });
+
   it("resets the cooldown after a passing check follows a failure", async () => {
     vi.useFakeTimers();
 
