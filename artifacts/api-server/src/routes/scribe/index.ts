@@ -10,7 +10,7 @@ import {
 } from "@workspace/integrations-anthropic-ai";
 import { requireAuth, type AuthedRequest } from "../../middlewares/auth";
 import { userHasPass } from "../../lib/entitlement";
-import { reserveUsage, refundUsage } from "../../lib/ai-usage";
+import { reserveUsage, refundUsage, getUsage } from "../../lib/ai-usage";
 import { FREE_SCRIBE_LIMIT } from "../../lib/billing-config";
 
 const router: IRouter = Router();
@@ -66,6 +66,25 @@ router.post(
         error: "No audio file provided. Upload audio as the 'audio' field.",
       });
       return;
+    }
+
+    const userId = req.userId;
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const hasPass = await userHasPass(userId);
+    if (!hasPass) {
+      const currentUsage = await getUsage(`scribe:${userId}`, "all-time");
+      if (currentUsage >= FREE_SCRIBE_LIMIT) {
+        res.status(403).json({
+          code: "SCRIBE_LIMIT_REACHED",
+          error:
+            "You have used your free scribe session. Upgrade to the Full Pregnancy Pass for unlimited sessions.",
+        });
+        return;
+      }
     }
 
     try {
