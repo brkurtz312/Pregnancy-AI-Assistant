@@ -139,6 +139,17 @@ timeoutMs = 60000
 [nix]
 channel = "stable-25_05"
 
+[userenv]
+
+[userenv.shared]
+REVENUECAT_TEST_API_KEY = "test_bFuwhHsDLTFRKigADFvnivhibip"
+REVENUECAT_IOS_API_KEY = "appl_WDMeqvebStKVTwVninvrkxfFxat"
+REVENUECAT_ANDROID_API_KEY = "goog_lYPbhsrnnJykPrxWtpBaZBzociP"
+REVENUECAT_PROJECT_ID = "proj9120626a"
+EXPO_PUBLIC_REVENUECAT_TEST_API_KEY = "test_bFuwhHsDLTFRKigADFvnivhibip"
+EXPO_PUBLIC_REVENUECAT_IOS_API_KEY = "appl_WDMeqvebStKVTwVninvrkxfFxat"
+EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY = "goog_lYPbhsrnnJykPrxWtpBaZBzociP"
+
 [[ports]]
 localPort = 8080
 externalPort = 80
@@ -166,14 +177,3 @@ externalPort = 3003
 [[ports]]
 localPort = 25837
 externalPort = 4200
-
-[userenv]
-
-[userenv.shared]
-REVENUECAT_TEST_API_KEY = "test_bFuwhHsDLTFRKigADFvnivhibip"
-REVENUECAT_IOS_API_KEY = "appl_WDMeqvebStKVTwVninvrkxfFxat"
-REVENUECAT_ANDROID_API_KEY = "goog_lYPbhsrnnJykPrxWtpBaZBzociP"
-REVENUECAT_PROJECT_ID = "proj9120626a"
-EXPO_PUBLIC_REVENUECAT_TEST_API_KEY = "test_bFuwhHsDLTFRKigADFvnivhibip"
-EXPO_PUBLIC_REVENUECAT_IOS_API_KEY = "appl_WDMeqvebStKVTwVninvrkxfFxat"
-EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY = "goog_lYPbhsrnnJykPrxWtpBaZBzociP"
