@@ -259,6 +259,44 @@ describe("alert cooldown", () => {
     expect(dispatch).toHaveBeenCalledTimes(2);
   });
 
+  it("fires an alert after a crash-loop restart even when the previous dispatch rejected mid-flight", async () => {
+    vi.useFakeTimers();
+
+    const rejectingDispatch = vi
+      .fn<[{ subject: string; body: string }], Promise<void>>()
+      .mockRejectedValueOnce(new Error("network blip"))  // first call: dispatch crashes
+      .mockResolvedValue(undefined);                      // subsequent calls: ok
+
+    const check = vi.fn().mockResolvedValue(failResult("pass_revoked"));
+    const cooldownMs = 60_000;
+    const opts = {
+      cooldownMs,
+      _runCheck: check,
+      _dispatch: rejectingDispatch,
+    };
+
+    // First failure — dispatch rejects mid-flight.
+    // lastAlertSentAt is set BEFORE dispatch is awaited, so the cooldown
+    // should be active for the rest of this process lifetime.
+    await runScheduledCheck(opts);
+    expect(rejectingDispatch).toHaveBeenCalledTimes(1);
+
+    // Still within cooldown — second tick must be suppressed even though
+    // the first dispatch failed. This confirms lastAlertSentAt was recorded.
+    vi.advanceTimersByTime(5_000);
+    await runScheduledCheck(opts);
+    expect(rejectingDispatch).toHaveBeenCalledTimes(1); // no second dispatch
+
+    // Simulate crash-loop: process crashes and restarts before the cooldown
+    // window elapses. resetSchedulerState() models the module re-initialising.
+    resetSchedulerState();
+
+    // Failure immediately after restart — cooldown is gone → alert must fire.
+    await runScheduledCheck(opts);
+    expect(rejectingDispatch).toHaveBeenCalledTimes(2);
+    expect(rejectingDispatch.mock.calls[1][0].subject).toContain("failed");
+  });
+
   it("fires an alert immediately after a simulated server restart even within what would have been the cooldown window", async () => {
     vi.useFakeTimers();
 
