@@ -161,7 +161,10 @@ describe("POST /scribe/transcribe — free-limit pre-check", () => {
 
     await postTranscribe(app);
 
-    expect(mockGetUsage).toHaveBeenCalledWith("scribe:user_free_abc", "all-time");
+    expect(mockGetUsage).toHaveBeenCalledWith(
+      "scribe:user_free_abc",
+      "all-time",
+    );
   });
 
   it("does not consume quota at the transcribe step (getUsage, not reserveUsage)", async () => {

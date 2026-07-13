@@ -7,6 +7,10 @@
  *   2. Alert dispatch — a `fail` result triggers alert dispatch
  *   3. Cooldown — consecutive failures do not re-alert within the cooldown window
  *   4. Crash handling — an exception in runReviewerPassCheck also triggers an alert
+ *
+ * DB-persist failure path (setConfig throws inside record()) is covered by the
+ * integration tests in reviewer-check-scheduler-db-persist.test.ts, which use
+ * the real runReviewerPassCheck with DB writes mocked to reject.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
