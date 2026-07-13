@@ -7,6 +7,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
+      "@workspace/learn-content-ids": path.resolve(
+        import.meta.dirname,
+        "../../lib/learn-content-ids/src/index.ts",
+      ),
     },
     dedupe: ["react", "react-dom"],
   },

@@ -12,10 +12,14 @@
  */
 import { describe, it, expect, vi, beforeAll, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
-import { VIDEO_VAULT_TOPICS } from "@/lib/web-video-vault";
+import {
+  VIDEO_VAULT_TOPICS,
+  VIDEO_VAULT_TOPIC_IDS,
+} from "@/lib/web-video-vault";
 import { SUPPORT_PERSON_VOLUMES } from "@/lib/web-support-person";
 import {
   HEALTHY_PREGNANCY_ARTICLES,
+  HEALTHY_PREGNANCY_ARTICLE_IDS,
   type HealthyPregnancyArticleId,
 } from "@/lib/web-healthy-pregnancy";
 import { HealthyPregnancy } from "@/components/learn/HealthyPregnancy";
@@ -97,6 +101,56 @@ describe("search index integrity", () => {
   it("all SupportPerson volumeNumbers are unique", () => {
     const nums = SUPPORT_PERSON_VOLUMES.map((v) => v.volumeNumber);
     expect(new Set(nums).size).toBe(nums.length);
+  });
+
+  it("every VIDEO_VAULT_TOPICS id appears in VIDEO_VAULT_TOPIC_IDS", () => {
+    const idSet = new Set<string>(VIDEO_VAULT_TOPIC_IDS);
+    for (const topic of VIDEO_VAULT_TOPICS) {
+      expect(
+        idSet.has(topic.id),
+        `topic.id "${topic.id}" is missing from VIDEO_VAULT_TOPIC_IDS`,
+      ).toBe(true);
+    }
+  });
+
+  it("every VIDEO_VAULT_TOPIC_IDS entry matches a topic in VIDEO_VAULT_TOPICS", () => {
+    const dataIds = new Set(VIDEO_VAULT_TOPICS.map((t) => t.id));
+    for (const id of VIDEO_VAULT_TOPIC_IDS) {
+      expect(
+        dataIds.has(id),
+        `VIDEO_VAULT_TOPIC_IDS entry "${id}" has no matching topic in VIDEO_VAULT_TOPICS`,
+      ).toBe(true);
+    }
+  });
+
+  it("VIDEO_VAULT_TOPIC_IDS and VIDEO_VAULT_TOPICS have the same count", () => {
+    expect(VIDEO_VAULT_TOPIC_IDS.length).toBe(VIDEO_VAULT_TOPICS.length);
+  });
+
+  it("every HEALTHY_PREGNANCY_ARTICLES id appears in HEALTHY_PREGNANCY_ARTICLE_IDS", () => {
+    const idSet = new Set<string>(HEALTHY_PREGNANCY_ARTICLE_IDS);
+    for (const article of HEALTHY_PREGNANCY_ARTICLES) {
+      expect(
+        idSet.has(article.id),
+        `article.id "${article.id}" is missing from HEALTHY_PREGNANCY_ARTICLE_IDS`,
+      ).toBe(true);
+    }
+  });
+
+  it("every HEALTHY_PREGNANCY_ARTICLE_IDS entry matches an article in HEALTHY_PREGNANCY_ARTICLES", () => {
+    const dataIds = new Set(HEALTHY_PREGNANCY_ARTICLES.map((a) => a.id));
+    for (const id of HEALTHY_PREGNANCY_ARTICLE_IDS) {
+      expect(
+        dataIds.has(id),
+        `HEALTHY_PREGNANCY_ARTICLE_IDS entry "${id}" has no matching article in HEALTHY_PREGNANCY_ARTICLES`,
+      ).toBe(true);
+    }
+  });
+
+  it("HEALTHY_PREGNANCY_ARTICLE_IDS and HEALTHY_PREGNANCY_ARTICLES have the same count", () => {
+    expect(HEALTHY_PREGNANCY_ARTICLE_IDS.length).toBe(
+      HEALTHY_PREGNANCY_ARTICLES.length,
+    );
   });
 });
 
