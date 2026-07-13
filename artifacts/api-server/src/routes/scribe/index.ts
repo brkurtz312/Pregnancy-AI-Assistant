@@ -74,17 +74,29 @@ router.post(
       return;
     }
 
-    const hasPass = await userHasPass(userId);
-    if (!hasPass) {
-      const currentUsage = await getUsage(`scribe:${userId}`, "all-time");
-      if (currentUsage >= FREE_SCRIBE_LIMIT) {
-        res.status(403).json({
-          code: "SCRIBE_LIMIT_REACHED",
-          error:
-            "You have used your free scribe session. Upgrade to the Full Pregnancy Pass for unlimited sessions.",
-        });
-        return;
+    // Fail closed: if the DB is unavailable we cannot verify usage limits, so
+    // we block the request with a 503 rather than risk bypassing free-tier caps.
+    let hasPass: boolean;
+    try {
+      hasPass = await userHasPass(userId);
+      if (!hasPass) {
+        const currentUsage = await getUsage(`scribe:${userId}`, "all-time");
+        if (currentUsage >= FREE_SCRIBE_LIMIT) {
+          res.status(403).json({
+            code: "SCRIBE_LIMIT_REACHED",
+            error:
+              "You have used your free scribe session. Upgrade to the Full Pregnancy Pass for unlimited sessions.",
+          });
+          return;
+        }
       }
+    } catch (err) {
+      req.log.error({ err }, "scribe transcribe: DB error during pre-check");
+      res.status(503).json({
+        error:
+          "The scribe service is temporarily unavailable. Please try again in a moment.",
+      });
+      return;
     }
 
     try {
