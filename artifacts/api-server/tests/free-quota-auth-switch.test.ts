@@ -89,6 +89,101 @@ beforeEach(() => {
   anthropicCreate.mockResolvedValue(fakeAnswer("Stay hydrated and rest."));
 });
 
+describe("free-question quota: signed-in-to-anonymous transition (sign-out mid-session)", () => {
+  it(
+    "allows an anonymous request from a fresh IP even after the same user's " +
+      "keyed quota is exhausted — IP bucket is independent",
+    async () => {
+      const userId = "user_signout1";
+      const clientIp = "198.51.100.10";
+
+      // The user-scoped bucket is fully exhausted. The IP bucket, however, has
+      // never been touched — signing out and making an anonymous request from
+      // the same IP routes to the IP bucket, not the user bucket, so it goes
+      // through. This is expected and documented behaviour: the two buckets are
+      // independent, and the IP bucket starts fresh.
+      reserveUsage.mockImplementation(async (id: string) => {
+        if (id === `user:${userId}`) return { reserved: false, count: 5 };
+        return { reserved: true, count: 1 };
+      });
+
+      // Signed-in request → hits exhausted user bucket → 403.
+      getUserId.mockReturnValue(userId);
+      const authedRes = await request(app)
+        .post("/api/ai/ask")
+        .set("x-forwarded-for", clientIp)
+        .send({ question: "Can I exercise in the third trimester?" });
+
+      expect(authedRes.status).toBe(403);
+      expect(authedRes.body.code).toBe("FREE_LIMIT_REACHED");
+      expect(anthropicCreate).not.toHaveBeenCalled();
+
+      // Same IP, now signed out (anonymous) → identifier switches to ip:<addr>.
+      // IP bucket is fresh → request is allowed.
+      getUserId.mockReturnValue(null);
+      const anonRes = await request(app)
+        .post("/api/ai/ask")
+        .set("x-forwarded-for", clientIp)
+        .send({ question: "Can I exercise in the third trimester?" });
+
+      expect(anonRes.status).toBe(200);
+      expect(anonRes.body.answer).toBeTruthy();
+      expect(anthropicCreate).toHaveBeenCalledTimes(1);
+
+      // Confirm the anonymous request was metered against the IP key, not the
+      // user key.
+      const ipKeyCall = reserveUsage.mock.calls.find(([id]) =>
+        id.startsWith("ip:"),
+      );
+      expect(ipKeyCall).toBeDefined();
+      expect(ipKeyCall![0]).toBe(`ip:${clientIp}`);
+    },
+  );
+
+  it(
+    "blocks an anonymous request from an IP whose bucket is also exhausted, " +
+      "even if the user signed in from that IP earlier",
+    async () => {
+      const userId = "user_signout2";
+      const clientIp = "198.51.100.11";
+
+      // Both the user-scoped bucket and the IP bucket are exhausted. Once signed
+      // out, the anonymous request hits the IP bucket — which is also at the
+      // limit — so it is blocked.
+      reserveUsage.mockResolvedValue({ reserved: false, count: 5 });
+
+      // Signed-in request is blocked.
+      getUserId.mockReturnValue(userId);
+      const authedRes = await request(app)
+        .post("/api/ai/ask")
+        .set("x-forwarded-for", clientIp)
+        .send({ question: "What foods should I avoid?" });
+
+      expect(authedRes.status).toBe(403);
+      expect(authedRes.body.code).toBe("FREE_LIMIT_REACHED");
+
+      // Anonymous request (signed out) is also blocked because the IP bucket is
+      // exhausted.
+      getUserId.mockReturnValue(null);
+      const anonRes = await request(app)
+        .post("/api/ai/ask")
+        .set("x-forwarded-for", clientIp)
+        .send({ question: "What foods should I avoid?" });
+
+      expect(anonRes.status).toBe(403);
+      expect(anonRes.body.code).toBe("FREE_LIMIT_REACHED");
+      expect(anthropicCreate).not.toHaveBeenCalled();
+
+      // Confirm the anonymous request was metered against the IP key.
+      const ipKeyCall = reserveUsage.mock.calls.find(([id]) =>
+        id.startsWith("ip:"),
+      );
+      expect(ipKeyCall).toBeDefined();
+      expect(ipKeyCall![0]).toBe(`ip:${clientIp}`);
+    },
+  );
+});
+
 describe("free-question quota: anonymous-to-signed-in transition", () => {
   it(
     "grants a signed-in user their own fresh quota even after the same IP " +
