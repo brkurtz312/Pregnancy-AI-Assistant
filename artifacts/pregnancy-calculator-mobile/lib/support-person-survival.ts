@@ -1,5 +1,14 @@
+export { type SupportPersonVolumeNumber } from "@workspace/learn-content-ids";
+import type { SupportPersonVolumeNumber } from "@workspace/learn-content-ids";
+
+export const SUPPORT_PERSON_ROUTE_MAP = {
+  1: "/support-person-vol1",
+  2: "/support-person-vol2",
+  3: "/support-person-vol3",
+} as const satisfies Record<SupportPersonVolumeNumber, string>;
+
 export interface SupportPersonVolume {
-  volumeNumber: 1 | 2 | 3;
+  volumeNumber: SupportPersonVolumeNumber;
   seriesLabel: string;
   handoutTitle: string;
   pageSubtitle: string;

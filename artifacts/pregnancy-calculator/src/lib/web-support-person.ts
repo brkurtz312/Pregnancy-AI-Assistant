@@ -1,4 +1,5 @@
-export type SupportPersonVolumeNumber = 1 | 2 | 3;
+export { type SupportPersonVolumeNumber } from "@workspace/learn-content-ids";
+import type { SupportPersonVolumeNumber } from "@workspace/learn-content-ids";
 
 export interface SupportPersonVolume {
   volumeNumber: SupportPersonVolumeNumber;

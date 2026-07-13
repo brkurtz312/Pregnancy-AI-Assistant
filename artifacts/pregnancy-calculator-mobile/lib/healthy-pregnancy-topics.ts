@@ -1,8 +1,21 @@
+export const HEALTHY_PREGNANCY_ROUTE_IDS = [
+  "/hp-travel",
+  "/hp-work-bedrest",
+  "/hp-nutrition",
+  "/hp-intimacy",
+  "/hp-medications",
+  "/hp-exercise",
+  "/hp-body-mechanics",
+  "/hp-warning-signs",
+] as const;
+
+export type HealthyPregnancyRouteId = (typeof HEALTHY_PREGNANCY_ROUTE_IDS)[number];
+
 export interface HealthyPregnancyTopic {
   icon: string;
   title: string;
   description: string;
-  route: string;
+  route: HealthyPregnancyRouteId;
 }
 
 export const HEALTHY_PREGNANCY_TOPICS: HealthyPregnancyTopic[] = [

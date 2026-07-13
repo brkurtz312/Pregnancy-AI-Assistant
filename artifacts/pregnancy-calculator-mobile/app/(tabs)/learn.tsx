@@ -15,7 +15,11 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { VIDEO_VAULT_TOPICS } from "@/lib/video-vault";
-import { SUPPORT_PERSON_VOLUMES } from "@/lib/support-person-survival";
+import {
+  SUPPORT_PERSON_VOLUMES,
+  SUPPORT_PERSON_ROUTE_MAP,
+  type SupportPersonVolumeNumber,
+} from "@/lib/support-person-survival";
 import { HEALTHY_PREGNANCY_TOPICS } from "@/lib/healthy-pregnancy-topics";
 
 const ACOG_URL = "https://www.acog.org/womens-health/resources-for-you";
@@ -43,20 +47,19 @@ function buildSearchIndex(): SearchResult[] {
     });
   }
 
-  const volIcons = ["📖", "📋", "🎉"];
-  const volRoutes = [
-    "/support-person-vol1",
-    "/support-person-vol2",
-    "/support-person-vol3",
-  ] as const;
+  const VOL_ICONS: Record<SupportPersonVolumeNumber, string> = {
+    1: "📖",
+    2: "📋",
+    3: "🎉",
+  };
   for (const vol of SUPPORT_PERSON_VOLUMES) {
     results.push({
       section: "supportperson",
       label: vol.handoutTitle,
       sublabel: vol.pageSubtitle,
-      icon: volIcons[vol.volumeNumber - 1],
+      icon: VOL_ICONS[vol.volumeNumber],
       color: "#7c3aed",
-      route: volRoutes[vol.volumeNumber - 1],
+      route: SUPPORT_PERSON_ROUTE_MAP[vol.volumeNumber],
     });
   }
 

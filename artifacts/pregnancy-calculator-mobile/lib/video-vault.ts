@@ -6,8 +6,14 @@ export interface VideoVaultVideo {
   verified: boolean;
 }
 
+export {
+  VIDEO_VAULT_TOPIC_IDS,
+  type VideoVaultTopicId,
+} from "@workspace/learn-content-ids";
+import type { VideoVaultTopicId } from "@workspace/learn-content-ids";
+
 export interface VideoVaultTopic {
-  id: string;
+  id: VideoVaultTopicId;
   number: number;
   title: string;
   icon: string;
