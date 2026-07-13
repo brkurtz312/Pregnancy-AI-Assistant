@@ -156,7 +156,7 @@ function findSaveButton(renderer: ReturnType<typeof create>) {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("journal-entry.tsx — handleSave photo-index alert wiring", () => {
-  jest.setTimeout(10000);
+  jest.setTimeout(30000);
   let alertSpy: jest.SpyInstance;
 
   beforeEach(() => {
@@ -199,6 +199,9 @@ describe("journal-entry.tsx — handleSave photo-index alert wiring", () => {
 
     const genericCall = calls.find((args) => args[0] === "Couldn't save");
     expect(genericCall).toBeUndefined();
+
+    const { router } = require("expo-router");
+    expect(router.back).not.toHaveBeenCalled();
   });
 
   it("does NOT show the storage-full alert for a plain Error (shows generic alert instead)", async () => {

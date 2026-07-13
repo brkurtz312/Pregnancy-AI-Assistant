@@ -200,6 +200,9 @@ describe("journal-entry.tsx — handleSave storage-full alert wiring", () => {
 
     const genericCall = calls.find((args) => args[0] === "Couldn't save");
     expect(genericCall).toBeUndefined();
+
+    const { router } = require("expo-router");
+    expect(router.back).not.toHaveBeenCalled();
   });
 
   it("does NOT show 'Could not save entry' for a plain Error (shows generic alert instead)", async () => {
