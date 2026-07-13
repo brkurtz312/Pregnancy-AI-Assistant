@@ -145,7 +145,7 @@ export default function JournalEntryScreen() {
             await replaceEntryId(toSave.id, synced.id);
           }
         } catch {
-          await markPendingSync("journal").catch(() => {});
+          await markPendingSync("journal");
           Alert.alert(
             "Saved locally",
             "No connection — your entry is saved on this device and will sync automatically when you're back online.",
