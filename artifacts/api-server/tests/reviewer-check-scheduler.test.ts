@@ -326,6 +326,47 @@ describe("alert cooldown", () => {
     expect(dispatch).toHaveBeenCalledTimes(2);
   });
 
+  it("attempts dispatch exactly once per cooldown window when the channel is permanently down", async () => {
+    vi.useFakeTimers();
+
+    // Dispatch always rejects — simulates a permanently unavailable channel
+    const permanentlyFailingDispatch = vi
+      .fn<[{ subject: string; body: string }], Promise<void>>()
+      .mockRejectedValue(new Error("channel permanently unavailable"));
+
+    const check = vi.fn().mockResolvedValue(failResult("pass_revoked"));
+    const cooldownMs = 60_000; // 1-minute window
+    const opts = {
+      cooldownMs,
+      _runCheck: check,
+      _dispatch: permanentlyFailingDispatch,
+    };
+
+    // First tick: dispatch is attempted (and rejects), cooldown armed
+    await runScheduledCheck(opts);
+    expect(permanentlyFailingDispatch).toHaveBeenCalledTimes(1);
+
+    // Multiple ticks within the same cooldown window — dispatch must NOT be
+    // retried; lastAlertSentAt was recorded before the rejection, so the
+    // cooldown suppresses all subsequent attempts
+    await runScheduledCheck(opts);
+    await runScheduledCheck(opts);
+    await runScheduledCheck(opts);
+    expect(permanentlyFailingDispatch).toHaveBeenCalledTimes(1);
+
+    // Advance past the cooldown window — a new alert window opens
+    vi.advanceTimersByTime(cooldownMs + 1);
+
+    // First tick of the second window: dispatch attempted again (still rejects)
+    await runScheduledCheck(opts);
+    expect(permanentlyFailingDispatch).toHaveBeenCalledTimes(2);
+
+    // Ticks within the second cooldown window are suppressed again
+    await runScheduledCheck(opts);
+    await runScheduledCheck(opts);
+    expect(permanentlyFailingDispatch).toHaveBeenCalledTimes(2);
+  });
+
   it("resets the cooldown after a passing check follows a failure", async () => {
     vi.useFakeTimers();
 
