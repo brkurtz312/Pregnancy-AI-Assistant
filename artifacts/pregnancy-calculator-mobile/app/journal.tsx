@@ -491,6 +491,20 @@ export default function JournalScreen() {
             })
             .catch(async () => {
               const local = await loadEntries();
+              // Prune orphaned media index keys even on cold launch from the
+              // local cache (server unreachable). This ensures a device that
+              // was force-quit mid-save recovers silently without needing a
+              // successful sync first.
+              try {
+                await pruneOrphanedMediaIndexKeys(
+                  new Set(local.map((e) => e.id)),
+                );
+              } catch (pruneErr) {
+                console.warn(
+                  "[journal] cold-launch: pruneOrphanedMediaIndexKeys failed — stale index keys may remain until the next launch.",
+                  pruneErr,
+                );
+              }
               setEntries(local);
               // Can't reach the server — show banner if a prior write failed.
               const pending = await hasPendingSync("journal");
@@ -498,7 +512,22 @@ export default function JournalScreen() {
             })
             .finally(() => releaseSyncLock("journal"));
         } else {
-          loadEntries().then(setEntries);
+          loadEntries().then(async (local) => {
+            // Prune orphaned media index keys on cold launch even when the user
+            // is not signed in, so phantom entries don't accumulate across
+            // anonymous sessions or after a sign-out.
+            try {
+              await pruneOrphanedMediaIndexKeys(
+                new Set(local.map((e) => e.id)),
+              );
+            } catch (pruneErr) {
+              console.warn(
+                "[journal] cold-launch (anon): pruneOrphanedMediaIndexKeys failed — stale index keys may remain until the next launch.",
+                pruneErr,
+              );
+            }
+            setEntries(local);
+          });
         }
       };
 
