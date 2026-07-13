@@ -4,17 +4,20 @@ import { ChevronDown, ChevronUp, Info } from "lucide-react";
 import {
   HEALTHY_PREGNANCY_ARTICLES,
   type HealthyPregnancyArticle,
+  type HealthyPregnancyArticleId,
 } from "@/lib/web-healthy-pregnancy";
 
 interface HealthyPregnancyProps {
-  initialArticleId?: string;
+  initialArticleId?: HealthyPregnancyArticleId;
 }
 
 export function HealthyPregnancy({ initialArticleId }: HealthyPregnancyProps) {
-  const [expanded, setExpanded] = useState<string | null>(
+  const [expanded, setExpanded] = useState<HealthyPregnancyArticleId | null>(
     initialArticleId ?? null,
   );
-  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const cardRefs = useRef<Map<HealthyPregnancyArticleId, HTMLDivElement>>(
+    new Map(),
+  );
 
   useEffect(() => {
     if (!initialArticleId) return;

@@ -6,6 +6,7 @@ import {
   SUPPORT_PERSON_VOLUMES,
   buildSupportPersonHtml,
   type SupportPersonVolume,
+  type SupportPersonVolumeNumber,
 } from "@/lib/web-support-person";
 import { printHtml } from "@/lib/print-html";
 
@@ -28,14 +29,16 @@ const VOL_COLORS = [
 ];
 
 interface SupportPersonProps {
-  initialVolumeNumber?: number;
+  initialVolumeNumber?: SupportPersonVolumeNumber;
 }
 
 export function SupportPerson({ initialVolumeNumber }: SupportPersonProps) {
-  const [expanded, setExpanded] = useState<number | null>(
+  const [expanded, setExpanded] = useState<SupportPersonVolumeNumber | null>(
     initialVolumeNumber ?? null,
   );
-  const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const cardRefs = useRef<Map<SupportPersonVolumeNumber, HTMLDivElement>>(
+    new Map(),
+  );
 
   useEffect(() => {
     if (!initialVolumeNumber) return;

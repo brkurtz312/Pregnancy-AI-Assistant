@@ -8,19 +8,20 @@ import {
   VIDEO_VAULT_SOURCE_COLORS,
   getVideoVaultTotals,
   type VideoVaultTopic,
+  type VideoVaultTopicId,
 } from "@/lib/web-video-vault";
 
 interface VideoVaultProps {
-  initialTopicId?: string;
+  initialTopicId?: VideoVaultTopicId;
 }
 
 export function VideoVault({ initialTopicId }: VideoVaultProps) {
   const [search, setSearch] = useState("");
   const [selectedSource, setSelectedSource] = useState("All");
   const [activeTopic, setActiveTopic] = useState<VideoVaultTopic | null>(null);
-  const [highlightTopicId, setHighlightTopicId] = useState<string | undefined>(
-    initialTopicId,
-  );
+  const [highlightTopicId, setHighlightTopicId] = useState<
+    VideoVaultTopicId | undefined
+  >(initialTopicId);
   const topicRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const { totalVideos, topicCount } = getVideoVaultTotals();
 

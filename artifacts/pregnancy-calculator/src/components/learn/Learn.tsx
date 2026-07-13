@@ -13,16 +13,25 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { VIDEO_VAULT_TOPICS } from "@/lib/web-video-vault";
-import { SUPPORT_PERSON_VOLUMES } from "@/lib/web-support-person";
-import { HEALTHY_PREGNANCY_ARTICLES } from "@/lib/web-healthy-pregnancy";
+import {
+  VIDEO_VAULT_TOPICS,
+  type VideoVaultTopicId,
+} from "@/lib/web-video-vault";
+import {
+  SUPPORT_PERSON_VOLUMES,
+  type SupportPersonVolumeNumber,
+} from "@/lib/web-support-person";
+import {
+  HEALTHY_PREGNANCY_ARTICLES,
+  type HealthyPregnancyArticleId,
+} from "@/lib/web-healthy-pregnancy";
 
 type LearnView = "hub" | "videovault" | "supportperson" | "healthypregnancy";
 
-interface DeepLink {
-  view: LearnView;
-  itemId: string;
-}
+type DeepLink =
+  | { view: "videovault"; itemId: VideoVaultTopicId }
+  | { view: "supportperson"; itemId: SupportPersonVolumeNumber }
+  | { view: "healthypregnancy"; itemId: HealthyPregnancyArticleId };
 
 const EXTERNAL_RESOURCES = [
   {
@@ -74,15 +83,29 @@ const EXTERNAL_RESOURCES = [
   },
 ];
 
-interface SearchResult {
-  section: "videovault" | "supportperson" | "healthypregnancy";
+type SearchResultBase = {
   label: string;
   sublabel?: string;
   icon: string;
   color: string;
-  view: LearnView;
-  itemId: string;
-}
+};
+
+type SearchResult =
+  | (SearchResultBase & {
+      section: "videovault";
+      view: "videovault";
+      itemId: VideoVaultTopicId;
+    })
+  | (SearchResultBase & {
+      section: "supportperson";
+      view: "supportperson";
+      itemId: SupportPersonVolumeNumber;
+    })
+  | (SearchResultBase & {
+      section: "healthypregnancy";
+      view: "healthypregnancy";
+      itemId: HealthyPregnancyArticleId;
+    });
 
 function buildSearchIndex(): SearchResult[] {
   const results: SearchResult[] = [];
@@ -107,7 +130,7 @@ function buildSearchIndex(): SearchResult[] {
       icon: ["📖", "📋", "🎉"][vol.volumeNumber - 1],
       color: "#7c3aed",
       view: "supportperson",
-      itemId: String(vol.volumeNumber),
+      itemId: vol.volumeNumber,
     });
   }
 
@@ -197,9 +220,15 @@ export function Learn() {
   const [deepLink, setDeepLink] = useState<DeepLink | null>(null);
   const [query, setQuery] = useState("");
 
-  function navigateTo(v: LearnView, itemId?: string) {
-    setView(v);
-    setDeepLink(itemId ? { view: v, itemId } : null);
+  function navigateToHub() {
+    setView("hub");
+    setDeepLink(null);
+    setQuery("");
+  }
+
+  function navigateTo(link: DeepLink) {
+    setView(link.view);
+    setDeepLink(link);
     setQuery("");
   }
 
@@ -207,7 +236,7 @@ export function Learn() {
     return (
       <div className="space-y-4">
         <button
-          onClick={() => navigateTo("hub")}
+          onClick={navigateToHub}
           className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
         >
           ← Back to Learn
@@ -222,17 +251,19 @@ export function Learn() {
   }
 
   if (view === "supportperson") {
-    const volNum =
-      deepLink?.view === "supportperson" ? Number(deepLink.itemId) : undefined;
     return (
       <div className="space-y-4">
         <button
-          onClick={() => navigateTo("hub")}
+          onClick={navigateToHub}
           className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
         >
           ← Back to Learn
         </button>
-        <SupportPerson initialVolumeNumber={volNum} />
+        <SupportPerson
+          initialVolumeNumber={
+            deepLink?.view === "supportperson" ? deepLink.itemId : undefined
+          }
+        />
       </div>
     );
   }
@@ -241,7 +272,7 @@ export function Learn() {
     return (
       <div className="space-y-4">
         <button
-          onClick={() => navigateTo("hub")}
+          onClick={navigateToHub}
           className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
         >
           ← Back to Learn
@@ -270,15 +301,12 @@ export function Learn() {
       <SearchBar query={query} onChange={setQuery} />
 
       {query.trim() ? (
-        <SearchResults
-          query={query}
-          onNavigate={(v, itemId) => navigateTo(v, itemId)}
-        />
+        <SearchResults query={query} onNavigate={navigateTo} />
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2">
             <Card
-              onClick={() => navigateTo("videovault")}
+              onClick={() => setView("videovault")}
               className="p-5 cursor-pointer hover:bg-muted/30 transition-colors border-border/50 rounded-2xl group"
             >
               <div className="flex items-start gap-4">
@@ -301,7 +329,7 @@ export function Learn() {
             </Card>
 
             <Card
-              onClick={() => navigateTo("supportperson")}
+              onClick={() => setView("supportperson")}
               className="p-5 cursor-pointer hover:bg-muted/30 transition-colors border-border/50 rounded-2xl group"
             >
               <div className="flex items-start gap-4">
@@ -324,7 +352,7 @@ export function Learn() {
             </Card>
 
             <Card
-              onClick={() => navigateTo("healthypregnancy")}
+              onClick={() => setView("healthypregnancy")}
               className="p-5 cursor-pointer hover:bg-muted/30 transition-colors border-border/50 rounded-2xl group sm:col-span-2"
             >
               <div className="flex items-start gap-4">
@@ -421,7 +449,7 @@ function SearchResults({
   onNavigate,
 }: {
   query: string;
-  onNavigate: (view: LearnView, itemId: string) => void;
+  onNavigate: (link: DeepLink) => void;
 }) {
   const matches = useMemo(
     () => ALL_RESULTS.filter((r) => matchesQuery(r, query)),
@@ -463,7 +491,7 @@ function SearchResults({
             {items.map((item) => (
               <button
                 key={`${item.section}-${item.label}`}
-                onClick={() => onNavigate(item.view, item.itemId)}
+                onClick={() => onNavigate(item)}
                 className="w-full text-left flex items-center gap-3 p-3 rounded-xl border border-border/50 hover:bg-muted/30 transition-colors group"
               >
                 <div

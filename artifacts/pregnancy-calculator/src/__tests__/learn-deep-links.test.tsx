@@ -14,7 +14,10 @@ import { describe, it, expect, vi, beforeAll, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { VIDEO_VAULT_TOPICS } from "@/lib/web-video-vault";
 import { SUPPORT_PERSON_VOLUMES } from "@/lib/web-support-person";
-import { HEALTHY_PREGNANCY_ARTICLES } from "@/lib/web-healthy-pregnancy";
+import {
+  HEALTHY_PREGNANCY_ARTICLES,
+  type HealthyPregnancyArticleId,
+} from "@/lib/web-healthy-pregnancy";
 import { HealthyPregnancy } from "@/components/learn/HealthyPregnancy";
 import { VideoVault } from "@/components/learn/VideoVault";
 import { SupportPerson } from "@/components/learn/SupportPerson";
@@ -141,7 +144,8 @@ describe("HealthyPregnancy — initialArticleId deep-link", () => {
   });
 
   it("unknown initialArticleId leaves all accordions closed", () => {
-    render(<HealthyPregnancy initialArticleId="does-not-exist" />);
+    const unknownId = "does-not-exist" as unknown as HealthyPregnancyArticleId;
+    render(<HealthyPregnancy initialArticleId={unknownId} />);
     for (const article of HEALTHY_PREGNANCY_ARTICLES) {
       expect(screen.queryByText(article.sections[0].heading)).toBeNull();
     }

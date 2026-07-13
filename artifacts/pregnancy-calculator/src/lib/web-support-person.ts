@@ -1,5 +1,7 @@
+export type SupportPersonVolumeNumber = 1 | 2 | 3;
+
 export interface SupportPersonVolume {
-  volumeNumber: 1 | 2 | 3;
+  volumeNumber: SupportPersonVolumeNumber;
   seriesLabel: string;
   handoutTitle: string;
   pageSubtitle: string;

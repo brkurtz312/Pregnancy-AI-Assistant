@@ -1,15 +1,28 @@
+export const HEALTHY_PREGNANCY_ARTICLE_IDS = [
+  "travel",
+  "work",
+  "nutrition",
+  "exercise",
+  "intimacy",
+  "medications",
+  "warning-signs",
+] as const;
+
+export type HealthyPregnancyArticleId =
+  (typeof HEALTHY_PREGNANCY_ARTICLE_IDS)[number];
+
+export interface ArticleSection {
+  heading: string;
+  bullets: string[];
+}
+
 export interface HealthyPregnancyArticle {
-  id: string;
+  id: HealthyPregnancyArticleId;
   title: string;
   description: string;
   emoji: string;
   color: string;
   sections: ArticleSection[];
-}
-
-export interface ArticleSection {
-  heading: string;
-  bullets: string[];
 }
 
 export const HEALTHY_PREGNANCY_ARTICLES: HealthyPregnancyArticle[] = [
