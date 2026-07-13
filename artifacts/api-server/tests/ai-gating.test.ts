@@ -368,3 +368,71 @@ describe("POST /api/ai/weekly-insight no-metering guarantee", () => {
     expect(refundUsage).not.toHaveBeenCalled();
   });
 });
+
+// ---------------------------------------------------------------------------
+// weekly-insight — cache is flushed on server restart
+// ---------------------------------------------------------------------------
+// The weeklyInsightCache is a module-level in-process TtlCache. Every deploy
+// or process restart creates a fresh module instance with an empty cache,
+// which means the first request after a restart always triggers a paid
+// Anthropic call — exactly as intended.
+//
+// This describe block guards against the cache accidentally becoming
+// persistent (e.g. if someone moves it to a shared store or exports the
+// instance): by resetting the module registry with vi.resetModules() and
+// dynamically re-importing the router, we simulate a fresh process start and
+// confirm the cache starts empty.
+describe("POST /api/ai/weekly-insight cache is flushed on server restart", () => {
+  it("calls Anthropic on the first request after a module reset (restart simulation)", async () => {
+    // --- Step 1: Prime the in-process cache in the "old" process. ---
+    const week = ++weekCounter;
+    anthropicCreate.mockResolvedValue(fakeAnswer("Old cached insight."));
+    const primeRes = await insight({ week });
+    expect(primeRes.status).toBe(200);
+    // Cache is now warm for this week in the top-level module instance.
+    expect(anthropicCreate).toHaveBeenCalledTimes(1);
+
+    vi.clearAllMocks();
+    isAnthropicConfigured.mockReturnValue(true);
+    anthropicCreate.mockResolvedValue(fakeAnswer("Fresh insight after restart."));
+
+    // --- Step 2: Simulate a server restart. ---
+    // vi.resetModules() clears the module registry so the next dynamic import
+    // produces a brand-new module instance. The module-level weeklyInsightCache
+    // inside the fresh router is therefore empty, matching what happens when a
+    // real process restarts. The vi.mock() registrations remain active so the
+    // fresh module still receives the same mock collaborators.
+    vi.resetModules();
+
+    const { default: freshRouter } = await import("../src/routes/ai/index");
+
+    const freshApp = express();
+    freshApp.use(express.json());
+    freshApp.use((req: Request, _res: Response, next: NextFunction) => {
+      (req as Request & { log: unknown }).log = {
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      };
+      next();
+    });
+    freshApp.use("/api", freshRouter);
+
+    // --- Step 3: First request against the fresh module (cache miss). ---
+    // Even though this week was cached in the old process, the new module
+    // instance has an empty cache, so Anthropic must be called exactly once.
+    ipCounter += 1;
+    const res = await request(freshApp)
+      .post("/api/ai/weekly-insight")
+      .set("x-forwarded-for", `203.0.113.${ipCounter}`)
+      .send({ week });
+
+    expect(res.status).toBe(200);
+    expect(res.body.insight).toContain("Fresh insight after restart.");
+    // The empty post-restart cache required a new Anthropic call.
+    expect(anthropicCreate).toHaveBeenCalledTimes(1);
+    // No quota metering on this endpoint regardless of restart state.
+    expect(reserveUsage).not.toHaveBeenCalled();
+    expect(refundUsage).not.toHaveBeenCalled();
+  });
+});
