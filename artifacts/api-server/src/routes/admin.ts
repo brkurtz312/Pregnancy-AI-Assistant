@@ -274,6 +274,150 @@ router.put("/admin/alert-config", requireAdminToken, async (req, res) => {
   }
 });
 
+/**
+ * POST /api/admin/test-alert
+ *
+ * Sends a clearly-labelled test message to every configured alert channel
+ * (Slack webhook and/or Resend email) so operators can verify the pipeline
+ * is wired correctly before an incident.
+ *
+ * The endpoint resolves channel config from app_config rows (same priority
+ * order as the real alert dispatcher), then dispatches and reports per-channel
+ * results. It does NOT throw on partial failures — the response body describes
+ * what succeeded and what failed so the caller can act accordingly.
+ *
+ * Auth: Bearer token matched against ADMIN_CHECK_TOKEN env var.
+ *
+ * Responses:
+ *   200 { ok: true,  channels: ChannelResult[] }  — all channels succeeded
+ *   200 { ok: false, channels: ChannelResult[] }  — one or more channels failed
+ *   401  — missing or invalid token
+ *   503  — no admin token configured on the server
+ *   503  — no alert channels are configured
+ *
+ * ChannelResult: { channel: "slack" | "email", ok: boolean, error?: string }
+ */
+router.post("/admin/test-alert", requireAdminToken, async (req, res) => {
+  const timestamp = new Date().toISOString();
+
+  const testPayload = {
+    subject: `[SMOKE TEST] Alert channel check — ${timestamp}`,
+    body:
+      `This is a test message sent via POST /api/admin/test-alert at ${timestamp}.\n` +
+      `No action required — this confirms the alert pipeline is reachable.`,
+  };
+
+  interface ChannelResult {
+    channel: "slack" | "email";
+    ok: boolean;
+    error?: string;
+  }
+
+  const channels: ChannelResult[] = [];
+
+  const ALERT_CONFIG_KEYS = [
+    "alert_slack_webhook_url",
+    "alert_resend_api_key",
+    "alert_email",
+    "alert_from_email",
+  ] as const;
+
+  let byKey: Map<string, string> = new Map();
+  try {
+    const rows = await db
+      .select()
+      .from(appConfigTable)
+      .where(inArray(appConfigTable.key, [...ALERT_CONFIG_KEYS]));
+    byKey = new Map(rows.map((r) => [r.key, r.value]));
+  } catch (err) {
+    req.log.warn({ err }, "test-alert: could not read app_config, using env vars");
+  }
+
+  const slackWebhookUrl =
+    byKey.get("alert_slack_webhook_url") ??
+    process.env.ALERT_SLACK_WEBHOOK_URL ??
+    null;
+
+  const resendApiKey =
+    byKey.get("alert_resend_api_key") ??
+    process.env.ALERT_RESEND_API_KEY ??
+    null;
+
+  const alertEmail =
+    byKey.get("alert_email") ?? process.env.ALERT_EMAIL ?? null;
+
+  const alertFromEmail =
+    byKey.get("alert_from_email") ?? process.env.ALERT_FROM_EMAIL ?? null;
+
+  if (!slackWebhookUrl && !(resendApiKey && alertEmail)) {
+    res.status(503).json({
+      error:
+        "No alert channels configured. Set alert_slack_webhook_url in app_config (or ALERT_SLACK_WEBHOOK_URL env var), or alert_resend_api_key + alert_email.",
+    });
+    return;
+  }
+
+  if (slackWebhookUrl) {
+    try {
+      const body = JSON.stringify({
+        text: `🧪 *[SMOKE TEST] Alert channel check — ${timestamp}*\n${testPayload.body}`,
+      });
+      const slackRes = await fetch(slackWebhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      });
+      if (!slackRes.ok) {
+        const text = await slackRes.text().catch(() => "(unreadable)");
+        channels.push({ channel: "slack", ok: false, error: `HTTP ${slackRes.status}: ${text}` });
+        req.log.error({ status: slackRes.status }, "test-alert: Slack webhook failed");
+      } else {
+        channels.push({ channel: "slack", ok: true });
+        req.log.info("test-alert: Slack webhook delivered");
+      }
+    } catch (err) {
+      const message = (err as Error).message;
+      channels.push({ channel: "slack", ok: false, error: message });
+      req.log.error({ err }, "test-alert: Slack webhook threw");
+    }
+  }
+
+  if (resendApiKey && alertEmail) {
+    const from = alertFromEmail ?? `alerts@${alertEmail.split("@")[1]}`;
+    try {
+      const body = JSON.stringify({
+        from,
+        to: [alertEmail],
+        subject: testPayload.subject,
+        text: testPayload.body,
+      });
+      const emailRes = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${resendApiKey}`,
+        },
+        body,
+      });
+      if (!emailRes.ok) {
+        const text = await emailRes.text().catch(() => "(unreadable)");
+        channels.push({ channel: "email", ok: false, error: `HTTP ${emailRes.status}: ${text}` });
+        req.log.error({ status: emailRes.status }, "test-alert: Resend email failed");
+      } else {
+        channels.push({ channel: "email", ok: true });
+        req.log.info({ to: alertEmail }, "test-alert: Resend email delivered");
+      }
+    } catch (err) {
+      const message = (err as Error).message;
+      channels.push({ channel: "email", ok: false, error: message });
+      req.log.error({ err }, "test-alert: Resend email threw");
+    }
+  }
+
+  const allOk = channels.every((c) => c.ok);
+  res.status(200).json({ ok: allOk, channels });
+});
+
 // Keep isAlertKey available for future use
 export { isAlertKey };
 export default router;
