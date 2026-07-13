@@ -23,7 +23,10 @@
 
 import React from "react";
 import { act, create } from "react-test-renderer";
-import { flushAsync } from "../test-helpers/testUtils";
+import {
+  flushAsync,
+  useFakeTimersWithScheduler,
+} from "../test-helpers/testUtils";
 
 // ─── Shared RN mocks ──────────────────────────────────────────────────────────
 
@@ -204,6 +207,13 @@ const SERVER_JOURNAL_ENTRIES = [
 ];
 
 describe("Journal — cold reinstall (AsyncStorage wiped)", () => {
+  // Fake setTimeout/setInterval (preserving setImmediate + nextTick) so that
+  // React's internal scheduler fires instantly inside act() instead of burning
+  // real wall-clock time. Without this, each act(async…) round in flushAsync()
+  // spins waiting for scheduler setTimeout(0) callbacks, making the first test
+  // take ~12 s and intermittently timeout at the 15 s CI limit.
+  useFakeTimersWithScheduler();
+
   beforeEach(() => {
     jest.clearAllMocks();
     setSignedIn();
@@ -223,12 +233,16 @@ describe("Journal — cold reinstall (AsyncStorage wiped)", () => {
     act(() => {
       renderer = create(React.createElement(JournalScreen));
     });
-    await flushAsync();
+    // Use more rounds than the default 5 to ensure the full async chain
+    // (getJournalCacheOwner → apiLoad → loadEntries → loadMediaIndex →
+    //  pruneOrphanedMediaIndexKeys → cacheEntries → setJournalCacheOwner →
+    //  setEntries) has fully resolved before asserting the rendered output.
+    await flushAsync(10);
 
     const json = JSON.stringify(renderer!.toJSON());
     expect(json).toContain("First scan — everything looks perfect!");
     expect(json).toContain("Feeling movement for the first time!");
-  }, 15000);
+  });
 
   it("caches server entries into AsyncStorage so subsequent offline loads work", async () => {
     mockApiLoadJournal.mockResolvedValue(SERVER_JOURNAL_ENTRIES);
