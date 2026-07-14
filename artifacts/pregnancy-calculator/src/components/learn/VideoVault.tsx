@@ -22,7 +22,7 @@ export function VideoVault({ initialTopicId }: VideoVaultProps) {
   const [highlightTopicId, setHighlightTopicId] = useState<
     VideoVaultTopicId | undefined
   >(initialTopicId);
-  const topicRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const topicRefs = useRef<Map<VideoVaultTopicId, HTMLDivElement>>(new Map());
   const { totalVideos, topicCount } = getVideoVaultTotals();
 
   useEffect(() => {
