@@ -100,12 +100,13 @@ const getSpeechRecognition = (): SpeechRecognitionConstructor | null => {
 export function Scribe() {
   const { isSignedIn } = useUser();
   const { getToken } = useAuth();
-  const { startCheckout, isStartingCheckout } = usePass();
+  const { startCheckout, isStartingCheckout, hasPass } = usePass();
   const [status, setStatus] = useState<Status>("idle");
   const [transcript, setTranscript] = useState("");
   const [summary, setSummary] = useState<PatientSummary | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [isLimitError, setIsLimitError] = useState(false);
+
   const [copied, setCopied] = useState(false);
   const [savedNotes, setSavedNotes] = useState<SavedNote[]>([]);
   const [viewNote, setViewNote] = useState<SavedNote | null>(null);
@@ -116,6 +117,13 @@ export function Scribe() {
   useEffect(() => {
     setSavedNotes(loadSavedNotes());
   }, []);
+
+  useEffect(() => {
+    if (hasPass && isLimitError) {
+      setIsLimitError(false);
+      setErrorMsg("");
+    }
+  }, [hasPass, isLimitError]);
 
   const startRecording = () => {
     const SR = getSpeechRecognition();
