@@ -269,6 +269,104 @@ describe("POST /scribe/generate-note — DB error during pre-check", () => {
   });
 });
 
+// ─── transcribe: DB recovery ──────────────────────────────────────────────────
+
+describe("POST /scribe/transcribe — DB recovery after 503", () => {
+  it("returns 200 on the second request after the DB recovers", async () => {
+    const app = buildApp();
+
+    mockUserHasPass.mockRejectedValueOnce(new Error("DB connection lost"));
+    const first = await postTranscribe(app);
+    expect(first.status).toBe(503);
+
+    const second = await postTranscribe(app);
+    expect(second.status).toBe(200);
+    expect(second.body.transcript).toBe("Transcribed audio.");
+  });
+
+  it("does not carry usage state from the failed request into the recovery request", async () => {
+    const app = buildApp();
+
+    mockUserHasPass.mockRejectedValueOnce(new Error("DB connection lost"));
+    await postTranscribe(app);
+
+    await postTranscribe(app);
+
+    expect(mockGetUsage).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ─── generate-note: DB recovery ───────────────────────────────────────────────
+
+describe("POST /scribe/generate-note — DB recovery after 503", () => {
+  it("returns 200 on the second request after the DB recovers", async () => {
+    const app = buildApp();
+
+    mockUserHasPass.mockRejectedValueOnce(new Error("DB connection lost"));
+    const first = await postGenerateNote(app, {
+      transcript: VALID_TRANSCRIPT,
+      mode: "summary",
+    });
+    expect(first.status).toBe(503);
+
+    const second = await postGenerateNote(app, {
+      transcript: VALID_TRANSCRIPT,
+      mode: "summary",
+    });
+    expect(second.status).toBe(200);
+    expect(second.body.mode).toBe("summary");
+  });
+
+  it("does not carry reserved-usage state from the failed request into the recovery request", async () => {
+    const app = buildApp();
+
+    mockUserHasPass.mockRejectedValueOnce(new Error("DB connection lost"));
+    await postGenerateNote(app, {
+      transcript: VALID_TRANSCRIPT,
+      mode: "summary",
+    });
+
+    await postGenerateNote(app, {
+      transcript: VALID_TRANSCRIPT,
+      mode: "summary",
+    });
+
+    expect(mockReserveUsage).toHaveBeenCalledTimes(1);
+    expect(mockRefundUsage).not.toHaveBeenCalled();
+  });
+
+  it("returns 200 for soap mode on the second request after the DB recovers", async () => {
+    const app = buildApp();
+    mockAnthropicCreate.mockResolvedValue({
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            subjective: "Patient presents at 28 weeks.",
+            objective: "Blood pressure normal.",
+            assessment: "Routine prenatal visit.",
+            plan: "Schedule glucose screening.",
+          }),
+        },
+      ],
+    });
+
+    mockUserHasPass.mockRejectedValueOnce(new Error("DB connection lost"));
+    const first = await postGenerateNote(app, {
+      transcript: VALID_TRANSCRIPT,
+      mode: "soap",
+    });
+    expect(first.status).toBe(503);
+
+    const second = await postGenerateNote(app, {
+      transcript: VALID_TRANSCRIPT,
+      mode: "soap",
+    });
+    expect(second.status).toBe(200);
+    expect(second.body.mode).toBe("soap");
+  });
+});
+
 // ─── generate-note: normal 403 path ──────────────────────────────────────────
 
 describe("POST /scribe/generate-note — 403 path under healthy DB", () => {
