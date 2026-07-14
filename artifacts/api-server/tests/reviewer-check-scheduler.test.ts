@@ -367,6 +367,46 @@ describe("alert cooldown", () => {
     expect(permanentlyFailingDispatch).toHaveBeenCalledTimes(2);
   });
 
+  it("recovers gracefully when the channel comes back online after being permanently down", async () => {
+    vi.useFakeTimers();
+
+    // Dispatch rejects during the first window, then resolves from the second
+    // window onward — simulates a channel that was down and then recovered.
+    const dispatch = vi
+      .fn<[{ subject: string; body: string }], Promise<void>>()
+      .mockRejectedValueOnce(new Error("channel unavailable")) // first window
+      .mockResolvedValue(undefined); // second window and beyond
+
+    const check = vi.fn().mockResolvedValue(failResult("pass_revoked"));
+    const cooldownMs = 60_000; // 1-minute window
+    const opts = { cooldownMs, _runCheck: check, _dispatch: dispatch };
+
+    // First tick: dispatch attempted (rejects), cooldown armed
+    await runScheduledCheck(opts);
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(dispatch.mock.calls[0][0].subject).toContain("failed");
+
+    // Ticks within the first cooldown window are suppressed (cooldown was set
+    // before the rejection, so it is still active)
+    await runScheduledCheck(opts);
+    await runScheduledCheck(opts);
+    expect(dispatch).toHaveBeenCalledTimes(1);
+
+    // Advance past the first cooldown window — channel is now back online
+    vi.advanceTimersByTime(cooldownMs + 1);
+
+    // First tick of the second window: dispatch succeeds (channel recovered)
+    await runScheduledCheck(opts);
+    expect(dispatch).toHaveBeenCalledTimes(2);
+    expect(dispatch.mock.calls[1][0].subject).toContain("failed");
+    expect(dispatch.mock.calls[1][0].body).toContain("pass_revoked");
+
+    // Subsequent ticks within the second cooldown window are suppressed normally
+    await runScheduledCheck(opts);
+    await runScheduledCheck(opts);
+    expect(dispatch).toHaveBeenCalledTimes(2);
+  });
+
   it("resets the cooldown after a passing check follows a failure", async () => {
     vi.useFakeTimers();
 
