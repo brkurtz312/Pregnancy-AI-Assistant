@@ -41,9 +41,10 @@
  * ──────────────────────────
  * If you need to control setTimeout in a new test file, use
  * `useFakeTimersWithScheduler()` — never call `jest.useFakeTimers()` directly.
- * Files that call useFakeTimersWithScheduler and use flushAsync(N) with a
- * large N (≥ 8) should also add `jest.setTimeout(15000)` at the file top so
- * the tests have headroom under concurrent CI load.
+ * `useFakeTimersWithScheduler` automatically raises the Jest test timeout to
+ * 15 000 ms (via a beforeAll hook) so callers always have headroom under
+ * concurrent CI load.  There is no need to add `jest.setTimeout(15000)` by
+ * hand in test files that already call `useFakeTimersWithScheduler()`.
  *
  * Usage
  * ─────
@@ -111,6 +112,13 @@ export async function flushAsync(rounds = 5): Promise<void> {
  * advancement is needed in most tests.
  */
 export function useFakeTimersWithScheduler(): void {
+  // Raise the Jest timeout for the whole describe block so that the multiple
+  // flushAsync() rounds this helper enables never exceed the default 5 s limit
+  // under concurrent CI load.  Callers do not need to add jest.setTimeout()
+  // themselves — this beforeAll handles it automatically.
+  beforeAll(() => {
+    jest.setTimeout(15000);
+  });
   beforeEach(() => {
     jest.useFakeTimers({ doNotFake: ["setImmediate", "nextTick"] });
   });
