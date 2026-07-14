@@ -64,6 +64,7 @@ jest.mock("@workspace/api-client-react", () => ({
     isLoading: false,
     refetch: jest.fn(),
   })),
+  getListPrenatalVisitsQueryKey: jest.fn(() => ["prenatal-visits"]),
   useCreatePrenatalVisit: jest.fn(() => ({
     mutateAsync: jest.fn(),
     isPending: false,
@@ -77,8 +78,11 @@ jest.mock("@workspace/api-client-react", () => ({
     isPending: false,
   })),
   useListSymptoms: jest.fn(() => ({ data: undefined })),
+  getListSymptomsQueryKey: jest.fn(() => ["symptoms"]),
   useListKickSessions: jest.fn(() => ({ data: undefined })),
+  getListKickSessionsQueryKey: jest.fn(() => ["kick-sessions"]),
   useListContractions: jest.fn(() => ({ data: undefined })),
+  getListContractionsQueryKey: jest.fn(() => ["contractions"]),
 }));
 
 jest.mock("@/lib/visit-questions", () => ({

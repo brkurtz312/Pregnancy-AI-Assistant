@@ -28,11 +28,11 @@ import {
   useFakeTimersWithScheduler,
 } from "../test-helpers/testUtils";
 
-// This file uses fake timers + flushAsync(10) which, under concurrent CI load
+// This file uses fake timers + flushAsync(15) which, under concurrent CI load
 // (all workspace test suites running in parallel), takes longer than Jest's
-// default 5 s per-test timeout.  15 s gives comfortable headroom without
+// default 5 s per-test timeout.  25 s gives comfortable headroom without
 // masking genuinely hung tests.
-jest.setTimeout(15000);
+jest.setTimeout(25000);
 
 // ─── Shared RN mocks ──────────────────────────────────────────────────────────
 

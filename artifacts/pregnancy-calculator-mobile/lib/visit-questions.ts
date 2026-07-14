@@ -59,6 +59,14 @@ export async function saveQuestions(items: QuestionItem[]): Promise<void> {
   await AsyncStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(items));
 }
 
+export async function clearVisitQuestionsCache(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(QUESTIONS_STORAGE_KEY);
+  } catch {
+    // best-effort
+  }
+}
+
 export function getSelectedQuestions(items: QuestionItem[]): string[] {
   return items.filter((q) => q.selected).map((q) => q.text);
 }

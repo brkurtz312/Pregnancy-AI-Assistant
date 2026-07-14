@@ -2,12 +2,14 @@
  * Unit tests for AuthTokenBridge — the mobile equivalent of the web's
  * SessionWatcher. Verifies that switching accounts on a shared device never
  * leaves stale cached data from the previous user in the React Query store
- * or in the AsyncStorage tool caches (journal, hospital bag, birth plan).
+ * or in the AsyncStorage tool caches (journal, hospital bag, birth plan,
+ * visit questions).
  *
  * Scenarios covered:
  *   User A signs in  → queryClient.invalidateQueries() is called
  *   User A signs out → queryClient.clear() is called (cache wiped)
- *                    → clearJournalCache / clearHospitalBagCache / clearBirthPlanCache called
+ *                    → clearJournalCache / clearHospitalBagCache /
+ *                       clearBirthPlanCache / clearVisitQuestionsCache called
  *   User B signs in  → queryClient.invalidateQueries() is called (fresh fetch)
  *
  * This mirrors session-switch-isolation.spec.ts on the web side.
@@ -37,11 +39,16 @@ jest.mock("@/lib/birth-plan", () => ({
   clearBirthPlanCache: jest.fn(async () => {}),
 }));
 
+jest.mock("@/lib/visit-questions", () => ({
+  clearVisitQuestionsCache: jest.fn(async () => {}),
+}));
+
 import { useSession } from "@clerk/expo";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { clearJournalCache } from "@/lib/journal";
 import { clearHospitalBagCache } from "@/lib/hospital-bag";
 import { clearBirthPlanCache } from "@/lib/birth-plan";
+import { clearVisitQuestionsCache } from "@/lib/visit-questions";
 import { AuthTokenBridge } from "../components/AuthTokenBridge";
 
 const mockUseSession = useSession as jest.Mock;
@@ -49,6 +56,7 @@ const mockSetAuthTokenGetter = setAuthTokenGetter as jest.Mock;
 const mockClearJournal = clearJournalCache as jest.Mock;
 const mockClearHospitalBag = clearHospitalBagCache as jest.Mock;
 const mockClearBirthPlan = clearBirthPlanCache as jest.Mock;
+const mockClearVisitQuestions = clearVisitQuestionsCache as jest.Mock;
 
 function makeSession(id: string) {
   return { getToken: jest.fn(async () => `token-${id}`) };
@@ -196,7 +204,7 @@ describe("AuthTokenBridge — session-switch isolation", () => {
     expect(clear).toHaveBeenCalledTimes(1); // still only once, from sign-out
   });
 
-  it("clears journal, hospital-bag, and birth-plan caches on sign-out", async () => {
+  it("clears journal, hospital-bag, birth-plan, and visit-questions caches on sign-out", async () => {
     const qc = new QueryClient();
 
     const renderer = renderBridge(qc, makeSession("userA"));
@@ -216,6 +224,7 @@ describe("AuthTokenBridge — session-switch isolation", () => {
     expect(mockClearJournal).toHaveBeenCalledTimes(1);
     expect(mockClearHospitalBag).toHaveBeenCalledTimes(1);
     expect(mockClearBirthPlan).toHaveBeenCalledTimes(1);
+    expect(mockClearVisitQuestions).toHaveBeenCalledTimes(1);
   });
 
   it("does NOT clear tool caches on sign-in (only on sign-out)", async () => {
@@ -238,6 +247,7 @@ describe("AuthTokenBridge — session-switch isolation", () => {
     expect(mockClearJournal).not.toHaveBeenCalled();
     expect(mockClearHospitalBag).not.toHaveBeenCalled();
     expect(mockClearBirthPlan).not.toHaveBeenCalled();
+    expect(mockClearVisitQuestions).not.toHaveBeenCalled();
   });
 
   it("does not call invalidateQueries or clear when the same session re-renders without changing", async () => {

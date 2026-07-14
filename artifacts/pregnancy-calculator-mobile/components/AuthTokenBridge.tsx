@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { clearJournalCache } from "@/lib/journal";
 import { clearHospitalBagCache } from "@/lib/hospital-bag";
 import { clearBirthPlanCache } from "@/lib/birth-plan";
+import { clearVisitQuestionsCache } from "@/lib/visit-questions";
 
 /**
  * Bridges the Clerk session token into the generated API client and keeps the
@@ -76,6 +77,7 @@ export function AuthTokenBridge() {
       clearJournalCache().catch(() => {});
       clearHospitalBagCache().catch(() => {});
       clearBirthPlanCache().catch(() => {});
+      clearVisitQuestionsCache().catch(() => {});
     }
   }, [session, queryClient]);
 

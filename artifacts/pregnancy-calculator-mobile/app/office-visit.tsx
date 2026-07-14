@@ -24,12 +24,16 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   useListPrenatalVisits,
+  getListPrenatalVisitsQueryKey,
   useCreatePrenatalVisit,
   useUpdatePrenatalVisit,
   useDeletePrenatalVisit,
   useListSymptoms,
+  getListSymptomsQueryKey,
   useListKickSessions,
+  getListKickSessionsQueryKey,
   useListContractions,
+  getListContractionsQueryKey,
   useGetProfile,
   getGetProfileQueryKey,
   type PrenatalVisit,
@@ -994,14 +998,33 @@ function buildPrepHtml(
 
 function QuestionsToAskSection() {
   const colors = useColors();
+  const { isSignedIn } = useUser();
   const [items, setItems] = useState<QuestionItem[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [newQuestion, setNewQuestion] = useState("");
   const [viewing, setViewing] = useState(false);
 
-  const { data: symptomsData } = useListSymptoms({ limit: 10, offset: 0 });
-  const { data: kickData } = useListKickSessions({ limit: 5, offset: 0 });
-  const { data: contractionData } = useListContractions({ limit: 50 });
+  const symptomsParams = { limit: 10, offset: 0 };
+  const { data: symptomsData } = useListSymptoms(symptomsParams, {
+    query: {
+      queryKey: getListSymptomsQueryKey(symptomsParams),
+      enabled: !!isSignedIn,
+    },
+  });
+  const kickParams = { limit: 5, offset: 0 };
+  const { data: kickData } = useListKickSessions(kickParams, {
+    query: {
+      queryKey: getListKickSessionsQueryKey(kickParams),
+      enabled: !!isSignedIn,
+    },
+  });
+  const contractionParams = { limit: 50 };
+  const { data: contractionData } = useListContractions(contractionParams, {
+    query: {
+      queryKey: getListContractionsQueryKey(contractionParams),
+      enabled: !!isSignedIn,
+    },
+  });
 
   useEffect(() => {
     loadQuestions()
@@ -1187,10 +1210,16 @@ export default function OfficeVisitScreen() {
   });
   const dueDate = profileData?.dueDate ?? null;
 
-  const { data, isLoading, refetch } = useListPrenatalVisits({
-    limit: 50,
-    offset: 0,
-  });
+  const prenatalVisitsParams = { limit: 50, offset: 0 };
+  const { data, isLoading, refetch } = useListPrenatalVisits(
+    prenatalVisitsParams,
+    {
+      query: {
+        queryKey: getListPrenatalVisitsQueryKey(prenatalVisitsParams),
+        enabled: !!isSignedIn,
+      },
+    },
+  );
   const createMutation = useCreatePrenatalVisit();
   const updateMutation = useUpdatePrenatalVisit();
   const deleteMutation = useDeletePrenatalVisit();
