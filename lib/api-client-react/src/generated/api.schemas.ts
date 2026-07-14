@@ -178,6 +178,8 @@ export interface PrenatalVisit {
   /** @nullable */
   bloodPressure?: string | null;
   /** @nullable */
+  fetalHeartRate?: string | null;
+  /** @nullable */
   notes?: string | null;
   createdAt: string;
 }
@@ -200,6 +202,11 @@ export interface CreatePrenatalVisitBody {
    */
   bloodPressure?: string | null;
   /**
+   * @maxLength 50
+   * @nullable
+   */
+  fetalHeartRate?: string | null;
+  /**
    * @maxLength 1000
    * @nullable
    */
@@ -219,6 +226,11 @@ export interface UpdatePrenatalVisitBody {
    * @nullable
    */
   bloodPressure?: string | null;
+  /**
+   * @maxLength 50
+   * @nullable
+   */
+  fetalHeartRate?: string | null;
   /**
    * @maxLength 1000
    * @nullable

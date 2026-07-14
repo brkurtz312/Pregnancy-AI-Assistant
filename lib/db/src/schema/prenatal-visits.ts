@@ -8,6 +8,7 @@ export const prenatalVisitsTable = pgTable("prenatal_visits", {
   visitDate: timestamp("visit_date").notNull(),
   weight: text("weight"),
   bloodPressure: text("blood_pressure"),
+  fetalHeartRate: text("fetal_heart_rate"),
   notes: text("notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

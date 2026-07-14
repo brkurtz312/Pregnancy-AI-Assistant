@@ -944,7 +944,9 @@ describe("Search navigation — keyword → router.push route", () => {
     expect(hpNutritionResult).toBeDefined();
     // Any VideoVault or SupportPerson match for "nutrition" has its own route,
     // NOT the /hp-nutrition route — no route bleeding across sections.
-    const nonHpMatches = matches.filter((r) => r.section !== "healthypregnancy");
+    const nonHpMatches = matches.filter(
+      (r) => r.section !== "healthypregnancy",
+    );
     for (const result of nonHpMatches) {
       expect(result.route).not.toBe("/hp-nutrition");
     }

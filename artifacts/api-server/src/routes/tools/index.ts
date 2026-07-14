@@ -402,6 +402,7 @@ router.get(
         visitDate: v.visitDate.toISOString(),
         weight: v.weight,
         bloodPressure: v.bloodPressure,
+        fetalHeartRate: v.fetalHeartRate,
         notes: v.notes,
         createdAt: v.createdAt.toISOString(),
       })),
@@ -420,7 +421,8 @@ router.post(
       return;
     }
     const userId = req.userId!;
-    const { visitDate, weight, bloodPressure, notes } = parsed.data;
+    const { visitDate, weight, bloodPressure, fetalHeartRate, notes } =
+      parsed.data;
 
     const [row] = await db
       .insert(prenatalVisitsTable)
@@ -429,6 +431,7 @@ router.post(
         visitDate: new Date(visitDate),
         weight: weight ?? null,
         bloodPressure: bloodPressure ?? null,
+        fetalHeartRate: fetalHeartRate ?? null,
         notes: notes ?? null,
       })
       .returning();
@@ -438,6 +441,7 @@ router.post(
       visitDate: row.visitDate.toISOString(),
       weight: row.weight,
       bloodPressure: row.bloodPressure,
+      fetalHeartRate: row.fetalHeartRate,
       notes: row.notes,
       createdAt: row.createdAt.toISOString(),
     });
@@ -459,13 +463,15 @@ router.patch(
       return;
     }
     const userId = req.userId!;
-    const { visitDate, weight, bloodPressure, notes } = parsed.data;
+    const { visitDate, weight, bloodPressure, fetalHeartRate, notes } =
+      parsed.data;
 
     const updates: Record<string, unknown> = {};
     if (visitDate !== undefined && visitDate !== null)
       updates.visitDate = new Date(visitDate);
     if (weight !== undefined) updates.weight = weight;
     if (bloodPressure !== undefined) updates.bloodPressure = bloodPressure;
+    if (fetalHeartRate !== undefined) updates.fetalHeartRate = fetalHeartRate;
     if (notes !== undefined) updates.notes = notes;
 
     const [row] = await db
@@ -489,6 +495,7 @@ router.patch(
       visitDate: row.visitDate.toISOString(),
       weight: row.weight,
       bloodPressure: row.bloodPressure,
+      fetalHeartRate: row.fetalHeartRate,
       notes: row.notes,
       createdAt: row.createdAt.toISOString(),
     });

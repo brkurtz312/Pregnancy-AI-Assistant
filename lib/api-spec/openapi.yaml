@@ -1219,6 +1219,8 @@ components:
           type: ["string", "null"]
         bloodPressure:
           type: ["string", "null"]
+        fetalHeartRate:
+          type: ["string", "null"]
         notes:
           type: ["string", "null"]
         createdAt:
@@ -1252,6 +1254,9 @@ components:
         bloodPressure:
           type: ["string", "null"]
           maxLength: 50
+        fetalHeartRate:
+          type: ["string", "null"]
+          maxLength: 50
         notes:
           type: ["string", "null"]
           maxLength: 1000
@@ -1267,6 +1272,9 @@ components:
           type: ["string", "null"]
           maxLength: 50
         bloodPressure:
+          type: ["string", "null"]
+          maxLength: 50
+        fetalHeartRate:
           type: ["string", "null"]
           maxLength: 50
         notes:

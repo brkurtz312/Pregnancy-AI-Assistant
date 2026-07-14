@@ -347,6 +347,7 @@ export const ListPrenatalVisitsResponse = zod.object({
       visitDate: zod.coerce.date(),
       weight: zod.string().nullish(),
       bloodPressure: zod.string().nullish(),
+      fetalHeartRate: zod.string().nullish(),
       notes: zod.string().nullish(),
       createdAt: zod.coerce.date(),
     }),
@@ -361,6 +362,8 @@ export const createPrenatalVisitBodyWeightMax = 50;
 
 export const createPrenatalVisitBodyBloodPressureMax = 50;
 
+export const createPrenatalVisitBodyFetalHeartRateMax = 50;
+
 export const createPrenatalVisitBodyNotesMax = 1000;
 
 export const CreatePrenatalVisitBody = zod.object({
@@ -369,6 +372,10 @@ export const CreatePrenatalVisitBody = zod.object({
   bloodPressure: zod
     .string()
     .max(createPrenatalVisitBodyBloodPressureMax)
+    .nullish(),
+  fetalHeartRate: zod
+    .string()
+    .max(createPrenatalVisitBodyFetalHeartRateMax)
     .nullish(),
   notes: zod.string().max(createPrenatalVisitBodyNotesMax).nullish(),
 });
@@ -384,6 +391,8 @@ export const updatePrenatalVisitBodyWeightMax = 50;
 
 export const updatePrenatalVisitBodyBloodPressureMax = 50;
 
+export const updatePrenatalVisitBodyFetalHeartRateMax = 50;
+
 export const updatePrenatalVisitBodyNotesMax = 1000;
 
 export const UpdatePrenatalVisitBody = zod.object({
@@ -393,6 +402,10 @@ export const UpdatePrenatalVisitBody = zod.object({
     .string()
     .max(updatePrenatalVisitBodyBloodPressureMax)
     .nullish(),
+  fetalHeartRate: zod
+    .string()
+    .max(updatePrenatalVisitBodyFetalHeartRateMax)
+    .nullish(),
   notes: zod.string().max(updatePrenatalVisitBodyNotesMax).nullish(),
 });
 
@@ -401,6 +414,7 @@ export const UpdatePrenatalVisitResponse = zod.object({
   visitDate: zod.coerce.date(),
   weight: zod.string().nullish(),
   bloodPressure: zod.string().nullish(),
+  fetalHeartRate: zod.string().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });

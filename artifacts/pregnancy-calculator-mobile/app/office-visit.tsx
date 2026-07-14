@@ -284,6 +284,7 @@ function VisitModal({
     visitDate: Date;
     weight: string;
     bloodPressure: string;
+    fetalHeartRate: string;
     notes: string;
   }) => void;
   initial?: PrenatalVisit | null;
@@ -292,10 +293,12 @@ function VisitModal({
   mode?: "schedule" | "log";
 }) {
   const colors = useColors();
+  const isSchedule = mode === "schedule";
   const [visitDate, setVisitDate] = useState(defaultDate ?? new Date());
   const [weight, setWeight] = useState("");
   const [weightUnit, setWeightUnit] = useState<"lbs" | "kg">("lbs");
   const [bloodPressure, setBloodPressure] = useState("");
+  const [fetalHeartRate, setFetalHeartRate] = useState("");
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
@@ -312,6 +315,7 @@ function VisitModal({
         setWeight(raw);
       }
       setBloodPressure(initial?.bloodPressure ?? "");
+      setFetalHeartRate(initial?.fetalHeartRate ?? "");
       setNotes(initial?.notes ?? "");
     }
   }, [visible, initial, defaultDate]);
@@ -327,7 +331,7 @@ function VisitModal({
               <Text style={[styles.modalTitle, { color: colors.foreground }]}>
                 {initial
                   ? "Edit Appointment"
-                  : mode === "schedule"
+                  : isSchedule
                     ? "Schedule Appointment"
                     : "Log Visit"}
               </Text>
@@ -346,79 +350,107 @@ function VisitModal({
               onChange={setVisitDate}
             />
 
-            <Text
-              style={[fieldStyles.label, { color: colors.mutedForeground }]}
-            >
-              Weight (optional)
-            </Text>
-            <View style={[fieldStyles.weightRow, { marginBottom: 16 }]}>
-              <TextInput
-                style={[
-                  fieldStyles.input,
-                  {
-                    color: colors.foreground,
-                    borderColor: colors.border,
-                    backgroundColor: colors.card,
-                    flex: 1,
-                  },
-                ]}
-                value={weight}
-                onChangeText={setWeight}
-                placeholder="e.g. 148"
-                placeholderTextColor={colors.mutedForeground}
-                keyboardType="decimal-pad"
-              />
-              {(["lbs", "kg"] as const).map((unit) => (
-                <TouchableOpacity
-                  key={unit}
-                  onPress={() => setWeightUnit(unit)}
-                  style={[
-                    fieldStyles.unitBtn,
-                    {
-                      backgroundColor:
-                        weightUnit === unit ? colors.primary : colors.card,
-                      borderColor:
-                        weightUnit === unit ? colors.primary : colors.border,
-                    },
-                  ]}
+            {!isSchedule && (
+              <>
+                <Text
+                  style={[fieldStyles.label, { color: colors.mutedForeground }]}
                 >
-                  <Text
+                  Weight (optional)
+                </Text>
+                <View style={[fieldStyles.weightRow, { marginBottom: 16 }]}>
+                  <TextInput
                     style={[
-                      fieldStyles.unitBtnText,
+                      fieldStyles.input,
                       {
-                        color:
-                          weightUnit === unit
-                            ? colors.primaryForeground
-                            : colors.mutedForeground,
+                        color: colors.foreground,
+                        borderColor: colors.border,
+                        backgroundColor: colors.card,
+                        flex: 1,
                       },
                     ]}
-                  >
-                    {unit}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+                    value={weight}
+                    onChangeText={setWeight}
+                    placeholder="e.g. 148"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="decimal-pad"
+                  />
+                  {(["lbs", "kg"] as const).map((unit) => (
+                    <TouchableOpacity
+                      key={unit}
+                      onPress={() => setWeightUnit(unit)}
+                      style={[
+                        fieldStyles.unitBtn,
+                        {
+                          backgroundColor:
+                            weightUnit === unit ? colors.primary : colors.card,
+                          borderColor:
+                            weightUnit === unit
+                              ? colors.primary
+                              : colors.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          fieldStyles.unitBtnText,
+                          {
+                            color:
+                              weightUnit === unit
+                                ? colors.primaryForeground
+                                : colors.mutedForeground,
+                          },
+                        ]}
+                      >
+                        {unit}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
 
-            <Text
-              style={[fieldStyles.label, { color: colors.mutedForeground }]}
-            >
-              Blood Pressure (optional)
-            </Text>
-            <TextInput
-              style={[
-                fieldStyles.input,
-                {
-                  color: colors.foreground,
-                  borderColor: colors.border,
-                  backgroundColor: colors.card,
-                  marginBottom: 16,
-                },
-              ]}
-              value={bloodPressure}
-              onChangeText={setBloodPressure}
-              placeholder="e.g. 118/76"
-              placeholderTextColor={colors.mutedForeground}
-            />
+                <Text
+                  style={[fieldStyles.label, { color: colors.mutedForeground }]}
+                >
+                  Blood Pressure (optional)
+                </Text>
+                <TextInput
+                  style={[
+                    fieldStyles.input,
+                    {
+                      color: colors.foreground,
+                      borderColor: colors.border,
+                      backgroundColor: colors.card,
+                      marginBottom: 16,
+                    },
+                  ]}
+                  value={bloodPressure}
+                  onChangeText={setBloodPressure}
+                  placeholder="e.g. 118/76"
+                  placeholderTextColor={colors.mutedForeground}
+                />
+
+                <Text
+                  style={[fieldStyles.label, { color: colors.mutedForeground }]}
+                >
+                  Fetal Heart Rate (optional)
+                </Text>
+                <TextInput
+                  style={[
+                    fieldStyles.input,
+                    {
+                      color: colors.foreground,
+                      borderColor: colors.border,
+                      backgroundColor: colors.card,
+                      marginBottom: 16,
+                    },
+                  ]}
+                  value={fetalHeartRate}
+                  onChangeText={setFetalHeartRate}
+                  placeholder="e.g. 148 bpm"
+                  placeholderTextColor={colors.mutedForeground}
+                  keyboardType="default"
+                />
+              </>
+            )}
 
             <Text
               style={[fieldStyles.label, { color: colors.mutedForeground }]}
@@ -438,7 +470,11 @@ function VisitModal({
               ]}
               value={notes}
               onChangeText={setNotes}
-              placeholder="What did the doctor say? Anything to follow up on?"
+              placeholder={
+                isSchedule
+                  ? "Any prep notes or reminders for this visit…"
+                  : "What did the provider say? Anything to follow up on?"
+              }
               placeholderTextColor={colors.mutedForeground}
               multiline
               numberOfLines={3}
@@ -451,6 +487,7 @@ function VisitModal({
                   visitDate,
                   weight: weight.trim() ? `${weight.trim()} ${weightUnit}` : "",
                   bloodPressure,
+                  fetalHeartRate,
                   notes,
                 })
               }
@@ -682,13 +719,14 @@ function AppointmentLogSection({
             <Text style={[styles.itemDate, { color: colors.foreground }]}>
               {formatDateTime(item.visitDate)}
             </Text>
-            {(item.weight || item.bloodPressure) && (
+            {(item.weight || item.bloodPressure || item.fetalHeartRate) && (
               <Text
                 style={[styles.itemMeta, { color: colors.mutedForeground }]}
               >
                 {[
                   item.weight ? `Weight: ${item.weight}` : null,
                   item.bloodPressure ? `BP: ${item.bloodPressure}` : null,
+                  item.fetalHeartRate ? `FHR: ${item.fetalHeartRate}` : null,
                 ]
                   .filter(Boolean)
                   .join("  ·  ")}
@@ -1219,12 +1257,14 @@ export default function OfficeVisitScreen() {
       visitDate: Date;
       weight: string;
       bloodPressure: string;
+      fetalHeartRate: string;
       notes: string;
     }) => {
       const payload = {
         visitDate: saveData.visitDate.toISOString(),
         weight: saveData.weight.trim() || null,
         bloodPressure: saveData.bloodPressure.trim() || null,
+        fetalHeartRate: saveData.fetalHeartRate.trim() || null,
         notes: saveData.notes.trim() || null,
       };
 

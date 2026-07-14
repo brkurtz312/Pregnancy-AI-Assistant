@@ -177,10 +177,7 @@ router.post(
         usageReserved = true;
       }
     } catch (err) {
-      req.log.error(
-        { err },
-        "scribe generate-note: DB error during pre-check",
-      );
+      req.log.error({ err }, "scribe generate-note: DB error during pre-check");
       res.status(503).json({
         error:
           "The scribe service is temporarily unavailable. Please try again in a moment.",
