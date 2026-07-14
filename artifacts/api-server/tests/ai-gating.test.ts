@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import express, {
   type Express,
   type Request,
@@ -103,9 +103,9 @@ function insight(body: unknown) {
 
 // The module-level TtlCache in the route file persists across test cases.
 // Use a counter to give each test a unique week number so no two tests
-// accidentally share a cached entry. Start at 30; the 9 distinct weeks
-// needed by this suite land between 30 and 42, within the schema's max.
-let weekCounter = 30;
+// accidentally share a cached entry. The schema enforces max week = 42.
+// Start at 28 so that all 14 increments in this file land in [29, 42].
+let weekCounter = 28;
 
 function fakeAnswer(text: string) {
   return { content: [{ type: "text", text }] };
@@ -365,6 +365,90 @@ describe("POST /api/ai/weekly-insight no-metering guarantee", () => {
     expect(reserveUsage).not.toHaveBeenCalled();
 
     // No quota was consumed across any auth state.
+    expect(refundUsage).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// weekly-insight — TTL expiry
+// ---------------------------------------------------------------------------
+// The weeklyInsightCache has a 7-day TTL. These tests verify that:
+//  1. A request made just before expiry still hits the cache (no Anthropic call).
+//  2. A request made at or after expiry is a cache miss (Anthropic is called again).
+//
+// We fake only `Date` (not setTimeout/setImmediate/etc.) so that Node's HTTP
+// stack continues to process request bodies normally. WEEKLY_INSIGHT_TTL_MS
+// mirrors the constant in the route file; if the route changes the TTL, this
+// suite must be updated to match.
+const WEEKLY_INSIGHT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — must match route
+
+describe("POST /api/ai/weekly-insight TTL expiry", () => {
+  let primeTime: number;
+
+  beforeEach(() => {
+    // Capture real now before handing control to fake timers.
+    primeTime = Date.now();
+    // Only fake Date so setTimeout/setImmediate used by the HTTP stack are
+    // untouched; async requests continue to complete normally.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(primeTime);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("still serves the cached insight just before TTL expiry (cache hit, no Anthropic call)", async () => {
+    const week = ++weekCounter;
+    anthropicCreate.mockResolvedValue(fakeAnswer("Insight before expiry."));
+
+    // Prime the cache at primeTime.
+    const first = await insight({ week });
+    expect(first.status).toBe(200);
+    expect(anthropicCreate).toHaveBeenCalledTimes(1);
+
+    vi.clearAllMocks();
+    isAnthropicConfigured.mockReturnValue(true);
+    anthropicCreate.mockResolvedValue(fakeAnswer("Should not be called."));
+
+    // Advance to 1 ms before expiry — the entry must still be valid.
+    vi.setSystemTime(primeTime + WEEKLY_INSIGHT_TTL_MS - 1);
+
+    const second = await insight({ week });
+    expect(second.status).toBe(200);
+    expect(second.body.insight).toBe(first.body.insight);
+    // Cache was still warm — Anthropic must not have been called.
+    expect(anthropicCreate).not.toHaveBeenCalled();
+    expect(reserveUsage).not.toHaveBeenCalled();
+    expect(refundUsage).not.toHaveBeenCalled();
+  });
+
+  it("calls Anthropic again after TTL expiry (cache miss after 7 days)", async () => {
+    const week = ++weekCounter;
+    anthropicCreate.mockResolvedValue(fakeAnswer("Pre-expiry insight."));
+
+    // Prime the cache at primeTime.
+    const first = await insight({ week });
+    expect(first.status).toBe(200);
+    expect(anthropicCreate).toHaveBeenCalledTimes(1);
+
+    vi.clearAllMocks();
+    isAnthropicConfigured.mockReturnValue(true);
+    anthropicCreate.mockResolvedValue(
+      fakeAnswer("Refreshed insight after expiry."),
+    );
+
+    // Advance 1 ms past the full 7-day TTL so the cached entry is expired.
+    vi.setSystemTime(primeTime + WEEKLY_INSIGHT_TTL_MS + 1);
+
+    // The entry is expired; the handler must treat this as a cache miss and
+    // call Anthropic exactly once to produce a fresh value.
+    const second = await insight({ week });
+    expect(second.status).toBe(200);
+    expect(second.body.insight).toContain("Refreshed insight after expiry.");
+    expect(anthropicCreate).toHaveBeenCalledTimes(1);
+    // No quota metering on this endpoint regardless of cache state.
+    expect(reserveUsage).not.toHaveBeenCalled();
     expect(refundUsage).not.toHaveBeenCalled();
   });
 });
