@@ -1165,3 +1165,4 @@ describe("Search navigation — keyword → router.push route", () => {
     }
   });
 });
+
