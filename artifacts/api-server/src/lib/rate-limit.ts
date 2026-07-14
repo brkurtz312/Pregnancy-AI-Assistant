@@ -1,7 +1,17 @@
 import rateLimit from "express-rate-limit";
 import { ipKeyGenerator } from "express-rate-limit";
 import type { Request, Response, RequestHandler } from "express";
-import { PostgresRateLimitStore } from "./rate-limit-store";
+import {
+  PostgresRateLimitStore,
+  RATE_LIMIT_PREFIXES,
+  type RateLimitPrefix,
+} from "./rate-limit-store";
+
+// Application-level duplicate guard: each prefix must be used by exactly one
+// limiter. This Set lives at module scope so it is populated once during
+// startup and any copy-paste error creating two limiters with the same prefix
+// throws immediately rather than silently sharing a counter in production.
+const _usedLimiterPrefixes = new Set<string>();
 
 // The Replit shared proxy forwards the original client IP as the leftmost
 // entry of X-Forwarded-For (see the Clerk proxy middleware for the same
@@ -21,9 +31,16 @@ function makeLimiter(
   windowMs: number,
   limit: number,
   message: string,
-  storePrefix: string,
+  storePrefix: RateLimitPrefix,
   logLabel = "AI",
 ): RequestHandler {
+  if (_usedLimiterPrefixes.has(storePrefix)) {
+    throw new Error(
+      `makeLimiter: prefix "${storePrefix}" is already registered to another limiter. ` +
+        `Each entry in RATE_LIMIT_PREFIXES must be used by exactly one limiter.`,
+    );
+  }
+  _usedLimiterPrefixes.add(storePrefix);
   return rateLimit({
     windowMs,
     limit,
@@ -52,7 +69,7 @@ export const aiBurstLimiter: RequestHandler = makeLimiter(
   60 * 1000,
   15,
   "You're sending requests too quickly. Please wait a moment and try again.",
-  "ai-burst",
+  RATE_LIMIT_PREFIXES.aiBurst,
 );
 
 // Daily cost ceiling: well above any genuine single-user need, but caps what a
@@ -62,7 +79,7 @@ export const aiDailyLimiter: RequestHandler = makeLimiter(
   24 * 60 * 60 * 1000,
   120,
   "You've reached today's limit for the assistant. Please try again tomorrow.",
-  "ai-daily",
+  RATE_LIMIT_PREFIXES.aiDaily,
 );
 
 // Brute-force protection for the developer access code: redeeming grants paid
@@ -72,7 +89,7 @@ export const redeemCodeLimiter: RequestHandler = makeLimiter(
   10 * 60 * 1000,
   10,
   "Too many code attempts. Please wait a few minutes and try again.",
-  "redeem-code",
+  RATE_LIMIT_PREFIXES.redeemCode,
   "Redeem-code",
 );
 
@@ -83,6 +100,6 @@ export const reviewerSignInLimiter: RequestHandler = makeLimiter(
   10 * 60 * 1000,
   10,
   "Too many sign-in attempts. Please wait a few minutes and try again.",
-  "reviewer-sign-in",
+  RATE_LIMIT_PREFIXES.reviewerSignIn,
   "Reviewer-sign-in",
 );

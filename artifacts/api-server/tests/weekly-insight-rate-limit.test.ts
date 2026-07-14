@@ -41,7 +41,15 @@ vi.mock("../src/lib/rate-limit-store", () => {
     }
   }
 
-  return { PostgresRateLimitStore: InMemoryRateLimitStore };
+  return {
+    PostgresRateLimitStore: InMemoryRateLimitStore,
+    RATE_LIMIT_PREFIXES: {
+      aiBurst: "ai-burst",
+      aiDaily: "ai-daily",
+      redeemCode: "redeem-code",
+      reviewerSignIn: "reviewer-sign-in",
+    },
+  };
 });
 
 // isAnthropicConfigured is a vi.fn() so each describe block can set the return

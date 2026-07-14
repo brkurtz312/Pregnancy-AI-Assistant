@@ -42,7 +42,15 @@ vi.mock("../src/lib/rate-limit-store", () => {
     }
   }
 
-  return { PostgresRateLimitStore: InMemoryRateLimitStore };
+  return {
+    PostgresRateLimitStore: InMemoryRateLimitStore,
+    RATE_LIMIT_PREFIXES: {
+      aiBurst: "ai-burst",
+      aiDaily: "ai-daily",
+      redeemCode: "redeem-code",
+      reviewerSignIn: "reviewer-sign-in",
+    },
+  };
 });
 
 // Stub the Anthropic integration so the import doesn't attempt a real

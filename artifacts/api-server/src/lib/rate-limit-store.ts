@@ -2,6 +2,27 @@ import type { Store, Options, ClientRateLimitInfo } from "express-rate-limit";
 import { db, rateLimitsTable } from "@workspace/db";
 import { and, eq, gt, sql } from "drizzle-orm";
 
+/**
+ * Every rate-limiter prefix must be registered here exactly once.
+ * Using a value from this object is a compile-time guarantee that the prefix is
+ * known; `makeLimiter` enforces at startup that no two limiter definitions share
+ * the same prefix so a copy-paste typo cannot silently merge two counters.
+ */
+export const RATE_LIMIT_PREFIXES = {
+  aiBurst: "ai-burst",
+  aiDaily: "ai-daily",
+  redeemCode: "redeem-code",
+  reviewerSignIn: "reviewer-sign-in",
+} as const;
+
+export type RateLimitPrefix =
+  (typeof RATE_LIMIT_PREFIXES)[keyof typeof RATE_LIMIT_PREFIXES];
+
+// Precomputed allowlist for runtime validation. TypeScript erases the
+// RateLimitPrefix type at runtime, so a JS caller or an `as` cast could
+// still pass an arbitrary string; the allowlist catches that at startup.
+const ALLOWED_PREFIXES = new Set<string>(Object.values(RATE_LIMIT_PREFIXES));
+
 // Sweep expired rows occasionally so the table doesn't accumulate one row per
 // distinct client key forever. A lapsed window is harmless on its own (it's
 // reset in place on the next hit), so this is purely housekeeping. A single
@@ -27,17 +48,28 @@ function ensureCleanup(): void {
 /**
  * PostgreSQL-backed fixed-window store for express-rate-limit.
  *
- * Each limiter must be constructed with a distinct `prefix` so that different
- * limiters (e.g. burst vs. daily) keyed on the same client IP do not share a
- * counter.
+ * The `prefix` parameter must be a value from `RATE_LIMIT_PREFIXES`. TypeScript
+ * enforces this at compile time; the constructor validates it against
+ * `ALLOWED_PREFIXES` at runtime so JS callers or `as`-cast bypasses are caught
+ * immediately on startup rather than silently using an unregistered key.
+ *
+ * Duplicate-prefix enforcement (ensuring no two limiters share a prefix) lives
+ * in `makeLimiter` in `rate-limit.ts`, not here, so that multiple instances of
+ * the same store (e.g. across simulated server restarts in tests) are allowed.
  */
 export class PostgresRateLimitStore implements Store {
   // Keys are global (shared across instances), not process-local.
   localKeys = false;
   private windowMs = 60_000;
-  private readonly keyPrefix: string;
+  private readonly keyPrefix: RateLimitPrefix;
 
-  constructor(prefix: string) {
+  constructor(prefix: RateLimitPrefix) {
+    if (!ALLOWED_PREFIXES.has(prefix)) {
+      throw new Error(
+        `PostgresRateLimitStore: unknown prefix "${prefix}". ` +
+          `Add it to RATE_LIMIT_PREFIXES in rate-limit-store.ts before use.`,
+      );
+    }
     this.keyPrefix = prefix;
     ensureCleanup();
   }
