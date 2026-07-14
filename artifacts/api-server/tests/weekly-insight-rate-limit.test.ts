@@ -306,64 +306,56 @@ describe("POST /api/ai/weekly-insight — daily rate-limit protection", () => {
     expect(res.status).toBe(503);
   });
 
-  it(
-    "blocks the 121st request from the same IP with 429",
-    { timeout: 30_000 },
-    async () => {
-      const ip = "198.51.101.10";
+  it("blocks the 121st request from the same IP with 429", async () => {
+    const ip = "198.51.101.10";
 
-      // The aiDailyLimiter allows up to 120 requests per 24-hour window.
-      // Each uses a distinct week so no cross-describe cache entry from the
-      // cache-hit tests above can return a 200 before the limiter counts the hit.
-      // All 120 must reach the stub handler and get 503.
-      for (let i = 0; i < 120; i++) {
-        const res = await weeklyInsightDaily(ip, i + 1);
-        expect(res.status).toBe(503);
-      }
-
-      // The 121st request from the same IP must be intercepted by the daily
-      // limiter before the handler runs — confirming the ceiling is enforced
-      // on the weekly-insight path, not just on /api/ai/ask.
-      const blocked = await weeklyInsightDaily(ip, 121);
-      expect(blocked.status).toBe(429);
-      expect(blocked.body.error).toMatch(/today's limit/i);
-    },
-  );
-
-  it(
-    "includes Retry-After in the 429 response",
-    { timeout: 30_000 },
-    async () => {
-      const ip = "198.51.101.11";
-
-      for (let i = 0; i < 120; i++) {
-        await weeklyInsightDaily(ip, i + 1);
-      }
-
-      const blocked = await weeklyInsightDaily(ip, 121);
-      expect(blocked.status).toBe(429);
-      // The limiter handler sets Retry-After so clients know when to retry.
-      expect(blocked.headers["retry-after"]).toBeTruthy();
-    },
-  );
-
-  it(
-    "does not rate-limit a different IP even when another IP is exhausted",
-    { timeout: 30_000 },
-    async () => {
-      const exhaustedIp = "198.51.101.20";
-      const freshIp = "198.51.101.21";
-
-      // Exhaust the daily limit for exhaustedIp.
-      for (let i = 0; i < 120; i++) {
-        await weeklyInsightDaily(exhaustedIp, i + 1);
-      }
-      expect((await weeklyInsightDaily(exhaustedIp, 121)).status).toBe(429);
-
-      // A completely different IP must still be served normally — confirming
-      // the limit is per-IP, not a shared global ceiling.
-      const res = await weeklyInsightDaily(freshIp, 1);
+    // The aiDailyLimiter allows up to 120 requests per 24-hour window.
+    // Fire all 120 in parallel — the in-memory store increments synchronously
+    // so all concurrent hits land at totalHits ≤ 120 and reach the handler.
+    const responses = await Promise.all(
+      Array.from({ length: 120 }, (_, i) => weeklyInsightDaily(ip, i + 1)),
+    );
+    for (const res of responses) {
       expect(res.status).toBe(503);
-    },
-  );
+    }
+
+    // The 121st request from the same IP must be intercepted by the daily
+    // limiter before the handler runs — confirming the ceiling is enforced
+    // on the weekly-insight path, not just on /api/ai/ask.
+    const blocked = await weeklyInsightDaily(ip, 121);
+    expect(blocked.status).toBe(429);
+    expect(blocked.body.error).toMatch(/today's limit/i);
+  });
+
+  it("includes Retry-After in the 429 response", async () => {
+    const ip = "198.51.101.11";
+
+    // Exhaust the limit in parallel for speed.
+    await Promise.all(
+      Array.from({ length: 120 }, (_, i) => weeklyInsightDaily(ip, i + 1)),
+    );
+
+    const blocked = await weeklyInsightDaily(ip, 121);
+    expect(blocked.status).toBe(429);
+    // The limiter handler sets Retry-After so clients know when to retry.
+    expect(blocked.headers["retry-after"]).toBeTruthy();
+  });
+
+  it("does not rate-limit a different IP even when another IP is exhausted", async () => {
+    const exhaustedIp = "198.51.101.20";
+    const freshIp = "198.51.101.21";
+
+    // Exhaust the daily limit for exhaustedIp in parallel.
+    await Promise.all(
+      Array.from({ length: 120 }, (_, i) =>
+        weeklyInsightDaily(exhaustedIp, i + 1),
+      ),
+    );
+    expect((await weeklyInsightDaily(exhaustedIp, 121)).status).toBe(429);
+
+    // A completely different IP must still be served normally — confirming
+    // the limit is per-IP, not a shared global ceiling.
+    const res = await weeklyInsightDaily(freshIp, 1);
+    expect(res.status).toBe(503);
+  });
 });
