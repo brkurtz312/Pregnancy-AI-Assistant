@@ -1385,6 +1385,17 @@ export default function OfficeVisitScreen() {
           </Text>
         </Animated.View>
 
+        <Animated.View entering={FadeInDown.delay(20).duration(400)}>
+          <TouchableOpacity
+            style={[styles.modeBtn, { backgroundColor: colors.primary }]}
+            onPress={() => router.push("/in-office")}
+          >
+            <Ionicons name="business" size={20} color="#fff" />
+            <Text style={styles.modeBtnText}>Enter Office Mode</Text>
+            <Ionicons name="chevron-forward" size={18} color="#fff" />
+          </TouchableOpacity>
+        </Animated.View>
+
         <Animated.View
           entering={FadeInDown.delay(40).duration(400)}
           style={[
@@ -1546,6 +1557,22 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: 16,
+  },
+  modeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    marginBottom: 20,
+  },
+  modeBtnText: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    color: "#fff",
   },
   pageTitle: {
     fontSize: 28,

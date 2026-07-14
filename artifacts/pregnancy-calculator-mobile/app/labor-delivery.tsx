@@ -53,6 +53,17 @@ export default function LaborDeliveryScreen() {
           </Text>
         </Animated.View>
 
+        <Animated.View entering={FadeInDown.delay(30).duration(400)}>
+          <TouchableOpacity
+            style={[styles.modeBtn, { backgroundColor: colors.primary }]}
+            onPress={() => router.push("/at-facility")}
+          >
+            <Ionicons name="medical" size={20} color="#fff" />
+            <Text style={styles.modeBtnText}>Enter Labor & Delivery Mode</Text>
+            <Ionicons name="chevron-forward" size={18} color="#fff" />
+          </TouchableOpacity>
+        </Animated.View>
+
         <Animated.View entering={FadeInDown.delay(60).duration(400)}>
           <TouchableOpacity
             style={[
@@ -317,5 +328,21 @@ const styles = StyleSheet.create({
   learnSub: {
     fontSize: 13,
     fontFamily: "Inter_400Regular",
+  },
+  modeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    marginBottom: 20,
+  },
+  modeBtnText: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    color: "#fff",
   },
 });

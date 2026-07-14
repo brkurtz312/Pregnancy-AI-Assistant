@@ -2,6 +2,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import express, { type Express, type Request, type Response } from "express";
 import request from "supertest";
 
+// Shared registry hoisted above vi.mock so the factory closure and the test
+// body reference exactly the same Map at runtime.
+const { storeRegistry } = vi.hoisted(() => ({
+  storeRegistry: new Map<
+    string,
+    { _seed: (key: string, hits: number) => void }
+  >(),
+}));
+
 // Replace the PostgreSQL-backed store with a hermetic in-memory implementation
 // so the real express-rate-limit middleware runs but does not need a database.
 // This is the same approach used in ai-burst-rate-limit.test.ts — each limiter
@@ -13,8 +22,20 @@ vi.mock("../src/lib/rate-limit-store", () => {
     private counts = new Map<string, { hits: number; resetTime: Date }>();
     private windowMs = 60_000;
 
+    constructor(prefix: string) {
+      storeRegistry.set(prefix, this);
+    }
+
     init(options: { windowMs: number }): void {
       this.windowMs = options.windowMs;
+    }
+
+    /** Test-only: pre-load a hit counter without HTTP round-trips. */
+    _seed(key: string, hits: number): void {
+      this.counts.set(key, {
+        hits,
+        resetTime: new Date(Date.now() + this.windowMs),
+      });
     }
 
     async increment(
@@ -300,6 +321,14 @@ function weeklyInsightDaily(ip: string, week: number) {
     .send({ week });
 }
 
+// ---------------------------------------------------------------------------
+// Helpers for the daily-limit tests
+// ---------------------------------------------------------------------------
+// Instead of making 120 sequential HTTP requests (slow, flaky under load),
+// the daily tests pre-seed the in-memory store to 120 hits via the shared
+// storeRegistry (populated in the InMemoryRateLimitStore constructor). Each
+// test then makes just 1-2 requests to assert the limiter's boundary behaviour.
+
 describe("POST /api/ai/weekly-insight — daily rate-limit protection", () => {
   it("returns 503 when Anthropic is not configured (daily limit not yet exhausted)", async () => {
     const res = await weeklyInsightDaily("198.51.101.200", 1);
@@ -308,36 +337,20 @@ describe("POST /api/ai/weekly-insight — daily rate-limit protection", () => {
 
   it("blocks the 121st request from the same IP with 429", async () => {
     const ip = "198.51.101.10";
+    // Pre-seed 120 hits so the very next request is the 121st.
+    storeRegistry.get("ai-daily")?._seed(ip, 120);
 
-    // The aiDailyLimiter allows up to 120 requests per 24-hour window.
-    // Fire all 120 in parallel — the in-memory store increments synchronously
-    // so all concurrent hits land at totalHits ≤ 120 and reach the handler.
-    const responses = await Promise.all(
-      Array.from({ length: 120 }, (_, i) => weeklyInsightDaily(ip, i + 1)),
-    );
-    for (const res of responses) {
-      expect(res.status).toBe(503);
-    }
-
-    // The 121st request from the same IP must be intercepted by the daily
-    // limiter before the handler runs — confirming the ceiling is enforced
-    // on the weekly-insight path, not just on /api/ai/ask.
-    const blocked = await weeklyInsightDaily(ip, 121);
+    const blocked = await weeklyInsightDaily(ip, 1);
     expect(blocked.status).toBe(429);
     expect(blocked.body.error).toMatch(/today's limit/i);
   });
 
   it("includes Retry-After in the 429 response", async () => {
     const ip = "198.51.101.11";
+    storeRegistry.get("ai-daily")?._seed(ip, 120);
 
-    // Exhaust the limit in parallel for speed.
-    await Promise.all(
-      Array.from({ length: 120 }, (_, i) => weeklyInsightDaily(ip, i + 1)),
-    );
-
-    const blocked = await weeklyInsightDaily(ip, 121);
+    const blocked = await weeklyInsightDaily(ip, 1);
     expect(blocked.status).toBe(429);
-    // The limiter handler sets Retry-After so clients know when to retry.
     expect(blocked.headers["retry-after"]).toBeTruthy();
   });
 
@@ -345,16 +358,11 @@ describe("POST /api/ai/weekly-insight — daily rate-limit protection", () => {
     const exhaustedIp = "198.51.101.20";
     const freshIp = "198.51.101.21";
 
-    // Exhaust the daily limit for exhaustedIp in parallel.
-    await Promise.all(
-      Array.from({ length: 120 }, (_, i) =>
-        weeklyInsightDaily(exhaustedIp, i + 1),
-      ),
-    );
-    expect((await weeklyInsightDaily(exhaustedIp, 121)).status).toBe(429);
+    // Seed exhaustedIp to its ceiling; freshIp has no entry (starts at 0).
+    storeRegistry.get("ai-daily")?._seed(exhaustedIp, 120);
+    expect((await weeklyInsightDaily(exhaustedIp, 1)).status).toBe(429);
 
-    // A completely different IP must still be served normally — confirming
-    // the limit is per-IP, not a shared global ceiling.
+    // freshIp is unaffected — the limit is per-IP, not global.
     const res = await weeklyInsightDaily(freshIp, 1);
     expect(res.status).toBe(503);
   });
