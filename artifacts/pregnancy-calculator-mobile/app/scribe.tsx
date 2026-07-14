@@ -3,7 +3,7 @@ import { useAuth } from "@clerk/expo";
 import { router } from "expo-router";
 import { Audio } from "expo-av";
 import * as Clipboard from "expo-clipboard";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -18,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { saveScribeNote, type PatientSummary } from "@/lib/scribe-note";
 import { PassGate } from "@/components/PassGate";
+import { usePass } from "@/hooks/usePass";
 
 const apiBase = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
@@ -34,12 +35,19 @@ type Phase =
 export default function ScribeScreen() {
   const colors = useColors();
   const { getToken } = useAuth();
+  const { hasPass } = usePass();
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [transcript, setTranscript] = useState("");
   const [note, setNote] = useState<PatientSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showPassGate, setShowPassGate] = useState(false);
+
+  useEffect(() => {
+    if (hasPass && showPassGate) {
+      setShowPassGate(false);
+    }
+  }, [hasPass, showPassGate]);
 
   const recordingRef = useRef<Audio.Recording | null>(null);
 
