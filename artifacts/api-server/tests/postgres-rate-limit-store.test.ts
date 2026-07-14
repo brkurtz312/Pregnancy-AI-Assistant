@@ -17,7 +17,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { db, rateLimitsTable } from "@workspace/db";
-import { like } from "drizzle-orm";
+import { eq, like, or } from "drizzle-orm";
 import { PostgresRateLimitStore } from "../src/lib/rate-limit-store";
 
 // Use a test-only prefix namespace so these rows never collide with real
@@ -32,11 +32,25 @@ const CLIENT_KEY = "192.0.2.1";
 // Window long enough that no test will accidentally cross its boundary.
 const WINDOW_MS = 60_000;
 
+// Documentation-range IP used exclusively for the AI limiter test cases so
+// those rows are easy to isolate and won't collide with any real traffic.
+const AI_TEST_IP = "203.0.113.99";
+
+// Production window values — must stay in sync with rate-limit.ts.
+const AI_BURST_WINDOW_MS = 60 * 1000;
+const AI_DAILY_WINDOW_MS = 24 * 60 * 60 * 1000;
+
 /** Remove all rows whose key starts with our test namespace. */
 async function cleanTestRows() {
   await db
     .delete(rateLimitsTable)
-    .where(like(rateLimitsTable.key, `${TEST_NS}%`));
+    .where(
+      or(
+        like(rateLimitsTable.key, `${TEST_NS}%`),
+        eq(rateLimitsTable.key, `ai-burst:${AI_TEST_IP}`),
+        eq(rateLimitsTable.key, `ai-daily:${AI_TEST_IP}`),
+      ),
+    );
 }
 
 beforeEach(async () => {
@@ -252,5 +266,206 @@ describe("PostgresRateLimitStore — cross-instance persistence (server restart)
     // Counter must continue from where instanceA left off (2 + 1 = 3),
     // not restart at 1 as an in-memory store would.
     expect(result.totalHits).toBe(3);
+  });
+});
+
+// ─── AI limiter — ai-burst prefix and 60-second window ───────────────────────
+
+describe("AI limiter — ai-burst prefix and 60-second window", () => {
+  function makeBurstStore(): PostgresRateLimitStore {
+    const store = new PostgresRateLimitStore("ai-burst");
+    store.init({ windowMs: AI_BURST_WINDOW_MS } as Parameters<
+      PostgresRateLimitStore["init"]
+    >[0]);
+    return store;
+  }
+
+  it("starts at totalHits=1 with a resetTime roughly 60 seconds out", async () => {
+    const store = makeBurstStore();
+    const before = Date.now();
+    const result = await store.increment(AI_TEST_IP);
+    const after = Date.now();
+
+    expect(result.totalHits).toBe(1);
+
+    // resetTime must fall within the 60-second burst window (with a small
+    // buffer to account for query latency).
+    const resetMs = result.resetTime.getTime();
+    expect(resetMs).toBeGreaterThan(before + AI_BURST_WINDOW_MS - 2_000);
+    expect(resetMs).toBeLessThan(after + AI_BURST_WINDOW_MS + 2_000);
+  });
+
+  it("accumulates hits within the same burst window", async () => {
+    const store = makeBurstStore();
+    await store.increment(AI_TEST_IP);
+    await store.increment(AI_TEST_IP);
+    const r = await store.increment(AI_TEST_IP);
+
+    expect(r.totalHits).toBe(3);
+  });
+
+  it("survives a simulated server restart — a fresh store object continues from the persisted count", async () => {
+    const storeA = makeBurstStore();
+    await storeA.increment(AI_TEST_IP);
+    await storeA.increment(AI_TEST_IP);
+
+    // Brand-new object, same prefix — simulates the store being reconstructed
+    // after a process restart or autoscale spin-up.
+    const storeB = makeBurstStore();
+    const result = await storeB.increment(AI_TEST_IP);
+
+    // Must read 3, not 1 (which an in-memory store would return).
+    expect(result.totalHits).toBe(3);
+  });
+});
+
+// ─── AI limiter — ai-daily prefix and 24-hour window ─────────────────────────
+
+describe("AI limiter — ai-daily prefix and 24-hour window", () => {
+  function makeDailyStore(): PostgresRateLimitStore {
+    const store = new PostgresRateLimitStore("ai-daily");
+    store.init({ windowMs: AI_DAILY_WINDOW_MS } as Parameters<
+      PostgresRateLimitStore["init"]
+    >[0]);
+    return store;
+  }
+
+  it("starts at totalHits=1 with a resetTime roughly 24 hours out", async () => {
+    const store = makeDailyStore();
+    const before = Date.now();
+    const result = await store.increment(AI_TEST_IP);
+    const after = Date.now();
+
+    expect(result.totalHits).toBe(1);
+
+    // resetTime must fall within the 24-hour daily window.
+    const resetMs = result.resetTime.getTime();
+    expect(resetMs).toBeGreaterThan(before + AI_DAILY_WINDOW_MS - 5_000);
+    expect(resetMs).toBeLessThan(after + AI_DAILY_WINDOW_MS + 5_000);
+  });
+
+  it("accumulates hits within the same daily window", async () => {
+    const store = makeDailyStore();
+    await store.increment(AI_TEST_IP);
+    await store.increment(AI_TEST_IP);
+    const r = await store.increment(AI_TEST_IP);
+
+    expect(r.totalHits).toBe(3);
+  });
+
+  it("survives a simulated server restart — a fresh store object continues from the persisted count", async () => {
+    const storeA = makeDailyStore();
+    await storeA.increment(AI_TEST_IP);
+    await storeA.increment(AI_TEST_IP);
+
+    const storeB = makeDailyStore();
+    const result = await storeB.increment(AI_TEST_IP);
+
+    expect(result.totalHits).toBe(3);
+  });
+});
+
+// ─── AI limiter — burst and daily counters are independent ────────────────────
+
+describe("AI limiter — ai-burst and ai-daily counters are independent", () => {
+  function makeBurstStore(): PostgresRateLimitStore {
+    const store = new PostgresRateLimitStore("ai-burst");
+    store.init({ windowMs: AI_BURST_WINDOW_MS } as Parameters<
+      PostgresRateLimitStore["init"]
+    >[0]);
+    return store;
+  }
+
+  function makeDailyStore(): PostgresRateLimitStore {
+    const store = new PostgresRateLimitStore("ai-daily");
+    store.init({ windowMs: AI_DAILY_WINDOW_MS } as Parameters<
+      PostgresRateLimitStore["init"]
+    >[0]);
+    return store;
+  }
+
+  it("burst and daily counters for the same IP are tracked separately", async () => {
+    const burst = makeBurstStore();
+    const daily = makeDailyStore();
+
+    // Drive the burst counter up.
+    await burst.increment(AI_TEST_IP);
+    await burst.increment(AI_TEST_IP);
+    const burstResult = await burst.increment(AI_TEST_IP);
+
+    // The daily counter has only ever seen one hit.
+    const dailyResult = await daily.increment(AI_TEST_IP);
+
+    expect(burstResult.totalHits).toBe(3);
+    expect(dailyResult.totalHits).toBe(1);
+  });
+
+  it("resetting the burst counter does not affect the daily counter", async () => {
+    const burst = makeBurstStore();
+    const daily = makeDailyStore();
+
+    await burst.increment(AI_TEST_IP);
+    await burst.increment(AI_TEST_IP);
+    await daily.increment(AI_TEST_IP);
+    await daily.increment(AI_TEST_IP);
+    await daily.increment(AI_TEST_IP);
+
+    // Clear the burst window (mimics the window expiring or a manual reset).
+    await burst.resetKey(AI_TEST_IP);
+
+    // Burst starts fresh at 1.
+    const burstAfter = await burst.increment(AI_TEST_IP);
+    expect(burstAfter.totalHits).toBe(1);
+
+    // Daily counter is untouched — next hit is 4.
+    const dailyAfter = await daily.increment(AI_TEST_IP);
+    expect(dailyAfter.totalHits).toBe(4);
+  });
+
+  it("burst exhaustion does not bleed into the daily budget", async () => {
+    // Simulate a client hitting the burst ceiling (15 req/min in production).
+    // After burst is exhausted, the daily counter should reflect only the
+    // requests that actually reached the daily limiter — not the burst count.
+    // Here we just confirm the two stores stay numerically independent
+    // regardless of how many hits the burst store has absorbed.
+    const burst = makeBurstStore();
+    const daily = makeDailyStore();
+
+    // Simulate burst window being exhausted with 5 rapid hits.
+    for (let i = 0; i < 5; i++) {
+      await burst.increment(AI_TEST_IP);
+    }
+
+    // Daily counter was only hit twice (requests that passed the burst check).
+    await daily.increment(AI_TEST_IP);
+    const dailyResult = await daily.increment(AI_TEST_IP);
+
+    expect(dailyResult.totalHits).toBe(2);
+
+    // Confirm the burst counter is genuinely at 5, not polluted by the daily.
+    const burstResult = await burst.increment(AI_TEST_IP);
+    expect(burstResult.totalHits).toBe(6);
+  });
+
+  it("burst and daily resetTime values reflect their respective window lengths", async () => {
+    const burst = makeBurstStore();
+    const daily = makeDailyStore();
+
+    const before = Date.now();
+    const burstResult = await burst.increment(AI_TEST_IP);
+    const dailyResult = await daily.increment(AI_TEST_IP);
+    const after = Date.now();
+
+    const burstReset = burstResult.resetTime.getTime();
+    const dailyReset = dailyResult.resetTime.getTime();
+
+    // Burst window is ~60 s — well under an hour.
+    expect(burstReset).toBeLessThan(before + 60 * 60 * 1000);
+
+    // Daily window is ~24 h — more than 12 hours from now.
+    expect(dailyReset).toBeGreaterThan(after + 12 * 60 * 60 * 1000);
+
+    // Daily reset must always be later than burst reset.
+    expect(dailyReset).toBeGreaterThan(burstReset);
   });
 });
