@@ -21,6 +21,7 @@ import { eq, or } from "drizzle-orm";
 import {
   PostgresRateLimitStore,
   RATE_LIMIT_PREFIXES,
+  _resetPrefixRegistryForTesting,
   type RateLimitPrefix,
 } from "../src/lib/rate-limit-store";
 
@@ -86,6 +87,9 @@ async function cleanTestRows() {
 }
 
 beforeEach(async () => {
+  // Clear the duplicate-prefix registry so each test starts with the same
+  // clean slate a fresh server process would have.
+  _resetPrefixRegistryForTesting();
   await cleanTestRows();
 });
 
@@ -289,6 +293,10 @@ describe("PostgresRateLimitStore — cross-instance persistence (server restart)
     await instanceA.increment(CLIENT_KEY);
     await instanceA.increment(CLIENT_KEY);
 
+    // Simulate process restart: the new process begins with a clean registry
+    // (the module re-initialises) so the same prefix can be registered again.
+    _resetPrefixRegistryForTesting();
+
     // New process / new object — same prefix, no shared in-process state.
     const instanceB = makeStore(PREFIX_A);
     const result = await instanceB.increment(CLIENT_KEY);
@@ -339,6 +347,9 @@ describe("AI limiter — ai-burst prefix and 60-second window", () => {
     await storeA.increment(AI_TEST_IP);
     await storeA.increment(AI_TEST_IP);
 
+    // Simulate process restart: the new process begins with a clean registry.
+    _resetPrefixRegistryForTesting();
+
     // Brand-new object, same prefix — simulates the store being reconstructed
     // after a process restart or autoscale spin-up.
     const storeB = makeBurstStore();
@@ -387,6 +398,9 @@ describe("AI limiter — ai-daily prefix and 24-hour window", () => {
     const storeA = makeDailyStore();
     await storeA.increment(AI_TEST_IP);
     await storeA.increment(AI_TEST_IP);
+
+    // Simulate process restart: the new process begins with a clean registry.
+    _resetPrefixRegistryForTesting();
 
     const storeB = makeDailyStore();
     const result = await storeB.increment(AI_TEST_IP);
@@ -543,6 +557,9 @@ describe("redeem-code limiter — 10-minute window and server-restart survival",
     await instanceA.increment(RESTART_TEST_IP);
     await instanceA.increment(RESTART_TEST_IP);
 
+    // Simulate process restart: the new process begins with a clean registry.
+    _resetPrefixRegistryForTesting();
+
     // Brand-new object, same prefix — simulates the store being reconstructed
     // after a process restart or autoscale spin-up.
     const instanceB = makeRedeemStore();
@@ -604,6 +621,9 @@ describe("reviewer-sign-in limiter — 10-minute window and server-restart survi
     const instanceA = makeReviewerStore();
     await instanceA.increment(RESTART_TEST_IP);
     await instanceA.increment(RESTART_TEST_IP);
+
+    // Simulate process restart: the new process begins with a clean registry.
+    _resetPrefixRegistryForTesting();
 
     // Brand-new object, same prefix — simulates the store being reconstructed
     // after a process restart or autoscale spin-up.

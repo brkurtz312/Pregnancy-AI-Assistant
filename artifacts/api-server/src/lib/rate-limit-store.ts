@@ -5,8 +5,9 @@ import { and, eq, gt, sql } from "drizzle-orm";
 /**
  * Every rate-limiter prefix must be registered here exactly once.
  * Using a value from this object is a compile-time guarantee that the prefix is
- * known; `makeLimiter` enforces at startup that no two limiter definitions share
- * the same prefix so a copy-paste typo cannot silently merge two counters.
+ * known; `PostgresRateLimitStore` enforces at startup that no two limiter
+ * definitions share the same prefix so a copy-paste typo cannot silently merge
+ * two counters.
  */
 export const RATE_LIMIT_PREFIXES = {
   aiBurst: "ai-burst",
@@ -22,6 +23,22 @@ export type RateLimitPrefix =
 // RateLimitPrefix type at runtime, so a JS caller or an `as` cast could
 // still pass an arbitrary string; the allowlist catches that at startup.
 const ALLOWED_PREFIXES = new Set<string>(Object.values(RATE_LIMIT_PREFIXES));
+
+// Application-level duplicate guard: each prefix must be used by exactly one
+// store instance per process. This Set is populated in the constructor during
+// startup; any copy-paste error creating two limiters with the same prefix
+// throws immediately rather than silently sharing a counter in production.
+const _registeredPrefixes = new Set<string>();
+
+/**
+ * Clears the in-process prefix registry.
+ * FOR TESTING ONLY — never call this in production code.
+ * Use before each test that constructs `PostgresRateLimitStore` instances to
+ * simulate the clean slate a fresh server process would have.
+ */
+export function _resetPrefixRegistryForTesting(): void {
+  _registeredPrefixes.clear();
+}
 
 // Sweep expired rows occasionally so the table doesn't accumulate one row per
 // distinct client key forever. A lapsed window is harmless on its own (it's
@@ -48,14 +65,17 @@ function ensureCleanup(): void {
 /**
  * PostgreSQL-backed fixed-window store for express-rate-limit.
  *
- * The `prefix` parameter must be a value from `RATE_LIMIT_PREFIXES`. TypeScript
- * enforces this at compile time; the constructor validates it against
- * `ALLOWED_PREFIXES` at runtime so JS callers or `as`-cast bypasses are caught
- * immediately on startup rather than silently using an unregistered key.
+ * The `prefix` parameter must be a value from `RATE_LIMIT_PREFIXES`. The
+ * constructor enforces two invariants at startup:
  *
- * Duplicate-prefix enforcement (ensuring no two limiters share a prefix) lives
- * in `makeLimiter` in `rate-limit.ts`, not here, so that multiple instances of
- * the same store (e.g. across simulated server restarts in tests) are allowed.
+ *   1. **Known prefix** — the value must be in `RATE_LIMIT_PREFIXES` (the
+ *      `ALLOWED_PREFIXES` allowlist catches JS callers or `as`-cast bypasses).
+ *   2. **Unique prefix** — each value may only be used by one store per
+ *      process. A duplicate throws immediately so a copy-paste typo is caught
+ *      at startup rather than silently merging two limiters' counters.
+ *
+ * In tests, call `_resetPrefixRegistryForTesting()` in `beforeEach` to
+ * simulate the clean registry a fresh server process would have.
  */
 export class PostgresRateLimitStore implements Store {
   // Keys are global (shared across instances), not process-local.
@@ -64,12 +84,19 @@ export class PostgresRateLimitStore implements Store {
   private readonly keyPrefix: RateLimitPrefix;
 
   constructor(prefix: RateLimitPrefix) {
+    if (_registeredPrefixes.has(prefix)) {
+      throw new Error(
+        `PostgresRateLimitStore: prefix "${prefix}" is already registered. ` +
+          `Each entry in RATE_LIMIT_PREFIXES must be used by exactly one limiter.`,
+      );
+    }
     if (!ALLOWED_PREFIXES.has(prefix)) {
       throw new Error(
         `PostgresRateLimitStore: unknown prefix "${prefix}". ` +
           `Add it to RATE_LIMIT_PREFIXES in rate-limit-store.ts before use.`,
       );
     }
+    _registeredPrefixes.add(prefix);
     this.keyPrefix = prefix;
     ensureCleanup();
   }

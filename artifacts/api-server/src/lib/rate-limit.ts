@@ -7,12 +7,6 @@ import {
   type RateLimitPrefix,
 } from "./rate-limit-store";
 
-// Application-level duplicate guard: each prefix must be used by exactly one
-// limiter. This Set lives at module scope so it is populated once during
-// startup and any copy-paste error creating two limiters with the same prefix
-// throws immediately rather than silently sharing a counter in production.
-const _usedLimiterPrefixes = new Set<string>();
-
 // The Replit shared proxy forwards the original client IP as the leftmost
 // entry of X-Forwarded-For (see the Clerk proxy middleware for the same
 // convention). Deriving the key this way is independent of how many proxy
@@ -27,20 +21,17 @@ export function getClientIp(req: Request): string {
 // can't trivially rotate through addresses in its own block.
 const keyGenerator = (req: Request): string => ipKeyGenerator(getClientIp(req));
 
-function makeLimiter(
+export function makeLimiter(
   windowMs: number,
   limit: number,
   message: string,
   storePrefix: RateLimitPrefix,
   logLabel = "AI",
 ): RequestHandler {
-  if (_usedLimiterPrefixes.has(storePrefix)) {
-    throw new Error(
-      `makeLimiter: prefix "${storePrefix}" is already registered to another limiter. ` +
-        `Each entry in RATE_LIMIT_PREFIXES must be used by exactly one limiter.`,
-    );
-  }
-  _usedLimiterPrefixes.add(storePrefix);
+  // Duplicate-prefix enforcement lives in PostgresRateLimitStore's constructor:
+  // constructing a second store with the same prefix throws at startup so that
+  // a copy-paste typo is caught immediately rather than silently sharing a
+  // counter in production.
   return rateLimit({
     windowMs,
     limit,
