@@ -381,7 +381,8 @@ describe("ScribeScreen — 503 service unavailable (mobile)", () => {
       ok: false,
       status: 503,
       json: jest.fn().mockResolvedValue({
-        error: "The scribe service is not available right now. Please try again later.",
+        error:
+          "The scribe service is not available right now. Please try again later.",
       }),
     });
 
@@ -446,7 +447,8 @@ describe("ScribeScreen — 503 service unavailable (mobile)", () => {
         ok: false,
         status: 503,
         json: jest.fn().mockResolvedValue({
-          error: "The scribe service is not available right now. Please try again later.",
+          error:
+            "The scribe service is not available right now. Please try again later.",
         }),
       });
 

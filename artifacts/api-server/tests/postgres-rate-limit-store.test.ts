@@ -54,7 +54,6 @@ const MIRRORS_IP = "198.51.100.1";
 // IP used exclusively for the redeem-code / reviewer-sign-in restart tests.
 const RESTART_TEST_IP = "192.0.2.2";
 
-
 /** Remove all rows written by this test file. */
 async function cleanTestRows() {
   await db
