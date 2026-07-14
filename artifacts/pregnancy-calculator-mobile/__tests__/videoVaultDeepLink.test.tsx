@@ -36,6 +36,12 @@ import {
   useFakeTimersWithScheduler,
 } from "../test-helpers/testUtils";
 
+// This file uses fake timers + multiple flushAsync rounds.  Under concurrent
+// CI load (all workspace test suites running in parallel) the combined act()
+// overhead can exceed Jest's default 5 s per-test limit.  15 s gives
+// comfortable headroom without masking genuinely hung tests.
+jest.setTimeout(15000);
+
 jest.mock("react-native-reanimated", () =>
   require("react-native-reanimated/mock"),
 );
