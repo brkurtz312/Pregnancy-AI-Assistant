@@ -789,3 +789,164 @@ describe("learn search index — matchesQuery", () => {
     expect(matched.length).toBe(0);
   });
 });
+
+// ─── 9. Search navigation — keyword → router.push route ──────────────────────
+//
+// These tests mirror what happens at runtime when a user types in the search
+// box and presses a result:
+//
+//   1. The trimmed lowercase query is run through matchesQuery against the
+//      full search index.
+//   2. handleResultPress receives result.route and calls router.push(route).
+//
+// A route rename in the data (or a mismatch between the search index and the
+// underlying HEALTHY_PREGNANCY_ROUTE_IDS / video-vault IDs) would cause
+// navigation to the wrong screen or a 404.  These tests catch that regression
+// at CI time by asserting the specific route value produced for known keywords.
+//
+// Coverage: one Healthy Pregnancy result, one VideoVault result, one Support
+// Person result (as required by the task spec).
+
+describe("Search navigation — keyword → router.push route", () => {
+  const allResults = buildSearchIndex();
+
+  function search(q: string): SearchResult[] {
+    const lower = q.trim().toLowerCase();
+    return allResults.filter((r) => matchesQuery(r, lower));
+  }
+
+  // ── Healthy Pregnancy ──────────────────────────────────────────────────────
+
+  it('searching "nutrition" returns a Healthy Pregnancy result whose route is /hp-nutrition', () => {
+    const matches = search("nutrition");
+    const hpMatch = matches.find((r) => r.section === "healthypregnancy");
+    expect(hpMatch).toBeDefined();
+    expect(hpMatch!.route).toBe("/hp-nutrition");
+  });
+
+  it('pressing the "nutrition" search result navigates to the nutrition topic (router.push receives /hp-nutrition)', () => {
+    const matches = search("nutrition");
+    const hpMatch = matches.find(
+      (r) => r.section === "healthypregnancy" && r.route === "/hp-nutrition",
+    );
+    expect(hpMatch).toBeDefined();
+    // Simulates: handleResultPress(hpMatch.route) → router.push(hpMatch.route)
+    const pushedRoute = hpMatch!.route;
+    expect(pushedRoute).toBe("/hp-nutrition");
+  });
+
+  it("every Healthy Pregnancy topic is reachable via a keyword from its own title", () => {
+    for (const topic of HEALTHY_PREGNANCY_TOPICS) {
+      const keyword = topic.title.split(" ")[0].toLowerCase();
+      const matches = search(keyword);
+      const hpRoutes = matches
+        .filter((r) => r.section === "healthypregnancy")
+        .map((r) => r.route);
+      expect(hpRoutes).toContain(topic.route);
+    }
+  });
+
+  it("Healthy Pregnancy search result route matches the typed /hp-* pattern for each topic", () => {
+    for (const topic of HEALTHY_PREGNANCY_TOPICS) {
+      const matches = search(topic.title.toLowerCase());
+      const hpMatch = matches.find(
+        (r) => r.section === "healthypregnancy" && r.label === topic.title,
+      );
+      expect(hpMatch).toBeDefined();
+      expect(hpMatch!.route).toBe(topic.route);
+      expect(hpMatch!.route.startsWith("/hp-")).toBe(true);
+    }
+  });
+
+  // ── VideoVault ─────────────────────────────────────────────────────────────
+
+  it("searching a VideoVault topic title returns a result whose route is /video-vault?topic=<id>", () => {
+    const topic = VIDEO_VAULT_TOPICS[0];
+    const matches = search(topic.title.toLowerCase());
+    const vvMatch = matches.find(
+      (r) => r.section === "videovault" && r.label === topic.title,
+    );
+    expect(vvMatch).toBeDefined();
+    expect(vvMatch!.route).toBe(`/video-vault?topic=${topic.id}`);
+  });
+
+  it("pressing a VideoVault search result navigates with the correct topic id in the URL (router.push receives /video-vault?topic=<id>)", () => {
+    const topic = VIDEO_VAULT_TOPICS[0];
+    const matches = search(topic.title.toLowerCase());
+    const vvMatch = matches.find(
+      (r) => r.section === "videovault" && r.label === topic.title,
+    );
+    expect(vvMatch).toBeDefined();
+    // Simulates: handleResultPress(vvMatch.route) → router.push(vvMatch.route)
+    const pushedRoute = vvMatch!.route;
+    const embeddedId = pushedRoute.replace("/video-vault?topic=", "");
+    const resolved = VIDEO_VAULT_TOPICS.find((t) => t.id === embeddedId);
+    expect(resolved).toBeDefined();
+    expect(resolved!.title).toBe(topic.title);
+  });
+
+  it("every VideoVault topic is reachable via a keyword search and its result route decodes to the same topic", () => {
+    for (const topic of VIDEO_VAULT_TOPICS) {
+      const keyword = topic.title.split(" ")[0].toLowerCase();
+      const matches = search(keyword);
+      const vvMatch = matches.find(
+        (r) => r.section === "videovault" && r.label === topic.title,
+      );
+      expect(vvMatch).toBeDefined();
+      const embeddedId = vvMatch!.route.replace("/video-vault?topic=", "");
+      expect(embeddedId).toBe(topic.id);
+    }
+  });
+
+  // ── Support Person ─────────────────────────────────────────────────────────
+
+  it("searching a Support Person volume title returns a result whose route is /support-person-vol<N>", () => {
+    const vol = SUPPORT_PERSON_VOLUMES[0];
+    const matches = search(vol.handoutTitle.toLowerCase());
+    const spMatch = matches.find(
+      (r) => r.section === "supportperson" && r.label === vol.handoutTitle,
+    );
+    expect(spMatch).toBeDefined();
+    expect(spMatch!.route).toBe(VOL_ROUTES[vol.volumeNumber - 1]);
+  });
+
+  it("pressing a Support Person search result navigates to the correct volume screen (router.push receives /support-person-vol<N>)", () => {
+    const vol = SUPPORT_PERSON_VOLUMES[0];
+    const matches = search(vol.handoutTitle.toLowerCase());
+    const spMatch = matches.find(
+      (r) => r.section === "supportperson" && r.label === vol.handoutTitle,
+    );
+    expect(spMatch).toBeDefined();
+    // Simulates: handleResultPress(spMatch.route) → router.push(spMatch.route)
+    const pushedRoute = spMatch!.route;
+    expect(pushedRoute).toBe(`/support-person-vol${vol.volumeNumber}`);
+  });
+
+  it("every Support Person volume is reachable via a keyword search and its route matches the volume number", () => {
+    for (const vol of SUPPORT_PERSON_VOLUMES) {
+      const keyword = vol.handoutTitle.split(" ")[0].toLowerCase();
+      const matches = search(keyword);
+      const spMatch = matches.find(
+        (r) => r.section === "supportperson" && r.label === vol.handoutTitle,
+      );
+      expect(spMatch).toBeDefined();
+      expect(spMatch!.route).toBe(`/support-person-vol${vol.volumeNumber}`);
+    }
+  });
+
+  // ── Cross-section: search does not bleed routes across sections ────────────
+
+  it('searching "nutrition" does not return a VideoVault or SupportPerson result for the HP nutrition topic', () => {
+    const matches = search("nutrition");
+    const hpNutritionResult = matches.find(
+      (r) => r.section === "healthypregnancy" && r.route === "/hp-nutrition",
+    );
+    expect(hpNutritionResult).toBeDefined();
+    // Any VideoVault or SupportPerson match for "nutrition" has its own route,
+    // NOT the /hp-nutrition route — no route bleeding across sections.
+    const nonHpMatches = matches.filter((r) => r.section !== "healthypregnancy");
+    for (const result of nonHpMatches) {
+      expect(result.route).not.toBe("/hp-nutrition");
+    }
+  });
+});
