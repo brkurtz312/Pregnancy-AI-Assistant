@@ -277,6 +277,53 @@ describe("Scribe — SCRIBE_LIMIT_REACHED", () => {
     expect(startCheckout).toHaveBeenCalledTimes(1);
   });
 
+  it("shows generic 'try again' message and no upgrade CTA when service is unavailable (503)", async () => {
+    signedInUser();
+    withSpeechRecognition();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 503,
+        json: () =>
+          Promise.resolve({
+            error:
+              "The scribe service is not available right now. Please try again later.",
+          }),
+      }),
+    );
+
+    render(<Scribe />);
+
+    const micButton = document.querySelector<HTMLButtonElement>(
+      "button.rounded-full.bg-primary",
+    )!;
+    fireEvent.click(micButton);
+
+    simulateSpeech(
+      "Doctor said everything looks good and baby is healthy today.",
+    );
+
+    const stopButton = document.querySelector<HTMLButtonElement>(
+      "button.rounded-full.bg-red-500",
+    )!;
+    fireEvent.click(stopButton);
+
+    const generateBtn = await screen.findByRole("button", {
+      name: /Generate My Visit Summary/i,
+    });
+    fireEvent.click(generateBtn);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/not available right now/i),
+      ).toBeTruthy();
+    });
+
+    expect(screen.queryByTestId("upgrade-to-pass-cta")).toBeNull();
+  });
+
   it("does not show upgrade CTA for generic errors", async () => {
     signedInUser();
     withSpeechRecognition();
