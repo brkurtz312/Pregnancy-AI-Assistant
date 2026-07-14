@@ -51,9 +51,8 @@ export default function SignUpScreen() {
     await signUp.verifications.verifyEmailCode({ code });
     if (signUp.status === "complete") {
       await signUp.finalize({
-        navigate: ({ session, decorateUrl }) => {
-          if (session?.currentTask) return;
-          router.replace(decorateUrl("/") as Href);
+        navigate: () => {
+          router.replace("/" as Href);
         },
       });
     }
