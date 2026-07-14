@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import express, { type Express, type Request } from "express";
+import express, { type Express, type Request, type Response } from "express";
 import request from "supertest";
 
 // Replace the PostgreSQL-backed store with a hermetic in-memory implementation
@@ -90,6 +90,7 @@ vi.mock("../src/lib/entitlement", () => ({
 }));
 
 import aiRouter from "../src/routes/ai/index";
+import { aiDailyLimiter } from "../src/lib/rate-limit";
 
 function buildApp(): Express {
   const app = express();
@@ -251,4 +252,118 @@ describe("POST /api/ai/weekly-insight — cache-hit cost protection", () => {
     }
     expect(anthropicCreate).not.toHaveBeenCalled();
   });
+});
+
+// ---------------------------------------------------------------------------
+// Daily rate-limit protection on /api/ai/weekly-insight
+// ---------------------------------------------------------------------------
+// A bot that respects the burst window (≤ 15 req/min) and spreads requests
+// across the day could still drive up to 120 Anthropic calls from one IP
+// before the aiDailyLimiter fires. These tests confirm that the 121st request
+// is blocked with 429 regardless of which endpoint is targeted.
+//
+// The daily limiter is tested in isolation — without the burst limiter — so
+// we can fire all 120 allowed requests synchronously without triggering a
+// burst block. This mirrors the approach in ai-daily-rate-limit.test.ts.
+// Each request uses a distinct week number so the in-process weekly-insight
+// cache (which is warm from earlier describe blocks) doesn't short-circuit the
+// handler before the limiter counts it.
+//
+// IPs in this block use the 198.51.101.x range to avoid any interference with
+// the burst-test IPs (203.0.113.x / 203.0.115-116.x used above).
+function buildDailyOnlyApp(): Express {
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => {
+    (req as Request & { log: unknown }).log = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
+    next();
+  });
+  // Only the daily limiter sits in front of the stub handler. This lets us
+  // accumulate 120 hits without the burst limiter (15 req/min) intercepting.
+  app.use(aiDailyLimiter);
+  app.post("/api/ai/weekly-insight", (_req: Request, res: Response) => {
+    res.status(503).json({ error: "Anthropic not configured" });
+  });
+  return app;
+}
+
+const dailyOnlyApp = buildDailyOnlyApp();
+
+function weeklyInsightDaily(ip: string, week: number) {
+  return request(dailyOnlyApp)
+    .post("/api/ai/weekly-insight")
+    .set("x-forwarded-for", ip)
+    .send({ week });
+}
+
+describe("POST /api/ai/weekly-insight — daily rate-limit protection", () => {
+  it("returns 503 when Anthropic is not configured (daily limit not yet exhausted)", async () => {
+    const res = await weeklyInsightDaily("198.51.101.200", 1);
+    expect(res.status).toBe(503);
+  });
+
+  it(
+    "blocks the 121st request from the same IP with 429",
+    { timeout: 30_000 },
+    async () => {
+      const ip = "198.51.101.10";
+
+      // The aiDailyLimiter allows up to 120 requests per 24-hour window.
+      // Each uses a distinct week so no cross-describe cache entry from the
+      // cache-hit tests above can return a 200 before the limiter counts the hit.
+      // All 120 must reach the stub handler and get 503.
+      for (let i = 0; i < 120; i++) {
+        const res = await weeklyInsightDaily(ip, i + 1);
+        expect(res.status).toBe(503);
+      }
+
+      // The 121st request from the same IP must be intercepted by the daily
+      // limiter before the handler runs — confirming the ceiling is enforced
+      // on the weekly-insight path, not just on /api/ai/ask.
+      const blocked = await weeklyInsightDaily(ip, 121);
+      expect(blocked.status).toBe(429);
+      expect(blocked.body.error).toMatch(/today's limit/i);
+    },
+  );
+
+  it(
+    "includes Retry-After in the 429 response",
+    { timeout: 30_000 },
+    async () => {
+      const ip = "198.51.101.11";
+
+      for (let i = 0; i < 120; i++) {
+        await weeklyInsightDaily(ip, i + 1);
+      }
+
+      const blocked = await weeklyInsightDaily(ip, 121);
+      expect(blocked.status).toBe(429);
+      // The limiter handler sets Retry-After so clients know when to retry.
+      expect(blocked.headers["retry-after"]).toBeTruthy();
+    },
+  );
+
+  it(
+    "does not rate-limit a different IP even when another IP is exhausted",
+    { timeout: 30_000 },
+    async () => {
+      const exhaustedIp = "198.51.101.20";
+      const freshIp = "198.51.101.21";
+
+      // Exhaust the daily limit for exhaustedIp.
+      for (let i = 0; i < 120; i++) {
+        await weeklyInsightDaily(exhaustedIp, i + 1);
+      }
+      expect((await weeklyInsightDaily(exhaustedIp, 121)).status).toBe(429);
+
+      // A completely different IP must still be served normally — confirming
+      // the limit is per-IP, not a shared global ceiling.
+      const res = await weeklyInsightDaily(freshIp, 1);
+      expect(res.status).toBe(503);
+    },
+  );
 });
