@@ -326,7 +326,7 @@ export function Journal() {
               onClick={handleExport}
               className="gap-1.5 rounded-xl text-xs"
             >
-              <Printer className="w-3.5 h-3.5" /> Export PDF
+              <Printer className="w-3.5 h-3.5" /> View PDF
             </Button>
           )}
           <Button
