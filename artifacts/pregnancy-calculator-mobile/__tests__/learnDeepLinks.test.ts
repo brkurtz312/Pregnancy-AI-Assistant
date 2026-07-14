@@ -703,6 +703,219 @@ describe("HealthyPregnancy topic routes match app/ screen files", () => {
   });
 });
 
+// ─── 7d. HealthyPregnancy screen files — parse validity + default export ──────
+//
+// Section 7b confirms each screen file EXISTS. This section goes one step
+// further: it verifies that each hp-*.tsx file is syntactically valid
+// TypeScript/TSX and has a default export (the Expo Router screen component).
+//
+// Why: a typo that corrupts the file, or a refactor that accidentally removes
+// `export default`, silently produces a blank/crashed screen at runtime. The
+// file still "exists" so section 7b would still pass — only this section would
+// catch it.
+//
+// We use the TypeScript compiler API for static analysis so we never need to
+// actually import the files (which would fail in the test environment because
+// of React Native / Expo native module dependencies).
+
+describe("HealthyPregnancy screen files — parse validity + default export", () => {
+  const appDir = path.join(__dirname, "..", "app");
+
+  // Collect all hp-*.tsx files from the filesystem (same set as section 7b).
+  const hpFiles = fs
+    .readdirSync(appDir)
+    .filter((f) => f.startsWith("hp-") && f.endsWith(".tsx"));
+
+  it("there is at least one hp-*.tsx file to validate", () => {
+    expect(hpFiles.length).toBeGreaterThan(0);
+  });
+
+  it("every hp-*.tsx file parses as valid TypeScript/TSX without syntax errors", () => {
+    const ts = require("typescript") as typeof import("typescript");
+    for (const filename of hpFiles) {
+      const fullPath = path.join(appDir, filename);
+      const source = fs.readFileSync(fullPath, "utf8");
+
+      // transpileModule surfaces TypeScript syntax diagnostics for a single
+      // file without needing to resolve imports, so it works even though the
+      // files depend on React Native / Expo modules unavailable in Node.
+      const result = ts.transpileModule(source, {
+        fileName: filename,
+        compilerOptions: {
+          target: ts.ScriptTarget.ESNext,
+          jsx: ts.JsxEmit.ReactNative,
+        },
+        reportDiagnostics: true,
+      });
+
+      const syntaxErrors = (result.diagnostics ?? []).filter(
+        (d) => d.category === ts.DiagnosticCategory.Error,
+      );
+
+      if (syntaxErrors.length > 0) {
+        const messages = syntaxErrors
+          .map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n"))
+          .join("; ");
+        throw new Error(`${filename} has TypeScript syntax errors: ${messages}`);
+      }
+    }
+  });
+
+  it("every hp-*.tsx file has a default export (the Expo Router screen component)", () => {
+    const ts = require("typescript") as typeof import("typescript");
+    for (const filename of hpFiles) {
+      const fullPath = path.join(appDir, filename);
+      const source = fs.readFileSync(fullPath, "utf8");
+
+      const sourceFile = ts.createSourceFile(
+        filename,
+        source,
+        ts.ScriptTarget.ESNext,
+        /* setParentNodes */ true,
+        ts.ScriptKind.TSX,
+      );
+
+      let hasDefaultExport = false;
+
+      for (const statement of sourceFile.statements) {
+        // export default function Foo() {} / export default class Foo {}
+        // These parse as FunctionDeclaration / ClassDeclaration with both
+        // ExportKeyword and DefaultKeyword in their modifier list.
+        if (
+          (ts.isFunctionDeclaration(statement) ||
+            ts.isClassDeclaration(statement)) &&
+          statement.modifiers?.some(
+            (m) => m.kind === ts.SyntaxKind.DefaultKeyword,
+          )
+        ) {
+          hasDefaultExport = true;
+          break;
+        }
+
+        // export default <expression>  (e.g. memo(Fn), arrow fn, identifier)
+        // These parse as ExportAssignment with isExportEquals === false.
+        if (ts.isExportAssignment(statement) && !statement.isExportEquals) {
+          hasDefaultExport = true;
+          break;
+        }
+
+        // export { Foo as default }
+        if (ts.isExportDeclaration(statement) && statement.exportClause) {
+          if (ts.isNamedExports(statement.exportClause)) {
+            for (const el of statement.exportClause.elements) {
+              if (el.name.text === "default") {
+                hasDefaultExport = true;
+                break;
+              }
+            }
+          }
+        }
+
+        if (hasDefaultExport) break;
+      }
+
+      if (!hasDefaultExport) {
+        throw new Error(
+          `${filename} has no default export — Expo Router requires a default-exported screen component`,
+        );
+      }
+    }
+  });
+
+  it("the default export in every hp-*.tsx file is a function (React component, not a plain value)", () => {
+    const ts = require("typescript") as typeof import("typescript");
+    for (const filename of hpFiles) {
+      const fullPath = path.join(appDir, filename);
+      const source = fs.readFileSync(fullPath, "utf8");
+
+      const sourceFile = ts.createSourceFile(
+        filename,
+        source,
+        ts.ScriptTarget.ESNext,
+        /* setParentNodes */ true,
+        ts.ScriptKind.TSX,
+      );
+
+      let defaultIsFunction = false;
+
+      for (const statement of sourceFile.statements) {
+        // export default function Foo() {}
+        if (
+          ts.isFunctionDeclaration(statement) &&
+          statement.modifiers?.some(
+            (m) => m.kind === ts.SyntaxKind.DefaultKeyword,
+          )
+        ) {
+          defaultIsFunction = true;
+          break;
+        }
+
+        // export default <expr> — accept arrow functions, call expressions
+        // (e.g. memo(Fn)), and class expressions as valid component forms.
+        if (ts.isExportAssignment(statement) && !statement.isExportEquals) {
+          const expr = statement.expression;
+          if (
+            ts.isArrowFunction(expr) ||
+            ts.isFunctionExpression(expr) ||
+            ts.isClassExpression(expr) ||
+            ts.isCallExpression(expr) // e.g. React.memo(...) or withAuth(...)
+          ) {
+            defaultIsFunction = true;
+          }
+          // Also accept: export default Identifier where the identifier likely
+          // refers to a function declared above — we verify this via a simple
+          // check that there is a function/class declaration in the file sharing
+          // that name.
+          if (ts.isIdentifier(expr)) {
+            const refName = expr.text;
+            for (const s of sourceFile.statements) {
+              if (
+                (ts.isFunctionDeclaration(s) || ts.isClassDeclaration(s)) &&
+                s.name?.text === refName
+              ) {
+                defaultIsFunction = true;
+                break;
+              }
+              const isConstFn =
+                ts.isVariableStatement(s) &&
+                s.declarationList.declarations.some(
+                  (d) =>
+                    ts.isIdentifier(d.name) &&
+                    d.name.text === refName &&
+                    d.initializer != null &&
+                    (ts.isArrowFunction(d.initializer) ||
+                      ts.isFunctionExpression(d.initializer)),
+                );
+              if (isConstFn) {
+                defaultIsFunction = true;
+                break;
+              }
+            }
+          }
+          break;
+        }
+
+        // export default class Foo {}
+        if (
+          ts.isClassDeclaration(statement) &&
+          statement.modifiers?.some(
+            (m) => m.kind === ts.SyntaxKind.DefaultKeyword,
+          )
+        ) {
+          defaultIsFunction = true;
+          break;
+        }
+      }
+
+      if (!defaultIsFunction) {
+        throw new Error(
+          `${filename} default export does not appear to be a React component (function or class)`,
+        );
+      }
+    }
+  });
+});
+
 // ─── 8. Search index — matchesQuery logic ────────────────────────────────────
 
 describe("learn search index — matchesQuery", () => {
