@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { getWeeklyInsightBodyWeekMax } from "@workspace/api-zod";
+import { WEEKLY_INSIGHT_TTL_MS } from "../src/routes/ai/index";
 import express, {
   type Express,
   type Request,
@@ -103,9 +105,9 @@ function insight(body: unknown) {
 
 // The module-level TtlCache in the route file persists across test cases.
 // Use a counter to give each test a unique week number so no two tests
-// accidentally share a cached entry. The schema enforces max week = 42.
-// Start at 28 so that all 14 increments in this file land in [29, 42].
-let weekCounter = 28;
+// accidentally share a cached entry. The schema's max is getWeeklyInsightBodyWeekMax.
+// Start 14 below the max so that all 14 increments in this file stay in range.
+let weekCounter = getWeeklyInsightBodyWeekMax - 14;
 
 function fakeAnswer(text: string) {
   return { content: [{ type: "text", text }] };
@@ -417,10 +419,8 @@ describe("POST /api/ai/weekly-insight no-metering guarantee", () => {
 //  2. A request made at or after expiry is a cache miss (Anthropic is called again).
 //
 // We fake only `Date` (not setTimeout/setImmediate/etc.) so that Node's HTTP
-// stack continues to process request bodies normally. WEEKLY_INSIGHT_TTL_MS
-// mirrors the constant in the route file; if the route changes the TTL, this
-// suite must be updated to match.
-const WEEKLY_INSIGHT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — must match route
+// stack continues to process request bodies normally. WEEKLY_INSIGHT_TTL_MS is
+// imported directly from the route so the two values can never drift apart.
 
 describe("POST /api/ai/weekly-insight TTL expiry", () => {
   let primeTime: number;

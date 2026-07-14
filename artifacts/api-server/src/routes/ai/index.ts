@@ -35,7 +35,7 @@ const MAX_TOKENS = 8192;
 // Weekly insights depend only on the gestational week (not on the user), so the
 // same generated text is reused for everyone. Cache it in memory to avoid a paid
 // LLM call on every calculation. TTL bounds staleness; deploys also reset it.
-const WEEKLY_INSIGHT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+export const WEEKLY_INSIGHT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const weeklyInsightCache = new TtlCache<number, string>(WEEKLY_INSIGHT_TTL_MS);
 
 // Server-side guardrails: clients are untrusted, so cap conversation history
