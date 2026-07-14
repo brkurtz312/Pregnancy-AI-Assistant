@@ -45,6 +45,12 @@ const AI_TEST_IP = "203.0.113.99";
 // IP used by the "mirrors production key-prefix naming" test (also RFC 5737).
 const MIRRORS_IP = "198.51.100.1";
 
+// IP used exclusively for the redeem-code / reviewer-sign-in restart tests.
+const RESTART_TEST_IP = "192.0.2.2";
+
+// Production window for the redeem-code and reviewer-sign-in limiters.
+const REDEEM_REVIEWER_WINDOW_MS = 10 * 60 * 1000;
+
 // Production window values — must stay in sync with rate-limit.ts.
 const AI_BURST_WINDOW_MS = 60 * 1000;
 const AI_DAILY_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -66,6 +72,14 @@ async function cleanTestRows() {
         eq(
           rateLimitsTable.key,
           `${RATE_LIMIT_PREFIXES.reviewerSignIn}:${MIRRORS_IP}`,
+        ),
+        eq(
+          rateLimitsTable.key,
+          `${RATE_LIMIT_PREFIXES.redeemCode}:${RESTART_TEST_IP}`,
+        ),
+        eq(
+          rateLimitsTable.key,
+          `${RATE_LIMIT_PREFIXES.reviewerSignIn}:${RESTART_TEST_IP}`,
         ),
       ),
     );
@@ -483,5 +497,131 @@ describe("AI limiter — ai-burst and ai-daily counters are independent", () => 
 
     // Daily reset must always be later than burst reset.
     expect(dailyReset).toBeGreaterThan(burstReset);
+  });
+});
+
+// ─── redeem-code limiter — 10-minute window ───────────────────────────────────
+
+describe("redeem-code limiter — 10-minute window and server-restart survival", () => {
+  function makeRedeemStore(): PostgresRateLimitStore {
+    const store = new PostgresRateLimitStore(RATE_LIMIT_PREFIXES.redeemCode);
+    store.init({ windowMs: REDEEM_REVIEWER_WINDOW_MS } as Parameters<
+      PostgresRateLimitStore["init"]
+    >[0]);
+    return store;
+  }
+
+  it("starts at totalHits=1 with a resetTime roughly 10 minutes out", async () => {
+    const store = makeRedeemStore();
+    const before = Date.now();
+    const result = await store.increment(RESTART_TEST_IP);
+    const after = Date.now();
+
+    expect(result.totalHits).toBe(1);
+
+    // resetTime must fall within the 10-minute window (with a small buffer).
+    const resetMs = result.resetTime.getTime();
+    expect(resetMs).toBeGreaterThan(
+      before + REDEEM_REVIEWER_WINDOW_MS - 2_000,
+    );
+    expect(resetMs).toBeLessThan(after + REDEEM_REVIEWER_WINDOW_MS + 2_000);
+
+    // Confirm it is NOT a 60-second or 24-hour window.
+    expect(resetMs).toBeGreaterThan(after + 60 * 1000);
+    expect(resetMs).toBeLessThan(before + 24 * 60 * 60 * 1000);
+  });
+
+  it("accumulates hits within the same 10-minute window", async () => {
+    const store = makeRedeemStore();
+    await store.increment(RESTART_TEST_IP);
+    await store.increment(RESTART_TEST_IP);
+    const r = await store.increment(RESTART_TEST_IP);
+
+    expect(r.totalHits).toBe(3);
+  });
+
+  it("survives a simulated server restart — a fresh store object continues from the persisted count", async () => {
+    const instanceA = makeRedeemStore();
+    await instanceA.increment(RESTART_TEST_IP);
+    await instanceA.increment(RESTART_TEST_IP);
+
+    // Brand-new object, same prefix — simulates the store being reconstructed
+    // after a process restart or autoscale spin-up.
+    const instanceB = makeRedeemStore();
+    const result = await instanceB.increment(RESTART_TEST_IP);
+
+    // Counter must continue from where instanceA left off (2 + 1 = 3),
+    // not restart at 1 as an in-memory store would.
+    expect(result.totalHits).toBe(3);
+
+    // resetTime on the resumed counter must still be ~10 minutes from now,
+    // not reset to 60 seconds or 24 hours.
+    const resetMs = result.resetTime.getTime();
+    expect(resetMs).toBeGreaterThan(Date.now() + 60 * 1000);
+    expect(resetMs).toBeLessThan(Date.now() + 24 * 60 * 60 * 1000);
+  });
+});
+
+// ─── reviewer-sign-in limiter — 10-minute window ─────────────────────────────
+
+describe("reviewer-sign-in limiter — 10-minute window and server-restart survival", () => {
+  function makeReviewerStore(): PostgresRateLimitStore {
+    const store = new PostgresRateLimitStore(
+      RATE_LIMIT_PREFIXES.reviewerSignIn,
+    );
+    store.init({ windowMs: REDEEM_REVIEWER_WINDOW_MS } as Parameters<
+      PostgresRateLimitStore["init"]
+    >[0]);
+    return store;
+  }
+
+  it("starts at totalHits=1 with a resetTime roughly 10 minutes out", async () => {
+    const store = makeReviewerStore();
+    const before = Date.now();
+    const result = await store.increment(RESTART_TEST_IP);
+    const after = Date.now();
+
+    expect(result.totalHits).toBe(1);
+
+    // resetTime must fall within the 10-minute window (with a small buffer).
+    const resetMs = result.resetTime.getTime();
+    expect(resetMs).toBeGreaterThan(
+      before + REDEEM_REVIEWER_WINDOW_MS - 2_000,
+    );
+    expect(resetMs).toBeLessThan(after + REDEEM_REVIEWER_WINDOW_MS + 2_000);
+
+    // Confirm it is NOT a 60-second or 24-hour window.
+    expect(resetMs).toBeGreaterThan(after + 60 * 1000);
+    expect(resetMs).toBeLessThan(before + 24 * 60 * 60 * 1000);
+  });
+
+  it("accumulates hits within the same 10-minute window", async () => {
+    const store = makeReviewerStore();
+    await store.increment(RESTART_TEST_IP);
+    await store.increment(RESTART_TEST_IP);
+    const r = await store.increment(RESTART_TEST_IP);
+
+    expect(r.totalHits).toBe(3);
+  });
+
+  it("survives a simulated server restart — a fresh store object continues from the persisted count", async () => {
+    const instanceA = makeReviewerStore();
+    await instanceA.increment(RESTART_TEST_IP);
+    await instanceA.increment(RESTART_TEST_IP);
+
+    // Brand-new object, same prefix — simulates the store being reconstructed
+    // after a process restart or autoscale spin-up.
+    const instanceB = makeReviewerStore();
+    const result = await instanceB.increment(RESTART_TEST_IP);
+
+    // Counter must continue from where instanceA left off (2 + 1 = 3),
+    // not restart at 1 as an in-memory store would.
+    expect(result.totalHits).toBe(3);
+
+    // resetTime on the resumed counter must still be ~10 minutes from now,
+    // not reset to 60 seconds or 24 hours.
+    const resetMs = result.resetTime.getTime();
+    expect(resetMs).toBeGreaterThan(Date.now() + 60 * 1000);
+    expect(resetMs).toBeLessThan(Date.now() + 24 * 60 * 60 * 1000);
   });
 });
