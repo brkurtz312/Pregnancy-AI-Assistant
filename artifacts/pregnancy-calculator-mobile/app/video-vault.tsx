@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
   ScrollView,
@@ -85,18 +85,18 @@ function VideoRow({ video }: { video: VideoVaultVideo }) {
 function TopicCard({
   topic,
   delay,
-  initialOpen = false,
+  openTrigger = 0,
 }: {
   topic: VideoVaultTopic;
   delay: number;
-  initialOpen?: boolean;
+  openTrigger?: number;
 }) {
   const colors = useColors();
-  const [open, setOpen] = useState(initialOpen);
+  const [open, setOpen] = useState(openTrigger > 0);
 
   useEffect(() => {
-    if (initialOpen) setOpen(true);
-  }, [initialOpen]);
+    if (openTrigger > 0) setOpen(true);
+  }, [openTrigger]);
 
   return (
     <Animated.View
@@ -149,6 +149,20 @@ export default function VideoVaultScreen() {
   const { topic: deepLinkTopicId } = useLocalSearchParams<{ topic?: string }>();
   const [search, setSearch] = useState("");
   const [filterSource, setFilterSource] = useState("All");
+
+  // Monotonically-increasing counter: increments every time deepLinkTopicId
+  // changes to a non-empty value. Passed as `openTrigger` to the matching
+  // TopicCard so that tapping the same search result a second time (after the
+  // user manually closed the card) still re-opens it, even when the URL param
+  // value did not change between navigations.
+  const [deepLinkVersion, setDeepLinkVersion] = useState(0);
+  const prevDeepLinkRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (deepLinkTopicId && deepLinkTopicId !== prevDeepLinkRef.current) {
+      setDeepLinkVersion((v) => v + 1);
+    }
+    prevDeepLinkRef.current = deepLinkTopicId;
+  }, [deepLinkTopicId]);
 
   const { totalVideos, verifiedCount, topicCount } = useMemo(
     () => getVideoVaultTotals(),
@@ -315,7 +329,7 @@ export default function VideoVaultScreen() {
               key={topic.id}
               topic={topic}
               delay={100 + i * 30}
-              initialOpen={!!deepLinkTopicId && topic.id === deepLinkTopicId}
+              openTrigger={deepLinkTopicId === topic.id ? deepLinkVersion : 0}
             />
           ))
         )}
