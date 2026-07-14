@@ -407,6 +407,47 @@ describe("alert cooldown", () => {
     expect(dispatch).toHaveBeenCalledTimes(2);
   });
 
+  it("fires once and suppresses subsequent ticks when the channel recovers mid-window", async () => {
+    vi.useFakeTimers();
+
+    // Dispatch rejects on the very first call (channel is down at the start of
+    // the window), then resolves for every subsequent call — the channel
+    // recovers while the cooldown is still active.
+    const dispatch = vi
+      .fn<[{ subject: string; body: string }], Promise<void>>()
+      .mockRejectedValueOnce(new Error("channel temporarily unavailable"))
+      .mockResolvedValue(undefined);
+
+    const check = vi.fn().mockResolvedValue(failResult("pass_revoked"));
+    const cooldownMs = 60_000; // 1-minute window
+    const opts = { cooldownMs, _runCheck: check, _dispatch: dispatch };
+
+    // First tick: dispatch attempted (rejects), cooldown armed
+    await runScheduledCheck(opts);
+    expect(dispatch).toHaveBeenCalledTimes(1);
+
+    // Channel has recovered, but we are still inside the cooldown window —
+    // ticks mid-window must be suppressed regardless of channel health
+    vi.advanceTimersByTime(30_000); // halfway through the 60 s window
+    await runScheduledCheck(opts);
+    await runScheduledCheck(opts);
+    expect(dispatch).toHaveBeenCalledTimes(1); // still suppressed
+
+    // Advance past the full cooldown — next tick opens a new window
+    vi.advanceTimersByTime(cooldownMs - 30_000 + 1); // remaining half + 1 ms
+
+    // First tick of the new window: channel is up, dispatch succeeds
+    await runScheduledCheck(opts);
+    expect(dispatch).toHaveBeenCalledTimes(2);
+    expect(dispatch.mock.calls[1][0].subject).toContain("failed");
+    expect(dispatch.mock.calls[1][0].body).toContain("pass_revoked");
+
+    // Subsequent ticks within the new cooldown window are suppressed normally
+    await runScheduledCheck(opts);
+    await runScheduledCheck(opts);
+    expect(dispatch).toHaveBeenCalledTimes(2);
+  });
+
   it("resets the cooldown after a passing check follows a failure", async () => {
     vi.useFakeTimers();
 
