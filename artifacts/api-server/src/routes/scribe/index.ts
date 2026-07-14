@@ -153,23 +153,39 @@ router.post(
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
-    const hasPass = await userHasPass(userId);
+
+    // Fail closed: if the DB is unavailable we cannot verify usage limits, so
+    // we block the request with a 503 rather than risk bypassing free-tier caps.
+    let hasPass: boolean;
     let usageReserved = false;
-    if (!hasPass) {
-      const { reserved } = await reserveUsage(
-        `scribe:${userId}`,
-        "all-time",
-        FREE_SCRIBE_LIMIT,
-      );
-      if (!reserved) {
-        res.status(403).json({
-          code: "SCRIBE_LIMIT_REACHED",
-          error:
-            "You have used your free scribe session. Upgrade to the Full Pregnancy Pass for unlimited sessions.",
-        });
-        return;
+    try {
+      hasPass = await userHasPass(userId);
+      if (!hasPass) {
+        const { reserved } = await reserveUsage(
+          `scribe:${userId}`,
+          "all-time",
+          FREE_SCRIBE_LIMIT,
+        );
+        if (!reserved) {
+          res.status(403).json({
+            code: "SCRIBE_LIMIT_REACHED",
+            error:
+              "You have used your free scribe session. Upgrade to the Full Pregnancy Pass for unlimited sessions.",
+          });
+          return;
+        }
+        usageReserved = true;
       }
-      usageReserved = true;
+    } catch (err) {
+      req.log.error(
+        { err },
+        "scribe generate-note: DB error during pre-check",
+      );
+      res.status(503).json({
+        error:
+          "The scribe service is temporarily unavailable. Please try again in a moment.",
+      });
+      return;
     }
 
     const systemPrompt = mode === "soap" ? SOAP_SYSTEM : SUMMARY_SYSTEM;
