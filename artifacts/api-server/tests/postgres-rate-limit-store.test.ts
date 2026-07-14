@@ -521,9 +521,7 @@ describe("redeem-code limiter — 10-minute window and server-restart survival",
 
     // resetTime must fall within the 10-minute window (with a small buffer).
     const resetMs = result.resetTime.getTime();
-    expect(resetMs).toBeGreaterThan(
-      before + REDEEM_REVIEWER_WINDOW_MS - 2_000,
-    );
+    expect(resetMs).toBeGreaterThan(before + REDEEM_REVIEWER_WINDOW_MS - 2_000);
     expect(resetMs).toBeLessThan(after + REDEEM_REVIEWER_WINDOW_MS + 2_000);
 
     // Confirm it is NOT a 60-second or 24-hour window.
@@ -585,9 +583,7 @@ describe("reviewer-sign-in limiter — 10-minute window and server-restart survi
 
     // resetTime must fall within the 10-minute window (with a small buffer).
     const resetMs = result.resetTime.getTime();
-    expect(resetMs).toBeGreaterThan(
-      before + REDEEM_REVIEWER_WINDOW_MS - 2_000,
-    );
+    expect(resetMs).toBeGreaterThan(before + REDEEM_REVIEWER_WINDOW_MS - 2_000);
     expect(resetMs).toBeLessThan(after + REDEEM_REVIEWER_WINDOW_MS + 2_000);
 
     // Confirm it is NOT a 60-second or 24-hour window.

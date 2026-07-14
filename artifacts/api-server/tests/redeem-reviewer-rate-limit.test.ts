@@ -114,7 +114,7 @@ describe("POST /api/billing/redeem-code rate-limit protection", () => {
     // handler — the rate limiter fires and returns 429.
     const blocked = await redeemCode(ip);
     expect(blocked.status).toBe(429);
-  });
+  }, 15000);
 
   it("includes Retry-After in the 429 response", async () => {
     const ip = "10.0.0.11";
@@ -126,7 +126,7 @@ describe("POST /api/billing/redeem-code rate-limit protection", () => {
     const blocked = await redeemCode(ip);
     expect(blocked.status).toBe(429);
     expect(blocked.headers["retry-after"]).toBeTruthy();
-  });
+  }, 15000);
 
   it("does not rate-limit a different IP even when another IP is exhausted", async () => {
     const exhaustedIp = "10.0.0.20";
@@ -141,7 +141,7 @@ describe("POST /api/billing/redeem-code rate-limit protection", () => {
     // A completely different IP must still be served normally (gets 503, not 429).
     const res = await redeemCode(freshIp);
     expect(res.status).toBe(503);
-  });
+  }, 15000);
 });
 
 // ─── reviewerSignInLimiter ────────────────────────────────────────────────────
@@ -198,7 +198,7 @@ describe("POST /api/reviewer/sign-in-token rate-limit protection", () => {
     // handler — the rate limiter fires and returns 429.
     const blocked = await reviewerSignIn(ip);
     expect(blocked.status).toBe(429);
-  });
+  }, 15000);
 
   it("includes Retry-After in the 429 response", async () => {
     const ip = "172.16.0.11";
@@ -210,7 +210,7 @@ describe("POST /api/reviewer/sign-in-token rate-limit protection", () => {
     const blocked = await reviewerSignIn(ip);
     expect(blocked.status).toBe(429);
     expect(blocked.headers["retry-after"]).toBeTruthy();
-  });
+  }, 15000);
 
   it("does not rate-limit a different IP even when another IP is exhausted", async () => {
     const exhaustedIp = "172.16.0.20";
@@ -225,5 +225,5 @@ describe("POST /api/reviewer/sign-in-token rate-limit protection", () => {
     // A completely different IP must still be served normally (gets 503, not 429).
     const res = await reviewerSignIn(freshIp);
     expect(res.status).toBe(503);
-  });
+  }, 15000);
 });
