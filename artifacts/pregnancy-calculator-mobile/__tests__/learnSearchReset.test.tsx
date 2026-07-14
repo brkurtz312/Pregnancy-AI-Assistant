@@ -103,11 +103,7 @@ function findResultCards(
 ): ReactTestInstance[] {
   return renderer.root
     .findAllByType(TouchableOpacity)
-    .filter(
-      (t) =>
-        t.props.activeOpacity === 0.8 &&
-        t.props.hitSlop == null,
-    );
+    .filter((t) => t.props.activeOpacity === 0.8 && t.props.hitSlop == null);
 }
 
 // Text present only in browse view (ResourceCard title, only rendered when query is empty)
@@ -314,9 +310,7 @@ describe("LearnScreen — HealthyPregnancy result press clears query and restore
     });
     await flushAsync(3);
 
-    expect(mockPush).toHaveBeenCalledWith(
-      expect.stringContaining("/hp-"),
-    );
+    expect(mockPush).toHaveBeenCalledWith(expect.stringContaining("/hp-"));
   });
 
   it("pressing a HealthyPregnancy result clears the query (search results disappear)", async () => {

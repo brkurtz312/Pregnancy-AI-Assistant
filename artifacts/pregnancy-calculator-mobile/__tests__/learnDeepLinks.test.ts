@@ -756,7 +756,9 @@ describe("HealthyPregnancy screen files — parse validity + default export", ()
         const messages = syntaxErrors
           .map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n"))
           .join("; ");
-        throw new Error(`${filename} has TypeScript syntax errors: ${messages}`);
+        throw new Error(
+          `${filename} has TypeScript syntax errors: ${messages}`,
+        );
       }
     }
   });
@@ -1165,4 +1167,3 @@ describe("Search navigation — keyword → router.push route", () => {
     }
   });
 });
-

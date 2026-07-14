@@ -316,9 +316,7 @@ describe("Scribe — SCRIBE_LIMIT_REACHED", () => {
     fireEvent.click(generateBtn);
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/not available right now/i),
-      ).toBeTruthy();
+      expect(screen.getByText(/not available right now/i)).toBeTruthy();
     });
 
     expect(screen.queryByTestId("upgrade-to-pass-cta")).toBeNull();

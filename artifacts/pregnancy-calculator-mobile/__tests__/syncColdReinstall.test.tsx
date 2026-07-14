@@ -242,8 +242,9 @@ describe("Journal — cold reinstall (AsyncStorage wiped)", () => {
     // Use more rounds than the default 5 to ensure the full async chain
     // (getJournalCacheOwner → apiLoad → loadEntries → loadMediaIndex →
     //  pruneOrphanedMediaIndexKeys → cacheEntries → setJournalCacheOwner →
-    //  setEntries) has fully resolved before asserting the rendered output.
-    await flushAsync(10);
+    //  setEntries → clearPendingSync → releaseSyncLock + React effect flushes)
+    // has fully resolved before asserting the rendered output.
+    await flushAsync(15);
 
     const json = JSON.stringify(renderer!.toJSON());
     expect(json).toContain("First scan — everything looks perfect!");
