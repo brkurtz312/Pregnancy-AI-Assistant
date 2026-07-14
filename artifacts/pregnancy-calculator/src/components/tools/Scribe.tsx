@@ -122,6 +122,7 @@ export function Scribe() {
     if (hasPass && isLimitError) {
       setIsLimitError(false);
       setErrorMsg("");
+      setStatus("stopped");
     }
   }, [hasPass, isLimitError]);
 
