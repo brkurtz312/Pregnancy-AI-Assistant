@@ -54,10 +54,17 @@ export function makeLimiter(
   });
 }
 
+// Exported so tests can import the canonical value instead of duplicating the
+// arithmetic. If either limiter's window changes here, tests automatically use
+// the new value — no manual sync required.
+export const AI_BURST_WINDOW_MS = 60 * 1000;
+export const AI_DAILY_WINDOW_MS = 24 * 60 * 60 * 1000;
+export const REDEEM_REVIEWER_WINDOW_MS = 10 * 60 * 1000;
+
 // Burst protection: absorbs a natural session (one auto weekly-insight call
 // plus an active Q&A back-and-forth) while stopping scripted hammering.
 export const aiBurstLimiter: RequestHandler = makeLimiter(
-  60 * 1000,
+  AI_BURST_WINDOW_MS,
   15,
   "You're sending requests too quickly. Please wait a moment and try again.",
   RATE_LIMIT_PREFIXES.aiBurst,
@@ -67,7 +74,7 @@ export const aiBurstLimiter: RequestHandler = makeLimiter(
 // single IP can spend in a day. Rejected burst requests don't reach this
 // limiter (it runs after the burst limiter), so they don't burn the budget.
 export const aiDailyLimiter: RequestHandler = makeLimiter(
-  24 * 60 * 60 * 1000,
+  AI_DAILY_WINDOW_MS,
   120,
   "You've reached today's limit for the assistant. Please try again tomorrow.",
   RATE_LIMIT_PREFIXES.aiDaily,
@@ -77,7 +84,7 @@ export const aiDailyLimiter: RequestHandler = makeLimiter(
 // entitlement from a single shared secret, so cap attempts per IP to make
 // online guessing infeasible while leaving room for genuine typos.
 export const redeemCodeLimiter: RequestHandler = makeLimiter(
-  10 * 60 * 1000,
+  REDEEM_REVIEWER_WINDOW_MS,
   10,
   "Too many code attempts. Please wait a few minutes and try again.",
   RATE_LIMIT_PREFIXES.redeemCode,
@@ -88,7 +95,7 @@ export const redeemCodeLimiter: RequestHandler = makeLimiter(
 // yields a Clerk sign-in token for the demo account, so cap attempts per IP
 // to the same conservative budget as the redeem-code endpoint.
 export const reviewerSignInLimiter: RequestHandler = makeLimiter(
-  10 * 60 * 1000,
+  REDEEM_REVIEWER_WINDOW_MS,
   10,
   "Too many sign-in attempts. Please wait a few minutes and try again.",
   RATE_LIMIT_PREFIXES.reviewerSignIn,

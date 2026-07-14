@@ -24,6 +24,11 @@ import {
   _resetPrefixRegistryForTesting,
   type RateLimitPrefix,
 } from "../src/lib/rate-limit-store";
+import {
+  AI_BURST_WINDOW_MS,
+  AI_DAILY_WINDOW_MS,
+  REDEEM_REVIEWER_WINDOW_MS,
+} from "../src/lib/rate-limit";
 
 // Use two registry prefixes as test namespaces. Using real registry values
 // satisfies the allowlist check in the constructor while keeping this file
@@ -49,12 +54,6 @@ const MIRRORS_IP = "198.51.100.1";
 // IP used exclusively for the redeem-code / reviewer-sign-in restart tests.
 const RESTART_TEST_IP = "192.0.2.2";
 
-// Production window for the redeem-code and reviewer-sign-in limiters.
-const REDEEM_REVIEWER_WINDOW_MS = 10 * 60 * 1000;
-
-// Production window values — must stay in sync with rate-limit.ts.
-const AI_BURST_WINDOW_MS = 60 * 1000;
-const AI_DAILY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 /** Remove all rows written by this test file. */
 async function cleanTestRows() {
