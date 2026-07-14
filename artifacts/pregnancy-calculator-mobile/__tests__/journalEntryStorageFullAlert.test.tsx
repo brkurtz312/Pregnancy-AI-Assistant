@@ -287,6 +287,58 @@ describe("journal-entry.tsx — handleSave storage-full alert wiring", () => {
     expect(router.back).not.toHaveBeenCalled();
   });
 
+  it("shows 'Saved locally' alert and calls router.back() when API sync fails but queue write succeeds", async () => {
+    const { upsertEntry } = require("@/lib/journal") as {
+      upsertEntry: jest.Mock;
+    };
+    upsertEntry.mockResolvedValue(undefined);
+
+    const { markPendingSync } = require("@/lib/sync-queue") as {
+      markPendingSync: jest.Mock;
+    };
+    markPendingSync.mockResolvedValue(undefined);
+
+    const { useAuth } = require("@clerk/expo") as { useAuth: jest.Mock };
+    useAuth.mockReturnValue({
+      isSignedIn: true,
+      getToken: jest.fn(async () => "token"),
+    });
+
+    const { apiUpsertJournalEntry } = require("@/lib/sync-api") as {
+      apiUpsertJournalEntry: jest.Mock;
+    };
+    apiUpsertJournalEntry.mockRejectedValue(new Error("network error"));
+
+    const renderer = renderJournalEntryScreen();
+
+    const inputs = renderer.root.findAllByType(TextInput);
+    await act(async () => {
+      inputs[0].props.onChangeText("My journal entry text");
+    });
+
+    const saveButton = findSaveButton(renderer);
+    await act(async () => {
+      saveButton.props.onPress();
+    });
+    await flushAsync();
+
+    const calls = alertSpy.mock.calls;
+
+    const savedLocallyCall = calls.find((args) => args[0] === "Saved locally");
+    expect(savedLocallyCall).toBeDefined();
+
+    const genericCall = calls.find((args) => args[0] === "Couldn't save");
+    expect(genericCall).toBeUndefined();
+
+    const storageFullCall = calls.find(
+      (args) => args[0] === "Could not save entry",
+    );
+    expect(storageFullCall).toBeUndefined();
+
+    const { router } = require("expo-router");
+    expect(router.back).toHaveBeenCalled();
+  });
+
   it("generic fallback — shows correct body text and does not trigger storage-full path", async () => {
     const { upsertEntry } = require("@/lib/journal") as {
       upsertEntry: jest.Mock;
