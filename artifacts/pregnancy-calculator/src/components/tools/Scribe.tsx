@@ -206,7 +206,7 @@ export function Scribe() {
       };
 
       if (!res.ok) {
-        if (data.code === "SCRIBE_LIMIT_REACHED") {
+        if (data.code === "SCRIBE_LIMIT_REACHED" && !hasPass) {
           setIsLimitError(true);
           setErrorMsg(
             "You've used your free scribe session. Upgrade to the Full Pregnancy Pass for unlimited sessions.",
@@ -410,7 +410,7 @@ export function Scribe() {
                 <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
                 <div className="space-y-2 flex-1">
                   <p className="text-xs text-red-700">{errorMsg}</p>
-                  {isLimitError && (
+                  {isLimitError && !hasPass && (
                     <Button
                       size="sm"
                       onClick={startCheckout}
