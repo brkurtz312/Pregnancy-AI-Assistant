@@ -211,6 +211,46 @@ describe("POST /api/ai/weekly-insight no-metering guarantee", () => {
     expect(reserveUsage).not.toHaveBeenCalled();
   });
 
+  it("rejects week = 0 (below minimum) with 400 before hitting the cache or Anthropic", async () => {
+    const res = await insight({ week: 0 });
+    expect(res.status).toBe(400);
+    expect(anthropicCreate).not.toHaveBeenCalled();
+    expect(reserveUsage).not.toHaveBeenCalled();
+  });
+
+  it("rejects week = -1 (negative) with 400 before hitting the cache or Anthropic", async () => {
+    const res = await insight({ week: -1 });
+    expect(res.status).toBe(400);
+    expect(anthropicCreate).not.toHaveBeenCalled();
+    expect(reserveUsage).not.toHaveBeenCalled();
+  });
+
+  it("rejects week = 43 (above maximum) with 400 before hitting the cache or Anthropic", async () => {
+    const res = await insight({ week: 43 });
+    expect(res.status).toBe(400);
+    expect(anthropicCreate).not.toHaveBeenCalled();
+    expect(reserveUsage).not.toHaveBeenCalled();
+  });
+
+  it("rejects extreme week values (999, -9999) with 400 before hitting the cache or Anthropic", async () => {
+    const highRes = await insight({ week: 999 });
+    expect(highRes.status).toBe(400);
+    expect(anthropicCreate).not.toHaveBeenCalled();
+
+    const lowRes = await insight({ week: -9999 });
+    expect(lowRes.status).toBe(400);
+    expect(anthropicCreate).not.toHaveBeenCalled();
+
+    expect(reserveUsage).not.toHaveBeenCalled();
+  });
+
+  it("rejects a non-integer week value with 400 before hitting the cache or Anthropic", async () => {
+    const res = await insight({ week: "forty" });
+    expect(res.status).toBe(400);
+    expect(anthropicCreate).not.toHaveBeenCalled();
+    expect(reserveUsage).not.toHaveBeenCalled();
+  });
+
   it("returns 503 when the assistant is not configured, without metering", async () => {
     isAnthropicConfigured.mockReturnValue(false);
     const res = await insight({ week: ++weekCounter });
