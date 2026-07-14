@@ -64,9 +64,18 @@ jest.mock("@workspace/api-client-react", () => ({
     isLoading: false,
     refetch: jest.fn(),
   })),
-  useCreatePrenatalVisit: jest.fn(() => ({ mutateAsync: jest.fn(), isPending: false })),
-  useUpdatePrenatalVisit: jest.fn(() => ({ mutateAsync: jest.fn(), isPending: false })),
-  useDeletePrenatalVisit: jest.fn(() => ({ mutateAsync: jest.fn(), isPending: false })),
+  useCreatePrenatalVisit: jest.fn(() => ({
+    mutateAsync: jest.fn(),
+    isPending: false,
+  })),
+  useUpdatePrenatalVisit: jest.fn(() => ({
+    mutateAsync: jest.fn(),
+    isPending: false,
+  })),
+  useDeletePrenatalVisit: jest.fn(() => ({
+    mutateAsync: jest.fn(),
+    isPending: false,
+  })),
   useListSymptoms: jest.fn(() => ({ data: undefined })),
   useListKickSessions: jest.fn(() => ({ data: undefined })),
   useListContractions: jest.fn(() => ({ data: undefined })),
