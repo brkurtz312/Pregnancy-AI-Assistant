@@ -368,7 +368,9 @@ describe("Scribe — SCRIBE_LIMIT_REACHED", () => {
     fireEvent.click(generateBtn);
 
     await waitFor(() => {
-      expect(screen.queryByRole("button", { name: /Generate My Visit Summary/i })).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: /Generate My Visit Summary/i }),
+      ).toBeNull();
     });
 
     expect(screen.queryByTestId("upgrade-to-pass-cta")).toBeNull();
