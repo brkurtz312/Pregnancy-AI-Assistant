@@ -118,6 +118,14 @@ export async function runScheduledCheck(
       cooldownMs,
       doDispatch,
     );
+  } else {
+    // A passing check clears the cooldown so the next failure triggers a
+    // fresh alert immediately instead of waiting for the original window to
+    // expire. The service has recovered — treat the next failure as new.
+    if (lastAlertSentAt !== null) {
+      logger.info("Reviewer pass check recovered — cooldown cleared");
+      lastAlertSentAt = null;
+    }
   }
 
   return result;
