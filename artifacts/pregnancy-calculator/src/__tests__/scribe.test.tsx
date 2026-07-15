@@ -4,6 +4,7 @@
  * Covers:
  * - Unauthenticated users see a sign-in prompt, not a broken state.
  * - SCRIBE_LIMIT_REACHED error shows the upgrade message + CTA button.
+ * - SCRIBE_LIMIT_REACHED with hasPass=true never shows the upgrade CTA (page-reload regression).
  * - The transcript textarea is editable before generating a summary.
  * - Browsers without SpeechRecognition see the Chrome/Edge guidance message.
  */
@@ -320,6 +321,58 @@ describe("Scribe — SCRIBE_LIMIT_REACHED", () => {
     });
 
     expect(screen.queryByTestId("upgrade-to-pass-cta")).toBeNull();
+  });
+
+  it("never shows upgrade CTA when hasPass=true even if SCRIBE_LIMIT_REACHED is returned (page-reload regression)", async () => {
+    signedInUser();
+    withSpeechRecognition();
+
+    mockUsePass.mockReturnValue({
+      ...defaultPassValue(),
+      hasPass: true,
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 403,
+        json: () =>
+          Promise.resolve({
+            code: "SCRIBE_LIMIT_REACHED",
+            error:
+              "You have used your free scribe session. Upgrade to the Full Pregnancy Pass for unlimited sessions.",
+          }),
+      }),
+    );
+
+    render(<Scribe />);
+
+    const micButton = document.querySelector<HTMLButtonElement>(
+      "button.rounded-full.bg-primary",
+    )!;
+    fireEvent.click(micButton);
+
+    simulateSpeech(
+      "Doctor said everything looks good and baby is healthy today.",
+    );
+
+    const stopButton = document.querySelector<HTMLButtonElement>(
+      "button.rounded-full.bg-red-500",
+    )!;
+    fireEvent.click(stopButton);
+
+    const generateBtn = await screen.findByRole("button", {
+      name: /Generate My Visit Summary/i,
+    });
+    fireEvent.click(generateBtn);
+
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: /Generate My Visit Summary/i })).toBeNull();
+    });
+
+    expect(screen.queryByTestId("upgrade-to-pass-cta")).toBeNull();
+    expect(screen.queryByText(/Upgrade to Full Pass/i)).toBeNull();
   });
 
   it("does not show upgrade CTA for generic errors", async () => {
