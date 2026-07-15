@@ -294,6 +294,33 @@ describe("POST /scribe/transcribe — DB recovery after 503", () => {
 
     expect(mockGetUsage).toHaveBeenCalledTimes(1);
   });
+
+  it("returns 200 on the second request after getUsage recovers", async () => {
+    const app = buildApp();
+
+    mockUserHasPass.mockResolvedValue(false);
+    mockGetUsage.mockRejectedValueOnce(new Error("DB timeout"));
+    const first = await postTranscribe(app);
+    expect(first.status).toBe(503);
+
+    const second = await postTranscribe(app);
+    expect(second.status).toBe(200);
+    expect(second.body.transcript).toBe("Transcribed audio.");
+  });
+
+  it("does not call Whisper on the first (failed) request when getUsage throws", async () => {
+    const app = buildApp();
+
+    mockUserHasPass.mockResolvedValue(false);
+    mockGetUsage.mockRejectedValueOnce(new Error("DB timeout"));
+    await postTranscribe(app);
+
+    expect(mockSpeechToText).not.toHaveBeenCalled();
+
+    await postTranscribe(app);
+
+    expect(mockSpeechToText).toHaveBeenCalledTimes(1);
+  });
 });
 
 // ─── generate-note: DB recovery ───────────────────────────────────────────────
@@ -364,6 +391,51 @@ describe("POST /scribe/generate-note — DB recovery after 503", () => {
     });
     expect(second.status).toBe(200);
     expect(second.body.mode).toBe("soap");
+  });
+
+  it("returns 200 on the second request after reserveUsage recovers", async () => {
+    const app = buildApp();
+
+    mockUserHasPass.mockResolvedValue(false);
+    mockReserveUsage.mockRejectedValueOnce(new Error("DB timeout"));
+    const first = await postGenerateNote(app, {
+      transcript: VALID_TRANSCRIPT,
+      mode: "summary",
+    });
+    expect(first.status).toBe(503);
+
+    const second = await postGenerateNote(app, {
+      transcript: VALID_TRANSCRIPT,
+      mode: "summary",
+    });
+    expect(second.status).toBe(200);
+    expect(second.body.mode).toBe("summary");
+  });
+
+  it("does not trigger a spurious refund on the recovery request after reserveUsage threw", async () => {
+    const app = buildApp();
+
+    mockUserHasPass.mockResolvedValue(false);
+    mockReserveUsage.mockRejectedValueOnce(new Error("DB timeout"));
+    await postGenerateNote(app, {
+      transcript: VALID_TRANSCRIPT,
+      mode: "summary",
+    });
+
+    vi.clearAllMocks();
+    mockIsAnthropicConfigured.mockReturnValue(true);
+    mockUserHasPass.mockResolvedValue(false);
+    mockReserveUsage.mockResolvedValue({ reserved: true, count: 1 });
+    mockAnthropicCreate.mockResolvedValue({
+      content: [{ type: "text", text: SUMMARY_RESPONSE }],
+    });
+
+    await postGenerateNote(app, {
+      transcript: VALID_TRANSCRIPT,
+      mode: "summary",
+    });
+
+    expect(mockRefundUsage).not.toHaveBeenCalled();
   });
 });
 
