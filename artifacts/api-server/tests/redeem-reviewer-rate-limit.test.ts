@@ -56,6 +56,7 @@ vi.mock("../src/lib/rate-limit-store", () => {
 import {
   redeemCodeLimiter,
   reviewerSignInLimiter,
+  REDEEM_REVIEWER_LIMIT,
 } from "../src/lib/rate-limit";
 
 // ─── redeemCodeLimiter ────────────────────────────────────────────────────────
@@ -100,17 +101,17 @@ describe("POST /api/billing/redeem-code rate-limit protection", () => {
     expect(res.status).toBe(503);
   });
 
-  it("blocks the 11th request from the same IP with 429", async () => {
+  it(`blocks the ${REDEEM_REVIEWER_LIMIT + 1}th request from the same IP with 429`, async () => {
     const ip = "10.0.0.10";
 
-    // redeemCodeLimiter allows up to 10 requests per 10-minute window.
-    // All 10 should reach the stub handler and get 503.
-    for (let i = 0; i < 10; i++) {
+    // redeemCodeLimiter allows up to REDEEM_REVIEWER_LIMIT requests per 10-minute window.
+    // All of them should reach the stub handler and get 503.
+    for (let i = 0; i < REDEEM_REVIEWER_LIMIT; i++) {
       const res = await redeemCode(ip);
       expect(res.status).toBe(503);
     }
 
-    // The 11th request from the same IP must be blocked before it reaches the
+    // The next request from the same IP must be blocked before it reaches the
     // handler — the rate limiter fires and returns 429.
     const blocked = await redeemCode(ip);
     expect(blocked.status).toBe(429);
@@ -119,7 +120,7 @@ describe("POST /api/billing/redeem-code rate-limit protection", () => {
   it("includes Retry-After in the 429 response", async () => {
     const ip = "10.0.0.11";
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < REDEEM_REVIEWER_LIMIT; i++) {
       await redeemCode(ip);
     }
 
@@ -133,7 +134,7 @@ describe("POST /api/billing/redeem-code rate-limit protection", () => {
     const freshIp = "10.0.0.21";
 
     // Exhaust the limit for exhaustedIp.
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < REDEEM_REVIEWER_LIMIT; i++) {
       await redeemCode(exhaustedIp);
     }
     expect((await redeemCode(exhaustedIp)).status).toBe(429);
@@ -184,17 +185,17 @@ describe("POST /api/reviewer/sign-in-token rate-limit protection", () => {
     expect(res.status).toBe(503);
   });
 
-  it("blocks the 11th request from the same IP with 429", async () => {
+  it(`blocks the ${REDEEM_REVIEWER_LIMIT + 1}th request from the same IP with 429`, async () => {
     const ip = "172.16.0.10";
 
-    // reviewerSignInLimiter allows up to 10 requests per 10-minute window.
-    // All 10 should reach the stub handler and get 503.
-    for (let i = 0; i < 10; i++) {
+    // reviewerSignInLimiter allows up to REDEEM_REVIEWER_LIMIT requests per 10-minute window.
+    // All of them should reach the stub handler and get 503.
+    for (let i = 0; i < REDEEM_REVIEWER_LIMIT; i++) {
       const res = await reviewerSignIn(ip);
       expect(res.status).toBe(503);
     }
 
-    // The 11th request from the same IP must be blocked before it reaches the
+    // The next request from the same IP must be blocked before it reaches the
     // handler — the rate limiter fires and returns 429.
     const blocked = await reviewerSignIn(ip);
     expect(blocked.status).toBe(429);
@@ -203,7 +204,7 @@ describe("POST /api/reviewer/sign-in-token rate-limit protection", () => {
   it("includes Retry-After in the 429 response", async () => {
     const ip = "172.16.0.11";
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < REDEEM_REVIEWER_LIMIT; i++) {
       await reviewerSignIn(ip);
     }
 
@@ -217,7 +218,7 @@ describe("POST /api/reviewer/sign-in-token rate-limit protection", () => {
     const freshIp = "172.16.0.21";
 
     // Exhaust the limit for exhaustedIp.
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < REDEEM_REVIEWER_LIMIT; i++) {
       await reviewerSignIn(exhaustedIp);
     }
     expect((await reviewerSignIn(exhaustedIp)).status).toBe(429);

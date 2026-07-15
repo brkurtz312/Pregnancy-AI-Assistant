@@ -122,6 +122,7 @@ vi.mock("../src/lib/ai-usage", () => ({
 }));
 
 import billingRouter from "../src/routes/billing/index";
+import { REDEEM_REVIEWER_LIMIT } from "../src/lib/rate-limit";
 
 function buildApp(): Express {
   const app = express();
@@ -172,17 +173,17 @@ describe("POST /api/billing/redeem-code brute-force protection", () => {
     expect(res.status).toBe(403);
   });
 
-  it("blocks the 11th wrong-code attempt from the same IP with 429", async () => {
+  it(`blocks the ${REDEEM_REVIEWER_LIMIT + 1}th wrong-code attempt from the same IP with 429`, async () => {
     const ip = "203.0.113.10";
 
-    // The limiter allows up to 10 attempts per 10-minute window.
-    // All 10 should reach the handler and get 403 (wrong code).
-    for (let i = 0; i < 10; i++) {
+    // The limiter allows up to REDEEM_REVIEWER_LIMIT attempts per 10-minute window.
+    // All of them should reach the handler and get 403 (wrong code).
+    for (let i = 0; i < REDEEM_REVIEWER_LIMIT; i++) {
       const res = await redeemCode("bad-code", ip);
       expect(res.status).toBe(403);
     }
 
-    // The 11th request from the same IP must be blocked before it reaches the
+    // The next request from the same IP must be blocked before it reaches the
     // handler — the rate limiter fires and returns 429.
     const blocked = await redeemCode("bad-code", ip);
     expect(blocked.status).toBe(429);
@@ -191,7 +192,7 @@ describe("POST /api/billing/redeem-code brute-force protection", () => {
   it("includes Retry-After in the 429 response", async () => {
     const ip = "203.0.113.11";
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < REDEEM_REVIEWER_LIMIT; i++) {
       await redeemCode("bad-code", ip);
     }
 
@@ -206,7 +207,7 @@ describe("POST /api/billing/redeem-code brute-force protection", () => {
     const freshIp = "203.0.113.21";
 
     // Exhaust the limit for exhaustedIp.
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < REDEEM_REVIEWER_LIMIT; i++) {
       await redeemCode("bad-code", exhaustedIp);
     }
     expect((await redeemCode("bad-code", exhaustedIp)).status).toBe(429);

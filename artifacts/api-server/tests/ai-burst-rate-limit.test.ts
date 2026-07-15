@@ -93,6 +93,7 @@ vi.mock("../src/lib/entitlement", () => ({
 }));
 
 import aiRouter from "../src/routes/ai/index";
+import { AI_BURST_LIMIT } from "../src/lib/rate-limit";
 
 function buildApp(): Express {
   const app = express();
@@ -131,17 +132,17 @@ describe("POST /api/ai/ask burst rate-limit protection", () => {
     expect(res.status).toBe(503);
   });
 
-  it("blocks the 16th request from the same IP with 429", async () => {
+  it(`blocks the ${AI_BURST_LIMIT + 1}th request from the same IP with 429`, async () => {
     const ip = "203.0.113.10";
 
-    // The aiBurstLimiter allows up to 15 requests per 60-second window.
-    // All 15 should reach the handler and get 503 (Anthropic not configured).
-    for (let i = 0; i < 15; i++) {
+    // The aiBurstLimiter allows up to AI_BURST_LIMIT requests per 60-second window.
+    // All of them should reach the handler and get 503 (Anthropic not configured).
+    for (let i = 0; i < AI_BURST_LIMIT; i++) {
       const res = await askAI(ip);
       expect(res.status).toBe(503);
     }
 
-    // The 16th request from the same IP must be blocked before it reaches the
+    // The next request from the same IP must be blocked before it reaches the
     // handler — the burst rate limiter fires and returns 429.
     const blocked = await askAI(ip);
     expect(blocked.status).toBe(429);
@@ -150,7 +151,7 @@ describe("POST /api/ai/ask burst rate-limit protection", () => {
   it("includes Retry-After in the 429 response", async () => {
     const ip = "203.0.113.11";
 
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < AI_BURST_LIMIT; i++) {
       await askAI(ip);
     }
 
@@ -165,7 +166,7 @@ describe("POST /api/ai/ask burst rate-limit protection", () => {
     const freshIp = "203.0.113.21";
 
     // Exhaust the burst limit for exhaustedIp.
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < AI_BURST_LIMIT; i++) {
       await askAI(exhaustedIp);
     }
     expect((await askAI(exhaustedIp)).status).toBe(429);

@@ -254,7 +254,6 @@ describe("Journal screen — offline entry photos reappear under new server UUID
   });
 
   it("photo from the promoted entry is visible in the rendered journal list", async () => {
-
     await AsyncStorage.setItem(JOURNAL_KEY, JSON.stringify([LOCAL_ENTRY]));
     await AsyncStorage.setItem(JOURNAL_OWNER_KEY, "user-offline-photo-test");
     await AsyncStorage.setItem(
@@ -285,7 +284,6 @@ describe("Journal screen — offline entry photos reappear under new server UUID
   });
 
   it("photo URI is present in the rendered output after the local ID is promoted", async () => {
-
     // Existing server entry plus the offline local entry
     await AsyncStorage.setItem(
       JOURNAL_KEY,
@@ -321,7 +319,6 @@ describe("Journal screen — offline entry photos reappear under new server UUID
   });
 
   it("photos from an entry edited offline (updated text + new photo) also reappear after sync", async () => {
-
     const SECOND_PHOTO: JournalMedia = {
       id: "photo-offline-002",
       uri: "file:///tmp/journal-media/photo-offline-002.jpg",
@@ -374,7 +371,6 @@ describe("Journal screen — offline entry photos reappear under new server UUID
   });
 
   it("photos from other entries are unaffected when one local entry is promoted", async () => {
-
     const OTHER_SERVER_ID = "ffffffff-2222-4333-8444-555555555555";
     const OTHER_PHOTO: JournalMedia = {
       id: "photo-other-001",

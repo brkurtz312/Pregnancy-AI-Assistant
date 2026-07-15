@@ -53,7 +53,7 @@ vi.mock("../src/lib/rate-limit-store", () => {
   };
 });
 
-import { aiDailyLimiter } from "../src/lib/rate-limit";
+import { aiDailyLimiter, AI_DAILY_LIMIT } from "../src/lib/rate-limit";
 
 // Build a minimal app that applies ONLY the daily limiter so the burst limiter
 // (15 req/min) doesn't intercept requests before the daily budget is exhausted.
@@ -100,19 +100,19 @@ describe("POST /api/ai/ask daily rate-limit protection", () => {
   });
 
   it(
-    "blocks the 121st request from the same IP with 429",
+    `blocks the ${AI_DAILY_LIMIT + 1}st request from the same IP with 429`,
     { timeout: 30_000 },
     async () => {
       const ip = "198.51.100.10";
 
-      // The aiDailyLimiter allows up to 120 requests per 24-hour window.
-      // All 120 should reach the stub handler and get 503.
-      for (let i = 0; i < 120; i++) {
+      // The aiDailyLimiter allows up to AI_DAILY_LIMIT requests per 24-hour window.
+      // All of them should reach the stub handler and get 503.
+      for (let i = 0; i < AI_DAILY_LIMIT; i++) {
         const res = await askAI(ip);
         expect(res.status).toBe(503);
       }
 
-      // The 121st request from the same IP must be blocked before it reaches the
+      // The next request from the same IP must be blocked before it reaches the
       // handler — the daily rate limiter fires and returns 429.
       const blocked = await askAI(ip);
       expect(blocked.status).toBe(429);
@@ -125,7 +125,7 @@ describe("POST /api/ai/ask daily rate-limit protection", () => {
     async () => {
       const ip = "198.51.100.11";
 
-      for (let i = 0; i < 120; i++) {
+      for (let i = 0; i < AI_DAILY_LIMIT; i++) {
         await askAI(ip);
       }
 
@@ -144,7 +144,7 @@ describe("POST /api/ai/ask daily rate-limit protection", () => {
       const freshIp = "198.51.100.21";
 
       // Exhaust the daily limit for exhaustedIp.
-      for (let i = 0; i < 120; i++) {
+      for (let i = 0; i < AI_DAILY_LIMIT; i++) {
         await askAI(exhaustedIp);
       }
       expect((await askAI(exhaustedIp)).status).toBe(429);

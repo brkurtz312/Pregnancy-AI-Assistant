@@ -465,7 +465,7 @@ describe("AI limiter — ai-burst and ai-daily counters are independent", () => 
   });
 
   it("burst exhaustion does not bleed into the daily budget", async () => {
-    // Simulate a client hitting the burst ceiling (15 req/min in production).
+    // Simulate a client hitting the burst ceiling (AI_BURST_LIMIT req/min in production).
     // After burst is exhausted, the daily counter should reflect only the
     // requests that actually reached the daily limiter — not the burst count.
     // Here we just confirm the two stores stay numerically independent
