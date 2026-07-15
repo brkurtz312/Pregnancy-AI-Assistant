@@ -367,6 +367,122 @@ describe("ScribeScreen — SCRIBE_LIMIT_REACHED handling (mobile)", () => {
   });
 });
 
+describe("ScribeScreen — network failure mid-recording (mobile)", () => {
+  let renderer: ReturnType<typeof create>;
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("shows generic error box and no upgrade CTA when transcribe fetch rejects (network drop)", async () => {
+    jest.clearAllMocks();
+
+    (global.fetch as jest.Mock) = jest
+      .fn()
+      .mockRejectedValueOnce(new Error("Network request failed"));
+
+    act(() => {
+      renderer = create(React.createElement(ScribeScreen));
+    });
+    await flushAsync();
+
+    const startBtn = findBtn(renderer.root, "Start Recording");
+    expect(startBtn).toBeDefined();
+    await act(async () => {
+      startBtn!.props.onPress();
+    });
+    await flushAsync();
+
+    const allTouchables = renderer.root.findAllByType(TouchableOpacity);
+    const stopBtn = allTouchables.find((btn) => {
+      const style = btn.props.style;
+      if (Array.isArray(style)) {
+        return style.some(
+          (s: Record<string, unknown>) =>
+            s && typeof s === "object" && s.backgroundColor === "#ef4444",
+        );
+      }
+      return (
+        style &&
+        typeof style === "object" &&
+        style.backgroundColor === "#ef4444"
+      );
+    });
+    expect(stopBtn).toBeDefined();
+    await act(async () => {
+      stopBtn!.props.onPress();
+    });
+    await flushAsync(8);
+
+    const json = JSON.stringify(renderer.toJSON());
+
+    expect(json).toContain("Network request failed");
+
+    expect(json).not.toContain("Free Session Used");
+    expect(json).not.toContain("Unlock Full Pregnancy Pass");
+  });
+
+  it("shows generic error box and no upgrade CTA when generate-note fetch rejects (network drop)", async () => {
+    jest.clearAllMocks();
+
+    (global.fetch as jest.Mock) = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({ transcript: MOCK_TRANSCRIPT }),
+      })
+      .mockRejectedValueOnce(new Error("Network request failed"));
+
+    act(() => {
+      renderer = create(React.createElement(ScribeScreen));
+    });
+    await flushAsync();
+
+    const startBtn = findBtn(renderer.root, "Start Recording");
+    expect(startBtn).toBeDefined();
+    await act(async () => {
+      startBtn!.props.onPress();
+    });
+    await flushAsync();
+
+    const allTouchables = renderer.root.findAllByType(TouchableOpacity);
+    const stopBtn = allTouchables.find((btn) => {
+      const style = btn.props.style;
+      if (Array.isArray(style)) {
+        return style.some(
+          (s: Record<string, unknown>) =>
+            s && typeof s === "object" && s.backgroundColor === "#ef4444",
+        );
+      }
+      return (
+        style &&
+        typeof style === "object" &&
+        style.backgroundColor === "#ef4444"
+      );
+    });
+    expect(stopBtn).toBeDefined();
+    await act(async () => {
+      stopBtn!.props.onPress();
+    });
+    await flushAsync(8);
+
+    const generateBtn = findBtn(renderer.root, "Create My Visit Summary");
+    expect(generateBtn).toBeDefined();
+    await act(async () => {
+      generateBtn!.props.onPress();
+    });
+    await flushAsync(8);
+
+    const json = JSON.stringify(renderer.toJSON());
+
+    expect(json).toContain("Network request failed");
+
+    expect(json).not.toContain("Free Session Used");
+    expect(json).not.toContain("Unlock Full Pregnancy Pass");
+  });
+});
+
 describe("ScribeScreen — 503 service unavailable (mobile)", () => {
   let renderer: ReturnType<typeof create>;
 
