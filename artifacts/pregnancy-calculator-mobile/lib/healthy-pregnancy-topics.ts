@@ -19,7 +19,7 @@ export interface HealthyPregnancyTopic {
   route: HealthyPregnancyRouteId;
 }
 
-export const HEALTHY_PREGNANCY_TOPICS: HealthyPregnancyTopic[] = [
+export const HEALTHY_PREGNANCY_TOPICS = [
   {
     icon: "airplane-outline",
     title: "Travel in Pregnancy",
@@ -75,4 +75,17 @@ export const HEALTHY_PREGNANCY_TOPICS: HealthyPregnancyTopic[] = [
       "Symptoms that always mean you should call your provider or go to the ER.",
     route: "/hp-warning-signs",
   },
-];
+] satisfies HealthyPregnancyTopic[];
+
+// Compile-time exhaustiveness guard: breaks the build if any HealthyPregnancyRouteId
+// is not represented in HEALTHY_PREGNANCY_TOPICS. Using `satisfies` above preserves
+// the literal route types so that the Exclude check below is meaningful.
+type _HealthyPregnancyMissingIds = Exclude<
+  HealthyPregnancyRouteId,
+  (typeof HEALTHY_PREGNANCY_TOPICS)[number]["route"]
+>;
+type _AssertNoMissingHealthyPregnancyTopics =
+  _HealthyPregnancyMissingIds extends never ? true : never;
+const _healthyPregnancyTopicExhaustive: _AssertNoMissingHealthyPregnancyTopics =
+  true;
+void _healthyPregnancyTopicExhaustive;
