@@ -354,6 +354,160 @@ describe("LearnScreen — HealthyPregnancy result press clears query and restore
   });
 });
 
+// ─── X button (clear): tapping it resets search state ───────────────────────
+//
+// The X button in learn.tsx (lines 252–266) is a TouchableOpacity with a
+// hitSlop prop and no activeOpacity.  Its onPress calls setQuery("") and
+// re-focuses the input.  These tests render the real LearnScreen, simulate
+// typing to enter search mode, find the X button, tap it, and assert that the
+// component returns to the browse view.
+
+describe("LearnScreen — X button clears query and restores browse view", () => {
+  useFakeTimersWithScheduler();
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  /** Find the X (clear) TouchableOpacity: it has hitSlop set, no activeOpacity. */
+  function findClearButton(
+    renderer: ReturnType<typeof create>,
+  ): ReactTestInstance | undefined {
+    return renderer.root
+      .findAllByType(TouchableOpacity)
+      .find((t) => t.props.hitSlop != null);
+  }
+
+  it("X button is visible (rendered) only when the query is non-empty", async () => {
+    const renderer = renderScreen();
+    await flushAsync(3);
+
+    // Browse mode: no clear button
+    expect(findClearButton(renderer)).toBeUndefined();
+
+    // Enter search mode
+    const topic = VIDEO_VAULT_TOPICS[0];
+    await typeQuery(renderer, topic.title);
+
+    // Clear button should now be present
+    expect(findClearButton(renderer)).toBeDefined();
+  });
+
+  it("tapping the X button sets query to '' (empty string)", async () => {
+    const renderer = renderScreen();
+    await flushAsync(3);
+
+    const topic = VIDEO_VAULT_TOPICS[0];
+    await typeQuery(renderer, topic.title);
+
+    expect(getInputValue(renderer)).toBe(topic.title);
+
+    const clearBtn = findClearButton(renderer);
+    expect(clearBtn).toBeDefined();
+    await act(async () => {
+      clearBtn!.props.onPress();
+    });
+    await flushAsync(3);
+
+    expect(getInputValue(renderer)).toBe("");
+  });
+
+  it("tapping the X button restores the browse view (ResourceCards visible)", async () => {
+    const renderer = renderScreen();
+    await flushAsync(3);
+
+    const topic = VIDEO_VAULT_TOPICS[0];
+    await typeQuery(renderer, topic.title);
+
+    // Confirm search mode: browse marker absent
+    expect(JSON.stringify(renderer.toJSON())).not.toContain(BROWSE_MARKER);
+
+    const clearBtn = findClearButton(renderer);
+    await act(async () => {
+      clearBtn!.props.onPress();
+    });
+    await flushAsync(3);
+
+    // Browse view restored
+    expect(JSON.stringify(renderer.toJSON())).toContain(BROWSE_MARKER);
+  });
+
+  it("tapping the X button hides the clear button itself (query is now empty)", async () => {
+    const renderer = renderScreen();
+    await flushAsync(3);
+
+    const topic = VIDEO_VAULT_TOPICS[0];
+    await typeQuery(renderer, topic.title);
+
+    const clearBtn = findClearButton(renderer);
+    expect(clearBtn).toBeDefined();
+
+    await act(async () => {
+      clearBtn!.props.onPress();
+    });
+    await flushAsync(3);
+
+    // X button only renders when query.length > 0, so it should be gone now
+    expect(findClearButton(renderer)).toBeUndefined();
+  });
+
+  it("X button clears a SupportPerson query and restores browse view", async () => {
+    const renderer = renderScreen();
+    await flushAsync(3);
+
+    const vol = SUPPORT_PERSON_VOLUMES[0];
+    await typeQuery(renderer, vol.handoutTitle);
+    expect(getInputValue(renderer)).toBe(vol.handoutTitle);
+    expect(JSON.stringify(renderer.toJSON())).not.toContain(BROWSE_MARKER);
+
+    const clearBtn = findClearButton(renderer);
+    expect(clearBtn).toBeDefined();
+    await act(async () => {
+      clearBtn!.props.onPress();
+    });
+    await flushAsync(3);
+
+    expect(getInputValue(renderer)).toBe("");
+    expect(JSON.stringify(renderer.toJSON())).toContain(BROWSE_MARKER);
+  });
+
+  it("X button clears a HealthyPregnancy query and restores browse view", async () => {
+    const renderer = renderScreen();
+    await flushAsync(3);
+
+    const topic = HEALTHY_PREGNANCY_TOPICS[0];
+    await typeQuery(renderer, topic.title);
+    expect(getInputValue(renderer)).toBe(topic.title);
+    expect(JSON.stringify(renderer.toJSON())).not.toContain(BROWSE_MARKER);
+
+    const clearBtn = findClearButton(renderer);
+    expect(clearBtn).toBeDefined();
+    await act(async () => {
+      clearBtn!.props.onPress();
+    });
+    await flushAsync(3);
+
+    expect(getInputValue(renderer)).toBe("");
+    expect(JSON.stringify(renderer.toJSON())).toContain(BROWSE_MARKER);
+  });
+
+  it("router.push is NOT called when the X button is tapped (clear ≠ navigate)", async () => {
+    const renderer = renderScreen();
+    await flushAsync(3);
+
+    const topic = VIDEO_VAULT_TOPICS[0];
+    await typeQuery(renderer, topic.title);
+
+    const clearBtn = findClearButton(renderer);
+    await act(async () => {
+      clearBtn!.props.onPress();
+    });
+    await flushAsync(3);
+
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+});
+
 // ─── Navigate-away-and-back: remount resets state ────────────────────────────
 
 describe("LearnScreen — remount (navigate away and back) resets query", () => {
