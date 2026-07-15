@@ -33,7 +33,7 @@ function ytPlaylist(id: string): string {
   return `https://www.youtube.com/playlist?list=${id}`;
 }
 
-export const VIDEO_VAULT_TOPICS: VideoVaultTopic[] = [
+export const VIDEO_VAULT_TOPICS = [
   {
     id: "fetal-development",
     number: 1,
@@ -882,7 +882,20 @@ export const VIDEO_VAULT_TOPICS: VideoVaultTopic[] = [
       },
     ],
   },
-];
+] satisfies VideoVaultTopic[];
+
+// Compile-time exhaustiveness guard: breaks the build if any VideoVaultTopicId
+// is not represented in VIDEO_VAULT_TOPICS. Using `satisfies` above preserves
+// the literal id types so that the Exclude check below is meaningful.
+type _VideoVaultMissingIds = Exclude<
+  VideoVaultTopicId,
+  (typeof VIDEO_VAULT_TOPICS)[number]["id"]
+>;
+type _AssertNoMissingVideoVaultTopics = _VideoVaultMissingIds extends never
+  ? true
+  : never;
+const _videoVaultTopicExhaustive: _AssertNoMissingVideoVaultTopics = true;
+void _videoVaultTopicExhaustive;
 
 export const VIDEO_VAULT_SOURCES = [
   "All",

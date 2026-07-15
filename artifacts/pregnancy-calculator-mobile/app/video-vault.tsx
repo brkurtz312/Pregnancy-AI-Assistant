@@ -20,7 +20,9 @@ import {
   VIDEO_VAULT_SOURCES,
   VIDEO_VAULT_SOURCE_COLORS,
   VIDEO_VAULT_TOPICS,
+  VIDEO_VAULT_TOPIC_IDS,
   type VideoVaultTopic,
+  type VideoVaultTopicId,
   type VideoVaultVideo,
 } from "@/lib/video-vault";
 
@@ -146,7 +148,11 @@ function TopicCard({
 export default function VideoVaultScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { topic: deepLinkTopicId } = useLocalSearchParams<{ topic?: string }>();
+  const { topic: _rawTopic } = useLocalSearchParams<{ topic?: string }>();
+  const deepLinkTopicId: VideoVaultTopicId | undefined =
+    VIDEO_VAULT_TOPIC_IDS.includes(_rawTopic as VideoVaultTopicId)
+      ? (_rawTopic as VideoVaultTopicId)
+      : undefined;
   const [search, setSearch] = useState("");
   const [filterSource, setFilterSource] = useState("All");
 
@@ -156,7 +162,7 @@ export default function VideoVaultScreen() {
   // user manually closed the card) still re-opens it, even when the URL param
   // value did not change between navigations.
   const [deepLinkVersion, setDeepLinkVersion] = useState(0);
-  const prevDeepLinkRef = useRef<string | undefined>(undefined);
+  const prevDeepLinkRef = useRef<VideoVaultTopicId | undefined>(undefined);
   useEffect(() => {
     if (deepLinkTopicId && deepLinkTopicId !== prevDeepLinkRef.current) {
       setDeepLinkVersion((v) => v + 1);
