@@ -309,6 +309,8 @@ const CATEGORIES = [
   },
 ];
 
+jest.setTimeout(15000);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // JOURNAL — retry on reconnect
 // ─────────────────────────────────────────────────────────────────────────────
@@ -324,7 +326,6 @@ describe("Journal — retry local-only entries when connectivity is restored", (
   });
 
   it("pushes a local-only entry to the server on reconnect after an offline load failure", async () => {
-    jest.setTimeout(15000);
 
     // First sync (mount / focus): API is unreachable → fall back to local cache
     mockApiLoadJournal

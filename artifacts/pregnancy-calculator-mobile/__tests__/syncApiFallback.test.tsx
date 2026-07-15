@@ -219,6 +219,8 @@ const mockCacheEntries = cacheEntries as jest.Mock;
 const mockGetJournalCacheOwner = getJournalCacheOwner as jest.Mock;
 const mockClearJournalCache = clearJournalCache as jest.Mock;
 
+jest.setTimeout(15000);
+
 describe("Journal — sync API fallback", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -229,9 +231,6 @@ describe("Journal — sync API fallback", () => {
   });
 
   it("loads entries from AsyncStorage when the API call fails", async () => {
-    // Generous timeout: the first require() in this describe block triggers
-    // React Compiler + Jest module transform, which takes ~4-5 s in CI.
-    jest.setTimeout(15000);
     mockApiLoadJournal.mockRejectedValue(new Error("network error"));
     mockLoadEntries.mockResolvedValue([LOCAL_ENTRY]);
 

@@ -156,8 +156,9 @@ function findSaveButton(renderer: ReturnType<typeof create>) {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
+jest.setTimeout(30000);
+
 describe("journal-entry.tsx — handleSave storage-full alert wiring", () => {
-  jest.setTimeout(30000);
   let alertSpy: jest.SpyInstance;
 
   beforeEach(() => {

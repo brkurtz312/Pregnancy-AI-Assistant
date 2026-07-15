@@ -207,6 +207,8 @@ const EXISTING_SERVER_ENTRY: JournalEntry = {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
+jest.setTimeout(15000);
+
 describe("Journal screen — offline entry photos reappear under new server UUID after sync", () => {
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -215,8 +217,6 @@ describe("Journal screen — offline entry photos reappear under new server UUID
   });
 
   it("media is accessible under the server UUID after a local-only entry is promoted during sync", async () => {
-    jest.setTimeout(15000);
-
     // Seed: local entry cache contains the offline entry (local ID only)
     await AsyncStorage.setItem(
       JOURNAL_KEY,
@@ -254,7 +254,6 @@ describe("Journal screen — offline entry photos reappear under new server UUID
   });
 
   it("photo from the promoted entry is visible in the rendered journal list", async () => {
-    jest.setTimeout(15000);
 
     await AsyncStorage.setItem(JOURNAL_KEY, JSON.stringify([LOCAL_ENTRY]));
     await AsyncStorage.setItem(JOURNAL_OWNER_KEY, "user-offline-photo-test");
@@ -286,7 +285,6 @@ describe("Journal screen — offline entry photos reappear under new server UUID
   });
 
   it("photo URI is present in the rendered output after the local ID is promoted", async () => {
-    jest.setTimeout(15000);
 
     // Existing server entry plus the offline local entry
     await AsyncStorage.setItem(
@@ -323,7 +321,6 @@ describe("Journal screen — offline entry photos reappear under new server UUID
   });
 
   it("photos from an entry edited offline (updated text + new photo) also reappear after sync", async () => {
-    jest.setTimeout(15000);
 
     const SECOND_PHOTO: JournalMedia = {
       id: "photo-offline-002",
@@ -377,7 +374,6 @@ describe("Journal screen — offline entry photos reappear under new server UUID
   });
 
   it("photos from other entries are unaffected when one local entry is promoted", async () => {
-    jest.setTimeout(15000);
 
     const OTHER_SERVER_ID = "ffffffff-2222-4333-8444-555555555555";
     const OTHER_PHOTO: JournalMedia = {

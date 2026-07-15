@@ -182,6 +182,8 @@ const ORPHANED_MEDIA: JournalMedia[] = [
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
+jest.setTimeout(15000);
+
 describe("Journal screen — orphaned media index keys cleaned up during sync", () => {
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -191,7 +193,6 @@ describe("Journal screen — orphaned media index keys cleaned up during sync", 
   });
 
   it("removes the media index key for an entry that the server no longer returns", async () => {
-    jest.setTimeout(15000);
     // Seed: local cache has both entries (surviving + the one deleted server-side)
     const localEntries: JournalEntry[] = [
       SURVIVING_ENTRY,
@@ -238,7 +239,6 @@ describe("Journal screen — orphaned media index keys cleaned up during sync", 
   });
 
   it("keeps the media index key for entries that are still present on the server", async () => {
-    jest.setTimeout(15000);
     // Surviving entry also has media — its index key must be preserved
     const survivingMedia: JournalMedia[] = [
       {
@@ -284,7 +284,6 @@ describe("Journal screen — orphaned media index keys cleaned up during sync", 
   });
 
   it("renders the surviving entry text after the sync that prunes orphaned keys", async () => {
-    jest.setTimeout(15000);
     // Confirms the merge path completed correctly and the UI reflects it
     await AsyncStorage.setItem(JOURNAL_KEY, JSON.stringify([SURVIVING_ENTRY]));
     await AsyncStorage.setItem(JOURNAL_OWNER_KEY, "user-orphan-test");
@@ -307,7 +306,6 @@ describe("Journal screen — orphaned media index keys cleaned up during sync", 
   });
 
   it("does not render a photo badge for the entry deleted on the server", async () => {
-    jest.setTimeout(15000);
     // Scenario: user had entry X on the server with a local photo. While offline,
     // another device deleted entry X on the server. The media index still holds
     // the photo for X (only the local deleteEntry path removes it). The local
@@ -372,7 +370,6 @@ describe("Journal screen — orphaned media index keys cleaned up during sync", 
   // to avoid dangling Promises that could leak into subsequent tests.  Keeping it
   // last means any residual in-flight work has nowhere to corrupt.
   it("completes sync and renders entries even when the prune write to AsyncStorage fails", async () => {
-    jest.setTimeout(15000);
     // Seed AsyncStorage with data before replacing setItem — these writes go
     // through the real in-memory mock so the sync has something to work with.
     await AsyncStorage.setItem(JOURNAL_KEY, JSON.stringify([SURVIVING_ENTRY]));

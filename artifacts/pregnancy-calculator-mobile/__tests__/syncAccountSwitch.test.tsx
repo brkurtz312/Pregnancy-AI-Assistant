@@ -253,6 +253,8 @@ const USER_B_BAG = [
 const USER_A_BIRTH_PLAN = { yourName: "Alice Alpha" };
 const USER_B_BIRTH_PLAN = { yourName: "Betty Beta" };
 
+jest.setTimeout(15000);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // HOSPITAL BAG — account switch mid-session
 // ─────────────────────────────────────────────────────────────────────────────
@@ -265,7 +267,6 @@ describe("Hospital Bag — account switch mid-session", () => {
   });
 
   it("calls clearHospitalBagCache when a different user signs in", async () => {
-    jest.setTimeout(15000);
     // User A loads first
     setSignedIn(USER_A_ID, "tok-a");
     mockGetHospitalBagCacheOwner.mockResolvedValue(null); // fresh on first load
@@ -424,7 +425,6 @@ describe("Birth Plan — account switch mid-session", () => {
   });
 
   it("calls clearBirthPlanCache when a different user signs in", async () => {
-    jest.setTimeout(15000);
     // User A loads first
     setSignedIn(USER_A_ID, "tok-a");
     mockGetBirthPlanCacheOwner.mockResolvedValue(null);
