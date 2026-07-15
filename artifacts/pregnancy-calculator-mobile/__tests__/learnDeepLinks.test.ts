@@ -338,6 +338,257 @@ describe("SupportPerson deep-link route integrity", () => {
   });
 });
 
+// ─── 5b. SupportPerson route → file cross-reference ──────────────────────────
+//
+// Each VOL_ROUTE must have a matching Expo Router screen file in app/.
+// If a route is renamed in the data but the file is not (or vice versa),
+// navigation silently 404s at runtime. This section catches that mismatch
+// at CI time by reading the filesystem.
+
+describe("SupportPerson volume routes match app/ screen files", () => {
+  const appDir = path.join(__dirname, "..", "app");
+
+  it("every VOL_ROUTE has a corresponding support-person-vol*.tsx file in app/", () => {
+    for (const route of VOL_ROUTES) {
+      // e.g. "/support-person-vol1" → "support-person-vol1.tsx"
+      const filename = route.replace(/^\//, "") + ".tsx";
+      const fullPath = path.join(appDir, filename);
+      expect(fs.existsSync(fullPath)).toBe(true);
+    }
+  });
+
+  it("every app/support-person-vol*.tsx file has a matching route in VOL_ROUTES", () => {
+    const volFiles = fs
+      .readdirSync(appDir)
+      .filter((f) => f.startsWith("support-person-vol") && f.endsWith(".tsx"));
+
+    const knownRoutes = new Set(
+      VOL_ROUTES.map((r) => r.replace(/^\//, "") + ".tsx"),
+    );
+
+    for (const file of volFiles) {
+      expect(knownRoutes.has(file)).toBe(true);
+    }
+  });
+});
+
+// ─── 5c. SupportPerson screen files — parse validity + default export ─────────
+//
+// Section 5b confirms each screen file EXISTS. This section goes one step
+// further: it verifies that each support-person-vol*.tsx file is syntactically
+// valid TypeScript/TSX and has a default export (the Expo Router screen
+// component).
+//
+// Why: a typo that corrupts the file, or a refactor that accidentally removes
+// `export default`, silently produces a blank/crashed screen at runtime. The
+// file still "exists" so section 5b would still pass — only this section would
+// catch it.
+//
+// We use the TypeScript compiler API for static analysis so we never need to
+// actually import the files (which would fail in the test environment because
+// of React Native / Expo native module dependencies).
+
+describe("SupportPerson screen files — parse validity + default export", () => {
+  const appDir = path.join(__dirname, "..", "app");
+
+  // Collect all support-person-vol*.tsx files from the filesystem (same set as
+  // section 5b).
+  const volFiles = fs
+    .readdirSync(appDir)
+    .filter((f) => f.startsWith("support-person-vol") && f.endsWith(".tsx"));
+
+  it("there is at least one support-person-vol*.tsx file to validate", () => {
+    expect(volFiles.length).toBeGreaterThan(0);
+  });
+
+  it("every support-person-vol*.tsx file parses as valid TypeScript/TSX without syntax errors", () => {
+    const ts = require("typescript") as typeof import("typescript");
+    for (const filename of volFiles) {
+      const fullPath = path.join(appDir, filename);
+      const source = fs.readFileSync(fullPath, "utf8");
+
+      // transpileModule surfaces TypeScript syntax diagnostics for a single
+      // file without needing to resolve imports, so it works even though the
+      // files depend on React Native / Expo modules unavailable in Node.
+      const result = ts.transpileModule(source, {
+        fileName: filename,
+        compilerOptions: {
+          target: ts.ScriptTarget.ESNext,
+          jsx: ts.JsxEmit.ReactNative,
+        },
+        reportDiagnostics: true,
+      });
+
+      const syntaxErrors = (result.diagnostics ?? []).filter(
+        (d) => d.category === ts.DiagnosticCategory.Error,
+      );
+
+      if (syntaxErrors.length > 0) {
+        const messages = syntaxErrors
+          .map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n"))
+          .join("; ");
+        throw new Error(
+          `${filename} has TypeScript syntax errors: ${messages}`,
+        );
+      }
+    }
+  });
+
+  it("every support-person-vol*.tsx file has a default export (the Expo Router screen component)", () => {
+    const ts = require("typescript") as typeof import("typescript");
+    for (const filename of volFiles) {
+      const fullPath = path.join(appDir, filename);
+      const source = fs.readFileSync(fullPath, "utf8");
+
+      const sourceFile = ts.createSourceFile(
+        filename,
+        source,
+        ts.ScriptTarget.ESNext,
+        /* setParentNodes */ true,
+        ts.ScriptKind.TSX,
+      );
+
+      let hasDefaultExport = false;
+
+      for (const statement of sourceFile.statements) {
+        // export default function Foo() {} / export default class Foo {}
+        // These parse as FunctionDeclaration / ClassDeclaration with both
+        // ExportKeyword and DefaultKeyword in their modifier list.
+        if (
+          (ts.isFunctionDeclaration(statement) ||
+            ts.isClassDeclaration(statement)) &&
+          statement.modifiers?.some(
+            (m) => m.kind === ts.SyntaxKind.DefaultKeyword,
+          )
+        ) {
+          hasDefaultExport = true;
+          break;
+        }
+
+        // export default <expression>  (e.g. memo(Fn), arrow fn, identifier)
+        // These parse as ExportAssignment with isExportEquals === false.
+        if (ts.isExportAssignment(statement) && !statement.isExportEquals) {
+          hasDefaultExport = true;
+          break;
+        }
+
+        // export { Foo as default }
+        if (ts.isExportDeclaration(statement) && statement.exportClause) {
+          if (ts.isNamedExports(statement.exportClause)) {
+            for (const el of statement.exportClause.elements) {
+              if (el.name.text === "default") {
+                hasDefaultExport = true;
+                break;
+              }
+            }
+          }
+        }
+
+        if (hasDefaultExport) break;
+      }
+
+      if (!hasDefaultExport) {
+        throw new Error(
+          `${filename} has no default export — Expo Router requires a default-exported screen component`,
+        );
+      }
+    }
+  });
+
+  it("the default export in every support-person-vol*.tsx file is a function (React component, not a plain value)", () => {
+    const ts = require("typescript") as typeof import("typescript");
+    for (const filename of volFiles) {
+      const fullPath = path.join(appDir, filename);
+      const source = fs.readFileSync(fullPath, "utf8");
+
+      const sourceFile = ts.createSourceFile(
+        filename,
+        source,
+        ts.ScriptTarget.ESNext,
+        /* setParentNodes */ true,
+        ts.ScriptKind.TSX,
+      );
+
+      let defaultIsFunction = false;
+
+      for (const statement of sourceFile.statements) {
+        // export default function Foo() {}
+        if (
+          ts.isFunctionDeclaration(statement) &&
+          statement.modifiers?.some(
+            (m) => m.kind === ts.SyntaxKind.DefaultKeyword,
+          )
+        ) {
+          defaultIsFunction = true;
+          break;
+        }
+
+        // export default <expr> — accept arrow functions, call expressions
+        // (e.g. memo(Fn)), and class expressions as valid component forms.
+        if (ts.isExportAssignment(statement) && !statement.isExportEquals) {
+          const expr = statement.expression;
+          if (
+            ts.isArrowFunction(expr) ||
+            ts.isFunctionExpression(expr) ||
+            ts.isClassExpression(expr) ||
+            ts.isCallExpression(expr) // e.g. React.memo(...) or withAuth(...)
+          ) {
+            defaultIsFunction = true;
+          }
+          // Also accept: export default Identifier where the identifier likely
+          // refers to a function declared above — we verify this via a simple
+          // check that there is a function/class declaration in the file sharing
+          // that name.
+          if (ts.isIdentifier(expr)) {
+            const refName = expr.text;
+            for (const s of sourceFile.statements) {
+              if (
+                (ts.isFunctionDeclaration(s) || ts.isClassDeclaration(s)) &&
+                s.name?.text === refName
+              ) {
+                defaultIsFunction = true;
+                break;
+              }
+              const isConstFn =
+                ts.isVariableStatement(s) &&
+                s.declarationList.declarations.some(
+                  (d) =>
+                    ts.isIdentifier(d.name) &&
+                    d.name.text === refName &&
+                    d.initializer != null &&
+                    (ts.isArrowFunction(d.initializer) ||
+                      ts.isFunctionExpression(d.initializer)),
+                );
+              if (isConstFn) {
+                defaultIsFunction = true;
+                break;
+              }
+            }
+          }
+          break;
+        }
+
+        // export default class Foo {}
+        if (
+          ts.isClassDeclaration(statement) &&
+          statement.modifiers?.some(
+            (m) => m.kind === ts.SyntaxKind.DefaultKeyword,
+          )
+        ) {
+          defaultIsFunction = true;
+          break;
+        }
+      }
+
+      if (!defaultIsFunction) {
+        throw new Error(
+          `${filename} default export does not appear to be a React component (function or class)`,
+        );
+      }
+    }
+  });
+});
+
 // ─── 6. HealthyPregnancy deep-link route integrity ────────────────────────────
 //
 // Searching for a HP topic in the Learn tab calls `router.push(topic.route)`.
