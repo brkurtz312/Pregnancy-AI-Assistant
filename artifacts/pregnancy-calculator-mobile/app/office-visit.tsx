@@ -151,8 +151,8 @@ function DateTimeField({
         />
       )}
 
-      {!isAndroid && (
-        <Modal visible={showPicker} transparent animationType="slide">
+      {!isAndroid && showPicker && (
+        <Modal visible={true} transparent animationType="slide">
           <Pressable
             style={fieldStyles.modalOverlay}
             onPress={() => setShowPicker(false)}
