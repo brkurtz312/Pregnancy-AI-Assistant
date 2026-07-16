@@ -483,6 +483,203 @@ describe("ScribeScreen — network failure mid-recording (mobile)", () => {
   });
 });
 
+describe("ScribeScreen — network recovery after mid-recording drop (mobile)", () => {
+  let renderer: ReturnType<typeof create>;
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("clears error, starts new recording, and transcribes successfully after a transcribe network failure", async () => {
+    jest.clearAllMocks();
+
+    // First recording cycle: transcribe fetch rejects (network drop)
+    // Second recording cycle: transcribe fetch succeeds
+    (global.fetch as jest.Mock) = jest
+      .fn()
+      .mockRejectedValueOnce(new Error("Network request failed"))
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({ transcript: MOCK_TRANSCRIPT }),
+      });
+
+    act(() => {
+      renderer = create(React.createElement(ScribeScreen));
+    });
+    await flushAsync();
+
+    // ── First cycle: drive to network-failure state ──────────────────────────
+
+    const startBtn1 = findBtn(renderer.root, "Start Recording");
+    expect(startBtn1).toBeDefined();
+    await act(async () => {
+      startBtn1!.props.onPress();
+    });
+    await flushAsync();
+
+    const allTouchables1 = renderer.root.findAllByType(TouchableOpacity);
+    const stopBtn1 = allTouchables1.find((btn) => {
+      const style = btn.props.style;
+      if (Array.isArray(style)) {
+        return style.some(
+          (s: Record<string, unknown>) =>
+            s && typeof s === "object" && s.backgroundColor === "#ef4444",
+        );
+      }
+      return (
+        style &&
+        typeof style === "object" &&
+        style.backgroundColor === "#ef4444"
+      );
+    });
+    expect(stopBtn1).toBeDefined();
+    await act(async () => {
+      stopBtn1!.props.onPress();
+    });
+    await flushAsync(8);
+
+    // Error box must be visible after the first (failed) cycle
+    const jsonAfterFailure = JSON.stringify(renderer.toJSON());
+    expect(jsonAfterFailure).toContain("Network request failed");
+    // And the screen should be back at idle with "Start Recording" available
+    expect(jsonAfterFailure).toContain("Start Recording");
+
+    // ── Second cycle: network is restored ────────────────────────────────────
+
+    const startBtn2 = findBtn(renderer.root, "Start Recording");
+    expect(startBtn2).toBeDefined();
+    await act(async () => {
+      startBtn2!.props.onPress();
+    });
+    await flushAsync();
+
+    // Error box must have cleared as soon as a new recording starts
+    const jsonDuringRecording = JSON.stringify(renderer.toJSON());
+    expect(jsonDuringRecording).not.toContain("Network request failed");
+
+    const allTouchables2 = renderer.root.findAllByType(TouchableOpacity);
+    const stopBtn2 = allTouchables2.find((btn) => {
+      const style = btn.props.style;
+      if (Array.isArray(style)) {
+        return style.some(
+          (s: Record<string, unknown>) =>
+            s && typeof s === "object" && s.backgroundColor === "#ef4444",
+        );
+      }
+      return (
+        style &&
+        typeof style === "object" &&
+        style.backgroundColor === "#ef4444"
+      );
+    });
+    expect(stopBtn2).toBeDefined();
+    await act(async () => {
+      stopBtn2!.props.onPress();
+    });
+    await flushAsync(8);
+
+    // Transcription succeeded — transcript is visible, no error box
+    const jsonAfterRecovery = JSON.stringify(renderer.toJSON());
+    expect(jsonAfterRecovery).toContain(MOCK_TRANSCRIPT);
+    expect(jsonAfterRecovery).toContain("Create My Visit Summary");
+    expect(jsonAfterRecovery).not.toContain("Network request failed");
+  });
+
+  it("clears error and produces the summary when generate-note succeeds after a prior network failure", async () => {
+    jest.clearAllMocks();
+
+    const MOCK_NOTE = {
+      headline: "All looking great",
+      whatWasDiscussed: "Everything is on track.",
+      nextSteps: ["Drink more water"],
+      rememberTo: "Rest up",
+    };
+
+    // Call 1 (transcribe): always succeeds
+    // Call 2 (generate-note first attempt): rejects — network drop
+    // Call 3 (generate-note second attempt): succeeds
+    (global.fetch as jest.Mock) = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({ transcript: MOCK_TRANSCRIPT }),
+      })
+      .mockRejectedValueOnce(new Error("Network request failed"))
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({ note: MOCK_NOTE }),
+      });
+
+    act(() => {
+      renderer = create(React.createElement(ScribeScreen));
+    });
+    await flushAsync();
+
+    // ── Drive through recording → transcribed ────────────────────────────────
+
+    const startBtn = findBtn(renderer.root, "Start Recording");
+    expect(startBtn).toBeDefined();
+    await act(async () => {
+      startBtn!.props.onPress();
+    });
+    await flushAsync();
+
+    const allTouchables = renderer.root.findAllByType(TouchableOpacity);
+    const stopBtn = allTouchables.find((btn) => {
+      const style = btn.props.style;
+      if (Array.isArray(style)) {
+        return style.some(
+          (s: Record<string, unknown>) =>
+            s && typeof s === "object" && s.backgroundColor === "#ef4444",
+        );
+      }
+      return (
+        style &&
+        typeof style === "object" &&
+        style.backgroundColor === "#ef4444"
+      );
+    });
+    expect(stopBtn).toBeDefined();
+    await act(async () => {
+      stopBtn!.props.onPress();
+    });
+    await flushAsync(8);
+
+    // ── First generate-note attempt: network drops ───────────────────────────
+
+    const generateBtn1 = findBtn(renderer.root, "Create My Visit Summary");
+    expect(generateBtn1).toBeDefined();
+    await act(async () => {
+      generateBtn1!.props.onPress();
+    });
+    await flushAsync(8);
+
+    const jsonAfterFailure = JSON.stringify(renderer.toJSON());
+    expect(jsonAfterFailure).toContain("Network request failed");
+    // Screen stays in transcribed phase — transcript and retry button still visible
+    expect(jsonAfterFailure).toContain(MOCK_TRANSCRIPT);
+    expect(jsonAfterFailure).toContain("Create My Visit Summary");
+
+    // ── Second generate-note attempt: network restored ───────────────────────
+
+    const generateBtn2 = findBtn(renderer.root, "Create My Visit Summary");
+    expect(generateBtn2).toBeDefined();
+    await act(async () => {
+      generateBtn2!.props.onPress();
+    });
+    await flushAsync(8);
+
+    // Error must have cleared and summary must be visible
+    const jsonAfterRecovery = JSON.stringify(renderer.toJSON());
+    expect(jsonAfterRecovery).not.toContain("Network request failed");
+    expect(jsonAfterRecovery).toContain("All looking great");
+    expect(jsonAfterRecovery).toContain("MY VISIT SUMMARY");
+  });
+});
+
 describe("ScribeScreen — 503 service unavailable (mobile)", () => {
   let renderer: ReturnType<typeof create>;
 
