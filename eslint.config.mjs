@@ -66,6 +66,25 @@ export default tseslint.config(
     },
   },
 
+  // Guard: jest.setTimeout() must appear at the file top level, not inside any
+  // describe/it/test/beforeEach/afterEach/beforeAll/afterAll callback.
+  // Scattered per-test overrides bypass the file-level CI timeout guard and
+  // produce inconsistent behaviour under concurrent load.
+  {
+    files: ["artifacts/pregnancy-calculator-mobile/__tests__/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            ':matches(CallExpression[callee.name="describe"], CallExpression[callee.name="it"], CallExpression[callee.name="test"], CallExpression[callee.name="beforeEach"], CallExpression[callee.name="afterEach"], CallExpression[callee.name="beforeAll"], CallExpression[callee.name="afterAll"]) CallExpression[callee.object.name="jest"][callee.property.name="setTimeout"]',
+          message:
+            "jest.setTimeout() must be at the file top level, not inside a describe/it/test/beforeEach/afterEach/beforeAll/afterAll callback. Per-test overrides bypass the file-level CI timeout guard.",
+        },
+      ],
+    },
+  },
+
   // Disable formatting rules that conflict with Prettier.
   prettier,
 );

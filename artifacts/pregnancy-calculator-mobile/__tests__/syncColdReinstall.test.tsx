@@ -387,7 +387,6 @@ describe("Journal — offline edits merged back after partial pre-reinstall sync
   });
 
   it("pushes local-only entries to the server via apiUpsertJournalEntry", async () => {
-    jest.setTimeout(15000);
     // Server only has the two entries that synced before the reinstall
     mockApiLoadJournal.mockResolvedValue(SERVER_JOURNAL_ENTRIES);
 
@@ -614,7 +613,6 @@ describe("Journal — missing media files after reinstall", () => {
   });
 
   it("renders without throwing when server entries have media whose local files are gone", async () => {
-    jest.setTimeout(15000);
     mockApiLoadJournal.mockResolvedValue(SERVER_JOURNAL_ENTRIES_WITH_MEDIA);
 
     const JournalScreen = require("../app/journal").default;
@@ -799,8 +797,6 @@ describe("Journal — media index re-keyed on server UUID promotion", () => {
   });
 
   it("calls reindexMediaForEntry when a local-only entry is promoted to a server UUID", async () => {
-    jest.setTimeout(15000);
-
     // Server has no entries yet — will enter the migration branch if local > 0
     // and serverEntries.length === 0 with migratedForUserRef not set.
     // Use the localOnlyEntries branch instead: server has entries, local has one
