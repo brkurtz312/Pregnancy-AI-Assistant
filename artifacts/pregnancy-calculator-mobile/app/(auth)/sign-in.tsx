@@ -37,7 +37,7 @@ export default function SignInScreen() {
     if (fetching) return;
     setNotice(null);
     const { error } = await signIn.password({
-      identifier: emailAddress.trim(),
+      emailAddress: emailAddress.trim(),
       password,
     });
     if (error) return;
