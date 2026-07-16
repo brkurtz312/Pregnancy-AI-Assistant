@@ -1,6 +1,3 @@
-import DateTimePicker, {
-  DateTimePickerEvent,
-} from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import { useUser } from "@clerk/expo";
 import * as Haptics from "expo-haptics";
@@ -51,6 +48,21 @@ import {
 import { getGestationalAgeAtDate } from "@/lib/pregnancy-math";
 import { getVisitExpectation } from "@/constants/prenatal-visit-expectations";
 
+// Safe guard: the native DateTimePicker module may not exist in the
+// TestFlight binary if it was added after the last native build.
+// Wrapping in try/catch prevents the module-evaluation crash that happens
+// when Expo Router lazily loads this screen for the first time.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type DTPComponent = React.ComponentType<any>;
+const DateTimePicker: DTPComponent | null = (() => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return (require("@react-native-community/datetimepicker") as { default: DTPComponent }).default;
+  } catch {
+    return null;
+  }
+})();
+
 function formatDateTime(iso: string) {
   const d = new Date(iso);
   return (
@@ -89,7 +101,7 @@ function DateTimeField({
     " " +
     value.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 
-  if (isWeb) {
+  if (isWeb || !DateTimePicker) {
     return (
       <View style={{ marginBottom: 16 }}>
         <Text style={[fieldStyles.label, { color: colors.mutedForeground }]}>
@@ -144,7 +156,7 @@ function DateTimeField({
           value={value}
           mode="datetime"
           display="default"
-          onChange={(_event: DateTimePickerEvent, date?: Date) => {
+          onChange={(_event: unknown, date?: Date) => {
             setShowPicker(false);
             if (date) onChange(date);
           }}
@@ -189,7 +201,7 @@ function DateTimeField({
                 value={value}
                 mode="datetime"
                 display="spinner"
-                onChange={(_event: DateTimePickerEvent, date?: Date) => {
+                onChange={(_event: unknown, date?: Date) => {
                   if (date) onChange(date);
                 }}
                 style={{ height: 200 }}
