@@ -484,6 +484,52 @@ describe("alert cooldown", () => {
     expect(dispatch).toHaveBeenCalledTimes(2);
   });
 
+  it("clears the cooldown after a crash so that the next failure immediately re-alerts", async () => {
+    vi.useFakeTimers();
+
+    const dispatch = vi.fn().mockResolvedValue(undefined);
+    const crashingCheck = vi.fn().mockRejectedValue(new Error("DB exploded"));
+    const okCheck = vi.fn().mockResolvedValue(okResult());
+    const failCheck = vi.fn().mockResolvedValue(failResult("pass_revoked"));
+    const cooldownMs = 60_000;
+
+    // Step 1: crash → dispatch fires, cooldown armed
+    await runScheduledCheck({
+      cooldownMs,
+      _runCheck: crashingCheck,
+      _dispatch: dispatch,
+    });
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(dispatch.mock.calls[0][0].subject).toContain("crashed");
+
+    // Step 2: still within the cooldown window — verify it is active
+    vi.advanceTimersByTime(5_000);
+    await runScheduledCheck({
+      cooldownMs,
+      _runCheck: failCheck,
+      _dispatch: dispatch,
+    });
+    expect(dispatch).toHaveBeenCalledTimes(1); // suppressed
+
+    // Step 3: passing check mid-window → cooldown must be cleared
+    await runScheduledCheck({
+      cooldownMs,
+      _runCheck: okCheck,
+      _dispatch: dispatch,
+    });
+    expect(dispatch).toHaveBeenCalledTimes(1); // a pass never alerts
+
+    // Step 4: immediate subsequent failure → fresh alert fires (no cooldown wait)
+    await runScheduledCheck({
+      cooldownMs,
+      _runCheck: failCheck,
+      _dispatch: dispatch,
+    });
+    expect(dispatch).toHaveBeenCalledTimes(2);
+    expect(dispatch.mock.calls[1][0].subject).toContain("failed");
+    expect(dispatch.mock.calls[1][0].body).toContain("pass_revoked");
+  });
+
   it("clears the cooldown when a passing check arrives mid-window so the next failure immediately re-alerts", async () => {
     vi.useFakeTimers();
 
