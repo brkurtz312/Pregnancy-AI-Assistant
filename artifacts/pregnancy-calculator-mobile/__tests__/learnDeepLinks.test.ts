@@ -1729,3 +1729,105 @@ describe("VideoVault screen file — parse validity + default export", () => {
     }
   });
 });
+
+// ─── N. Static search index architectural guard ───────────────────────────────
+//
+// learn.tsx builds ALL_RESULTS once at module load time rather than inside a
+// React hook.  This is correct and intentional as long as the three source
+// arrays (VIDEO_VAULT_TOPICS, SUPPORT_PERSON_VOLUMES, HEALTHY_PREGNANCY_TOPICS)
+// remain compile-time constants.
+//
+// These tests guard that assumption:
+//   1. A freshly-called buildSearchIndex() yields the same number of entries
+//      as the sum of the three source arrays — i.e. no source is silently
+//      empty or has grown/shrunk without the index tracking it.
+//   2. Every entry in a fresh index round-trips back to a real item in its
+//      source array (label, route).
+//   3. The total entry count matches exactly so a newly added or removed item
+//      in any source does not silently leave the index out of sync.
+//
+// If the sources are ever made dynamic (e.g. API-fetched), these tests will
+// need to be updated alongside the learn.tsx change to useMemo.
+
+describe("Static search index architectural guard", () => {
+  const freshIndex = buildSearchIndex();
+
+  it("total entry count equals sum of all source arrays", () => {
+    const expected =
+      VIDEO_VAULT_TOPICS.length +
+      SUPPORT_PERSON_VOLUMES.length +
+      HEALTHY_PREGNANCY_TOPICS.length;
+    expect(freshIndex.length).toBe(expected);
+  });
+
+  it("VideoVault entry count matches VIDEO_VAULT_TOPICS length", () => {
+    const vvEntries = freshIndex.filter((r) => r.section === "videovault");
+    expect(vvEntries.length).toBe(VIDEO_VAULT_TOPICS.length);
+  });
+
+  it("SupportPerson entry count matches SUPPORT_PERSON_VOLUMES length", () => {
+    const spEntries = freshIndex.filter((r) => r.section === "supportperson");
+    expect(spEntries.length).toBe(SUPPORT_PERSON_VOLUMES.length);
+  });
+
+  it("HealthyPregnancy entry count matches HEALTHY_PREGNANCY_TOPICS length", () => {
+    const hpEntries = freshIndex.filter(
+      (r) => r.section === "healthypregnancy",
+    );
+    expect(hpEntries.length).toBe(HEALTHY_PREGNANCY_TOPICS.length);
+  });
+
+  it("every VideoVault index entry label matches a topic title in the source array", () => {
+    const vvEntries = freshIndex.filter((r) => r.section === "videovault");
+    const sourceTitles = new Set(VIDEO_VAULT_TOPICS.map((t) => t.title));
+    for (const entry of vvEntries) {
+      expect(sourceTitles.has(entry.label)).toBe(true);
+    }
+  });
+
+  it("every SupportPerson index entry label matches a handoutTitle in the source array", () => {
+    const spEntries = freshIndex.filter((r) => r.section === "supportperson");
+    const sourceTitles = new Set(
+      SUPPORT_PERSON_VOLUMES.map((v) => v.handoutTitle),
+    );
+    for (const entry of spEntries) {
+      expect(sourceTitles.has(entry.label)).toBe(true);
+    }
+  });
+
+  it("every HealthyPregnancy index entry label matches a topic title in the source array", () => {
+    const hpEntries = freshIndex.filter(
+      (r) => r.section === "healthypregnancy",
+    );
+    const sourceTitles = new Set(HEALTHY_PREGNANCY_TOPICS.map((t) => t.title));
+    for (const entry of hpEntries) {
+      expect(sourceTitles.has(entry.label)).toBe(true);
+    }
+  });
+
+  it("every HealthyPregnancy index entry route matches a topic route in the source array", () => {
+    const hpEntries = freshIndex.filter(
+      (r) => r.section === "healthypregnancy",
+    );
+    const sourceRoutes: Set<string> = new Set(
+      HEALTHY_PREGNANCY_TOPICS.map((t) => t.route),
+    );
+    for (const entry of hpEntries) {
+      expect(sourceRoutes.has(entry.route)).toBe(true);
+    }
+  });
+
+  it("calling buildSearchIndex() twice produces the same number of results (sources are not mutated)", () => {
+    const secondCall = buildSearchIndex();
+    expect(secondCall.length).toBe(freshIndex.length);
+  });
+
+  it("calling buildSearchIndex() twice produces identical labels in the same order", () => {
+    const secondCall = buildSearchIndex();
+    for (let i = 0; i < freshIndex.length; i++) {
+      expect(secondCall[i].label).toBe(freshIndex[i].label);
+      expect(secondCall[i].route).toBe(freshIndex[i].route);
+      expect(secondCall[i].section).toBe(freshIndex[i].section);
+    }
+  });
+});

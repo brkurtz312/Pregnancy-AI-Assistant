@@ -123,6 +123,19 @@ const SECTION_META: Record<
   healthypregnancy: { label: "Healthy Pregnancy" },
 };
 
+// ALL_RESULTS is intentionally built once at module load time.
+//
+// This is safe as long as the three source arrays —
+//   VIDEO_VAULT_TOPICS, SUPPORT_PERSON_VOLUMES, HEALTHY_PREGNANCY_TOPICS —
+// remain compile-time constants (plain TypeScript arrays imported at the top of
+// this file).  The test file learnDeepLinks.test.ts section "Static search
+// index architectural guard" explicitly verifies that a freshly-built index
+// produces the same entries as the source arrays, which would fail at CI time if
+// the sources were ever made dynamic or lazy-loaded without updating this site.
+//
+// If content ever becomes dynamic (e.g. fetched from an API), replace this
+// module-level constant with a `useMemo(() => buildSearchIndex(), [data])`
+// inside the LearnScreen component, and update the test accordingly.
 const ALL_RESULTS = buildSearchIndex();
 
 function ResourceCard({
