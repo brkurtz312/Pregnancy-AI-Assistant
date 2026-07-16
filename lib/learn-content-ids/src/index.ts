@@ -1,3 +1,11 @@
+export const LEARN_TAB_SECTION_IDS = [
+  "videovault",
+  "supportperson",
+  "healthypregnancy",
+] as const;
+
+export type LearnTabSectionId = (typeof LEARN_TAB_SECTION_IDS)[number];
+
 export const VIDEO_VAULT_TOPIC_IDS = [
   "fetal-development",
   "preconception",

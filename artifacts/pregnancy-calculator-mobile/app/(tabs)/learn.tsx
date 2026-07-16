@@ -21,11 +21,15 @@ import {
   type SupportPersonVolumeNumber,
 } from "@/lib/support-person-survival";
 import { HEALTHY_PREGNANCY_TOPICS } from "@/lib/healthy-pregnancy-topics";
+import {
+  LEARN_TAB_SECTION_IDS,
+  type LearnTabSectionId,
+} from "@workspace/learn-content-ids";
 
 const ACOG_URL = "https://www.acog.org/womens-health/resources-for-you";
 
 interface SearchResult {
-  section: "videovault" | "supportperson" | "healthypregnancy";
+  section: LearnTabSectionId;
   label: string;
   sublabel: string;
   icon: string;
@@ -114,14 +118,26 @@ function matchesQuery(result: SearchResult, q: string): boolean {
   return false;
 }
 
-const SECTION_META: Record<
-  "videovault" | "supportperson" | "healthypregnancy",
-  { label: string }
-> = {
+const SECTION_META: Record<LearnTabSectionId, { label: string }> = {
   videovault: { label: "Video Vault" },
   supportperson: { label: "Support Person Series" },
   healthypregnancy: { label: "Healthy Pregnancy" },
 };
+
+// Compile-time exhaustiveness guard: breaks the build if any LearnTabSectionId
+// is not represented in SECTION_META. Record<LearnTabSectionId, ...> above
+// already enforces this, but the Exclude check below makes the contract
+// explicit and mirrors the pattern used in video-vault.ts and
+// healthy-pregnancy-topics.ts so that a rename in learn-content-ids fails here
+// too.
+type _LearnTabSectionMissing = Exclude<
+  LearnTabSectionId,
+  keyof typeof SECTION_META
+>;
+type _AssertNoMissingLearnTabSections =
+  _LearnTabSectionMissing extends never ? true : never;
+const _learnTabSectionExhaustive: _AssertNoMissingLearnTabSections = true;
+void _learnTabSectionExhaustive;
 
 // ALL_RESULTS is intentionally built once at module load time.
 //
@@ -201,12 +217,10 @@ export default function LearnScreen() {
 
   const grouped = useMemo(() => {
     if (!searchResults) return null;
-    return (["videovault", "supportperson", "healthypregnancy"] as const)
-      .map((section) => ({
-        section,
-        items: searchResults.filter((r) => r.section === section),
-      }))
-      .filter((g) => g.items.length > 0);
+    return LEARN_TAB_SECTION_IDS.map((section) => ({
+      section,
+      items: searchResults.filter((r) => r.section === section),
+    })).filter((g) => g.items.length > 0);
   }, [searchResults]);
 
   function handleResultPress(route: string) {
