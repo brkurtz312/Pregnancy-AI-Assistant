@@ -12,6 +12,10 @@ import { requireAuth, type AuthedRequest } from "../../middlewares/auth";
 import { userHasPass } from "../../lib/entitlement";
 import { reserveUsage, refundUsage, getUsage } from "../../lib/ai-usage";
 import { FREE_SCRIBE_LIMIT } from "../../lib/billing-config";
+import {
+  checkIdempotency,
+  beginIdempotency,
+} from "../../lib/scribe-idempotency";
 
 const router: IRouter = Router();
 
@@ -154,6 +158,41 @@ router.post(
       return;
     }
 
+    // ── Idempotency ───────────────────────────────────────────────────────────
+    // If the client supplies X-Idempotency-Key we can short-circuit duplicate
+    // requests without consuming a second free slot:
+    //
+    //  • Cache hit (previous success within TTL) → return stored response, done.
+    //  • In-flight match (concurrent retry) → await the first request's promise
+    //    and return its result; reserveUsage is never called again.
+    //  • Cache miss → register this request as the authoritative in-flight
+    //    handler (synchronously, before any await) so that retries arriving
+    //    while we are inside reserveUsage / the AI call attach to us.
+    const idempotencyKey =
+      typeof req.headers["x-idempotency-key"] === "string"
+        ? req.headers["x-idempotency-key"].trim()
+        : null;
+
+    if (idempotencyKey) {
+      const idempResult = await checkIdempotency(idempotencyKey, userId);
+      if (idempResult.found) {
+        req.log.info(
+          { idempotencyKey },
+          "scribe generate-note: returning cached idempotent result",
+        );
+        res.json(idempResult.response);
+        return;
+      }
+    }
+
+    // Register as in-flight BEFORE the first await so concurrent retries with
+    // the same key find the Pending entry and attach to this request's promise
+    // instead of making their own reservation.  When no key is present, ops is
+    // null and commit/abort become no-ops below.
+    const ops = idempotencyKey
+      ? beginIdempotency(idempotencyKey, userId)
+      : null;
+
     // Fail closed: if the DB is unavailable we cannot verify usage limits, so
     // we block the request with a 503 rather than risk bypassing free-tier caps.
     let hasPass: boolean;
@@ -167,6 +206,8 @@ router.post(
           FREE_SCRIBE_LIMIT,
         );
         if (!reserved) {
+          // 403s are not cached — abort so retries attempt a fresh check.
+          ops?.abort();
           res.status(403).json({
             code: "SCRIBE_LIMIT_REACHED",
             error:
@@ -177,6 +218,7 @@ router.post(
         usageReserved = true;
       }
     } catch (err) {
+      ops?.abort();
       req.log.error({ err }, "scribe generate-note: DB error during pre-check");
       res.status(503).json({
         error:
@@ -215,6 +257,7 @@ router.post(
         if (usageReserved) {
           await refundUsage(`scribe:${userId}`, "all-time");
         }
+        ops?.abort();
         req.log.warn(
           { raw },
           "scribe generate-note: failed to parse JSON from model",
@@ -225,11 +268,18 @@ router.post(
         return;
       }
 
-      res.json({ mode, note: parsed });
+      const responseBody = { mode, note: parsed };
+
+      // Commit the idempotency entry so retries within the TTL get this result
+      // without a second reservation.
+      ops?.commit(responseBody);
+
+      res.json(responseBody);
     } catch (err) {
       if (usageReserved) {
         await refundUsage(`scribe:${userId}`, "all-time");
       }
+      ops?.abort();
       req.log.error({ err }, "scribe generate-note failed");
       res
         .status(502)
