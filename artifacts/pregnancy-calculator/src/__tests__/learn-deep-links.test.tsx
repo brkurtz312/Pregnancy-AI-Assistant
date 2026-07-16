@@ -326,7 +326,93 @@ describe("SupportPerson — initialVolumeNumber deep-link", () => {
   });
 });
 
-// ─── 5. Learn end-to-end deep-link flow ───────────────────────────────────────
+// ─── 5. Learn — search bar clear behaviour ────────────────────────────────────
+//
+// Guards the X-button clear contract: pressing clear must set the query to ""
+// and return to the unfiltered hub (browse view), not leave a stale result list.
+
+describe("Learn — search bar clear", () => {
+  function renderLearn() {
+    return render(<Learn />);
+  }
+
+  it("does not show the X button when the search input is empty", () => {
+    renderLearn();
+    expect(screen.queryByRole("button", { name: /clear search/i })).toBeNull();
+  });
+
+  it("shows the X button after typing a query", () => {
+    renderLearn();
+    const input = screen.getByPlaceholderText(
+      /search videos, articles, guides/i,
+    );
+    fireEvent.change(input, { target: { value: "labor" } });
+    expect(screen.getByRole("button", { name: /clear search/i })).toBeDefined();
+  });
+
+  it("clears the query and returns to the hub when X is clicked", () => {
+    renderLearn();
+    const input = screen.getByPlaceholderText(
+      /search videos, articles, guides/i,
+    );
+
+    fireEvent.change(input, { target: { value: "labor" } });
+    // Results list is visible.
+    expect(
+      screen.queryByText(/no results found/i) ?? screen.queryByText(/result/i),
+    ).not.toBeNull();
+
+    // Click the clear button.
+    fireEvent.click(screen.getByRole("button", { name: /clear search/i }));
+
+    // Input value is now empty.
+    const inputEl = screen.getByPlaceholderText(
+      /search videos, articles, guides/i,
+    ) as HTMLInputElement;
+    expect(inputEl.value).toBe("");
+
+    // Hub cards are visible again (not a search results view).
+    expect(screen.getByText("Video Vault")).toBeDefined();
+    expect(screen.getByText("Support Person Series")).toBeDefined();
+    expect(screen.getByText("Healthy Pregnancy")).toBeDefined();
+  });
+
+  it("hides the X button after clearing", () => {
+    renderLearn();
+    const input = screen.getByPlaceholderText(
+      /search videos, articles, guides/i,
+    );
+
+    fireEvent.change(input, { target: { value: "nutrition" } });
+    expect(screen.getByRole("button", { name: /clear search/i })).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: /clear search/i }));
+    expect(screen.queryByRole("button", { name: /clear search/i })).toBeNull();
+  });
+
+  it("search results are gone after clearing — no stale list remains", () => {
+    renderLearn();
+    const input = screen.getByPlaceholderText(
+      /search videos, articles, guides/i,
+    );
+    const article = HEALTHY_PREGNANCY_ARTICLES[0];
+
+    // Type a term that produces at least one result.
+    fireEvent.change(input, { target: { value: article.title } });
+    // Verify a result count line is shown (e.g. "3 results for …").
+    expect(screen.getByText(/result.*for/i)).toBeDefined();
+
+    // Clear.
+    fireEvent.click(screen.getByRole("button", { name: /clear search/i }));
+
+    // The result-count sentence must be gone.
+    expect(screen.queryByText(/result.*for/i)).toBeNull();
+    // The hub section cards are back.
+    expect(screen.getByText("Video Vault")).toBeDefined();
+  });
+});
+
+// ─── 6. Learn end-to-end deep-link flow ───────────────────────────────────────
 //
 // Simulates a user typing in the Learn hub search box, clicking a result, and
 // confirms the correct sub-view loads with the item already expanded/highlighted.
