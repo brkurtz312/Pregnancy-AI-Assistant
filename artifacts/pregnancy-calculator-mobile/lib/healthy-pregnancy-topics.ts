@@ -86,6 +86,5 @@ type _HealthyPregnancyMissingIds = Exclude<
 >;
 type _AssertNoMissingHealthyPregnancyTopics =
   _HealthyPregnancyMissingIds extends never ? true : never;
-const _healthyPregnancyTopicExhaustive: _AssertNoMissingHealthyPregnancyTopics =
-  true;
+const _healthyPregnancyTopicExhaustive: _AssertNoMissingHealthyPregnancyTopics = true;
 void _healthyPregnancyTopicExhaustive;

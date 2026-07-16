@@ -1534,3 +1534,198 @@ describe("Search-bar X button — clear state machine", () => {
     expect(Array.isArray(noMatches)).toBe(true);
   });
 });
+
+// ─── 7d. VideoVault screen file — parse validity + default export ─────────────
+//
+// Mirrors the same static-analysis checks performed in section 5c for the
+// support-person-vol*.tsx files.  A typo that corrupts app/video-vault.tsx, or
+// a refactor that accidentally removes `export default`, would silently produce
+// a blank/crashed screen at runtime.  The file still "exists" on disk so a
+// simple filesystem check would still pass — only this section would catch it.
+//
+// We use the TypeScript compiler API for static analysis so we never need to
+// actually import the file (which would fail in the test environment because
+// of React Native / Expo native module dependencies).
+
+describe("VideoVault screen file — parse validity + default export", () => {
+  const appDir = path.join(__dirname, "..", "app");
+  const filename = "video-vault.tsx";
+  const fullPath = path.join(appDir, filename);
+
+  it("app/video-vault.tsx exists on disk", () => {
+    expect(fs.existsSync(fullPath)).toBe(true);
+  });
+
+  it("app/video-vault.tsx parses as valid TypeScript/TSX without syntax errors", () => {
+    const ts = require("typescript") as typeof import("typescript");
+    const source = fs.readFileSync(fullPath, "utf8");
+
+    // transpileModule surfaces TypeScript syntax diagnostics for a single
+    // file without needing to resolve imports, so it works even though the
+    // file depends on React Native / Expo modules unavailable in Node.
+    const result = ts.transpileModule(source, {
+      fileName: filename,
+      compilerOptions: {
+        target: ts.ScriptTarget.ESNext,
+        jsx: ts.JsxEmit.ReactNative,
+      },
+      reportDiagnostics: true,
+    });
+
+    const syntaxErrors = (result.diagnostics ?? []).filter(
+      (d) => d.category === ts.DiagnosticCategory.Error,
+    );
+
+    if (syntaxErrors.length > 0) {
+      const messages = syntaxErrors
+        .map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n"))
+        .join("; ");
+      throw new Error(`${filename} has TypeScript syntax errors: ${messages}`);
+    }
+  });
+
+  it("app/video-vault.tsx has a default export (the Expo Router screen component)", () => {
+    const ts = require("typescript") as typeof import("typescript");
+    const source = fs.readFileSync(fullPath, "utf8");
+
+    const sourceFile = ts.createSourceFile(
+      filename,
+      source,
+      ts.ScriptTarget.ESNext,
+      /* setParentNodes */ true,
+      ts.ScriptKind.TSX,
+    );
+
+    let hasDefaultExport = false;
+
+    for (const statement of sourceFile.statements) {
+      // export default function Foo() {} / export default class Foo {}
+      if (
+        (ts.isFunctionDeclaration(statement) ||
+          ts.isClassDeclaration(statement)) &&
+        statement.modifiers?.some(
+          (m) => m.kind === ts.SyntaxKind.DefaultKeyword,
+        )
+      ) {
+        hasDefaultExport = true;
+        break;
+      }
+
+      // export default <expression>  (e.g. memo(Fn), arrow fn, identifier)
+      if (ts.isExportAssignment(statement) && !statement.isExportEquals) {
+        hasDefaultExport = true;
+        break;
+      }
+
+      // export { Foo as default }
+      if (ts.isExportDeclaration(statement) && statement.exportClause) {
+        if (ts.isNamedExports(statement.exportClause)) {
+          for (const el of statement.exportClause.elements) {
+            if (el.name.text === "default") {
+              hasDefaultExport = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (hasDefaultExport) break;
+    }
+
+    if (!hasDefaultExport) {
+      throw new Error(
+        `${filename} has no default export — Expo Router requires a default-exported screen component`,
+      );
+    }
+  });
+
+  it("the default export in app/video-vault.tsx is a function (React component, not a plain value)", () => {
+    const ts = require("typescript") as typeof import("typescript");
+    const source = fs.readFileSync(fullPath, "utf8");
+
+    const sourceFile = ts.createSourceFile(
+      filename,
+      source,
+      ts.ScriptTarget.ESNext,
+      /* setParentNodes */ true,
+      ts.ScriptKind.TSX,
+    );
+
+    let defaultIsFunction = false;
+
+    for (const statement of sourceFile.statements) {
+      // export default function Foo() {}
+      if (
+        ts.isFunctionDeclaration(statement) &&
+        statement.modifiers?.some(
+          (m) => m.kind === ts.SyntaxKind.DefaultKeyword,
+        )
+      ) {
+        defaultIsFunction = true;
+        break;
+      }
+
+      // export default <expr> — accept arrow functions, call expressions
+      // (e.g. memo(Fn)), and class expressions as valid component forms.
+      if (ts.isExportAssignment(statement) && !statement.isExportEquals) {
+        const expr = statement.expression;
+        if (
+          ts.isArrowFunction(expr) ||
+          ts.isFunctionExpression(expr) ||
+          ts.isClassExpression(expr) ||
+          ts.isCallExpression(expr) // e.g. React.memo(...) or withAuth(...)
+        ) {
+          defaultIsFunction = true;
+        }
+        // Also accept: export default Identifier where the identifier likely
+        // refers to a function declared above — we verify this via a simple
+        // check that there is a function/class/const-arrow declaration in the
+        // file sharing that name.
+        if (ts.isIdentifier(expr)) {
+          const refName = expr.text;
+          for (const s of sourceFile.statements) {
+            if (
+              (ts.isFunctionDeclaration(s) || ts.isClassDeclaration(s)) &&
+              s.name?.text === refName
+            ) {
+              defaultIsFunction = true;
+              break;
+            }
+            const isConstFn =
+              ts.isVariableStatement(s) &&
+              s.declarationList.declarations.some(
+                (d) =>
+                  ts.isIdentifier(d.name) &&
+                  d.name.text === refName &&
+                  d.initializer != null &&
+                  (ts.isArrowFunction(d.initializer) ||
+                    ts.isFunctionExpression(d.initializer)),
+              );
+            if (isConstFn) {
+              defaultIsFunction = true;
+              break;
+            }
+          }
+        }
+        break;
+      }
+
+      // export default class Foo {}
+      if (
+        ts.isClassDeclaration(statement) &&
+        statement.modifiers?.some(
+          (m) => m.kind === ts.SyntaxKind.DefaultKeyword,
+        )
+      ) {
+        defaultIsFunction = true;
+        break;
+      }
+    }
+
+    if (!defaultIsFunction) {
+      throw new Error(
+        `${filename} default export does not appear to be a React component (function or class)`,
+      );
+    }
+  });
+});
