@@ -439,6 +439,170 @@ describe("POST /scribe/generate-note — DB recovery after 503", () => {
   });
 });
 
+// ─── generate-note: Anthropic call failure ────────────────────────────────────
+
+describe("POST /scribe/generate-note — Anthropic call rejects (timeout / API error)", () => {
+  it("returns 502 when the Anthropic call rejects (summary)", async () => {
+    mockAnthropicCreate.mockRejectedValue(new Error("Request timeout"));
+    const app = buildApp();
+
+    const res = await postGenerateNote(app, {
+      transcript: VALID_TRANSCRIPT,
+      mode: "summary",
+    });
+
+    expect(res.status).toBe(502);
+  });
+
+  it("calls refundUsage exactly once for a free user when the Anthropic call rejects (summary)", async () => {
+    mockAnthropicCreate.mockRejectedValue(new Error("Request timeout"));
+    const app = buildApp();
+
+    await postGenerateNote(app, {
+      transcript: VALID_TRANSCRIPT,
+      mode: "summary",
+    });
+
+    expect(mockRefundUsage).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns 502 when the Anthropic call rejects (soap)", async () => {
+    mockAnthropicCreate.mockRejectedValue(new Error("Request timeout"));
+    const app = buildApp();
+
+    const res = await postGenerateNote(app, {
+      transcript: VALID_TRANSCRIPT,
+      mode: "soap",
+    });
+
+    expect(res.status).toBe(502);
+  });
+
+  it("calls refundUsage exactly once for a free user when the Anthropic call rejects (soap)", async () => {
+    mockAnthropicCreate.mockRejectedValue(new Error("Request timeout"));
+    const app = buildApp();
+
+    await postGenerateNote(app, {
+      transcript: VALID_TRANSCRIPT,
+      mode: "soap",
+    });
+
+    expect(mockRefundUsage).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT call refundUsage for a pass holder when the Anthropic call rejects", async () => {
+    mockUserHasPass.mockResolvedValue(true);
+    mockAnthropicCreate.mockRejectedValue(new Error("Request timeout"));
+    const app = buildApp("user_pass_456");
+
+    await postGenerateNote(app, {
+      transcript: VALID_TRANSCRIPT,
+      mode: "summary",
+    });
+
+    expect(mockRefundUsage).not.toHaveBeenCalled();
+  });
+});
+
+// ─── generate-note: non-JSON model response ───────────────────────────────────
+
+describe("POST /scribe/generate-note — non-JSON response from model", () => {
+  it("returns 502 when the model returns plain text instead of JSON (summary)", async () => {
+    mockAnthropicCreate.mockResolvedValue({
+      content: [{ type: "text", text: "Sorry, I cannot help with that." }],
+    });
+    const app = buildApp();
+
+    const res = await postGenerateNote(app, {
+      transcript: VALID_TRANSCRIPT,
+      mode: "summary",
+    });
+
+    expect(res.status).toBe(502);
+  });
+
+  it("calls refundUsage for a free user when the model returns non-JSON (summary)", async () => {
+    mockAnthropicCreate.mockResolvedValue({
+      content: [{ type: "text", text: "Sorry, I cannot help with that." }],
+    });
+    const app = buildApp();
+
+    await postGenerateNote(app, {
+      transcript: VALID_TRANSCRIPT,
+      mode: "summary",
+    });
+
+    expect(mockRefundUsage).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns 502 when the model returns plain text instead of JSON (soap)", async () => {
+    mockAnthropicCreate.mockResolvedValue({
+      content: [{ type: "text", text: "I cannot produce a SOAP note." }],
+    });
+    const app = buildApp();
+
+    const res = await postGenerateNote(app, {
+      transcript: VALID_TRANSCRIPT,
+      mode: "soap",
+    });
+
+    expect(res.status).toBe(502);
+  });
+
+  it("calls refundUsage for a free user when the model returns non-JSON (soap)", async () => {
+    mockAnthropicCreate.mockResolvedValue({
+      content: [{ type: "text", text: "I cannot produce a SOAP note." }],
+    });
+    const app = buildApp();
+
+    await postGenerateNote(app, {
+      transcript: VALID_TRANSCRIPT,
+      mode: "soap",
+    });
+
+    expect(mockRefundUsage).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT call refundUsage for a pass holder when the model returns non-JSON", async () => {
+    mockUserHasPass.mockResolvedValue(true);
+    mockAnthropicCreate.mockResolvedValue({
+      content: [{ type: "text", text: "Sorry, I cannot help with that." }],
+    });
+    const app = buildApp("user_pass_456");
+
+    await postGenerateNote(app, {
+      transcript: VALID_TRANSCRIPT,
+      mode: "summary",
+    });
+
+    expect(mockRefundUsage).not.toHaveBeenCalled();
+  });
+
+  it("returns 502 when the model returns an empty content array", async () => {
+    mockAnthropicCreate.mockResolvedValue({ content: [] });
+    const app = buildApp();
+
+    const res = await postGenerateNote(app, {
+      transcript: VALID_TRANSCRIPT,
+      mode: "summary",
+    });
+
+    expect(res.status).toBe(502);
+  });
+
+  it("calls refundUsage when the model returns an empty content array", async () => {
+    mockAnthropicCreate.mockResolvedValue({ content: [] });
+    const app = buildApp();
+
+    await postGenerateNote(app, {
+      transcript: VALID_TRANSCRIPT,
+      mode: "summary",
+    });
+
+    expect(mockRefundUsage).toHaveBeenCalledTimes(1);
+  });
+});
+
 // ─── generate-note: normal 403 path ──────────────────────────────────────────
 
 describe("POST /scribe/generate-note — 403 path under healthy DB", () => {
