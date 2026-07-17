@@ -56,8 +56,11 @@ import { getVisitExpectation } from "@/constants/prenatal-visit-expectations";
 type DTPComponent = React.ComponentType<any>;
 const DateTimePicker: DTPComponent | null = (() => {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return (require("@react-native-community/datetimepicker") as { default: DTPComponent }).default;
+    return (
+      require("@react-native-community/datetimepicker") as {
+        default: DTPComponent;
+      }
+    ).default;
   } catch {
     return null;
   }

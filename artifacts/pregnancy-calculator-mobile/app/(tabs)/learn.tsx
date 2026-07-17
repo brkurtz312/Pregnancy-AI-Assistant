@@ -134,8 +134,9 @@ type _LearnTabSectionMissing = Exclude<
   LearnTabSectionId,
   keyof typeof SECTION_META
 >;
-type _AssertNoMissingLearnTabSections =
-  _LearnTabSectionMissing extends never ? true : never;
+type _AssertNoMissingLearnTabSections = _LearnTabSectionMissing extends never
+  ? true
+  : never;
 const _learnTabSectionExhaustive: _AssertNoMissingLearnTabSections = true;
 void _learnTabSectionExhaustive;
 
