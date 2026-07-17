@@ -412,7 +412,73 @@ describe("Learn — search bar clear", () => {
   });
 });
 
-// ─── 6. Learn end-to-end deep-link flow ───────────────────────────────────────
+// ─── 6. Learn — search bar clears when navigating via hub card and returning ───
+//
+// Guards navigateToHub's setQuery("") call on the hub-card → Back path.
+// Prior tests only exercised the search-result → Back path (via navigateTo).
+
+describe("Learn — search bar clears after hub-card navigation and Back", () => {
+  function renderLearn() {
+    return render(<Learn />);
+  }
+
+  it("search input is empty after: type query → clear → open hub card → click Back", () => {
+    renderLearn();
+
+    const input = screen.getByPlaceholderText(
+      /search videos, articles, guides/i,
+    ) as HTMLInputElement;
+
+    // 1. Type a query so the search results list is shown.
+    fireEvent.change(input, { target: { value: "labor" } });
+    expect(input.value).toBe("labor");
+
+    // 2. Clear the query via the X button so the hub cards become visible.
+    fireEvent.click(screen.getByRole("button", { name: /clear search/i }));
+    expect(input.value).toBe("");
+
+    // 3. Navigate to VideoVault via a hub card (not a search result).
+    //    The card's onClick only calls setView(), not navigateTo/setQuery.
+    fireEvent.click(screen.getByText("Video Vault"));
+
+    // 4. Confirm we are now in the VideoVault sub-view.
+    expect(screen.getByText(/← Back to Learn/i)).toBeDefined();
+
+    // 5. Click Back — this calls navigateToHub() which calls setQuery("").
+    fireEvent.click(screen.getByText(/← Back to Learn/i));
+
+    // 6. The hub is shown and the search input is empty.
+    const inputAfterBack = screen.getByPlaceholderText(
+      /search videos, articles, guides/i,
+    ) as HTMLInputElement;
+    expect(inputAfterBack.value).toBe("");
+
+    // Hub section cards must be visible again.
+    expect(screen.getByText("Video Vault")).toBeDefined();
+    expect(screen.getByText("Support Person Series")).toBeDefined();
+    expect(screen.getByText("Healthy Pregnancy")).toBeDefined();
+  });
+
+  it("no X button visible after hub-card navigation and Back", () => {
+    renderLearn();
+
+    const input = screen.getByPlaceholderText(
+      /search videos, articles, guides/i,
+    ) as HTMLInputElement;
+
+    fireEvent.change(input, { target: { value: "nutrition" } });
+    fireEvent.click(screen.getByRole("button", { name: /clear search/i }));
+
+    // Navigate via Healthy Pregnancy hub card.
+    fireEvent.click(screen.getByText("Healthy Pregnancy"));
+    fireEvent.click(screen.getByText(/← Back to Learn/i));
+
+    // The X button must be absent because query is "".
+    expect(screen.queryByRole("button", { name: /clear search/i })).toBeNull();
+  });
+});
+
+// ─── 7. Learn end-to-end deep-link flow ───────────────────────────────────────
 //
 // Simulates a user typing in the Learn hub search box, clicking a result, and
 // confirms the correct sub-view loads with the item already expanded/highlighted.
