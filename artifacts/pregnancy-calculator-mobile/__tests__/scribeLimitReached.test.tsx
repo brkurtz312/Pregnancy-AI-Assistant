@@ -366,6 +366,37 @@ describe("ScribeScreen — SCRIBE_LIMIT_REACHED handling (mobile)", () => {
     // "Create My Visit Summary" button still shown — confirms transcribed phase
     expect(json).toContain("Create My Visit Summary");
   });
+
+  it("closes PassGate and keeps 'Create My Visit Summary' reachable when hasPass becomes true mid-session", async () => {
+    await driveToLimitReached();
+
+    // PassGate must be open and the generate button reachable (transcribed phase)
+    const jsonBefore = JSON.stringify(renderer.toJSON());
+    expect(jsonBefore).toContain("Free Session Used");
+    expect(jsonBefore).toContain("Create My Visit Summary");
+
+    // Simulate the user completing an in-app purchase: hasPass flips to true
+    const { usePass } = require("@/hooks/usePass") as {
+      usePass: jest.Mock;
+    };
+    usePass.mockReturnValue({
+      hasPass: true,
+      startCheckout: jest.fn(),
+      isStartingCheckout: false,
+    });
+
+    // Re-render so the useEffect in scribe.tsx observes the updated hasPass value
+    await act(async () => {
+      renderer.update(React.createElement(ScribeScreen));
+    });
+    await flushAsync();
+
+    const jsonAfter = JSON.stringify(renderer.toJSON());
+    // PassGate should have been dismissed automatically
+    expect(jsonAfter).not.toContain("Free Session Used");
+    // Screen stays in transcribed phase — user can immediately retry
+    expect(jsonAfter).toContain("Create My Visit Summary");
+  });
 });
 
 describe("ScribeScreen — network failure mid-recording (mobile)", () => {
