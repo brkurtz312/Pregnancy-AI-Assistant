@@ -71,7 +71,11 @@ export default tseslint.config(
   // Scattered per-test overrides bypass the file-level CI timeout guard and
   // produce inconsistent behaviour under concurrent load.
   {
-    files: ["artifacts/pregnancy-calculator-mobile/__tests__/**/*.{ts,tsx}"],
+    files: [
+      "**/__tests__/**/*.{ts,tsx}",
+      "**/*.test.{ts,tsx}",
+      "**/*.spec.{ts,tsx}",
+    ],
     rules: {
       "no-restricted-syntax": [
         "error",
