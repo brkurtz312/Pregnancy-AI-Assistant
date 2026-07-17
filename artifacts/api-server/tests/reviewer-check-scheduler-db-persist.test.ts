@@ -228,6 +228,75 @@ describe("DB-persist failure (real runReviewerPassCheck, appConfigTable writes r
       // 3 setConfig calls in record() → 3 persist warnings
       expect(persistWarnCalls().length).toBe(3);
     });
+
+    it("clears the crash cooldown after a passing check so the next failure immediately re-alerts (real runReviewerPassCheck)", async () => {
+      vi.useFakeTimers();
+
+      const dispatch = vi.fn().mockResolvedValue(undefined);
+      const cooldownMs = 60_000;
+
+      // runReviewerPassCheck makes two dbSelectImpl calls per tick:
+      //   call N+0: getConfig("reviewer_demo_user_id") — error caught inside
+      //             getConfig's own try/catch; returns null → env var used
+      //   call N+1: user-row lookup — NO try/catch; a rejection throws from
+      //             runReviewerPassCheck itself, triggering the crash path
+
+      dbSelectImpl
+        .mockReset()
+        // ── Step 1: crash ─────────────────────────────────────────────────
+        .mockResolvedValueOnce([]) // getConfig → null (env var used)
+        .mockRejectedValueOnce(new Error("DB connection lost")) // user lookup → throws
+        // ── Step 2: fail within cooldown (verify suppression) ────────────
+        .mockResolvedValueOnce([]) // getConfig
+        .mockResolvedValueOnce([{ id: DEMO_USER_ID, hasPass: false }]) // pass revoked
+        // ── Step 3: passing check → clears cooldown ───────────────────────
+        .mockResolvedValueOnce([]) // getConfig
+        .mockResolvedValueOnce([{ id: DEMO_USER_ID, hasPass: true }]) // pass ok
+        // ── Step 4: failure immediately after recovery → re-alerts ────────
+        .mockResolvedValueOnce([]) // getConfig
+        .mockResolvedValueOnce([{ id: DEMO_USER_ID, hasPass: false }]); // pass revoked
+
+      // Step 1: crash — runReviewerPassCheck throws; crash alert dispatched;
+      //          cooldown is armed.
+      const result1 = await runScheduledCheck({
+        cooldownMs,
+        _dispatch: dispatch,
+      });
+      expect(result1).toBeNull();
+      expect(dispatch).toHaveBeenCalledTimes(1);
+      expect(dispatch.mock.calls[0][0].subject).toContain("crashed");
+
+      // Step 2: advance 5 s (still inside the 60 s cooldown window).
+      //          A failing check must be suppressed, confirming the cooldown is active.
+      vi.advanceTimersByTime(5_000);
+      const result2 = await runScheduledCheck({
+        cooldownMs,
+        _dispatch: dispatch,
+      });
+      expect(result2?.ok).toBe(false);
+      expect(result2?.reason).toBe("pass_revoked");
+      expect(dispatch).toHaveBeenCalledTimes(1); // still suppressed
+
+      // Step 3: passing check within the cooldown window → no alert (passes
+      //          never alert), but the cooldown must be cleared.
+      const result3 = await runScheduledCheck({
+        cooldownMs,
+        _dispatch: dispatch,
+      });
+      expect(result3?.ok).toBe(true);
+      expect(dispatch).toHaveBeenCalledTimes(1); // pass never alerts
+
+      // Step 4: immediate failure right after the passing check → fresh alert
+      //          fires because the cooldown was cleared by the pass.
+      const result4 = await runScheduledCheck({
+        cooldownMs,
+        _dispatch: dispatch,
+      });
+      expect(result4?.ok).toBe(false);
+      expect(dispatch).toHaveBeenCalledTimes(2);
+      expect(dispatch.mock.calls[1][0].subject).toContain("failed");
+      expect(dispatch.mock.calls[1][0].body).toContain("pass_revoked");
+    });
   });
 
   describe("startReviewerCheckScheduler", () => {

@@ -2117,8 +2117,12 @@ describe("Content update — new topics appear in search results", () => {
       seriesLabel: "Support Person Survival Series · Vol 1",
       handoutTitle: "Postpartum Recovery Essentials",
       pageSubtitle: "What to expect in the first weeks after birth",
-      summary: "A guide covering newborn care, maternal recovery, and early feeding.",
-      highlights: ["Recognize signs of postpartum depression", "Safe co-sleeping alternatives"],
+      summary:
+        "A guide covering newborn care, maternal recovery, and early feeding.",
+      highlights: [
+        "Recognize signs of postpartum depression",
+        "Safe co-sleeping alternatives",
+      ],
     };
 
     const extended = [...SUPPORT_PERSON_VOLUMES, newVol];
@@ -2129,8 +2133,7 @@ describe("Content update — new topics appear in search results", () => {
     );
 
     const match = index.find(
-      (r) =>
-        r.section === "supportperson" && r.label === newVol.handoutTitle,
+      (r) => r.section === "supportperson" && r.label === newVol.handoutTitle,
     );
     expect(match).toBeDefined();
   });
@@ -2150,7 +2153,8 @@ describe("Content update — new topics appear in search results", () => {
       seriesLabel: "Support Person Survival Series · Vol 1",
       handoutTitle: "Postpartum Recovery Essentials",
       pageSubtitle: "What to expect in the first weeks after birth",
-      summary: "A guide covering newborn care, maternal recovery, and early feeding.",
+      summary:
+        "A guide covering newborn care, maternal recovery, and early feeding.",
       highlights: ["Recognize signs of postpartum depression"],
     };
 
@@ -2183,9 +2187,9 @@ describe("Content update — new topics appear in search results", () => {
       (r) => r.section === "videovault" && r.label === removedTopic.title,
     );
     expect(match).toBeUndefined();
-    expect(
-      index.filter((r) => r.section === "videovault").length,
-    ).toBe(VIDEO_VAULT_TOPICS.length - 1);
+    expect(index.filter((r) => r.section === "videovault").length).toBe(
+      VIDEO_VAULT_TOPICS.length - 1,
+    );
   });
 
   it("removing a HealthyPregnancy topic from the source array removes it from the search index", () => {
@@ -2199,13 +2203,12 @@ describe("Content update — new topics appear in search results", () => {
     );
 
     const match = index.find(
-      (r) =>
-        r.section === "healthypregnancy" && r.label === removedTopic.title,
+      (r) => r.section === "healthypregnancy" && r.label === removedTopic.title,
     );
     expect(match).toBeUndefined();
-    expect(
-      index.filter((r) => r.section === "healthypregnancy").length,
-    ).toBe(HEALTHY_PREGNANCY_TOPICS.length - 1);
+    expect(index.filter((r) => r.section === "healthypregnancy").length).toBe(
+      HEALTHY_PREGNANCY_TOPICS.length - 1,
+    );
   });
 
   it("removing a topic does not affect results from the other two sections", () => {
@@ -2222,10 +2225,16 @@ describe("Content update — new topics appear in search results", () => {
       trimmedHp,
     );
 
-    const baselineVv = baseline.filter((r) => r.section === "videovault").length;
-    const baselineSp = baseline.filter((r) => r.section === "supportperson").length;
+    const baselineVv = baseline.filter(
+      (r) => r.section === "videovault",
+    ).length;
+    const baselineSp = baseline.filter(
+      (r) => r.section === "supportperson",
+    ).length;
     const updatedVv = updated.filter((r) => r.section === "videovault").length;
-    const updatedSp = updated.filter((r) => r.section === "supportperson").length;
+    const updatedSp = updated.filter(
+      (r) => r.section === "supportperson",
+    ).length;
 
     expect(updatedVv).toBe(baselineVv);
     expect(updatedSp).toBe(baselineSp);
@@ -2370,7 +2379,9 @@ describe("Rendered search UI — contract bridge between pure functions and comp
     const query = "nutrition";
     const trimmed = query.trim().toLowerCase();
     const searchResults = allResults.filter((r) => matchesQuery(r, trimmed));
-    const grouped = (["videovault", "supportperson", "healthypregnancy"] as const)
+    const grouped = (
+      ["videovault", "supportperson", "healthypregnancy"] as const
+    )
       .map((section) => ({
         section,
         items: searchResults.filter((r) => r.section === section),
@@ -2434,7 +2445,9 @@ describe("Rendered search UI — contract bridge between pure functions and comp
     // Simulate the rendered list for the query "sleep"
     const trimmed = "sleep";
     const searchResults = allResults.filter((r) => matchesQuery(r, trimmed));
-    const grouped = (["videovault", "supportperson", "healthypregnancy"] as const)
+    const grouped = (
+      ["videovault", "supportperson", "healthypregnancy"] as const
+    )
       .map((section) => ({
         section,
         items: searchResults.filter((r) => r.section === section),
@@ -2458,8 +2471,7 @@ describe("Rendered search UI — contract bridge between pure functions and comp
     const withTopic = buildSearchIndex();
     const resultsWith = withTopic.filter((r) => matchesQuery(r, trimmed));
     const foundBefore = resultsWith.some(
-      (r) =>
-        r.section === "healthypregnancy" && r.label === removedTopic.title,
+      (r) => r.section === "healthypregnancy" && r.label === removedTopic.title,
     );
     expect(foundBefore).toBe(true);
 
@@ -2503,8 +2515,7 @@ describe("Rendered search UI — contract bridge between pure functions and comp
       matchesQuery(r, trimmed),
     );
     const foundAfter = resultsWithout.some(
-      (r) =>
-        r.section === "healthypregnancy" && r.label === removedTopic.title,
+      (r) => r.section === "healthypregnancy" && r.label === removedTopic.title,
     );
     expect(foundAfter).toBe(false);
   });
