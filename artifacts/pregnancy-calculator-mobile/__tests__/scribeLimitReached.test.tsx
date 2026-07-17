@@ -11,7 +11,7 @@
  */
 
 import React from "react";
-import { Text, TouchableOpacity } from "react-native";
+import { Alert, Text, TouchableOpacity } from "react-native";
 import { act, create } from "react-test-renderer";
 import type { ReactTestInstance } from "react-test-renderer";
 import { flushAsync } from "../test-helpers/testUtils";
@@ -99,6 +99,7 @@ jest.mock("@/hooks/usePass", () => ({
 // ─── Subject ──────────────────────────────────────────────────────────────────
 
 import ScribeScreen from "../app/scribe";
+import { Audio } from "expo-av";
 
 // ─── Helpers (same pattern used across this test suite) ───────────────────────
 
@@ -816,5 +817,138 @@ describe("ScribeScreen — 503 service unavailable (mobile)", () => {
     // No upgrade prompt — PassGate title must not appear
     expect(json).not.toContain("Free Session Used");
     expect(json).not.toContain("Unlock Full Pregnancy Pass");
+  });
+});
+
+describe("ScribeScreen — audio permission denied mid-session (mobile)", () => {
+  let renderer: ReturnType<typeof create>;
+  let alertSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    alertSpy.mockRestore();
+    jest.clearAllMocks();
+  });
+
+  it("shows the microphone-access Alert and stays idle when permissions are denied on a second attempt", async () => {
+    const MOCK_NOTE = {
+      headline: "All looking great",
+      whatWasDiscussed: "Baby is healthy and on track.",
+      nextSteps: ["Drink more water"],
+      rememberTo: "Rest up before the next visit",
+    };
+
+    // First attempt: permissions granted (first session works end-to-end)
+    // Second attempt: permissions denied (mid-session revocation)
+    (Audio.requestPermissionsAsync as jest.Mock)
+      .mockResolvedValueOnce({ granted: true })
+      .mockResolvedValueOnce({ granted: false });
+
+    // fetch: transcribe → success, generate-note → success (for the first session)
+    (global.fetch as jest.Mock) = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({ transcript: MOCK_TRANSCRIPT }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({ note: MOCK_NOTE }),
+      });
+
+    act(() => {
+      renderer = create(React.createElement(ScribeScreen));
+    });
+    await flushAsync();
+
+    // ── First session: start recording (granted) ──────────────────────────────
+
+    const startBtn1 = findBtn(renderer.root, "Start Recording");
+    expect(startBtn1).toBeDefined();
+    await act(async () => {
+      startBtn1!.props.onPress();
+    });
+    await flushAsync();
+
+    // Screen should be in recording phase
+    const jsonRecording = JSON.stringify(renderer.toJSON());
+    expect(jsonRecording).toContain("Recording");
+
+    // ── Stop recording → transcription succeeds → transcribed phase ───────────
+
+    const allTouchables = renderer.root.findAllByType(TouchableOpacity);
+    const stopBtn = allTouchables.find((btn) => {
+      const style = btn.props.style;
+      if (Array.isArray(style)) {
+        return style.some(
+          (s: Record<string, unknown>) =>
+            s && typeof s === "object" && s.backgroundColor === "#ef4444",
+        );
+      }
+      return (
+        style &&
+        typeof style === "object" &&
+        style.backgroundColor === "#ef4444"
+      );
+    });
+    expect(stopBtn).toBeDefined();
+    await act(async () => {
+      stopBtn!.props.onPress();
+    });
+    await flushAsync(8);
+
+    // ── Generate summary → done phase ─────────────────────────────────────────
+
+    const generateBtn = findBtn(renderer.root, "Create My Visit Summary");
+    expect(generateBtn).toBeDefined();
+    await act(async () => {
+      generateBtn!.props.onPress();
+    });
+    await flushAsync(8);
+
+    // Confirm done phase — summary headline is visible
+    const jsonDone = JSON.stringify(renderer.toJSON());
+    expect(jsonDone).toContain(MOCK_NOTE.headline);
+
+    // ── Reset to idle via "Record another visit" ──────────────────────────────
+
+    const resetBtn = findBtn(renderer.root, "Record another visit");
+    expect(resetBtn).toBeDefined();
+    await act(async () => {
+      resetBtn!.props.onPress();
+    });
+    await flushAsync();
+
+    const jsonIdle = JSON.stringify(renderer.toJSON());
+    expect(jsonIdle).toContain("Start Recording");
+    expect(jsonIdle).not.toContain(MOCK_NOTE.headline);
+
+    // ── Second attempt: permission is now denied ───────────────────────────────
+
+    const startBtn2 = findBtn(renderer.root, "Start Recording");
+    expect(startBtn2).toBeDefined();
+    await act(async () => {
+      startBtn2!.props.onPress();
+    });
+    await flushAsync();
+
+    // Alert must have been called with the microphone-access message
+    expect(alertSpy).toHaveBeenCalledWith(
+      "Microphone access needed",
+      "Please allow microphone access in Settings to record your appointment.",
+    );
+
+    // Screen must remain at idle — no recording state and no error box
+    const jsonAfterDenial = JSON.stringify(renderer.toJSON());
+    expect(jsonAfterDenial).toContain("Start Recording");
+    expect(jsonAfterDenial).not.toContain("Recording… tap to stop");
+    expect(jsonAfterDenial).not.toContain("Transcribing your recording");
+    expect(jsonAfterDenial).not.toContain("alert-circle-outline");
   });
 });
