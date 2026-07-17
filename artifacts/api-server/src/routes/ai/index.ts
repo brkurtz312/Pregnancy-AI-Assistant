@@ -178,7 +178,10 @@ router.post("/ai/weekly-insight", async (req, res): Promise<void> => {
     const { value: insight, hit } = await weeklyInsightCache.getOrCompute(
       week,
       async () => {
-        req.log.info({ week }, "weekly-insight cache miss; generating");
+        req.log.info(
+          { week },
+          "weekly-insight cache miss; calling AI provider",
+        );
         const message = await getAnthropic().messages.create({
           model: MODEL,
           max_tokens: MAX_TOKENS,
@@ -196,9 +199,13 @@ router.post("/ai/weekly-insight", async (req, res): Promise<void> => {
       },
     );
 
-    if (hit) {
-      req.log.info({ week }, "weekly-insight cache hit");
-    }
+    // Always log the cache outcome so aggregation tools can compute the hit
+    // rate over time. A sudden drop in hit rate (many unique week values)
+    // indicates a scraping or amplification pattern worth investigating.
+    req.log.info(
+      { week, cacheHit: hit, ip: getClientIp(req) },
+      "weekly-insight served",
+    );
 
     res.json(
       GetWeeklyInsightResponse.parse({
