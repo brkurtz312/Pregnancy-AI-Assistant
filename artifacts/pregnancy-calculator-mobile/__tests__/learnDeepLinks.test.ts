@@ -2414,8 +2414,8 @@ describe("Content update — new topics appear in search results", () => {
     );
 
     const oldKeyword = original.title.split(" ")[0].toLowerCase();
-    const hitsForOldTitle = index.filter((r) =>
-      r.section === "healthypregnancy" && r.label === original.title,
+    const hitsForOldTitle = index.filter(
+      (r) => r.section === "healthypregnancy" && r.label === original.title,
     );
     expect(hitsForOldTitle).toHaveLength(0);
 

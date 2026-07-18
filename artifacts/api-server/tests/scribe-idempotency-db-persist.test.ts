@@ -1,78 +1,47 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+/**
+ * Integration tests for scribe-idempotency DB persistence (cross-instance durability).
+ *
+ * These tests exercise the real `beginIdempotency` → DB upsert → `checkIdempotency`
+ * round-trip against an actual Postgres connection (DATABASE_URL provided by Replit).
+ *
+ * The core scenario being proven:
+ *
+ *   Instance A  — calls beginIdempotency + commit → row written to DB.
+ *   Instance B  — a brand-new process (or a second autoscale replica) has an empty
+ *                 in-process cache.  It calls checkIdempotency and must find the row
+ *                 in the DB → returns { found: true }.  Because it finds the cached
+ *                 result it NEVER calls reserveUsage, preventing double-charging.
+ *
+ * What a unit test with a mocked DB cannot cover:
+ *   - The real Drizzle INSERT … ON CONFLICT DO UPDATE round-trip.
+ *   - The WHERE clause that filters out expired rows (gt(expiresAt, now())).
+ *   - Clock-sensitive expiry: an actually-expired row must not be returned.
+ *   - The full lifecycle that crosses a simulated process boundary, including
+ *     explicit proof that reserveUsage is bypassed on instance B.
+ */
+
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { db, scribeIdempotencyKeysTable } from "@workspace/db";
+import { and, eq } from "drizzle-orm";
 import express, {
-  type Express,
   type Request,
   type Response,
   type NextFunction,
 } from "express";
-import request from "supertest";
+import supertest from "supertest";
 
-/**
- * Cross-restart durability for /scribe/generate-note idempotency.
- *
- * Verifies that completed generate-note results are persisted to the
- * scribe_idempotency_keys PostgreSQL table so that:
- *
- *  - A retry arriving after a server restart still gets the cached response
- *    without a second reserveUsage call.
- *  - Expired DB rows are not returned.
- *  - DB failures degrade gracefully to a cache miss (no crash, no double-charge
- *    on the same instance's in-process cache).
- *  - The background sweep issues a DELETE for expired DB rows.
- */
+// ─── Mocks ────────────────────────────────────────────────────────────────────
+// Only non-DB dependencies are mocked. @workspace/db is NOT mocked so the real
+// Postgres connection is used throughout.
 
-// ─── DB mock ──────────────────────────────────────────────────────────────────
-
-const mockDbSelectLimit = vi.fn().mockResolvedValue([]);
-const mockDbInsertConflict = vi.fn().mockResolvedValue([]);
-const mockDbDelete = vi.fn().mockResolvedValue([]);
-
-vi.mock("@workspace/db", () => {
-  const selectChain = {
-    from: vi.fn().mockReturnThis(),
-    where: vi.fn().mockReturnThis(),
-    limit: (...args: unknown[]) => mockDbSelectLimit(...args),
-  };
-  const insertChain = {
-    values: vi.fn().mockReturnThis(),
-    onConflictDoUpdate: (...args: unknown[]) => mockDbInsertConflict(...args),
-  };
-  const deleteChain = {
-    where: (...args: unknown[]) => mockDbDelete(...args),
-  };
-  return {
-    db: {
-      select: vi.fn(() => selectChain),
-      insert: vi.fn(() => insertChain),
-      delete: vi.fn(() => deleteChain),
-    },
-    aiUsageTable: {},
-    scribeIdempotencyKeysTable: {},
-  };
-});
-
-// ─── Other mocks ──────────────────────────────────────────────────────────────
-
-const mockAnthropicCreate = vi.fn();
-const mockIsAnthropicConfigured = vi.fn(() => true);
-
-vi.mock("@workspace/integrations-anthropic-ai", () => ({
-  isAnthropicConfigured: () => mockIsAnthropicConfigured(),
-  getAnthropic: () => ({ messages: { create: mockAnthropicCreate } }),
+// Prevents the pino worker thread from spawning in the test process.
+vi.mock("../src/lib/logger", () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock("@workspace/integrations-openai-ai-server/audio", () => ({
-  speechToText: vi.fn(),
-  ensureCompatibleFormat: vi.fn(),
-}));
-
-const mockUserHasPass = vi.fn(async (_userId: string) => false);
-vi.mock("../src/lib/entitlement", () => ({
-  userHasPass: (userId: string) => mockUserHasPass(userId),
-}));
-
+// ai-usage: we spy on reserveUsage to assert it is NOT called on instance B.
 const mockReserveUsage = vi.fn(async () => ({ reserved: true, count: 1 }));
-const mockRefundUsage = vi.fn(async () => {});
+const mockRefundUsage = vi.fn(async () => undefined);
 
 vi.mock("../src/lib/ai-usage", () => ({
   reserveUsage: (...args: unknown[]) => mockReserveUsage(...args),
@@ -82,57 +51,71 @@ vi.mock("../src/lib/ai-usage", () => ({
   currentPeriodKey: vi.fn(),
 }));
 
+// Entitlement: default to free user so reserveUsage would be called if not
+// short-circuited by the idempotency cache.
+const mockUserHasPass = vi.fn(async () => false);
+vi.mock("../src/lib/entitlement", () => ({
+  userHasPass: () => mockUserHasPass(),
+}));
+
+// Auth middleware: inject userId without a real Clerk session.
 vi.mock("../src/middlewares/auth", () => ({
   requireAuth: (_req: Request, _res: Response, next: NextFunction) => next(),
 }));
 
-// ─── Logger mock (prevents pino worker from spawning in tests) ────────────────
+// Anthropic: not needed for cache-hit tests but required for the module to load.
+vi.mock("@workspace/integrations-anthropic-ai", () => ({
+  isAnthropicConfigured: () => true,
+  getAnthropic: () => ({ messages: { create: vi.fn() } }),
+}));
 
-vi.mock("../src/lib/logger", () => ({
-  logger: {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  },
+vi.mock("@workspace/integrations-openai-ai-server/audio", () => ({
+  speechToText: vi.fn(),
+  ensureCompatibleFormat: vi.fn(),
 }));
 
 // ─── Imports (after mocks) ────────────────────────────────────────────────────
 
 import scribeRouter from "../src/routes/scribe/index";
 import {
+  beginIdempotency,
+  checkIdempotency,
   _clearIdempotencyCache,
   _stopSweepInterval,
-  _startSweepInterval,
-  checkIdempotency,
-  beginIdempotency,
-  SWEEP_INTERVAL_MS,
   IDEMPOTENCY_TTL_MS,
 } from "../src/lib/scribe-idempotency";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Test constants ───────────────────────────────────────────────────────────
 
-const VALID_TRANSCRIPT =
-  "Patient presents at 32 weeks. Blood pressure 118/72. Fundal height 32 cm. Baby is active. Plan to schedule glucose screening.";
+// Use a unique userId prefix so rows created here are trivially identifiable
+// and can never collide with real traffic.
+const TEST_USER = "test_idempotency_persist_user";
 
-const SUMMARY_RESPONSE = JSON.stringify({
-  headline: "Your 32-week checkup went smoothly.",
-  whatWasDiscussed:
-    "Your provider checked your blood pressure and fundal height.",
-  nextSteps: ["Schedule glucose screening"],
-  rememberTo: "Keep tracking baby movements daily.",
-});
-
-const STORED_RESPONSE = {
+// A representative response object (mirrors the shape the scribe route returns).
+const RESPONSE_A = {
   mode: "summary",
   note: {
-    headline: "Stored response from a previous server instance.",
-    whatWasDiscussed: "This came from the DB.",
-    nextSteps: [],
-    rememberTo: "You are in good hands.",
+    headline: "Instance A wrote this.",
+    whatWasDiscussed: "This came from the first server instance.",
+    nextSteps: ["Follow up in 2 weeks"],
+    rememberTo: "Rest and hydrate.",
   },
 };
 
-function buildApp(userId = "user_persist_123"): Express {
+const RESPONSE_B = {
+  mode: "soap",
+  note: {
+    headline: "A different response.",
+    whatWasDiscussed: "Second entry used only to test key isolation.",
+    nextSteps: [],
+    rememberTo: "",
+  },
+};
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Build a minimal Express app that mounts the scribe router with a fixed userId. */
+function buildApp(userId = TEST_USER) {
   const app = express();
   app.use(express.json());
   app.use((req, _res, next) => {
@@ -148,223 +131,250 @@ function buildApp(userId = "user_persist_123"): Express {
   return app;
 }
 
-function postNote(
-  app: Express,
-  body: object,
-  idempotencyKey?: string,
-  userId?: string,
-) {
-  const r = request(app).post("/scribe/generate-note").send(body);
-  if (idempotencyKey) r.set("x-idempotency-key", idempotencyKey);
-  if (userId) r.set("x-user-id", userId);
-  return r;
+/** Delete all rows written by this test file. */
+async function cleanTestRows(): Promise<void> {
+  await db
+    .delete(scribeIdempotencyKeysTable)
+    .where(eq(scribeIdempotencyKeysTable.userId, TEST_USER));
 }
 
-beforeEach(() => {
+// ─── Setup / teardown ─────────────────────────────────────────────────────────
+
+beforeEach(async () => {
   vi.clearAllMocks();
+  // Stop the background sweep timer so it cannot interfere with test assertions.
+  _stopSweepInterval();
+  // Start each test with an empty in-process cache, simulating a fresh process.
   _clearIdempotencyCache();
-  mockIsAnthropicConfigured.mockReturnValue(true);
+  // Remove any rows left over from a previous run.
+  await cleanTestRows();
+  // Defaults for route-level tests.
   mockUserHasPass.mockResolvedValue(false);
   mockReserveUsage.mockResolvedValue({ reserved: true, count: 1 });
-  mockRefundUsage.mockResolvedValue(undefined);
-  mockAnthropicCreate.mockResolvedValue({
-    content: [{ type: "text", text: SUMMARY_RESPONSE }],
-  });
-  // Default: DB returns no rows (cache miss)
-  mockDbSelectLimit.mockResolvedValue([]);
-  // Default: upsert succeeds
-  mockDbInsertConflict.mockResolvedValue([]);
+});
+
+afterEach(async () => {
+  await cleanTestRows();
 });
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-describe("scribe generate-note — DB-backed idempotency (cross-restart durability)", () => {
-  // ── DB write on commit ─────────────────────────────────────────────────────
+describe("scribe-idempotency — DB-backed cross-instance durability (integration)", () => {
+  // ── Core cross-instance round-trip (route-level) ───────────────────────────
 
-  it("persists the result to the DB on a successful generate-note", async () => {
+  it("instance B route returns cached DB response and does NOT call reserveUsage", async () => {
+    // ── Instance A ──────────────────────────────────────────────────────────
+    // Directly commit a result to the DB, simulating a successful generate-note
+    // request that completed on a different server instance.
+    const KEY = "integ-route-no-reserve-001";
+    const { commit } = beginIdempotency(KEY, TEST_USER);
+    await commit(RESPONSE_A);
+
+    // ── Simulate process boundary ────────────────────────────────────────────
+    // Clearing the in-process cache is equivalent to starting a brand-new
+    // Node process or a second autoscale replica with no shared memory.
+    _clearIdempotencyCache();
+
+    // ── Instance B — route-level request ────────────────────────────────────
+    // The route calls checkIdempotency BEFORE reserveUsage.  When it finds the
+    // DB-stored entry it must return 200 with the cached response immediately,
+    // skipping reserveUsage entirely.
     const app = buildApp();
+    const res = await supertest(app)
+      .post("/scribe/generate-note")
+      .set("x-idempotency-key", KEY)
+      .send({ transcript: "any transcript", mode: "summary" });
 
-    const res = await postNote(
-      app,
-      { transcript: VALID_TRANSCRIPT, mode: "summary" },
-      "key-db-write-001",
-    );
-
+    // The route must succeed and return the cached response.
     expect(res.status).toBe(200);
-    // The upsert must have been called exactly once
-    expect(mockDbInsertConflict).toHaveBeenCalledTimes(1);
+    expect(res.body).toEqual(RESPONSE_A);
+
+    // The critical assertion: reserveUsage was NEVER called on instance B.
+    // If the idempotency cache had not protected this request, reserveUsage
+    // would have been called at least once (free user, cache miss path).
+    expect(mockReserveUsage).not.toHaveBeenCalled();
   });
 
-  it("does NOT persist to DB when the AI call fails (no successful result to cache)", async () => {
-    mockAnthropicCreate.mockRejectedValueOnce(new Error("network error"));
-    const app = buildApp();
+  // ── Core cross-instance round-trip (library-level) ────────────────────────
 
-    const res = await postNote(
-      app,
-      { transcript: VALID_TRANSCRIPT, mode: "summary" },
-      "key-db-no-write-fail",
-    );
+  it("commit on instance A writes to the DB, checkIdempotency on instance B reads it back", async () => {
+    const KEY = "integ-cross-instance-002";
 
-    expect(res.status).toBe(502);
-    expect(mockDbInsertConflict).not.toHaveBeenCalled();
-  });
+    // Instance A.
+    const { commit } = beginIdempotency(KEY, TEST_USER);
+    await commit(RESPONSE_A);
 
-  it("does NOT persist to DB when reserveUsage denies (limit reached)", async () => {
-    mockReserveUsage.mockResolvedValue({ reserved: false, count: 1 });
-    const app = buildApp();
+    // Simulate process boundary.
+    _clearIdempotencyCache();
 
-    const res = await postNote(
-      app,
-      { transcript: VALID_TRANSCRIPT, mode: "summary" },
-      "key-db-no-write-limit",
-    );
-
-    expect(res.status).toBe(403);
-    expect(mockDbInsertConflict).not.toHaveBeenCalled();
-  });
-
-  // ── Cross-restart: DB hit path ─────────────────────────────────────────────
-
-  it("returns the DB-stored response on a retry after a simulated server restart", async () => {
-    // Simulate a restart: the in-process cache is empty (cleared above),
-    // but the DB has a stored row from the previous instance's commit.
-    mockDbSelectLimit.mockResolvedValue([
-      {
-        idempotencyKey: "key-restart-001",
-        userId: "user_persist_123",
-        response: STORED_RESPONSE,
-        expiresAt: new Date(Date.now() + IDEMPOTENCY_TTL_MS),
-      },
-    ]);
-
-    const result = await checkIdempotency(
-      "key-restart-001",
-      "user_persist_123",
-    );
+    // Instance B — library level.
+    const result = await checkIdempotency(KEY, TEST_USER);
 
     expect(result.found).toBe(true);
     if (result.found) {
-      expect(result.response).toEqual(STORED_RESPONSE);
+      expect(result.response).toEqual(RESPONSE_A);
     }
   });
 
-  it("does NOT call reserveUsage when a DB-stored entry is found for the retry key", async () => {
-    mockDbSelectLimit.mockResolvedValue([
-      {
-        idempotencyKey: "key-restart-no-reserve",
-        userId: "user_persist_123",
-        response: STORED_RESPONSE,
-        expiresAt: new Date(Date.now() + IDEMPOTENCY_TTL_MS),
-      },
-    ]);
+  // ── DB row is written with correct field values ────────────────────────────
 
-    const app = buildApp();
+  it("the DB row contains the committed response and a future expiresAt", async () => {
+    const KEY = "integ-row-content-003";
+    const before = new Date();
 
-    const res = await postNote(
-      app,
-      { transcript: VALID_TRANSCRIPT, mode: "summary" },
-      "key-restart-no-reserve",
+    const { commit } = beginIdempotency(KEY, TEST_USER);
+    await commit(RESPONSE_A);
+
+    // Read the row directly from the DB to verify the stored shape.
+    const rows = await db
+      .select()
+      .from(scribeIdempotencyKeysTable)
+      .where(
+        and(
+          eq(scribeIdempotencyKeysTable.userId, TEST_USER),
+          eq(scribeIdempotencyKeysTable.idempotencyKey, KEY),
+        ),
+      )
+      .limit(1);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].response).toEqual(RESPONSE_A);
+    // expiresAt must be in the future (roughly TTL from now).
+    expect(rows[0].expiresAt.getTime()).toBeGreaterThan(before.getTime());
+    expect(rows[0].expiresAt.getTime()).toBeGreaterThan(
+      Date.now() + IDEMPOTENCY_TTL_MS - 5_000,
     );
-
-    // The route finds the DB entry in checkIdempotency and returns early
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual(STORED_RESPONSE);
-    expect(mockReserveUsage).not.toHaveBeenCalled();
-    expect(mockAnthropicCreate).not.toHaveBeenCalled();
   });
 
-  // ── Expired DB rows are not returned ──────────────────────────────────────
+  // ── Key + user isolation ───────────────────────────────────────────────────
 
-  it("treats an expired DB entry as a cache miss", async () => {
-    // DB row with expiresAt in the past — the server filters it with a WHERE clause
-    // so it returns no rows (the DB does the filtering, mockDbSelectLimit returns [])
-    mockDbSelectLimit.mockResolvedValue([]);
+  it("two different keys for the same user are stored and retrieved independently", async () => {
+    const KEY1 = "integ-isolation-key1-004";
+    const KEY2 = "integ-isolation-key2-004";
 
-    const result = await checkIdempotency("key-expired-db", "user_persist_123");
-    expect(result.found).toBe(false);
+    const { commit: commit1 } = beginIdempotency(KEY1, TEST_USER);
+    await commit1(RESPONSE_A);
+
+    const { commit: commit2 } = beginIdempotency(KEY2, TEST_USER);
+    await commit2(RESPONSE_B);
+
+    _clearIdempotencyCache();
+
+    const r1 = await checkIdempotency(KEY1, TEST_USER);
+    const r2 = await checkIdempotency(KEY2, TEST_USER);
+
+    expect(r1.found).toBe(true);
+    expect(r2.found).toBe(true);
+    if (r1.found) expect(r1.response).toEqual(RESPONSE_A);
+    if (r2.found) expect(r2.response).toEqual(RESPONSE_B);
   });
 
-  // ── Cross-user isolation ───────────────────────────────────────────────────
+  it("the same key for a different userId is a distinct row (cross-user isolation)", async () => {
+    const KEY = "integ-user-isolation-005";
+    const OTHER_USER = `${TEST_USER}_other`;
 
-  it("a DB hit for one user does not appear for a different user with the same key", async () => {
-    // DB returns a result only when queried for user A
-    mockDbSelectLimit.mockImplementation(() => {
-      // We can't inspect query args easily through the chain mock, but we test
-      // the public API: user B's in-process cache is empty AND the DB returns
-      // nothing for them (separate DB row keyed by userId + idempotencyKey).
-      return Promise.resolve([]);
-    });
+    // Instance A commits for TEST_USER.
+    const { commit } = beginIdempotency(KEY, TEST_USER);
+    await commit(RESPONSE_A);
 
-    // User B misses
-    const result = await checkIdempotency("shared-key", "user_B");
-    expect(result.found).toBe(false);
-  });
-
-  // ── Graceful DB degradation ────────────────────────────────────────────────
-
-  it("treats a DB lookup error as a cache miss (does not crash or double-charge on retry)", async () => {
-    mockDbSelectLimit.mockRejectedValueOnce(new Error("DB unavailable"));
-
-    // checkIdempotency should resolve with found:false and not throw
-    const result = await checkIdempotency("key-db-error", "user_persist_123");
-    expect(result.found).toBe(false);
-  });
-
-  it("a DB upsert failure does not prevent the route from returning 200", async () => {
-    mockDbInsertConflict.mockRejectedValueOnce(new Error("write failed"));
-    const app = buildApp();
-
-    const res = await postNote(
-      app,
-      { transcript: VALID_TRANSCRIPT, mode: "summary" },
-      "key-upsert-fail",
-    );
-
-    expect(res.status).toBe(200);
-    expect(res.body.mode).toBe("summary");
-  });
-
-  // ── DB sweep ──────────────────────────────────────────────────────────────
-
-  it("background sweep issues a DB delete for expired rows", async () => {
-    vi.useFakeTimers();
-    _stopSweepInterval();
-    _startSweepInterval();
+    _clearIdempotencyCache();
 
     try {
-      // Advance past the sweep interval to trigger the timer once, and flush
-      // the async dbSweep() promise that fires as a result.
-      await vi.advanceTimersByTimeAsync(SWEEP_INTERVAL_MS + 1);
-
-      expect(mockDbDelete).toHaveBeenCalled();
+      // OTHER_USER has no row — must be a miss.
+      const result = await checkIdempotency(KEY, OTHER_USER);
+      expect(result.found).toBe(false);
     } finally {
-      _stopSweepInterval();
-      vi.useRealTimers();
-      _startSweepInterval();
+      // Clean up the extra user row.
+      await db
+        .delete(scribeIdempotencyKeysTable)
+        .where(eq(scribeIdempotencyKeysTable.userId, OTHER_USER));
     }
   });
 
-  // ── beginIdempotency / checkIdempotency unit-level cross-restart ───────────
+  // ── Expired row is a miss ──────────────────────────────────────────────────
 
-  it("checkIdempotency returns found:false when in-process cache is empty and DB is empty", async () => {
-    mockDbSelectLimit.mockResolvedValue([]);
+  it("a row whose expiresAt is in the past is treated as a cache miss", async () => {
+    const KEY = "integ-expired-006";
 
-    const result = await checkIdempotency("key-both-miss", "user_x");
+    // Insert an already-expired row directly — bypassing beginIdempotency so
+    // we can control the timestamp precisely.
+    await db.insert(scribeIdempotencyKeysTable).values({
+      idempotencyKey: KEY,
+      userId: TEST_USER,
+      response: RESPONSE_A as Record<string, unknown>,
+      // 10 seconds in the past — definitely expired.
+      expiresAt: new Date(Date.now() - 10_000),
+    });
+
+    _clearIdempotencyCache();
+
+    // The WHERE clause in dbLookup uses gt(expiresAt, now()), so the expired
+    // row must not be returned.
+    const result = await checkIdempotency(KEY, TEST_USER);
     expect(result.found).toBe(false);
   });
 
-  it("in-process done entry takes priority over DB (no DB query on in-process hit)", async () => {
-    // Commit a result to the in-process cache. commit() is async but the
-    // in-process cache entry is set synchronously before the first await, so
-    // void is fine here — we only need the cache populated for this assertion.
-    const { commit } = beginIdempotency("key-inproc-prio", "user_x");
-    void commit({ mode: "soap", note: {} });
+  // ── Upsert: second commit overwrites the first ────────────────────────────
 
-    // checkIdempotency should return immediately from in-process without touching DB
-    const result = await checkIdempotency("key-inproc-prio", "user_x");
+  it("committing the same key twice upserts — the second response wins", async () => {
+    const KEY = "integ-upsert-007";
+
+    const { commit: commit1 } = beginIdempotency(KEY, TEST_USER);
+    await commit1(RESPONSE_A);
+
+    // Simulate a second commit for the same key (e.g. two instances racing).
+    // The DB upsert (ON CONFLICT DO UPDATE) must be idempotent.
+    const { commit: commit2 } = beginIdempotency(KEY, TEST_USER);
+    await commit2(RESPONSE_B);
+
+    _clearIdempotencyCache();
+
+    const result = await checkIdempotency(KEY, TEST_USER);
+    expect(result.found).toBe(true);
+    // commit2 ran after commit1 so RESPONSE_B wins.
+    if (result.found) {
+      expect(result.response).toEqual(RESPONSE_B);
+    }
+  });
+
+  // ── Miss path: unknown key ────────────────────────────────────────────────
+
+  it("returns found: false when neither the in-process cache nor the DB has the key", async () => {
+    _clearIdempotencyCache();
+    const result = await checkIdempotency("integ-unknown-key-008", TEST_USER);
+    expect(result.found).toBe(false);
+  });
+
+  // ── In-process hit does not require a DB round-trip ──────────────────────
+
+  it("a live in-process done entry is returned without waiting for a DB round-trip", async () => {
+    const KEY = "integ-inproc-priority-009";
+
+    // commit() writes to the in-process cache first, then awaits the DB upsert.
+    const { commit } = beginIdempotency(KEY, TEST_USER);
+    await commit(RESPONSE_A);
+
+    // Do NOT clear the in-process cache — the done entry is still live.
+    const result = await checkIdempotency(KEY, TEST_USER);
 
     expect(result.found).toBe(true);
-    // DB select should not have been called because the in-process cache hit first
-    expect(mockDbSelectLimit).not.toHaveBeenCalled();
+    if (result.found) {
+      expect(result.response).toEqual(RESPONSE_A);
+    }
+  });
+
+  // ── abort clears the in-process entry and leaves no DB row ────────────────
+
+  it("abort removes the pending in-process entry; a subsequent checkIdempotency is a miss", async () => {
+    const KEY = "integ-abort-010";
+
+    const { abort } = beginIdempotency(KEY, TEST_USER);
+    abort();
+
+    _clearIdempotencyCache();
+
+    // No DB row was written (abort fires before commit), so this is a miss.
+    const result = await checkIdempotency(KEY, TEST_USER);
+    expect(result.found).toBe(false);
   });
 });

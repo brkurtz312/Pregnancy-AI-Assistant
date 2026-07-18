@@ -46,9 +46,7 @@ async function lintAs(
 }
 
 function timeoutViolations(result: ESLint.LintResult) {
-  return result.messages.filter((m) =>
-    m.message.includes("jest.setTimeout()"),
-  );
+  return result.messages.filter((m) => m.message.includes("jest.setTimeout()"));
 }
 
 // ---------------------------------------------------------------------------
@@ -178,10 +176,7 @@ describe("eslint timeout-guard rule — *.test.ts files in lib/ package", () => 
 
 describe("eslint timeout-guard rule — *.spec.ts files in scripts/ package", () => {
   it("flags jest.setTimeout() inside describe() in a .spec.ts file", async () => {
-    const result = await lintAs(
-      INSIDE_DESCRIBE,
-      "scripts/src/helpers.spec.ts",
-    );
+    const result = await lintAs(INSIDE_DESCRIBE, "scripts/src/helpers.spec.ts");
     const violations = timeoutViolations(result);
     expect(violations).toHaveLength(1);
     expect(violations[0].message).toContain(
