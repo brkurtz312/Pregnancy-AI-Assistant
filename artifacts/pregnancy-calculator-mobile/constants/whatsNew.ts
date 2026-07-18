@@ -97,6 +97,16 @@ export const WHATS_NEW: Record<string, WhatsNewEntry> = {
       },
     ],
   },
+  "1.0.8": {
+    headline: "What's new in this update",
+    items: [
+      {
+        icon: "calendar-outline",
+        title: "Prenatal Office Visits — fixed",
+        body: "A crash that prevented the Office Visits screen from loading has been resolved. You can now log appointments, track vitals, and schedule reminders without issues.",
+      },
+    ],
+  },
   "1.0.2": {
     headline: "What's new in this update",
     items: [
