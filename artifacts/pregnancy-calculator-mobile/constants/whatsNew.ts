@@ -97,6 +97,16 @@ export const WHATS_NEW: Record<string, WhatsNewEntry> = {
       },
     ],
   },
+  "1.0.9": {
+    headline: "What's new in this update",
+    items: [
+      {
+        icon: "calendar-outline",
+        title: "Office Visits — crash fixed",
+        body: "A native module conflict on iOS 26 that caused the Office Visits screen to crash has been fully resolved in this build.",
+      },
+    ],
+  },
   "1.0.8": {
     headline: "What's new in this update",
     items: [
