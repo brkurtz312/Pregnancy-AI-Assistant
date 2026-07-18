@@ -27,6 +27,7 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "eslint": "^9.39.4",
     "tsx": "catalog:",
     "vitest": "^4.1.8"
   }
