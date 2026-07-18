@@ -1,4 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  type MockedFunction,
+} from "vitest";
 import express, { type Express, type Request, type Response } from "express";
 import request from "supertest";
 
@@ -373,5 +380,132 @@ describe("POST /api/ai/weekly-insight — daily rate-limit protection", () => {
     // freshIp is unaffected — the limit is per-IP, not global.
     const res = await weeklyInsightDaily(freshIp, 1);
     expect(res.status).toBe(503);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cache-hit log emission on every successful response
+// ---------------------------------------------------------------------------
+// The handler always calls req.log.info({ week, cacheHit: <bool>, ip },
+// "weekly-insight served") so that aggregation tools can compute hit rates and
+// detect scraping patterns. These tests assert that the field is present and
+// correct on both a cold-cache miss and a subsequent warm-cache hit.
+//
+// Week numbers in the 35–36 range avoid any collision with the cached entries
+// created by the cache-hit describe block above (weeks 30–31).
+
+// A captured reference to the log object most recently attached to req by the
+// middleware below. Reassigned on every request so each test can inspect the
+// log calls from its own request.
+let capturedLog: {
+  info: MockedFunction<(...args: unknown[]) => void>;
+  warn: MockedFunction<(...args: unknown[]) => void>;
+  error: MockedFunction<(...args: unknown[]) => void>;
+};
+
+function buildLogCapturingApp(): Express {
+  const logApp = express();
+  logApp.use(express.json());
+  logApp.use((req, _res, next) => {
+    capturedLog = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
+    (req as Request & { log: unknown }).log = capturedLog;
+    next();
+  });
+  logApp.use("/api", aiRouter);
+  return logApp;
+}
+
+const logCapturingApp = buildLogCapturingApp();
+
+describe("POST /api/ai/weekly-insight — cache-hit log emission", () => {
+  beforeEach(() => {
+    // Enable Anthropic so requests can proceed to the handler and log.
+    isAnthropicConfiguredFn.mockReturnValue(true);
+    anthropicCreate.mockResolvedValue({
+      content: [{ type: "text", text: "Insight text for this week." }],
+    });
+  });
+
+  it("logs { week, cacheHit: false } on a cache miss (first request for a fresh week)", async () => {
+    // Week 37 is guaranteed cold — not used by any other describe block.
+    const week = 37;
+    const res = await request(logCapturingApp)
+      .post("/api/ai/weekly-insight")
+      .set("x-forwarded-for", "203.0.120.1")
+      .send({ week });
+
+    expect(res.status).toBe(200);
+    // The handler must emit the cache-outcome log on every successful response.
+    expect(capturedLog.info).toHaveBeenCalledWith(
+      expect.objectContaining({ week, cacheHit: false }),
+      "weekly-insight served",
+    );
+  });
+
+  it("logs { week, cacheHit: true } on a cache hit (second request for the same week)", async () => {
+    // Week 38 is cold. Prime the cache with a first request, then assert on
+    // the second — no cross-test order dependency.
+    const week = 38;
+    await request(logCapturingApp)
+      .post("/api/ai/weekly-insight")
+      .set("x-forwarded-for", "203.0.120.10")
+      .send({ week });
+
+    // Second request: cache is now warm, Anthropic must not be called again.
+    anthropicCreate.mockClear();
+    const res = await request(logCapturingApp)
+      .post("/api/ai/weekly-insight")
+      .set("x-forwarded-for", "203.0.120.11")
+      .send({ week });
+
+    expect(res.status).toBe(200);
+    expect(anthropicCreate).not.toHaveBeenCalled();
+    // The log must reflect the cache hit so aggregation tools see the true ratio.
+    expect(capturedLog.info).toHaveBeenCalledWith(
+      expect.objectContaining({ week, cacheHit: true }),
+      "weekly-insight served",
+    );
+  });
+
+  it("logs { week, cacheHit: false } on the first request for a different cold week", async () => {
+    // Week 39 is cold — independent of the weeks used in the other two tests.
+    const week = 39;
+    const res = await request(logCapturingApp)
+      .post("/api/ai/weekly-insight")
+      .set("x-forwarded-for", "203.0.120.20")
+      .send({ week });
+
+    expect(res.status).toBe(200);
+    expect(capturedLog.info).toHaveBeenCalledWith(
+      expect.objectContaining({ week, cacheHit: false }),
+      "weekly-insight served",
+    );
+  });
+
+  it("logs { week, cacheHit: true } on a cache hit even when a different IP makes the request", async () => {
+    // Week 40 is cold. Prime with IP A, then assert on IP B — confirms the
+    // cache is keyed by week only, not by IP.
+    const week = 40;
+    await request(logCapturingApp)
+      .post("/api/ai/weekly-insight")
+      .set("x-forwarded-for", "203.0.120.30")
+      .send({ week });
+
+    anthropicCreate.mockClear();
+    const res = await request(logCapturingApp)
+      .post("/api/ai/weekly-insight")
+      .set("x-forwarded-for", "203.0.121.99")
+      .send({ week });
+
+    expect(res.status).toBe(200);
+    expect(anthropicCreate).not.toHaveBeenCalled();
+    expect(capturedLog.info).toHaveBeenCalledWith(
+      expect.objectContaining({ week, cacheHit: true }),
+      "weekly-insight served",
+    );
   });
 });
