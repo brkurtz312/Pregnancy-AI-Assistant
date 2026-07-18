@@ -318,9 +318,23 @@ export function beginIdempotency(
     try {
       await dbUpsert(idempotencyKey, userId, response, new Date(expiresAtMs));
     } catch (err) {
+      // KNOWN GAP: if the DB is down at commit time the row is never written.
+      // A retry on a different instance after a server restart will miss both
+      // the (gone) in-process cache and the (unwritten) DB row, and call
+      // reserveUsage a second time — double-charging the free quota.
+      //
+      // MITIGATION: log all fields needed to identify and refund affected
+      // sessions.  Search for "scribe-idempotency-commit-failure" in the
+      // structured log stream to build an alert or feed a reconciliation job.
       logger.warn(
-        { err, userId, idempotencyKey },
-        "scribe-idempotency: DB upsert failed; retry after a restart may consume a second quota slot",
+        {
+          err,
+          userId,
+          idempotencyKey,
+          response,
+          event: "scribe-idempotency-commit-failure",
+        },
+        "scribe-idempotency: DB upsert failed — response is cached in-process only; a cross-instance retry may consume a second quota slot",
       );
     }
     resolve(response);
