@@ -2321,6 +2321,135 @@ describe("Content update — new topics appear in search results", () => {
       expect(callA[i].sublabel).toBe(callB[i].sublabel);
     }
   });
+
+  // ── (e) Renaming a topic title — new title is discoverable, old is not ────────
+  //
+  // A rename changes only the `title` field; the `id` / `route` stays the same.
+  // The search index is built directly from the source array, so a rename is
+  // reflected immediately.  These tests guard against the failure mode where a
+  // developer updates the source array but a test (or search helper) still
+  // hardcodes the old title as a keyword.
+
+  it("renaming a VideoVault topic title makes the new title searchable", () => {
+    const original = VIDEO_VAULT_TOPICS[0];
+    const renamed: AnyVideoVaultTopic = {
+      ...original,
+      title: "Fetal Growth Week by Week",
+    };
+
+    const updated = [renamed, ...VIDEO_VAULT_TOPICS.slice(1)];
+    const index = buildSearchIndexFrom(
+      updated,
+      SUPPORT_PERSON_VOLUMES,
+      HEALTHY_PREGNANCY_TOPICS,
+    );
+
+    const keyword = "fetal growth";
+    const hits = index.filter((r) => matchesQuery(r, keyword));
+    const hit = hits.find(
+      (r) => r.section === "videovault" && r.label === renamed.title,
+    );
+    expect(hit).toBeDefined();
+    expect(hit!.route).toBe(`/video-vault?topic=${original.id}`);
+  });
+
+  it("renaming a VideoVault topic title does not affect the total VideoVault entry count", () => {
+    const original = VIDEO_VAULT_TOPICS[0];
+    const renamed: AnyVideoVaultTopic = {
+      ...original,
+      title: "Fetal Growth Week by Week",
+    };
+
+    const baseline = buildSearchIndexFrom(
+      VIDEO_VAULT_TOPICS,
+      SUPPORT_PERSON_VOLUMES,
+      HEALTHY_PREGNANCY_TOPICS,
+    );
+    const updated = buildSearchIndexFrom(
+      [renamed, ...VIDEO_VAULT_TOPICS.slice(1)],
+      SUPPORT_PERSON_VOLUMES,
+      HEALTHY_PREGNANCY_TOPICS,
+    );
+
+    expect(updated.filter((r) => r.section === "videovault").length).toBe(
+      baseline.filter((r) => r.section === "videovault").length,
+    );
+  });
+
+  it("renaming a HealthyPregnancy topic title makes the new title searchable", () => {
+    const original = HEALTHY_PREGNANCY_TOPICS[0];
+    const renamed: HealthyPregnancyTopicShape = {
+      ...original,
+      title: "Travelling Safely While Pregnant",
+    };
+
+    const updated = [renamed, ...HEALTHY_PREGNANCY_TOPICS.slice(1)];
+    const index = buildSearchIndexFrom(
+      VIDEO_VAULT_TOPICS,
+      SUPPORT_PERSON_VOLUMES,
+      updated,
+    );
+
+    const keyword = "travelling";
+    const hits = index.filter((r) => matchesQuery(r, keyword));
+    const hit = hits.find(
+      (r) => r.section === "healthypregnancy" && r.label === renamed.title,
+    );
+    expect(hit).toBeDefined();
+    expect(hit!.route).toBe(original.route);
+  });
+
+  it("renaming a HealthyPregnancy topic title removes the old title from search results", () => {
+    const original = HEALTHY_PREGNANCY_TOPICS[0];
+    const renamed: HealthyPregnancyTopicShape = {
+      ...original,
+      title: "Travelling Safely While Pregnant",
+    };
+
+    const updated = [renamed, ...HEALTHY_PREGNANCY_TOPICS.slice(1)];
+    const index = buildSearchIndexFrom(
+      VIDEO_VAULT_TOPICS,
+      SUPPORT_PERSON_VOLUMES,
+      updated,
+    );
+
+    const oldKeyword = original.title.split(" ")[0].toLowerCase();
+    const hitsForOldTitle = index.filter((r) =>
+      r.section === "healthypregnancy" && r.label === original.title,
+    );
+    expect(hitsForOldTitle).toHaveLength(0);
+
+    const hitsForOldKeyword = index.filter(
+      (r) =>
+        r.section === "healthypregnancy" &&
+        r.label === original.title &&
+        matchesQuery(r, oldKeyword),
+    );
+    expect(hitsForOldKeyword).toHaveLength(0);
+  });
+
+  it("renaming a HealthyPregnancy topic title does not affect the total HealthyPregnancy entry count", () => {
+    const original = HEALTHY_PREGNANCY_TOPICS[0];
+    const renamed: HealthyPregnancyTopicShape = {
+      ...original,
+      title: "Travelling Safely While Pregnant",
+    };
+
+    const baseline = buildSearchIndexFrom(
+      VIDEO_VAULT_TOPICS,
+      SUPPORT_PERSON_VOLUMES,
+      HEALTHY_PREGNANCY_TOPICS,
+    );
+    const updated = buildSearchIndexFrom(
+      VIDEO_VAULT_TOPICS,
+      SUPPORT_PERSON_VOLUMES,
+      [renamed, ...HEALTHY_PREGNANCY_TOPICS.slice(1)],
+    );
+
+    expect(updated.filter((r) => r.section === "healthypregnancy").length).toBe(
+      baseline.filter((r) => r.section === "healthypregnancy").length,
+    );
+  });
 });
 
 // ─── 12. Rendered search UI — manual verification protocol ────────────────────
