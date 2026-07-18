@@ -1,42 +1,37 @@
 ---
-name: expo-notifications safe-require + iOS 26
-description: expo-notifications version mismatch (SDK 57 installed, binary is SDK 54) causes screen crash on iOS 26; fix is safe IIFE require + OTA update.
+name: expo-notifications crash on iOS 26 — full resolution
+description: expo-notifications version mismatch (SDK 57 vs SDK 54 binary) crashes the Office Visits screen on iOS 26 via TurboModule lazy init; OTA alone cannot fix native crashes when expo-updates itself is also misversioned. Requires a new native build.
 ---
 
 ## Rule
 
-Any screen that statically imports a native module whose version mismatches the Expo SDK binary will crash immediately on navigation to that screen on iOS 26. Apply a safe IIFE require guard so the screen loads even if the native module fails.
+When a native package version mismatches the Expo SDK binary AND the app uses `newArchEnabled: true` (TurboModules), that module is lazily initialized the first time JS calls `require()`. On iOS 26 this lazy init crashes the process. **OTA updates cannot fix native crashes** — they only replace JS, not the compiled native modules.
 
-## Context
+## Root cause chain (build 55 → fixed in build 56)
 
-- `expo-notifications@^57.0.3` was installed (SDK 57 package) while the binary was built with Expo SDK 54.
-- iOS 26 is stricter about native module compatibility — the mismatch causes a module-load crash.
-- `appointment-reminders.ts` was the **only** file importing `expo-notifications`, and it was **only** imported by `office-visit.tsx`. That's why only that one screen crashed.
-- The same pattern was already applied to `@react-native-community/datetimepicker` (see `datetimepicker-safe-require.md`).
+1. `expo-notifications@^57.0.3` (SDK 57 package) was installed in an SDK 54 binary with `newArchEnabled: true`.
+2. `appointment-reminders.ts` statically imported it; `office-visit.tsx` was the only screen that imported `appointment-reminders.ts`.
+3. On iOS 26, navigating to Office Visits triggered the lazy TurboModule init → native crash → whole app closed.
+4. Three OTA updates (safe-require guard → full no-op → null module) were pushed but **none landed**: `expo-updates@57.0.7` is also misversioned for SDK 54, and on iOS 26 it crashes while trying to apply bundles, silently falling back to old code every restart.
 
-## Fix applied
+## Fix (build 56 / v1.0.9)
 
-Changed `appointment-reminders.ts` from:
-```ts
-import * as Notifications from "expo-notifications";
-```
-to:
-```ts
-const Notifications: NotificationsModule | null = (() => {
-  try {
-    return require("expo-notifications") as NotificationsModule;
-  } catch {
-    return null;
-  }
-})();
-```
+Remove `expo-notifications` from both:
+- `package.json` dependencies — so it is not compiled into the binary
+- `app.json` `plugins` array — **critical**: if the plugin entry stays, EAS fails at "Read app config" with "Unknown error" before the build even starts
 
-Every exported function now checks `if (!Notifications) return;` before using the module. `scheduleNotificationAsync` is wrapped in an additional try/catch since `SchedulableTriggerInputTypes.DATE` may not exist across versions.
+`appointment-reminders.ts` remains a full no-op (no import at all). Notification scheduling can be restored in a future build once SDK is upgraded.
 
-**Why:** Module-load failures in a static import propagate to the importing screen and crash the entire screen. The IIFE pattern isolates the failure to a graceful no-op.
+**Why:** The only reliable fix for a native TurboModule crash is removing the module from the native binary. OTA is useless when expo-updates itself is broken by the same version-mismatch pattern.
 
-**How to apply:** Any native module imported only on one screen (i.e. not shared app-wide) is a candidate for this pattern, especially if there are version mismatch warnings from `expo doctor`. Check `expo doctor` output before each build.
+## Plugin-removal checklist
+
+When removing ANY Expo package that registers a config plugin, always remove it from **both** places:
+1. `package.json` dependencies
+2. `app.json` `plugins` array
+
+Missing step 2 causes: `✖ Build failed — Unknown error. See logs of the Read app config build phase.`
 
 ## Long-term fix
 
-Upgrade to Expo SDK 57 to properly align all native module versions with iOS 26. This is a significant upgrade and should be a planned separate task.
+Upgrade to Expo SDK 57 to align all native module versions with iOS 26. This is a planned separate task.
