@@ -48,23 +48,11 @@ import {
 import { getGestationalAgeAtDate } from "@/lib/pregnancy-math";
 import { getVisitExpectation } from "@/constants/prenatal-visit-expectations";
 
-// Safe guard: the native DateTimePicker module may not exist in the
-// TestFlight binary if it was added after the last native build.
-// Wrapping in try/catch prevents the module-evaluation crash that happens
-// when Expo Router lazily loads this screen for the first time.
+// DateTimePicker is disabled until a new native build confirms its TurboModule
+// is stable on iOS 26. All date entry falls back to TextInput.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DTPComponent = React.ComponentType<any>;
-const DateTimePicker: DTPComponent | null = (() => {
-  try {
-    return (
-      require("@react-native-community/datetimepicker") as {
-        default: DTPComponent;
-      }
-    ).default;
-  } catch {
-    return null;
-  }
-})();
+const DateTimePicker: DTPComponent | null = null;
 
 function formatDateTime(iso: string) {
   const d = new Date(iso);
