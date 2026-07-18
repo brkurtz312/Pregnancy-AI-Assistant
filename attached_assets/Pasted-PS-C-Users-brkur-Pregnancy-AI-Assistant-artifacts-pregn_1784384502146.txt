@@ -1,0 +1,38 @@
+PS C:\Users\brkur\Pregnancy-AI-Assistant\artifacts\pregnancy-calculator-mobile> cd C:\Users\brkur\Pregnancy-AI-Assistant
+
+PS C:\Users\brkur\Pregnancy-AI-Assistant> pnpm install
+Scope: all 14 workspace projects
+✓ Lockfile passes supply-chain policies (verified 12h ago)
+Lockfile is up to date, resolution step is skipped
+Already up to date
+. preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm…
+│ 'sh' is not recognized as an internal or external command,
+│ operable program or batch file.
+└─ Failed in 76ms at C:\Users\brkur\Pregnancy-AI-Assistant
+[ELIFECYCLE] Command failed with exit code 1.
+PS C:\Users\brkur\Pregnancy-AI-Assistant> cd artifacts\pregnancy-calculator-mobile
+PS C:\Users\brkur\Pregnancy-AI-Assistant\artifacts\pregnancy-calculator-mobile> npx eas update --branch production --message "Fix office visit crash: safe require for expo-notifications"
+[expo-cli] React Compiler enabled
+[expo-cli] Starting Metro Bundler
+[expo-cli] Android Bundling failed 278ms node_modules\.pnpm\expo-router@6.0.24_@types+r_fab463032a0ad0a156893b2fc3852a65\node_modules\expo-router\entry.js (1 module)
+[expo-cli] SyntaxError: ..\..\node_modules\.pnpm\expo-router@6.0.24_@types+r_fab463032a0ad0a156893b2fc3852a65\node_modules\expo-router\entry.js: Cannot find module 'babel-preset-expo'
+[expo-cli] Require stack:
+[expo-cli] - C:\Users\brkur\Pregnancy-AI-Assistant\node_modules\.pnpm\@babel+core@7.29.6\node_modules\@babel\core\lib\config\files\plugins.js
+[expo-cli] - C:\Users\brkur\Pregnancy-AI-Assistant\node_modules\.pnpm\@babel+core@7.29.6\node_modules\@babel\core\lib\config\files\index.js
+[expo-cli] - C:\Users\brkur\Pregnancy-AI-Assistant\node_modules\.pnpm\@babel+core@7.29.6\node_modules\@babel\core\lib\index.js
+[expo-cli] - C:\Users\brkur\Pregnancy-AI-Assistant\node_modules\.pnpm\@expo+metro-config@54.0.16_expo@54.0.35\node_modules\@expo\metro-config\build\transform-worker\metro-transform-worker.js
+[expo-cli] - C:\Users\brkur\Pregnancy-AI-Assistant\node_modules\.pnpm\@expo+metro-config@54.0.16_expo@54.0.35\node_modules\@expo\metro-config\build\transform-worker\transform-worker.js
+[expo-cli] - C:\Users\brkur\Pregnancy-AI-Assistant\node_modules\.pnpm\metro@0.83.3\node_modules\metro\src\DeltaBundler\Worker.flow.js
+[expo-cli] - C:\Users\brkur\Pregnancy-AI-Assistant\node_modules\.pnpm\metro@0.83.3\node_modules\metro\src\DeltaBundler\Worker.js
+[expo-cli] - C:\Users\brkur\Pregnancy-AI-Assistant\node_modules\.pnpm\jest-worker@29.7.0\node_modules\jest-worker\build\workers\processChild.js
+[expo-cli]
+[expo-cli] Make sure that all the Babel plugins and presets you are using
+[expo-cli] are defined as dependencies or devDependencies in your package.json
+[expo-cli] file. It's possible that the missing plugin is loaded by a preset
+[expo-cli] you are using that forgot to add the plugin to its dependencies: you
+[expo-cli] can workaround this problem by explicitly adding the missing package
+[expo-cli] to your top-level package.json.
+✖ Export failed
+C:\Users\brkur\Pregnancy-AI-Assistant\node_modules\.pnpm\expo@54.0.35_@babel+core@7._8a77f884fcc2e6f75ecaaf662615e1fd\node_modules\expo\bin\cli export --output-dir dist --source-maps --dump-assetmap --platform ios --platform android exited with non-zero code: 1
+    Error: update command failed.
+PS C:\Users\brkur\Pregnancy-AI-Assistant\artifacts\pregnancy-calculator-mobile>
