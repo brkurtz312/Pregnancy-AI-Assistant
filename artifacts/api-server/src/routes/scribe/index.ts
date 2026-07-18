@@ -229,6 +229,8 @@ router.post(
 
     const systemPrompt = mode === "soap" ? SOAP_SYSTEM : SUMMARY_SYSTEM;
 
+    const GENERATE_TIMEOUT_MS = 30_000;
+
     try {
       const message = await getAnthropic().messages.create({
         model: "claude-sonnet-4-6",
@@ -240,7 +242,7 @@ router.post(
             content: `Here is the encounter transcript:\n\n${transcript.slice(0, 12000)}`,
           },
         ],
-      });
+      }, { signal: AbortSignal.timeout(GENERATE_TIMEOUT_MS) });
 
       const raw = message.content
         .filter(
