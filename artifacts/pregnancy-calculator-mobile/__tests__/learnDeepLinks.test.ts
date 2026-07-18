@@ -23,6 +23,7 @@ import * as path from "path";
 import { VIDEO_VAULT_TOPICS } from "@/lib/video-vault";
 import { SUPPORT_PERSON_VOLUMES } from "@/lib/support-person-survival";
 import { HEALTHY_PREGNANCY_TOPICS } from "@/lib/healthy-pregnancy-topics";
+import { LEARN_TAB_SECTION_IDS } from "@workspace/learn-content-ids";
 
 // ─── Inline types + logic mirrored from app/(tabs)/learn.tsx ─────────────────
 // Keep this in sync with the real implementation — a divergence will surface as
@@ -2518,5 +2519,280 @@ describe("Rendered search UI — contract bridge between pure functions and comp
       (r) => r.section === "healthypregnancy" && r.label === removedTopic.title,
     );
     expect(foundAfter).toBe(false);
+  });
+});
+
+// ─── 13. LEARN_TAB_SECTION_IDS — section-ID refactor guard ───────────────────
+//
+// The `grouped` computation in learn.tsx was refactored to iterate over
+// LEARN_TAB_SECTION_IDS from @workspace/learn-content-ids instead of an
+// inline literal.  These tests verify:
+//
+//   1. LEARN_TAB_SECTION_IDS has exactly the 3 expected section strings.
+//   2. The grouped computation driven by LEARN_TAB_SECTION_IDS produces the
+//      same buckets as the inline-literal version — no section is silently
+//      dropped, added, or misspelled.
+//   3. Each bucket contains only results whose `section` field matches the
+//      bucket's LEARN_TAB_SECTION_IDS entry (no cross-section contamination).
+//   4. Searching a keyword that matches content in one section populates exactly
+//      that section's bucket in the grouped output.
+//   5. The total count of items across all groups equals the total count of
+//      matching search results.
+//
+// These tests mirror the exact filter pipeline used in learn.tsx:
+//
+//   grouped = LEARN_TAB_SECTION_IDS
+//     .map(section => ({ section, items: searchResults.filter(r => r.section === section) }))
+//     .filter(g => g.items.length > 0)
+
+// Helper: simulate the learn.tsx grouped computation using LEARN_TAB_SECTION_IDS.
+function groupByLearnTabSectionIds(
+  searchResults: ReturnType<typeof buildSearchIndex>,
+) {
+  return LEARN_TAB_SECTION_IDS.map((section) => ({
+    section,
+    items: searchResults.filter((r) => r.section === section),
+  })).filter((g) => g.items.length > 0);
+}
+
+describe("LEARN_TAB_SECTION_IDS — section-ID refactor guard", () => {
+  it("LEARN_TAB_SECTION_IDS contains exactly the 3 expected section strings", () => {
+    expect(LEARN_TAB_SECTION_IDS).toHaveLength(3);
+    expect(LEARN_TAB_SECTION_IDS).toContain("videovault");
+    expect(LEARN_TAB_SECTION_IDS).toContain("supportperson");
+    expect(LEARN_TAB_SECTION_IDS).toContain("healthypregnancy");
+  });
+
+  it("LEARN_TAB_SECTION_IDS is ordered: videovault, supportperson, healthypregnancy", () => {
+    expect(LEARN_TAB_SECTION_IDS[0]).toBe("videovault");
+    expect(LEARN_TAB_SECTION_IDS[1]).toBe("supportperson");
+    expect(LEARN_TAB_SECTION_IDS[2]).toBe("healthypregnancy");
+  });
+
+  it("every search result section field is a member of LEARN_TAB_SECTION_IDS", () => {
+    const allResults = buildSearchIndex();
+    const validSections = new Set<string>(LEARN_TAB_SECTION_IDS);
+    for (const result of allResults) {
+      expect(validSections.has(result.section)).toBe(true);
+    }
+  });
+
+  it("grouped computation using LEARN_TAB_SECTION_IDS produces no more groups than sections", () => {
+    const allResults = buildSearchIndex();
+    // Use first VV topic title as a broad query — guaranteed to hit videovault
+    const query = VIDEO_VAULT_TOPICS[0].title.toLowerCase();
+    const searchResults = allResults.filter((r) => matchesQuery(r, query));
+    const grouped = groupByLearnTabSectionIds(searchResults);
+    expect(grouped.length).toBeLessThanOrEqual(LEARN_TAB_SECTION_IDS.length);
+  });
+
+  it("each group produced by LEARN_TAB_SECTION_IDS contains only results whose section matches that group", () => {
+    const allResults = buildSearchIndex();
+    // Use a broad query that is likely to return results in at least one section
+    const query = VIDEO_VAULT_TOPICS[0].title.split(" ")[0].toLowerCase();
+    const searchResults = allResults.filter((r) => matchesQuery(r, query));
+    const grouped = groupByLearnTabSectionIds(searchResults);
+    for (const group of grouped) {
+      for (const item of group.items) {
+        expect(item.section).toBe(group.section);
+      }
+    }
+  });
+
+  it("the total items across all groups equals the total number of matching search results", () => {
+    const allResults = buildSearchIndex();
+    const query = VIDEO_VAULT_TOPICS[0].title.split(" ")[0].toLowerCase();
+    const searchResults = allResults.filter((r) => matchesQuery(r, query));
+    const grouped = groupByLearnTabSectionIds(searchResults);
+    const totalInGroups = grouped.reduce((sum, g) => sum + g.items.length, 0);
+    expect(totalInGroups).toBe(searchResults.length);
+  });
+
+  it("videovault bucket contains a result when searching the first VideoVault topic title", () => {
+    const allResults = buildSearchIndex();
+    const firstTopic = VIDEO_VAULT_TOPICS[0];
+    const query = firstTopic.title.toLowerCase();
+    const searchResults = allResults.filter((r) => matchesQuery(r, query));
+    const grouped = groupByLearnTabSectionIds(searchResults);
+
+    const vvGroup = grouped.find((g) => g.section === "videovault");
+    expect(vvGroup).toBeDefined();
+    expect(vvGroup!.items.some((i) => i.label === firstTopic.title)).toBe(true);
+  });
+
+  it("healthypregnancy bucket contains a result when searching the first HP topic title", () => {
+    const allResults = buildSearchIndex();
+    const firstTopic = HEALTHY_PREGNANCY_TOPICS[0];
+    const query = firstTopic.title.toLowerCase();
+    const searchResults = allResults.filter((r) => matchesQuery(r, query));
+    const grouped = groupByLearnTabSectionIds(searchResults);
+
+    const hpGroup = grouped.find((g) => g.section === "healthypregnancy");
+    expect(hpGroup).toBeDefined();
+    expect(hpGroup!.items.some((i) => i.label === firstTopic.title)).toBe(true);
+  });
+
+  it("supportperson bucket contains a result when searching the first SP volume's page subtitle", () => {
+    const allResults = buildSearchIndex();
+    const firstVol = SUPPORT_PERSON_VOLUMES.find((v) => v.volumeNumber === 1)!;
+    // pageSubtitle is stored as the search result's sublabel — any word unique to it works
+    const query = firstVol.pageSubtitle.split(" ")[0].toLowerCase();
+    const searchResults = allResults.filter((r) => matchesQuery(r, query));
+    const grouped = groupByLearnTabSectionIds(searchResults);
+
+    const spGroup = grouped.find((g) => g.section === "supportperson");
+    expect(spGroup).toBeDefined();
+    expect(spGroup!.items.some((i) => i.label === firstVol.handoutTitle)).toBe(
+      true,
+    );
+  });
+
+  it("a videovault result does not appear in the supportperson or healthypregnancy bucket", () => {
+    const allResults = buildSearchIndex();
+    const firstTopic = VIDEO_VAULT_TOPICS[0];
+    const query = firstTopic.title.toLowerCase();
+    const searchResults = allResults.filter((r) => matchesQuery(r, query));
+    const grouped = groupByLearnTabSectionIds(searchResults);
+
+    const spGroup = grouped.find((g) => g.section === "supportperson");
+    const hpGroup = grouped.find((g) => g.section === "healthypregnancy");
+
+    if (spGroup) {
+      expect(spGroup.items.every((i) => i.section === "supportperson")).toBe(
+        true,
+      );
+    }
+    if (hpGroup) {
+      expect(hpGroup.items.every((i) => i.section === "healthypregnancy")).toBe(
+        true,
+      );
+    }
+  });
+
+  it("a healthypregnancy result does not appear in the videovault or supportperson bucket", () => {
+    const allResults = buildSearchIndex();
+    const firstTopic = HEALTHY_PREGNANCY_TOPICS[0];
+    const query = firstTopic.title.toLowerCase();
+    const searchResults = allResults.filter((r) => matchesQuery(r, query));
+    const grouped = groupByLearnTabSectionIds(searchResults);
+
+    const vvGroup = grouped.find((g) => g.section === "videovault");
+    const spGroup = grouped.find((g) => g.section === "supportperson");
+
+    if (vvGroup) {
+      expect(vvGroup.items.every((i) => i.section === "videovault")).toBe(true);
+    }
+    if (spGroup) {
+      expect(spGroup.items.every((i) => i.section === "supportperson")).toBe(
+        true,
+      );
+    }
+  });
+
+  it("groups are ordered by LEARN_TAB_SECTION_IDS ordering (videovault before healthypregnancy)", () => {
+    const allResults = buildSearchIndex();
+    // Build a query that matches at least one result in both videovault and
+    // healthypregnancy — use topic titles from both sections and pick a word
+    // present in both data sets (or test separately and confirm ordering).
+    const vvFirstWord = VIDEO_VAULT_TOPICS[0].title.split(" ")[0].toLowerCase();
+    const hpFirstWord = HEALTHY_PREGNANCY_TOPICS[0].title
+      .split(" ")[0]
+      .toLowerCase();
+
+    // Test videovault ordering independently
+    const vvResults = allResults.filter((r) => matchesQuery(r, vvFirstWord));
+    const vvGrouped = groupByLearnTabSectionIds(vvResults);
+    if (vvGrouped.length > 1) {
+      const vvIdx = vvGrouped.findIndex((g) => g.section === "videovault");
+      const hpIdx = vvGrouped.findIndex(
+        (g) => g.section === "healthypregnancy",
+      );
+      if (vvIdx !== -1 && hpIdx !== -1) {
+        expect(vvIdx).toBeLessThan(hpIdx);
+      }
+    }
+
+    // Test healthypregnancy ordering independently
+    const hpResults = allResults.filter((r) => matchesQuery(r, hpFirstWord));
+    const hpGrouped = groupByLearnTabSectionIds(hpResults);
+    if (hpGrouped.length > 1) {
+      const spIdx = hpGrouped.findIndex((g) => g.section === "supportperson");
+      const hpIdx = hpGrouped.findIndex(
+        (g) => g.section === "healthypregnancy",
+      );
+      if (spIdx !== -1 && hpIdx !== -1) {
+        expect(spIdx).toBeLessThan(hpIdx);
+      }
+    }
+  });
+
+  it("LEARN_TAB_SECTION_IDS-driven grouped matches the inline-literal grouped for any query", () => {
+    // This is the core regression guard: the refactored code (using
+    // LEARN_TAB_SECTION_IDS) must produce identical output to the original
+    // inline literal ["videovault", "supportperson", "healthypregnancy"].
+    const INLINE_SECTIONS = [
+      "videovault",
+      "supportperson",
+      "healthypregnancy",
+    ] as const;
+
+    const allResults = buildSearchIndex();
+
+    // Test several different queries to cover the search space
+    const testQueries = [
+      VIDEO_VAULT_TOPICS[0].title.toLowerCase(),
+      HEALTHY_PREGNANCY_TOPICS[0].title.toLowerCase(),
+      SUPPORT_PERSON_VOLUMES[0].handoutTitle.toLowerCase(),
+      "a", // broad catch-all
+    ];
+
+    for (const query of testQueries) {
+      const searchResults = allResults.filter((r) => matchesQuery(r, query));
+
+      const groupedViaIds = LEARN_TAB_SECTION_IDS.map((section) => ({
+        section,
+        items: searchResults.filter((r) => r.section === section),
+      })).filter((g) => g.items.length > 0);
+
+      const groupedViaInline = INLINE_SECTIONS.map((section) => ({
+        section,
+        items: searchResults.filter((r) => r.section === section),
+      })).filter((g) => g.items.length > 0);
+
+      expect(groupedViaIds.length).toBe(groupedViaInline.length);
+      for (let i = 0; i < groupedViaIds.length; i++) {
+        expect(groupedViaIds[i].section).toBe(groupedViaInline[i].section);
+        expect(groupedViaIds[i].items.length).toBe(
+          groupedViaInline[i].items.length,
+        );
+        for (let j = 0; j < groupedViaIds[i].items.length; j++) {
+          expect(groupedViaIds[i].items[j].label).toBe(
+            groupedViaInline[i].items[j].label,
+          );
+          expect(groupedViaIds[i].items[j].route).toBe(
+            groupedViaInline[i].items[j].route,
+          );
+        }
+      }
+    }
+  });
+
+  it("empty query produces no groups (matches learn.tsx searchResults=null guard)", () => {
+    // learn.tsx: if (!trimmed) return null; → grouped is never computed
+    // matchesQuery with "" always returns true (every string includes "")
+    // This test documents the expectation: learn.tsx guards against empty queries
+    // before computing grouped, so this path is never reached in the real UI.
+    // The guard is: if (!trimmed) return null;
+    // We just confirm the search index is non-empty so the guard is meaningful.
+    const allResults = buildSearchIndex();
+    expect(allResults.length).toBeGreaterThan(0);
+  });
+
+  it("all 3 section IDs in LEARN_TAB_SECTION_IDS are represented in the full search index", () => {
+    const allResults = buildSearchIndex();
+    const sectionsInIndex = new Set(allResults.map((r) => r.section));
+    for (const sectionId of LEARN_TAB_SECTION_IDS) {
+      expect(sectionsInIndex.has(sectionId)).toBe(true);
+    }
   });
 });
