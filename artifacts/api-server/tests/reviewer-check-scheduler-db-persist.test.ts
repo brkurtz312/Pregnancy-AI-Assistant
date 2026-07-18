@@ -351,6 +351,51 @@ describe("DB-persist failure (real runReviewerPassCheck, appConfigTable writes r
       expect(dispatch).not.toHaveBeenCalled();
     });
 
+    it("clears the crash cooldown after a passing tick and re-alerts on the next failure tick driven by the interval timer", async () => {
+      const intervalMs = 5_000;
+      const cooldownMs = 60_000;
+      const dispatch = vi.fn().mockResolvedValue(undefined);
+
+      // Sequence of dbSelectImpl calls across three ticks:
+      //   Tick 1 (boot delay – crash): getConfig → [], user lookup → rejects (throws)
+      //   Tick 2 (first interval – pass): getConfig → [], user → hasPass:true
+      //   Tick 3 (second interval – fail): getConfig → [], user → hasPass:false
+      dbSelectImpl
+        .mockReset()
+        // Tick 1: crash
+        .mockResolvedValueOnce([]) // getConfig
+        .mockRejectedValueOnce(new Error("DB connection lost")) // user lookup → throws
+        // Tick 2: pass (clears cooldown)
+        .mockResolvedValueOnce([]) // getConfig
+        .mockResolvedValueOnce([{ id: DEMO_USER_ID, hasPass: true }]) // user ok
+        // Tick 3: fail (should re-alert since cooldown was cleared by the pass)
+        .mockResolvedValueOnce([]) // getConfig
+        .mockResolvedValueOnce([{ id: DEMO_USER_ID, hasPass: false }]); // pass revoked
+
+      stopScheduler = startReviewerCheckScheduler({
+        intervalMs,
+        cooldownMs,
+        _dispatch: dispatch,
+      });
+
+      // Tick 1: boot delay fires — runReviewerPassCheck throws → crash alert
+      // dispatched; cooldown is armed.
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(dispatch).toHaveBeenCalledTimes(1);
+      expect(dispatch.mock.calls[0][0].subject).toContain("crashed");
+
+      // Tick 2: first interval — passing check; cooldown is cleared; no alert.
+      await vi.advanceTimersByTimeAsync(intervalMs);
+      expect(dispatch).toHaveBeenCalledTimes(1); // a pass never alerts
+
+      // Tick 3: second interval — failure immediately after recovery; cooldown
+      // was cleared by the passing tick → fresh alert fires without waiting.
+      await vi.advanceTimersByTimeAsync(intervalMs);
+      expect(dispatch).toHaveBeenCalledTimes(2);
+      expect(dispatch.mock.calls[1][0].subject).toContain("failed");
+      expect(dispatch.mock.calls[1][0].body).toContain("pass_revoked");
+    });
+
     it("dispatches a fail alert and continues scheduling when pass is revoked and DB persist fails", async () => {
       const intervalMs = 5_000;
       const dispatch = vi.fn().mockResolvedValue(undefined);
