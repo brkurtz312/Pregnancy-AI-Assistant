@@ -65,7 +65,16 @@ vi.mock("@workspace/db", () => ({
 // ─── Test app ─────────────────────────────────────────────────────────────────
 
 import scribeRouter from "../src/routes/scribe/index";
-import { _clearIdempotencyCache } from "../src/lib/scribe-idempotency";
+import {
+  _clearIdempotencyCache,
+  _idempotencyCacheSize,
+  _stopSweepInterval,
+  _startSweepInterval,
+  checkIdempotency,
+  beginIdempotency,
+  IDEMPOTENCY_TTL_MS,
+  SWEEP_INTERVAL_MS,
+} from "../src/lib/scribe-idempotency";
 
 let currentUserId = "user_idem_123";
 
@@ -384,6 +393,74 @@ describe("POST /scribe/generate-note — idempotency key", () => {
     // Two reservations: one for the failed attempt, one for the successful retry
     expect(mockReserveUsage).toHaveBeenCalledTimes(2);
     expect(mockAnthropicCreate).toHaveBeenCalledTimes(2);
+  });
+
+  // ── Memory-bounds: background sweep ───────────────────────────────────────
+
+  it("background sweep removes expired Done entries after the interval fires", async () => {
+    vi.useFakeTimers();
+    _stopSweepInterval();
+    _startSweepInterval();
+
+    try {
+      const app = buildApp();
+
+      await postNote(
+        app,
+        { transcript: VALID_TRANSCRIPT, mode: "summary" },
+        "key-sweep-test",
+      );
+
+      // Advance past the TTL so the entry is expired.
+      vi.advanceTimersByTime(IDEMPOTENCY_TTL_MS + 1);
+      // Trigger the sweep interval.
+      vi.advanceTimersByTime(SWEEP_INTERVAL_MS);
+
+      // After the sweep the entry should be gone — a retry must reserve again.
+      mockReserveUsage.mockClear();
+      mockAnthropicCreate.mockClear();
+
+      const retry = await postNote(
+        app,
+        { transcript: VALID_TRANSCRIPT, mode: "summary" },
+        "key-sweep-test",
+      );
+      expect(retry.status).toBe(200);
+      expect(mockReserveUsage).toHaveBeenCalledTimes(1);
+    } finally {
+      _stopSweepInterval();
+      vi.useRealTimers();
+      _startSweepInterval();
+    }
+  });
+
+  // ── Memory-bounds: hard cap ────────────────────────────────────────────────
+
+  it("cache does not grow beyond MAX_CACHE_SIZE even when entries are all done and not yet expired", async () => {
+    const MAX = 10_000;
+
+    // Fill the cache with MAX_CACHE_SIZE done entries (all fresh, not expired).
+    for (let i = 0; i < MAX; i++) {
+      const { commit } = beginIdempotency(`overflow-key-${i}`, "user_cap");
+      commit({ ok: true });
+    }
+
+    // Cache is at exactly MAX — no eviction yet.
+    expect(_idempotencyCacheSize()).toBe(MAX);
+
+    // One more write triggers the hard-cap eviction path.
+    const { commit: commitExtra } = beginIdempotency(
+      `overflow-key-${MAX}`,
+      "user_cap",
+    );
+    commitExtra({ ok: true });
+
+    // After eviction the cache must be strictly below MAX_CACHE_SIZE.
+    expect(_idempotencyCacheSize()).toBeLessThan(MAX);
+
+    // The most recently committed entry must still be present.
+    const hit = await checkIdempotency(`overflow-key-${MAX}`, "user_cap");
+    expect(hit.found).toBe(true);
   });
 
   // ── Pass holders ──────────────────────────────────────────────────────────

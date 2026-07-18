@@ -15,9 +15,17 @@
  *
  * ## TTL / memory bounds
  *
- * Completed entries expire after IDEMPOTENCY_TTL_MS (5 min).  Eviction is
- * lazy — triggered on every `beginIdempotency` call when cache size exceeds
- * MAX_CACHE_SIZE.  Pending entries are cleaned up by their own abort() call.
+ * Completed entries expire after IDEMPOTENCY_TTL_MS (5 min).  Eviction runs
+ * on two schedules:
+ *
+ *  1. Background sweep — a setInterval fires every SWEEP_INTERVAL_MS
+ *     (1 minute) and removes all expired Done entries regardless of traffic.
+ *     The timer is unref'd so it never prevents the process from exiting.
+ *  2. Lazy eviction on every beginIdempotency write — if the cache size
+ *     exceeds MAX_CACHE_SIZE after the sweep, the oldest Done entries are
+ *     dropped until the count falls below the cap.
+ *
+ * Pending entries are cleaned up by their own abort() call.
  *
  * ## Security
  *
@@ -26,6 +34,7 @@
  */
 
 export const IDEMPOTENCY_TTL_MS = 5 * 60 * 1000;
+export const SWEEP_INTERVAL_MS = 60 * 1000;
 const MAX_CACHE_SIZE = 10_000;
 
 // ─── Internal types ────────────────────────────────────────────────────────────
@@ -55,7 +64,7 @@ function cacheKey(idempotencyKey: string, userId: string): string {
   return `${userId}\0${idempotencyKey}`;
 }
 
-/** Remove all expired Done entries; called lazily when the cache grows large. */
+/** Remove all expired Done entries. */
 function evictExpired(): void {
   const now = Date.now();
   for (const [k, entry] of cache) {
@@ -64,6 +73,44 @@ function evictExpired(): void {
     }
   }
 }
+
+/**
+ * Enforce the hard cap by dropping the oldest Done entries (by expiresAt)
+ * until the cache falls below MAX_CACHE_SIZE.  Pending entries are never
+ * dropped here — they are managed by abort().
+ */
+function evictOldestDone(): void {
+  if (cache.size < MAX_CACHE_SIZE) return;
+
+  // Collect done entries sorted ascending by expiresAt (oldest first).
+  const done: Array<[string, DoneEntry]> = [];
+  for (const [k, entry] of cache) {
+    if (entry.status === "done") {
+      done.push([k, entry]);
+    }
+  }
+  done.sort((a, b) => a[1].expiresAt - b[1].expiresAt);
+
+  for (const [k] of done) {
+    cache.delete(k);
+    if (cache.size < MAX_CACHE_SIZE) break;
+  }
+}
+
+// ─── Background sweep ─────────────────────────────────────────────────────────
+
+let sweepTimer: ReturnType<typeof setInterval> | null = null;
+
+function startSweepInterval(): void {
+  if (sweepTimer !== null) return;
+  sweepTimer = setInterval(evictExpired, SWEEP_INTERVAL_MS);
+  // unref() prevents the timer from keeping the process alive when nothing
+  // else is running — important for tests and clean process shutdown.
+  sweepTimer.unref();
+}
+
+// Start the sweep automatically when this module is imported in production.
+startSweepInterval();
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -135,9 +182,10 @@ export function beginIdempotency(
 
   cache.set(k, { status: "pending", promise, resolve, reject });
 
-  // Lazy eviction: sweep expired done entries when the cache is too large.
+  // Lazy eviction: sweep expired done entries, then enforce the hard cap.
   if (cache.size > MAX_CACHE_SIZE) {
     evictExpired();
+    evictOldestDone();
   }
 
   let settled = false;
@@ -172,4 +220,29 @@ export function beginIdempotency(
 /** Exposed for test isolation only — clears the entire in-process cache. */
 export function _clearIdempotencyCache(): void {
   cache.clear();
+}
+
+/** Exposed for test isolation only — returns the current number of cache entries. */
+export function _idempotencyCacheSize(): number {
+  return cache.size;
+}
+
+/**
+ * Exposed for test isolation only — stops the background sweep timer.
+ * Call this in afterAll / afterEach if a test suite advances fake timers,
+ * then call _startSweepInterval() to restart it.
+ */
+export function _stopSweepInterval(): void {
+  if (sweepTimer !== null) {
+    clearInterval(sweepTimer);
+    sweepTimer = null;
+  }
+}
+
+/**
+ * Exposed for test isolation only — (re)starts the background sweep timer.
+ * Only needed in test suites that previously called _stopSweepInterval().
+ */
+export function _startSweepInterval(): void {
+  startSweepInterval();
 }
