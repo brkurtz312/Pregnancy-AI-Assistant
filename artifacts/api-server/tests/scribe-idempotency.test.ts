@@ -57,10 +57,41 @@ vi.mock("../src/middlewares/auth", () => ({
   requireAuth: (_req: Request, _res: Response, next: NextFunction) => next(),
 }));
 
-vi.mock("@workspace/db", () => ({
-  db: {},
-  aiUsageTable: {},
+vi.mock("../src/lib/logger", () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
 }));
+
+const mockDbSelectLimit = vi.fn().mockResolvedValue([]);
+const mockDbInsertConflict = vi.fn().mockResolvedValue([]);
+const mockDbDelete = vi.fn().mockResolvedValue([]);
+
+vi.mock("@workspace/db", () => {
+  const selectChain = {
+    from: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    limit: (...args: unknown[]) => mockDbSelectLimit(...args),
+  };
+  const insertChain = {
+    values: vi.fn().mockReturnThis(),
+    onConflictDoUpdate: (...args: unknown[]) => mockDbInsertConflict(...args),
+  };
+  const deleteChain = {
+    where: (...args: unknown[]) => mockDbDelete(...args),
+  };
+  return {
+    db: {
+      select: vi.fn(() => selectChain),
+      insert: vi.fn(() => insertChain),
+      delete: vi.fn(() => deleteChain),
+    },
+    aiUsageTable: {},
+    scribeIdempotencyKeysTable: {},
+  };
+});
 
 // ─── Test app ─────────────────────────────────────────────────────────────────
 
@@ -440,9 +471,12 @@ describe("POST /scribe/generate-note — idempotency key", () => {
     const MAX = 10_000;
 
     // Fill the cache with MAX_CACHE_SIZE done entries (all fresh, not expired).
+    // commit() is async (DB write) but the in-process cache is updated
+    // synchronously at the start, so void is fine here — we only care about
+    // the cache size, not the DB row.
     for (let i = 0; i < MAX; i++) {
       const { commit } = beginIdempotency(`overflow-key-${i}`, "user_cap");
-      commit({ ok: true });
+      void commit({ ok: true });
     }
 
     // Cache is at exactly MAX — no eviction yet.
@@ -453,7 +487,7 @@ describe("POST /scribe/generate-note — idempotency key", () => {
       `overflow-key-${MAX}`,
       "user_cap",
     );
-    commitExtra({ ok: true });
+    void commitExtra({ ok: true });
 
     // After eviction the cache must be strictly below MAX_CACHE_SIZE.
     expect(_idempotencyCacheSize()).toBeLessThan(MAX);

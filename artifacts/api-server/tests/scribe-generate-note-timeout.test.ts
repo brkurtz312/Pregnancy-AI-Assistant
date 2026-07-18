@@ -100,7 +100,10 @@ beforeEach(() => {
 
 describe("POST /scribe/generate-note — timeout / abort path", () => {
   it("returns 502 when the Anthropic call is aborted due to a timeout", async () => {
-    const abortError = new DOMException("The operation was aborted.", "TimeoutError");
+    const abortError = new DOMException(
+      "The operation was aborted.",
+      "TimeoutError",
+    );
     mockAnthropicCreate.mockRejectedValueOnce(abortError);
 
     const app = buildApp();
@@ -113,7 +116,10 @@ describe("POST /scribe/generate-note — timeout / abort path", () => {
   });
 
   it("refunds the usage slot when the Anthropic call times out (free user)", async () => {
-    const abortError = new DOMException("The operation was aborted.", "TimeoutError");
+    const abortError = new DOMException(
+      "The operation was aborted.",
+      "TimeoutError",
+    );
     mockAnthropicCreate.mockRejectedValueOnce(abortError);
 
     const app = buildApp();
@@ -131,7 +137,10 @@ describe("POST /scribe/generate-note — timeout / abort path", () => {
 
   it("does not refund when a pass holder's call times out (no slot was reserved)", async () => {
     mockUserHasPass.mockResolvedValue(true);
-    const abortError = new DOMException("The operation was aborted.", "TimeoutError");
+    const abortError = new DOMException(
+      "The operation was aborted.",
+      "TimeoutError",
+    );
     mockAnthropicCreate.mockRejectedValueOnce(abortError);
 
     const app = buildApp();

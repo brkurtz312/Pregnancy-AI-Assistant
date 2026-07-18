@@ -232,17 +232,20 @@ router.post(
     const GENERATE_TIMEOUT_MS = 30_000;
 
     try {
-      const message = await getAnthropic().messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 2048,
-        system: systemPrompt,
-        messages: [
-          {
-            role: "user",
-            content: `Here is the encounter transcript:\n\n${transcript.slice(0, 12000)}`,
-          },
-        ],
-      }, { signal: AbortSignal.timeout(GENERATE_TIMEOUT_MS) });
+      const message = await getAnthropic().messages.create(
+        {
+          model: "claude-sonnet-4-6",
+          max_tokens: 2048,
+          system: systemPrompt,
+          messages: [
+            {
+              role: "user",
+              content: `Here is the encounter transcript:\n\n${transcript.slice(0, 12000)}`,
+            },
+          ],
+        },
+        { signal: AbortSignal.timeout(GENERATE_TIMEOUT_MS) },
+      );
 
       const raw = message.content
         .filter(
@@ -273,8 +276,9 @@ router.post(
       const responseBody = { mode, note: parsed };
 
       // Commit the idempotency entry so retries within the TTL get this result
-      // without a second reservation.
-      ops?.commit(responseBody);
+      // without a second reservation.  Awaited so the DB row is durable before
+      // the 200 is sent — cross-restart retry safety depends on this.
+      await ops?.commit(responseBody);
 
       res.json(responseBody);
     } catch (err) {
