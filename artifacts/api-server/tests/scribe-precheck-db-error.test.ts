@@ -603,6 +603,91 @@ describe("POST /scribe/generate-note — non-JSON response from model", () => {
   });
 });
 
+// ─── transcribe: Whisper / format failure ─────────────────────────────────────
+
+describe("POST /scribe/transcribe — Whisper timeout / API error", () => {
+  it("returns 502 when speechToText rejects", async () => {
+    mockSpeechToText.mockRejectedValue(new Error("Request timeout"));
+    const app = buildApp();
+
+    const res = await postTranscribe(app);
+
+    expect(res.status).toBe(502);
+  });
+
+  it("does not call refundUsage when speechToText rejects (no reservation was made)", async () => {
+    mockSpeechToText.mockRejectedValue(new Error("Request timeout"));
+    const app = buildApp();
+
+    await postTranscribe(app);
+
+    expect(mockRefundUsage).not.toHaveBeenCalled();
+  });
+
+  it("does not call reserveUsage when speechToText rejects (transcribe only reads usage)", async () => {
+    mockSpeechToText.mockRejectedValue(new Error("Request timeout"));
+    const app = buildApp();
+
+    await postTranscribe(app);
+
+    expect(mockReserveUsage).not.toHaveBeenCalled();
+  });
+
+  it("returns 502 when ensureCompatibleFormat rejects", async () => {
+    mockEnsureCompatibleFormat.mockRejectedValue(
+      new Error("Unsupported format"),
+    );
+    const app = buildApp();
+
+    const res = await postTranscribe(app);
+
+    expect(res.status).toBe(502);
+  });
+
+  it("does not call speechToText when ensureCompatibleFormat rejects", async () => {
+    mockEnsureCompatibleFormat.mockRejectedValue(
+      new Error("Unsupported format"),
+    );
+    const app = buildApp();
+
+    await postTranscribe(app);
+
+    expect(mockSpeechToText).not.toHaveBeenCalled();
+  });
+
+  it("does not call refundUsage when ensureCompatibleFormat rejects (no reservation was made)", async () => {
+    mockEnsureCompatibleFormat.mockRejectedValue(
+      new Error("Unsupported format"),
+    );
+    const app = buildApp();
+
+    await postTranscribe(app);
+
+    expect(mockRefundUsage).not.toHaveBeenCalled();
+  });
+
+  it("does not call reserveUsage when ensureCompatibleFormat rejects", async () => {
+    mockEnsureCompatibleFormat.mockRejectedValue(
+      new Error("Unsupported format"),
+    );
+    const app = buildApp();
+
+    await postTranscribe(app);
+
+    expect(mockReserveUsage).not.toHaveBeenCalled();
+  });
+
+  it("does NOT call refundUsage for a pass holder when speechToText rejects", async () => {
+    mockUserHasPass.mockResolvedValue(true);
+    mockSpeechToText.mockRejectedValue(new Error("Request timeout"));
+    const app = buildApp("user_pass_456");
+
+    await postTranscribe(app);
+
+    expect(mockRefundUsage).not.toHaveBeenCalled();
+  });
+});
+
 // ─── generate-note: normal 403 path ──────────────────────────────────────────
 
 describe("POST /scribe/generate-note — 403 path under healthy DB", () => {
