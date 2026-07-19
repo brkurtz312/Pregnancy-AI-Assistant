@@ -221,6 +221,22 @@ export default function InOfficeScreen() {
               Review with doctor
             </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.quickBtn,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+            onPress={() => router.push("/fetal-heart-rate")}
+          >
+            <Ionicons name="pulse-outline" size={20} color={colors.primary} />
+            <Text style={[styles.quickLabel, { color: colors.foreground }]}>
+              Heart Rate
+            </Text>
+            <Text style={[styles.quickSub, { color: colors.mutedForeground }]}>
+              Record Doppler
+            </Text>
+          </TouchableOpacity>
         </Animated.View>
 
         {/* Schedule Next Appointment */}

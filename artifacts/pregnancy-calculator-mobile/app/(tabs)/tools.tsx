@@ -1106,6 +1106,49 @@ export default function ToolsScreen() {
       </Animated.View>
 
       <Animated.View
+        entering={FadeInDown.delay(60).duration(400)}
+        style={[
+          styles.card,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
+        <TouchableOpacity
+          style={styles.navCard}
+          onPress={() => router.push("/fetal-heart-rate")}
+          activeOpacity={0.8}
+        >
+          <View
+            style={[
+              styles.navCardIcon,
+              { backgroundColor: (colors.primary ?? "#e86cad") + "18" },
+            ]}
+          >
+            <Ionicons
+              name="pulse"
+              size={22}
+              color={colors.primary ?? "#e86cad"}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.navCardTitle, { color: colors.foreground }]}>
+              Fetal Heart Rate
+            </Text>
+            <Text
+              style={[styles.navCardSub, { color: colors.mutedForeground }]}
+            >
+              Record the heartbeat heard on Doppler during an office visit —
+              saved privately on your phone.
+            </Text>
+          </View>
+          <Ionicons
+            name="chevron-forward"
+            size={18}
+            color={colors.mutedForeground}
+          />
+        </TouchableOpacity>
+      </Animated.View>
+
+      <Animated.View
         entering={FadeInDown.delay(80).duration(400)}
         style={[
           styles.card,
