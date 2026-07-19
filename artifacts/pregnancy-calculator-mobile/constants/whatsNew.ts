@@ -97,6 +97,16 @@ export const WHATS_NEW: Record<string, WhatsNewEntry> = {
       },
     ],
   },
+  "1.0.10": {
+    headline: "What's new in this update",
+    items: [
+      {
+        icon: "business-outline",
+        title: "In-Office Mode — questions improved",
+        body: "Office Mode now shows only the questions you selected during visit prep. Tap each one to check it off as you ask it — the list resets fresh for each visit.",
+      },
+    ],
+  },
   "1.0.9": {
     headline: "What's new in this update",
     items: [
