@@ -7,9 +7,7 @@
     "updates": {
       "url": "https://u.expo.dev/8d9ddefc-b718-432f-9c1d-6bb44a7ea9d8"
     },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.11",
     "icon": "./assets/images/icon.png",
     "scheme": "pregnancy-calculator-mobile",
     "userInterfaceStyle": "automatic",
