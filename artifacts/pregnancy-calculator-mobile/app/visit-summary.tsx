@@ -31,7 +31,6 @@ import { useColors } from "@/hooks/useColors";
 import { getGestationalAgeAtDate } from "@/lib/pregnancy-math";
 import { getTimelineForWeeks } from "@/lib/prenatal-testing-content";
 import { loadQuestions, getSelectedQuestions } from "@/lib/visit-questions";
-import { loadScribeNote, type StoredScribeNote } from "@/lib/scribe-note";
 import { PassGate } from "@/components/PassGate";
 import { usePass } from "@/hooks/usePass";
 
@@ -103,7 +102,6 @@ export default function VisitSummaryScreen() {
   );
 
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
-  const [scribeNote, setScribeNote] = useState<StoredScribeNote | null>(null);
   const [showPassGate, setShowPassGate] = useState(false);
   const { hasPass } = usePass();
 
@@ -111,7 +109,6 @@ export default function VisitSummaryScreen() {
     loadQuestions().then((items) =>
       setSelectedQuestions(getSelectedQuestions(items)),
     );
-    loadScribeNote().then(setScribeNote);
   }, []);
 
   const nextVisit = useMemo(() => {
@@ -209,20 +206,6 @@ export default function VisitSummaryScreen() {
           })
           .join("")}</ul>`
       : "<p>No contractions logged today.</p>";
-
-    const scribeHtml = scribeNote
-      ? `
-        <p><strong>${escapeHtml(scribeNote.note.headline)}</strong></p>
-        <p>${escapeHtml(scribeNote.note.whatWasDiscussed)}</p>
-        ${
-          scribeNote.note.nextSteps?.length
-            ? `<p><strong>Next Steps:</strong></p><ul>${scribeNote.note.nextSteps.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>`
-            : ""
-        }
-        ${scribeNote.note.rememberTo ? `<p><em>${escapeHtml(scribeNote.note.rememberTo)}</em></p>` : ""}
-        <p class="sub">Recorded ${formatDate(scribeNote.savedAt)}</p>
-      `
-      : "<p>No encounter notes recorded yet.</p>";
 
     const providerName = profile?.providerName;
     const providerAddress = profile?.providerAddress;
@@ -418,8 +401,6 @@ export default function VisitSummaryScreen() {
             <h2>Contraction Timing</h2>
             ${contractionsHtml}
 
-            <h2>Encounter Notes</h2>
-            ${scribeHtml}
           </div>
 
           <div class="footer">
@@ -746,87 +727,6 @@ export default function VisitSummaryScreen() {
           ) : (
             <Text style={[styles.bodyMuted, { color: colors.mutedForeground }]}>
               No contractions logged today.
-            </Text>
-          )}
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(380).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            Encounter Notes
-          </Text>
-          {scribeNote ? (
-            <>
-              <Text
-                style={[styles.encounterHeadline, { color: colors.foreground }]}
-              >
-                {scribeNote.note.headline}
-              </Text>
-              <Text
-                style={[
-                  styles.bodyMuted,
-                  { color: colors.mutedForeground, marginBottom: 10 },
-                ]}
-              >
-                Recorded{" "}
-                {new Date(scribeNote.savedAt).toLocaleDateString(undefined, {
-                  weekday: "short",
-                  month: "short",
-                  day: "numeric",
-                })}
-              </Text>
-              <Text style={[styles.body, { color: colors.foreground }]}>
-                {scribeNote.note.whatWasDiscussed}
-              </Text>
-              {scribeNote.note.nextSteps?.length ? (
-                <View style={{ marginTop: 10 }}>
-                  <Text
-                    style={[
-                      styles.encounterLabel,
-                      { color: colors.foreground },
-                    ]}
-                  >
-                    Next Steps
-                  </Text>
-                  {scribeNote.note.nextSteps.map((step, i) => (
-                    <View key={i} style={styles.bulletRow}>
-                      <Text style={[styles.bullet, { color: colors.primary }]}>
-                        •
-                      </Text>
-                      <Text style={[styles.body, { color: colors.foreground }]}>
-                        {step}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              ) : null}
-              {scribeNote.note.rememberTo ? (
-                <View
-                  style={[
-                    styles.rememberBox,
-                    { backgroundColor: colors.muted },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.bodyMuted,
-                      { color: colors.mutedForeground },
-                    ]}
-                  >
-                    {scribeNote.note.rememberTo}
-                  </Text>
-                </View>
-              ) : null}
-            </>
-          ) : (
-            <Text style={[styles.bodyMuted, { color: colors.mutedForeground }]}>
-              No encounter notes yet. Use the Visit Notes Scribe to record your
-              appointment and generate a summary.
             </Text>
           )}
         </Animated.View>

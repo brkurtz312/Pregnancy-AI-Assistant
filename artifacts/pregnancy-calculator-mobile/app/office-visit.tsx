@@ -1496,8 +1496,7 @@ export default function OfficeVisitScreen() {
               <Text
                 style={[styles.scribeDesc, { color: colors.mutedForeground }]}
               >
-                Appointment log, questions, symptoms, and encounter notes — all
-                in one place.
+                Appointment log, questions, and symptoms — all in one place.
               </Text>
             </View>
             <Ionicons
