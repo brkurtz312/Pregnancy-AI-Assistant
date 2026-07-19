@@ -1,0 +1,316 @@
+PS C:\Users\brkur\NameRoots> @'
+>> const { withDangerousMod, createRunOncePlugin } = require('@expo/config-plugins');
+>> const fs = require('fs');
+>> const path = require('path');
+>>
+>> const SHIMS_ALWAYS = {
+>>   'EXEventEmitter.h': "#pragma once\n@protocol EXEventEmitter <NSObject>\n- (NSArray<NSString *> *)supportedEvents;\n- (void)startObserving;\n- (void)stopObserving;\n@optional\n- (NSDictionary *)constantsToExport;\n@end\n",
+>>   'EXLegacyExpoViewProtocol.h': "#pragma once\n@protocol EXLegacyExpoViewProtocol <NSObject>\n@optional\n- (void)setModuleRegistry:(id)moduleRegistry;\n@end\n",
+>>   'EXModuleRegistryConsumer.h': "#pragma once\n@class EXModuleRegistry;\n@protocol EXModuleRegistryConsumer <NSObject>\n- (void)setModuleRegistry:(EXModuleRegistry *)moduleRegistry;\n@end\n",
+>>   'EXModuleRegistry.h': "#pragma once\n#import <Foundation/Foundation.h>\n@protocol EXInternalModule;\n@interface EXModuleRegistry : NSObject\n- (id)getModuleImplementingProtocol:(Protocol *)protocol;\n- (id)getModuleOfClass:(Class)moduleClass;\n- (void)registerInternalModule:(id<EXInternalModule>)internalModule;\n@end\n",
+>>   'EXModuleRegistryDelegate.h': "#pragma once\n@class EXModuleRegistry;\n@protocol EXModuleRegistryDelegate <NSObject>\n- (EXModuleRegistry *)buildModuleRegistryForParams:(NSDictionary *)params;\n@end\n",
+>>   'EXModuleRegistryProvider.h': "#pragma once\n#import <Foundation/Foundation.h>\n@class EXModuleRegistry;\n@interface EXModuleRegistryProvider : NSObject\n- (EXModuleRegistry *)moduleRegistry;\n@end\n",
+>>   'EXInternalModule.h': "#pragma once\n#import <Foundation/Foundation.h>\n@protocol EXInternalModule <NSObject>\n- (NSArray<Protocol *> *)exportedInterfaces;\n@end\n",
+>>   'EXEventEmitterService.h': "#pragma once\n@protocol EXEventEmitterService <NSObject>\n- (void)emit:(NSString *)eventName body:(id)body onModule:(NSString *)moduleName;\n@end\n",
+>>   'EXAppLifecycleListener.h': "#pragma once\n@protocol EXAppLifecycleListener <NSObject>\n@optional\n- (void)onForeground;\n- (void)onBackground;\n@end\n",
+>>   'EXUIManager.h': "#pragma once\n#import <Foundation/Foundation.h>\n@protocol EXUIManager <NSObject>\n@optional\n- (void)addUIBlock:(void (^)(id uiManager, NSDictionary *viewRegistry))block;\n- (void)executeUIBlock:(void (^)(id uiManager, NSDictionary *viewRegistry))block;\n- (id)viewForReactTag:(id)reactTag;\n@end\n",
+>>   'EXFileSystemInterface.h': "#pragma once\n#import <Foundation/Foundation.h>\n@protocol EXFileSystemInterface <NSObject>\n- (NSString *)documentDirectory;\n- (NSString *)cachesDirectory;\n- (BOOL)ensureDirExistsWithPath:(NSString *)path;\n@end\n",
+>>   'EXPermissionsInterface.h': "#pragma once\n#import <Foundation/Foundation.h>\ntypedef NS_ENUM(NSInteger, EXPermissionStatus) { EXPermissionStatusDenied = 0, EXPermissionStatusGranted, EXPermissionStatusUndetermined };\n@protocol EXPermissionsInterface <NSObject>\n- (void)askForPermission:(NSString *)permissionType withResolver:(void (^)(NSDictionary *))resolver withRejecter:(void (^)(NSString *, NSString *, NSError *))rejecter;\n- (NSDictionary *)getPermission:(NSString *)permissionType;\n@end\n",
+>>   'EXPermissionsMethodsDelegate.h': "#pragma once\n#import <Foundation/Foundation.h>\n@protocol EXPermissionsMethodsDelegate <NSObject>\n@optional\n- (void)askForPermission;\n- (void)getPermission;\n@end\n",
+>>   'EXImageLoaderInterface.h': "#pragma once\n#import <Foundation/Foundation.h>\n@protocol EXImageLoaderInterface <NSObject>\n- (void)loadImageForURL:(NSURL *)url completionHandler:(void (^)(NSError *error, UIImage *image))completionHandler;\n@end\n",
+>>   'EXAppRecordInterface.h': "#pragma once\n@protocol EXAppRecordInterface <NSObject>\n@end\n",
+>>   'EXConstantsInterface.h': "#pragma once\n@protocol EXConstantsInterface <NSObject>\n@optional\n- (NSDictionary *)constants;\n@end\n",
+>> };
+>>
+>> const SHIMS_PRECOMPILED_ONLY = {
+>>   'ExpoView.h': "#pragma once\n#import <UIKit/UIKit.h>\n@class EXModuleRegistry;\n@interface ExpoView : UIView\n- (instancetype)initWithModuleRegistry:(EXModuleRegistry *)moduleRegistry;\n@end\n",
+>>   'ExpoFabricView.h': "#pragma once\n#import <ExpoModulesCore/ExpoView.h>\n@interface ExpoFabricView : ExpoView\n@end\n",
+>> };
+>>
+>> const EXDEFINES_H_LINES = [
+>>   '#pragma once',
+>>   '#import <Foundation/Foundation.h>',
+>>   '',
+>>   '#ifdef __cplusplus',
+>>   'extern "C" {',
+>>   '#endif',
+>>   '',
+>>   'typedef NS_ENUM(NSInteger, EXLogLevel) {',
+>>   '  EXLogLevelTrace = 0,',
+>>   '  EXLogLevelDebug = 1,',
+>>   '  EXLogLevelInfo = 2,',
+>>   '  EXLogLevelWarn = 3,',
+>>   '  EXLogLevelError = 4,',
+>>   '  EXLogLevelFatal = 5,',
+>>   '};',
+>>   '',
+>>   'FOUNDATION_EXPORT void EXFatal(NSError *error);',
+>>   'FOUNDATION_EXPORT NSError *EXErrorWithMessage(NSString *message);',
+>>   '',
+>>   '#ifdef __cplusplus',
+>>   '}',
+>>   '#endif',
+>>   '',
+>>   '#define EXLogTrace(...) NSLog(__VA_ARGS__)',
+>>   '#define EXLogDebug(...) NSLog(__VA_ARGS__)',
+>>   '#define EXLogInfo(...) NSLog(__VA_ARGS__)',
+>>   '#define EXLogWarn(...) NSLog(__VA_ARGS__)',
+>>   '#define EXLogError(...) NSLog(__VA_ARGS__)',
+>>   '',
+>>   '#ifndef EX_WEAKIFY',
+>>   '#define EX_WEAKIFY(var) __weak __typeof__(var) EXWeak_##var = (var);',
+>>   '#endif',
+>>   '#ifndef EX_STRONGIFY',
+>>   '#define EX_STRONGIFY(var) __typeof__(var) var = EXWeak_##var;',
+>>   '#endif',
+>>   '',
+>> ];
+>>
+>> const FORCE_SHIM_LINES = [
+>>   '#pragma once',
+>>   '#ifdef __OBJC__',
+>>   '@class NSError;',
+>>   '@class NSString;',
+>>   'extern void EXFatal(NSError *error);',
+>>   'extern NSError *EXErrorWithMessage(NSString *message);',
+>>   '#endif',
+>>   '#ifndef EXLogTrace',
+>>   '#define EXLogTrace(...) NSLog(__VA_ARGS__)',
+>>   '#endif',
+>>   '#ifndef EXLogDebug',
+>>   '#define EXLogDebug(...) NSLog(__VA_ARGS__)',
+>>   '#endif',
+>>   '#ifndef EXLogInfo',
+>>   '#define EXLogInfo(...) NSLog(__VA_ARGS__)',
+>>   '#endif',
+>>   '#ifndef EXLogWarn',
+>>   '#define EXLogWarn(...) NSLog(__VA_ARGS__)',
+>>   '#endif',
+>>   '#ifndef EXLogError',
+>>   '#define EXLogError(...) NSLog(__VA_ARGS__)',
+>>   '#endif',
+>>   '',
+>> ];
+>>
+>> function toRubyStr(s) {
+>>   return '"' + s
+>>     .replace(/\\/g, '\\\\')
+>>     .replace(/"/g, '\\"')
+>>     .replace(/#\{/g, '\\#{')
+>>     .replace(/\n/g, '\\n')
+>>     + '"';
+>> }
+>>
+>> function buildRubySnippet() {
+>>   const exdefinesRuby = toRubyStr(EXDEFINES_H_LINES.join('\n'));
+>>   const forceShimRuby = toRubyStr(FORCE_SHIM_LINES.join('\n'));
+>>
+>>   const lines = [
+>>     '',
+>>     "  # with-exav-compat-shim",
+>>     "  require 'fileutils'",
+>>     "  _exav_shim_dir = File.join(installer.pods_project.path, '..', 'Headers', 'Public', 'ExpoModulesCore')",
+>>     "  FileUtils.mkdir_p(_exav_shim_dir)",
+>>   ];
+>>
+>>   for (const [filename, content] of Object.entries(SHIMS_ALWAYS)) {
+>>     const escaped = content.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+>>     lines.push(`  _f = File.join(_exav_shim_dir, '${filename}')`);
+>>     lines.push(`  File.write(_f, '${escaped}') unless File.exist?(_f)`);
+>>   }
+>>
+>>   lines.push(
+>>     '',
+>>     "  _shim_dir = File.join(File.dirname(installer.pods_project.path), '..', 'EXAVForceShim')",
+>>     "  FileUtils.mkdir_p(_shim_dir)",
+>>     "  _shim = File.join(_shim_dir, 'EXAVFunctionShim.h')",
+>>     `  File.write(_shim, ${forceShimRuby})`,
+>>     "  _shim_abs = File.expand_path(_shim)",
+>>     '',
+>>     "  installer.pods_project.targets.each do |target|",
+>>     "    next unless target.name == 'EXAV'",
+>>     "    target.build_configurations.each do |config|",
+>>     "      config.build_settings['CLANG_ENABLE_MODULES'] = 'NO'",
+>>     "      ['OTHER_CFLAGS', 'OTHER_CPLUSPLUSFLAGS'].each do |k|",
+>>     "        flag = \"-include \\\"#{_shim_abs}\\\"\"",
+>>     "        v = config.build_settings[k]",
+>>     "        if v.is_a?(Array)",
+>>     "          config.build_settings[k] = v + [flag]",
+>>     "        elsif v.is_a?(String) && !v.empty?",
+>>     "          config.build_settings[k] = \"#{v} #{flag}\"",
+>>     "        else",
+>>     "          config.build_settings[k] = \"$(inherited) #{flag}\"",
+>>     "        end",
+>>     "      end",
+>>     "    end",
+>>     "  end",
+>>     '',
+>>     "  if ENV['EXPO_USE_PRECOMPILED_MODULES'] != '0'",
+>>   );
+>>
+>>   for (const [filename, content] of Object.entries(SHIMS_PRECOMPILED_ONLY)) {
+>>     const escaped = content.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+>>     lines.push(`    _f = File.join(_exav_shim_dir, '${filename}')`);
+>>     lines.push(`    File.write(_f, '${escaped}') unless File.exist?(_f)`);
+>>   }
+>>
+>>   lines.push(
+>>     `    File.write(File.join(_exav_shim_dir, 'EXDefines.h'), ${exdefinesRuby})`,
+>>     "    installer.pods_project.targets.each do |target|",
+>>     "      next unless target.name == 'ExpoVideo'",
+>>     "      target.build_configurations.each do |config|",
+>>     "        config.build_settings['CLANG_ENABLE_MODULES'] = 'NO'",
+>>     "        ['OTHER_CFLAGS', 'OTHER_CPLUSPLUSFLAGS'].each do |k|",
+>>     "          flag = \"-include \\\"#{_shim_abs}\\\"\"",
+>>     "          v = config.build_settings[k]",
+>>     "          if v.is_a?(Array)",
+>>     "            config.build_settings[k] = v + [flag]",
+>>     "          elsif v.is_a?(String) && !v.empty?",
+>>     "            config.build_settings[k] = \"#{v} #{flag}\"",
+>>     "          else",
+>>     "            config.build_settings[k] = \"$(inherited) #{flag}\"",
+>>     "          end",
+>>     "        end",
+>>     "      end",
+>>     "    end",
+>>     "  end",
+>>     '',
+>>   );
+>>
+>>   return lines.join('\n');
+>> }
+>>
+>> const SNIPPET = buildRubySnippet();
+>>
+>> function ensurePostInstall(podfile) {
+>>   if (podfile.includes('post_install do |installer|')) return podfile;
+>>   return `${podfile}\n\npost_install do |installer|\nend\n`;
+>> }
+>>
+>> function injectSnippet(podfile) {
+>>   podfile = ensurePostInstall(podfile);
+>>   if (podfile.includes('with-exav-compat-shim')) return podfile;
+>>   return podfile.replace(
+>>     /post_install do \|installer\|([\s\S]*?)end/m,
+>>     (match, body) => `post_install do |installer|${body}\n${SNIPPET}end`,
+>>   );
+>> }
+>>
+>> const withEXAVCompatShim = (config) =>
+>>   withDangerousMod(config, ['ios', async (cfg) => {
+>>     const podfilePath = path.join(cfg.modRequest.platformProjectRoot, 'Podfile');
+>>     if (!fs.existsSync(podfilePath)) { console.warn('[with-exav-compat-shim] Podfile not found'); return cfg; }
+>>     const original = fs.readFileSync(podfilePath, 'utf8');
+>>     const updated = injectSnippet(original);
+>>     if (updated !== original) { fs.writeFileSync(podfilePath, updated); console.log('[with-exav-compat-shim] Patched Podfile'); }
+>>     return cfg;
+>>   }]);
+>>
+>> module.exports = createRunOncePlugin(withEXAVCompatShim, 'with-exav-compat-shim', '1.0.0');
+>> '@ | Set-Content "plugins\with-exav-compat-shim.js" -Encoding UTF8
+PS C:\Users\brkur\NameRoots>
+PS C:\Users\brkur\NameRoots> eas build --platform ios --profile production --clear-cache --auto-submit
+★ eas-cli@21.0.2 is now available.
+To upgrade, run:
+npm install -g eas-cli
+Proceeding with outdated version.
+
+Resolved "production" environment for the build. Learn more: https://docs.expo.dev/eas/environment-variables/#setting-the-environment-for-your-builds
+Environment variables with visibility "Plain text" and "Sensitive" loaded from the "production" environment on EAS: EAS_SKIP_AUTO_FINGERPRINT, EXPO_PUBLIC_APP_ENV, EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY, EXPO_PUBLIC_REVENUECAT_IOS_KEY.
+Environment variables loaded from the "production" build profile "env" configuration: EXPO_USE_PRECOMPILED_MODULES.
+
+File specified via "ios.googleServicesFile" field in your app.json is not checked in to your repository and won't be uploaded to the builder.
+Use EAS file environment variables with secret or sensitive visibility to pass all values that you don't want to include in your version control to build process. Learn more: https://docs.expo.dev/eas/environment-variables/#file-environment-variables
+
+√ Incremented buildNumber from 34 to 35.
+
+You've used 123 builds beyond your included credits this billing period ($181.00 in overages so far).
+Additional builds continue at pay-as-you-go rates. See usage in billing.: https://expo.dev/accounts/brkurtz/settings/billing
+
+√ Using remote iOS credentials (Expo server)
+
+If you provide your Apple account credentials we will be able to generate all necessary build credentials and fully validate them.
+This is optional, but without Apple account access you will need to provide all the missing values manually and we can only run minimal validation on them.
+√ Do you want to log in to your Apple account? ... yes
+
+› Log in to your Apple Developer account to continue
+√ Apple ID: ... brkurtz@me.com
+› Restoring session C:\Users\brkur\.app-store\auth\brkurtz@me.com\cookie
+› Team BRYAN RICHARD KURTZ (AW7GD9Q3AP)
+› Provider BRYAN RICHARD KURTZ (128953799)
+√ Logged in Local session
+√ Bundle identifier registered com.brkservices.nameroots
+√ Synced capabilities: No updates
+√ Synced capability identifiers: No updates
+√ Fetched Apple distribution certificates
+√ Fetched Apple provisioning profiles
+
+Project Credentials Configuration
+
+Project                   @brkurtz/nameroots
+Bundle Identifier         com.brkservices.nameroots
+
+App Store Configuration
+
+Distribution Certificate
+Serial Number             1003E7A37633AB2763C3555523D0DC6A
+Expiration Date           Sun, 20 Jun 2027 06:31:41 CDT
+Apple Team                AW7GD9Q3AP (BRYAN RICHARD KURTZ (Individual))
+Updated                   28 days ago
+
+Provisioning Profile
+Developer Portal ID       G56DTRH9N9
+Status                    active
+Expiration                Sun, 20 Jun 2027 06:31:41 CDT
+Apple Team                AW7GD9Q3AP (BRYAN RICHARD KURTZ (Individual))
+Updated                   2 days ago
+
+All credentials are ready to build @brkurtz/nameroots (com.brkservices.nameroots)
+
+√ Push Notifications are set up
+
+Compressing project files and uploading to EAS Build. Learn more: https://expo.fyi/eas-build-archive
+√ Compressed project files 1s (1.2 MB)
+√ Uploaded to EAS
+√ Computed project fingerprint
+
+See logs: https://expo.dev/accounts/brkurtz/projects/nameroots/builds/a0a47e74-64b8-46c1-aeda-79971551ef01
+
+Ensuring your app exists on App Store Connect. This step can be skipped by providing ascAppId in the submit profile.
+Learn more: https://expo.fyi/asc-app-id
+
+√ Bundle identifier registered com.brkservices.nameroots
+√ Prepared App Store Connect for NameRoots com.brkservices.nameroots
+Looking up credentials configuration for com.brkservices.nameroots...
+√ App Store Connect API Key already set up.
+Using Api Key ID: 69PQ4DC9RV ([Expo] EAS Submit 7EoHuOqWZ4)
+
+ASC App ID:                 6791992537
+Project ID:                 31e9a81f-c36c-4c24-9f7c-36859ea990ef
+App Store Connect API Key:
+    Key Name  :  [Expo] EAS Submit 7EoHuOqWZ4
+    Key ID    :  69PQ4DC9RV
+    Key Source:  EAS servers
+Build:
+    Build ID    :  a0a47e74-64b8-46c1-aeda-79971551ef01
+    Build Date  :  7/18/2026, 8:11:59 PM
+    App Version :  1.0.0
+    Build number:  35
+
+√ Scheduled iOS submission
+
+Submission details: https://expo.dev/accounts/brkurtz/projects/nameroots/submissions/80f7e1bf-d51c-460f-81d3-3c1fbab62838
+
+Waiting for build to complete. You can press Ctrl+C to exit.
+× Build failed
+
+🍏 iOS build failed:
+The "Run fastlane" step failed because of an error in the Xcode build process. We automatically detected following errors in your Xcode build logs:
+- expected a type
+- expected a type
+- expected a type
+- expected a type
+- expected a type
+- could not build Objective-C module 'ExpoModulesCore'
+Refer to "Xcode Logs" below for additional, more detailed logs.
+PS C:\Users\brkur\NameRoots>
