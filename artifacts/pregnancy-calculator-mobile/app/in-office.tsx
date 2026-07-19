@@ -65,22 +65,23 @@ export default function InOfficeScreen() {
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [newQuestion, setNewQuestion] = useState("");
   const [addingQuestion, setAddingQuestion] = useState(false);
+  // Local-only "asked" state — resets every time the screen mounts (each visit)
+  const [asked, setAsked] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadQuestions().then(setQuestions);
     loadOfficeChecklist().then(setChecklist);
   }, []);
 
-  const toggleQuestion = useCallback(
-    async (id: string) => {
-      const updated = questions.map((q) =>
-        q.id === id ? { ...q, selected: !q.selected } : q,
-      );
-      setQuestions(updated);
-      await saveQuestions(updated);
-    },
-    [questions],
-  );
+  const toggleAsked = useCallback((id: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setAsked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   const addQuestion = useCallback(async () => {
     const text = newQuestion.trim();
@@ -108,6 +109,8 @@ export default function InOfficeScreen() {
     },
     [questions],
   );
+
+  const selectedQuestions = questions.filter((q) => q.selected);
 
   const toggleChecklist = useCallback(
     async (id: string) => {
@@ -199,21 +202,6 @@ export default function InOfficeScreen() {
           entering={FadeInDown.delay(40).duration(350)}
           style={styles.quickRow}
         >
-          <TouchableOpacity
-            style={[
-              styles.quickBtn,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-            onPress={() => router.push("/office-visit")}
-          >
-            <Ionicons name="mic-outline" size={20} color={colors.primary} />
-            <Text style={[styles.quickLabel, { color: colors.foreground }]}>
-              Visit Scribe
-            </Text>
-            <Text style={[styles.quickSub, { color: colors.mutedForeground }]}>
-              Record notes
-            </Text>
-          </TouchableOpacity>
           <TouchableOpacity
             style={[
               styles.quickBtn,
@@ -376,53 +364,64 @@ export default function InOfficeScreen() {
               </TouchableOpacity>
             </View>
 
-            {questions.map((q) => (
-              <TouchableOpacity
-                key={q.id}
-                style={styles.checkRow}
-                onPress={() => toggleQuestion(q.id)}
-                onLongPress={() => {
-                  if (q.custom) {
-                    Alert.alert("Remove Question", `"${q.text}"`, [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Remove",
-                        style: "destructive",
-                        onPress: () => removeQuestion(q.id),
-                      },
-                    ]);
-                  }
-                }}
+            {selectedQuestions.length === 0 && !addingQuestion && (
+              <Text
+                style={[styles.questionHint, { color: colors.mutedForeground }]}
               >
-                <Ionicons
-                  name={q.selected ? "checkbox" : "square-outline"}
-                  size={22}
-                  color={q.selected ? colors.primary : colors.mutedForeground}
-                />
-                <Text
-                  style={[
-                    styles.checkText,
-                    {
-                      color: q.selected
-                        ? colors.mutedForeground
-                        : colors.foreground,
-                      textDecorationLine: q.selected ? "line-through" : "none",
-                      flex: 1,
-                    },
-                  ]}
+                No questions selected. Go to Office Visits → prep your questions before your appointment.
+              </Text>
+            )}
+
+            {selectedQuestions.map((q) => {
+              const isAsked = asked.has(q.id);
+              return (
+                <TouchableOpacity
+                  key={q.id}
+                  style={styles.checkRow}
+                  onPress={() => toggleAsked(q.id)}
+                  onLongPress={() => {
+                    if (q.custom) {
+                      Alert.alert("Remove Question", `"${q.text}"`, [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                          text: "Remove",
+                          style: "destructive",
+                          onPress: () => removeQuestion(q.id),
+                        },
+                      ]);
+                    }
+                  }}
                 >
-                  {q.text}
-                  {q.custom ? (
-                    <Text
-                      style={{ color: colors.mutedForeground, fontSize: 11 }}
-                    >
-                      {" "}
-                      · hold to remove
-                    </Text>
-                  ) : null}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Ionicons
+                    name={isAsked ? "checkbox" : "square-outline"}
+                    size={22}
+                    color={isAsked ? colors.primary : colors.mutedForeground}
+                  />
+                  <Text
+                    style={[
+                      styles.checkText,
+                      {
+                        color: isAsked
+                          ? colors.mutedForeground
+                          : colors.foreground,
+                        textDecorationLine: isAsked ? "line-through" : "none",
+                        flex: 1,
+                      },
+                    ]}
+                  >
+                    {q.text}
+                    {q.custom ? (
+                      <Text
+                        style={{ color: colors.mutedForeground, fontSize: 11 }}
+                      >
+                        {" "}
+                        · hold to remove
+                      </Text>
+                    ) : null}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
 
             {addingQuestion && (
               <View style={[styles.addRow, { borderTopColor: colors.border }]}>
@@ -475,7 +474,7 @@ export default function InOfficeScreen() {
               </View>
             )}
 
-            {!addingQuestion && (
+            {!addingQuestion && selectedQuestions.length > 0 && (
               <Text
                 style={[styles.questionHint, { color: colors.mutedForeground }]}
               >
@@ -566,33 +565,6 @@ export default function InOfficeScreen() {
             </View>
           </Animated.View>
         )}
-
-        {/* Scribe reminder */}
-        <Animated.View entering={FadeInDown.delay(200).duration(350)}>
-          <TouchableOpacity
-            style={[
-              styles.scribeBanner,
-              {
-                backgroundColor: colors.primary + "12",
-                borderColor: colors.primary + "30",
-              },
-            ]}
-            onPress={() => router.push("/office-visit")}
-          >
-            <Ionicons name="mic" size={20} color={colors.primary} />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.scribeTitle, { color: colors.primary }]}>
-                Record this visit with Visit Notes Scribe
-              </Text>
-              <Text
-                style={[styles.scribeSub, { color: colors.mutedForeground }]}
-              >
-                Transcribe your appointment and get a patient summary.
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.primary} />
-          </TouchableOpacity>
-        </Animated.View>
 
         {/* Exit mode */}
         <Animated.View entering={FadeInDown.delay(240).duration(350)}>
