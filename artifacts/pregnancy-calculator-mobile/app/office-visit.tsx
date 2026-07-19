@@ -1417,6 +1417,16 @@ export default function OfficeVisitScreen() {
           </Text>
         </Animated.View>
 
+        <Animated.View entering={FadeInDown.delay(20).duration(400)}>
+          <TouchableOpacity
+            style={[styles.modeBtn, { backgroundColor: colors.primary }]}
+            onPress={() => router.push("/in-office")}
+          >
+            <Ionicons name="business" size={20} color="#fff" />
+            <Text style={styles.modeBtnText}>Enter Office Mode</Text>
+            <Ionicons name="chevron-forward" size={18} color="#fff" />
+          </TouchableOpacity>
+        </Animated.View>
 
         <Animated.View
           entering={FadeInDown.delay(40).duration(400)}
