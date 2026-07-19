@@ -13,7 +13,6 @@ import { MaternalDevelopmentViewer } from "@/components/fetal-development/Matern
 import { Journal } from "@/components/journal/Journal";
 import { HospitalBag } from "@/components/tools/HospitalBag";
 import { BirthPlan } from "@/components/tools/BirthPlan";
-import { Scribe } from "@/components/tools/Scribe";
 import { Learn } from "@/components/learn/Learn";
 import { PregnancyResults } from "@/lib/pregnancy-math";
 import { calculateByDueDate } from "@/lib/pregnancy-math";
@@ -23,7 +22,6 @@ import {
   Sprout,
   BookOpen,
   GraduationCap,
-  Stethoscope,
   FileText,
   Luggage,
   Activity,
@@ -85,14 +83,6 @@ const TOOLS = [
     color: "text-emerald-600",
     bg: "bg-emerald-50",
   },
-  {
-    id: "scribe" as ToolView,
-    label: "Visit Scribe",
-    icon: Stethoscope,
-    desc: "Record & summarize visits",
-    color: "text-primary",
-    bg: "bg-primary/10",
-  },
 ];
 
 function ToolsSection() {
@@ -130,11 +120,6 @@ function ToolsSection() {
         {activeTool === "birthplan" && (
           <Card className="p-6 bg-card border-border/50 shadow-sm rounded-3xl">
             <BirthPlan />
-          </Card>
-        )}
-        {activeTool === "scribe" && (
-          <Card className="p-6 bg-card border-border/50 shadow-sm rounded-3xl">
-            <Scribe />
           </Card>
         )}
       </div>
