@@ -97,6 +97,16 @@ export const WHATS_NEW: Record<string, WhatsNewEntry> = {
       },
     ],
   },
+  "1.0.11": {
+    headline: "What's new in this update",
+    items: [
+      {
+        icon: "heart-outline",
+        title: "Fetal Heart Rate Recording",
+        body: "Record your baby's heartbeat during appointments with a 30-second countdown, then play it back or save it anytime from the Tools tab.",
+      },
+    ],
+  },
   "1.0.10": {
     headline: "What's new in this update",
     items: [
