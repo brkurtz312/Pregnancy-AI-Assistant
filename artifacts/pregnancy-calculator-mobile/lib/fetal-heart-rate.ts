@@ -46,7 +46,9 @@ export async function removeFhrRecording(id: string): Promise<FhrRecording[]> {
       if (info.exists) {
         await FileSystem.deleteAsync(target.uri, { idempotent: true });
       }
-    } catch {}
+    } catch {
+      // file may not exist; ignore
+    }
   }
   const updated = list.filter((r) => r.id !== id);
   await saveFhrRecordings(updated);

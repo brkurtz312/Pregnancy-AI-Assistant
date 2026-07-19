@@ -178,9 +178,7 @@ export default function LandingPage() {
               className="rounded-full gap-2 w-full sm:w-auto bg-[#c96b6b] hover:bg-[#b85e5e] text-white border-0 shadow-lg shadow-[#c96b6b]/25 hover:shadow-xl hover:shadow-[#c96b6b]/30 transition-all"
               data-testid="button-hero-start-free"
             >
-              <Link href="/app">
-                Start free — no account needed
-              </Link>
+              <Link href="/app">Start free — no account needed</Link>
             </Button>
             <Button
               asChild
@@ -364,9 +362,7 @@ export default function LandingPage() {
                       Redirecting…
                     </>
                   ) : (
-                    <>
-                      Get the Full Pass →
-                    </>
+                    <>Get the Full Pass →</>
                   )}
                 </Button>
                 <p className="relative text-center text-xs text-white/60">

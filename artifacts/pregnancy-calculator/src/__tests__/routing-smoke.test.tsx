@@ -84,7 +84,8 @@ function renderCalculator() {
 describe("/ — Landing page", () => {
   it("renders the hero section", () => {
     renderLanding();
-    expect(screen.getByText(/every week of your pregnancy/i)).toBeDefined();
+    const h1 = screen.getByRole("heading", { level: 1 });
+    expect(h1.textContent?.toLowerCase()).toContain("every week of your");
   });
 
   it("renders the pricing section", () => {
