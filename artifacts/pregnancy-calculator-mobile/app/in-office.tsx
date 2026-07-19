@@ -368,7 +368,8 @@ export default function InOfficeScreen() {
               <Text
                 style={[styles.questionHint, { color: colors.mutedForeground }]}
               >
-                No questions selected. Go to Office Visits → prep your questions before your appointment.
+                No questions selected. Go to Office Visits → prep your questions
+                before your appointment.
               </Text>
             )}
 

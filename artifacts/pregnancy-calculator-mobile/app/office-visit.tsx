@@ -1475,7 +1475,6 @@ export default function OfficeVisitScreen() {
           </>
         )}
 
-
         <Animated.View
           entering={FadeInDown.delay(320).duration(400)}
           style={[
