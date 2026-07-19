@@ -4,6 +4,12 @@
     "slug": "pregnancy-calculator-mobile",
     "version": "1.0.10",
     "orientation": "portrait",
+    "updates": {
+      "url": "https://u.expo.dev/8d9ddefc-b718-432f-9c1d-6bb44a7ea9d8"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "icon": "./assets/images/icon.png",
     "scheme": "pregnancy-calculator-mobile",
     "userInterfaceStyle": "automatic",
@@ -33,6 +39,7 @@
           "origin": "https://replit.com/"
         }
       ],
+      "expo-updates",
       "expo-font",
       "expo-web-browser",
       [

@@ -1,0 +1,90 @@
+PS C:\Users\brkur\Pregnancy-AI-Assistant\artifacts\pregnancy-calculator-mobile> cd C:\Users\brkur\Pregnancy-AI-Assistant\artifacts\pregnancy-calculator-mobile
+PS C:\Users\brkur\Pregnancy-AI-Assistant\artifacts\pregnancy-calculator-mobile> git pull
+remote: Enumerating objects: 17, done.
+remote: Counting objects: 100% (17/17), done.
+remote: Compressing objects: 100% (1/1), done.
+remote: Total 9 (delta 8), reused 9 (delta 8), pack-reused 0 (from 0)
+Unpacking objects: 100% (9/9), 1.27 KiB | 32.00 KiB/s, done.
+From https://github.com/brkurtz312/Pregnancy-AI-Assistant
+   6fd8882..db42e67  main       -> origin/main
+Updating 6fd8882..db42e67
+Fast-forward
+ artifacts/pregnancy-calculator-mobile/app.json     |  9 +--
+ .../constants/whatsNew.ts                          | 10 +++
+ artifacts/pregnancy-calculator-mobile/package.json |  1 -
+ pnpm-lock.yaml                                     | 86 ----------------------
+ 4 files changed, 11 insertions(+), 95 deletions(-)
+PS C:\Users\brkur\Pregnancy-AI-Assistant\artifacts\pregnancy-calculator-mobile> npx eas build --platform ios --profile production --auto-submit
+★ eas-cli@21.0.2 is now available.
+To upgrade, run:
+npm install -g eas-cli
+Proceeding with outdated version.
+
+
+⚠️ Detected that your app uses Expo Go for development, this is not recommended when building production apps.
+Learn more: https://expo.fyi/why-not-build-expo-go-for-production
+To suppress this warning, set EAS_BUILD_NO_EXPO_GO_WARNING=true.
+
+Resolved "production" environment for the build. Learn more: https://docs.expo.dev/eas/environment-variables/#setting-the-environment-for-your-builds
+Environment variables with visibility "Plain text" and "Sensitive" loaded from the "production" environment on EAS: EAS_SKIP_AUTO_FINGERPRINT, EXPO_PUBLIC_CLERK_PROXY_URL, EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY, EXPO_PUBLIC_DOMAIN, EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY, EXPO_PUBLIC_REVENUECAT_IOS_API_KEY, EXPO_PUBLIC_REVENUECAT_TEST_API_KEY.
+
+✔ Incremented buildNumber from 57 to 58.
+
+You've used 129 builds beyond your included credits this billing period ($193.00 in overages so far).
+Additional builds continue at pay-as-you-go rates. See usage in billing.: https://expo.dev/accounts/brkurtz/settings/billing
+
+The build profile "production" specifies the channel "production", but the "expo-updates" package is missing. To use channels in your builds, install the "expo-updates" package and run "eas update:configure".
+√ Would you like to install the "expo-updates" package and configure EAS Update now? ... yes
+> npx expo install expo-updates
+[expo-cli] › Installing 1 SDK 54.0.0 compatible native module using pnpm
+[expo-cli] > pnpm add expo-updates@~29.0.19
+[expo-cli] ? Verifying lockfile against supply-chain policies (1490 entries)...
+[expo-cli] ../..                                    | Progress: resolved 1, reused 0, downloaded 0, added 0
+[expo-cli] ../..                                    | Progress: resolved 69, reused 0, downloaded 0, added 0
+[expo-cli] ../mockup-sandbox                        | [WARN] deprecated recharts@2.15.4
+[expo-cli] ╭──────────────────────────────────────────╮
+[expo-cli]    │                                          │
+[expo-cli]    │   Update available! 11.14.0 → 11.15.0.   │
+[expo-cli]    │   Changelog: https://pnpm.io/v/11.15.0   │
+[expo-cli]    │     To update, run: pnpm add -g pnpm     │
+[expo-cli]    │                                          │
+[expo-cli]    ╰──────────────────────────────────────────╯
+[expo-cli] ../api-server                            | [WARN] deprecated multer@1.4.5-lts.2
+[expo-cli] ../..                                    | Progress: resolved 151, reused 0, downloaded 0, added 0
+[expo-cli] ../..                                    | Progress: resolved 175, reused 0, downloaded 0, added 0
+[expo-cli] ../..                                    | Progress: resolved 178, reused 0, downloaded 0, added 0
+[expo-cli] ✓ Lockfile passes supply-chain policies (1490 entries in 5.1s)
+[expo-cli] ../..                                    | Progress: resolved 181, reused 0, downloaded 0, added 0
+[expo-cli] ../..                                    | Progress: resolved 520, reused 0, downloaded 0, added 0
+[expo-cli] ../..                                    | Progress: resolved 656, reused 0, downloaded 0, added 0
+[expo-cli] ../..                                    | Progress: resolved 979, reused 0, downloaded 0, added 0
+[expo-cli] ../..                                    | Progress: resolved 1095, reused 0, downloaded 0, added 0
+[expo-cli] ../..                                    | Progress: resolved 1448, reused 0, downloaded 0, added 0
+[expo-cli] [WARN] 7 deprecated subdependencies found: abab@2.0.6, domexception@4.0.0, glob@7.2.3, inflight@1.0.6, rimraf@3.0.2, tsconfck@3.1.6, whatwg-encoding@2.0.0
+[expo-cli] ../..                                    | Progress: resolved 1497, reused 0, downloaded 0, added 0
+[expo-cli] ../..                                    | Progress: resolved 1497, reused 0, downloaded 0, added 0, done
+[expo-cli] [WARN] Issues with peer dependencies found. Run "pnpm peers check" to list them.
+[expo-cli] dependencies:
+[expo-cli] + expo-updates ~29.0.19
+[expo-cli] ../..                                    |   +7  -15 +--
+[expo-cli] ../.. preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+[expo-cli] ../.. preinstall: 'sh' is not recognized as an internal or external command,
+[expo-cli] ../.. preinstall: operable program or batch file.
+[expo-cli] ../.. preinstall: Failed
+[expo-cli] [ELIFECYCLE] Command failed with exit code 1.
+[expo-cli] Error: pnpm add expo-updates@~29.0.19 exited with non-zero code: 1
+[expo-cli] Error: pnpm add expo-updates@~29.0.19 exited with non-zero code: 1
+[expo-cli]     at ChildProcess.completionListener (C:\Users\brkur\Pregnancy-AI-Assistant\node_modules\.pnpm\@expo+spawn-async@1.8.0\node_modules\@expo\spawn-async\build\spawnAsync.js:113:23)
+[expo-cli]     at Object.onceWrapper (node:events:631:26)
+[expo-cli]     at ChildProcess.emit (node:events:509:28)
+[expo-cli]     at cp.emit (C:\Users\brkur\Pregnancy-AI-Assistant\node_modules\.pnpm\cross-spawn@7.0.6\node_modules\cross-spawn\lib\enoent.js:34:29)
+[expo-cli]     at ChildProcess._handle.onexit (node:internal/child_process:295:12)
+[expo-cli]     ...
+[expo-cli]     at spawnAsync (C:\Users\brkur\Pregnancy-AI-Assistant\node_modules\.pnpm\@expo+spawn-async@1.8.0\node_modules\@expo\spawn-async\build\spawnAsync.js:9:23)
+[expo-cli]     at PnpmPackageManager.runAsync (C:\Users\brkur\Pregnancy-AI-Assistant\node_modules\.pnpm\@expo+package-manager@1.12.1\node_modules\@expo\package-manager\build\node\BasePackageManager.js:41:42)
+[expo-cli]     at PnpmPackageManager.addAsync (C:\Users\brkur\Pregnancy-AI-Assistant\node_modules\.pnpm\@expo+package-manager@1.12.1\node_modules\@expo\package-manager\build\node\PnpmPackageManager.js:36:21)
+[expo-cli]     at installPackagesAsync (C:\Users\brkur\Pregnancy-AI-Assistant\node_modules\.pnpm\@expo+cli@54.0.25_expo-rout_9885969ed388da13403bb98449dcdf1a\node_modules\@expo\cli\build\src\install\installAsync.js:189:30)
+[expo-cli]     at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+C:\Users\brkur\Pregnancy-AI-Assistant\node_modules\.pnpm\expo@54.0.35_@babel+core@7._8a77f884fcc2e6f75ecaaf662615e1fd\node_modules\expo\bin\cli install expo-updates exited with non-zero code: 1
+    Error: build command failed.
+PS C:\Users\brkur\Pregnancy-AI-Assistant\artifacts\pregnancy-calculator-mobile>
