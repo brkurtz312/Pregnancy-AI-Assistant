@@ -2,16 +2,13 @@ import { useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { useAuth, Show } from "@clerk/react";
 import {
-  Baby,
-  Sparkles,
-  Crown,
   Check,
   ArrowRight,
   Infinity as InfinityIcon,
   Loader2,
+  Crown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { usePass } from "@/hooks/use-pass";
 
 const FREE_FEATURES = [
@@ -33,19 +30,19 @@ const PASS_FEATURES = [
 const HIGHLIGHTS = [
   {
     emoji: "🗓️",
-    cardBg: "bg-[hsl(0_40%_95%)]",
+    color: "#fce8e0",
     title: "Precise dates",
     body: "Track gestational age, key milestones, and your due date down to the day.",
   },
   {
     emoji: "🌿",
-    cardBg: "bg-[hsl(145_35%_93%)]",
+    color: "#e8f4ed",
     title: "Weekly development",
     body: "See how your baby is growing each week with gentle, illustrated insights.",
   },
   {
     emoji: "💬",
-    cardBg: "bg-[hsl(210_40%_94%)]",
+    color: "#e8edf8",
     title: "AI companion",
     body: "Ask anything about your pregnancy and get caring, clear answers any time.",
   },
@@ -58,8 +55,6 @@ export default function LandingPage() {
   const { startCheckout, isStartingCheckout, hasPass } = usePass();
   const autoCheckoutFired = useRef(false);
 
-  // When the user returns from sign-in with ?start_checkout=1, auto-trigger
-  // checkout so they land directly in the purchase flow.
   useEffect(() => {
     if (!isSignedIn || autoCheckoutFired.current) return;
     const params = new URLSearchParams(window.location.search);
@@ -96,18 +91,18 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground selection:bg-primary/20">
+    <div className="min-h-screen bg-[#fdf6f0] text-[#2d1f1a] overflow-x-hidden selection:bg-[#c96b6b]/20">
       {/* Nav */}
-      <header className="sticky top-0 z-20 border-b border-border/60 bg-background/85 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto flex items-center justify-between px-4 py-3 md:px-8">
+      <header className="sticky top-0 z-20 bg-[#fdf6f0]/90 backdrop-blur-md border-b border-[#e8d5c8]">
+        <div className="max-w-6xl mx-auto flex items-center justify-between px-4 py-4 md:px-8">
           <Link
             href="/"
             className="flex items-center gap-2.5"
             data-testid="link-home"
           >
-            <span className="inline-flex items-center justify-center p-2 bg-primary/15 rounded-xl">
-              <Baby className="w-5 h-5 text-primary" />
-            </span>
+            <div className="w-9 h-9 rounded-2xl bg-[#c96b6b] flex items-center justify-center shrink-0">
+              <span className="text-lg leading-none">🌸</span>
+            </div>
             <span className="font-serif text-lg font-bold tracking-tight">
               Pregnancy Assistant
             </span>
@@ -118,7 +113,7 @@ export default function LandingPage() {
                 asChild
                 variant="ghost"
                 size="sm"
-                className="text-muted-foreground hover:text-foreground"
+                className="text-[#8a6055] hover:text-[#2d1f1a]"
                 data-testid="button-nav-sign-in"
               >
                 <Link href="/sign-in">Sign in</Link>
@@ -127,7 +122,7 @@ export default function LandingPage() {
             <Button
               asChild
               size="sm"
-              className="rounded-full gap-1.5 shadow-sm"
+              className="rounded-full gap-1.5 bg-[#c96b6b] hover:bg-[#b85e5e] text-white shadow-sm border-0"
               data-testid="button-nav-open-app"
             >
               <Link href="/app">
@@ -144,80 +139,81 @@ export default function LandingPage() {
         {/* Warm blob decorations */}
         <div
           aria-hidden
-          className="pointer-events-none absolute -top-32 -right-32 w-[600px] h-[600px] rounded-full bg-[hsl(25_80%_80%/0.28)] blur-3xl"
+          className="pointer-events-none absolute -top-32 -right-32 w-[600px] h-[600px] rounded-full bg-[#f4c5a8]/30 blur-3xl"
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute top-20 -left-24 w-[400px] h-[400px] rounded-full bg-[hsl(0_50%_82%/0.22)] blur-3xl"
+          className="pointer-events-none absolute top-20 -left-24 w-[400px] h-[400px] rounded-full bg-[#e8b4b8]/25 blur-3xl"
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute bottom-0 right-1/4 w-[300px] h-[300px] rounded-full bg-[hsl(30_70%_85%/0.18)] blur-2xl"
+          className="pointer-events-none absolute bottom-0 right-1/4 w-[300px] h-[300px] rounded-full bg-[#f9d8c0]/20 blur-2xl"
         />
 
-        <div className="relative max-w-4xl mx-auto px-4 md:px-8 pt-16 pb-14 md:pt-24 md:pb-20 text-center space-y-7">
-          <Badge
-            variant="outline"
-            className="gap-1.5 border-primary/30 bg-primary/10 text-primary py-1.5 px-3 rounded-full font-medium"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
+        <div className="relative max-w-5xl mx-auto px-4 md:px-8 pt-20 pb-16 md:pt-28 md:pb-20 text-center">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 bg-[#fce8e0] text-[#c96b6b] text-sm font-medium px-4 py-1.5 rounded-full mb-8 border border-[#f0c8bc]">
+            <span>✦</span>
             Your gentle pregnancy companion
-          </Badge>
+          </div>
 
-          <h1 className="text-4xl md:text-6xl font-bold font-serif tracking-tight leading-[1.1]">
-            Every week of your pregnancy,
-            <span className="text-primary"> beautifully tracked.</span>
+          {/* Headline */}
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold font-serif leading-[1.1] tracking-tight mb-6">
+            Every week of your
+            <br />
+            <em className="text-[#c96b6b] not-italic">pregnancy,</em>
+            <br />
+            beautifully tracked.
           </h1>
 
-          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Calculate your due date, follow your baby's weekly development, and
-            ask an AI companion anything — free to start, with an optional
-            one-time pass for unlimited support.
+          <p className="text-lg text-[#8a6055] max-w-xl mx-auto mb-10 leading-relaxed">
+            Calculate your due date, follow your baby's growth week by week, and
+            ask an AI companion anything — free to start.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-1">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Button
               asChild
               size="lg"
-              className="rounded-full gap-2 w-full sm:w-auto shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/25 transition-shadow"
+              className="rounded-full gap-2 w-full sm:w-auto bg-[#c96b6b] hover:bg-[#b85e5e] text-white border-0 shadow-lg shadow-[#c96b6b]/25 hover:shadow-xl hover:shadow-[#c96b6b]/30 transition-all"
               data-testid="button-hero-start-free"
             >
               <Link href="/app">
-                Start free
-                <ArrowRight className="w-4 h-4" />
+                Start free — no account needed
               </Link>
             </Button>
             <Button
               asChild
               size="lg"
               variant="outline"
-              className="rounded-full w-full sm:w-auto border-border hover:bg-primary/5"
+              className="rounded-full w-full sm:w-auto border-[#d4a99c] text-[#8a6055] hover:bg-[#fce8e0] hover:border-[#c96b6b]/40 bg-transparent"
               data-testid="button-hero-pricing"
             >
               <a href="#pricing">See what's included</a>
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground">
-            No account needed to start · One-time pass, no subscription
+          <p className="text-sm text-[#b49080] mt-5">
+            No subscription · One-time optional pass
           </p>
         </div>
       </section>
 
-      {/* Highlights — tinted cards */}
-      <section className="max-w-6xl mx-auto px-4 md:px-8 py-12 md:py-16">
+      {/* Feature cards */}
+      <section className="max-w-6xl mx-auto px-4 md:px-8 py-14 md:py-16">
         <div className="grid gap-5 md:grid-cols-3">
-          {HIGHLIGHTS.map(({ emoji, cardBg, title, body }) => (
+          {HIGHLIGHTS.map(({ emoji, color, title, body }) => (
             <div
               key={title}
-              className={`${cardBg} rounded-3xl p-7 border border-white/70 shadow-sm hover:shadow-md transition-shadow`}
+              className="rounded-3xl p-7 border border-white/80 shadow-sm hover:shadow-md transition-shadow"
+              style={{ backgroundColor: color }}
             >
               <div className="w-12 h-12 rounded-2xl bg-white/70 flex items-center justify-center text-2xl mb-5 shadow-sm">
                 {emoji}
               </div>
-              <h3 className="font-serif text-xl font-semibold mb-2">{title}</h3>
-              <p className="text-muted-foreground leading-relaxed text-sm">
-                {body}
-              </p>
+              <h3 className="font-serif text-xl font-semibold mb-2 text-[#2d1f1a]">
+                {title}
+              </h3>
+              <p className="text-[#6b5050] leading-relaxed text-sm">{body}</p>
             </div>
           ))}
         </div>
@@ -228,11 +224,11 @@ export default function LandingPage() {
         id="pricing"
         className="max-w-5xl mx-auto px-4 md:px-8 py-12 md:py-16 scroll-mt-20"
       >
-        <div className="text-center space-y-3 mb-10">
-          <h2 className="text-3xl md:text-4xl font-bold font-serif tracking-tight">
+        <div className="text-center mb-10">
+          <h2 className="text-3xl md:text-4xl font-bold font-serif tracking-tight mb-3">
             Free to start, more when you need it
           </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-[#8a6055] max-w-lg mx-auto">
             Everything you need to follow your pregnancy is free. Upgrade only
             if you want unlimited answers from your AI companion.
           </p>
@@ -240,25 +236,29 @@ export default function LandingPage() {
 
         <div className="grid gap-6 md:grid-cols-2 items-start">
           {/* Free plan */}
-          <div className="bg-white rounded-3xl p-7 md:p-8 border border-border shadow-sm space-y-6">
+          <div className="bg-white rounded-3xl p-7 md:p-8 border border-[#e8d5c8] shadow-sm space-y-6">
             <div className="space-y-1.5">
-              <span className="inline-flex items-center justify-center p-2.5 bg-muted rounded-2xl">
-                <Baby className="w-6 h-6 text-foreground/70" />
-              </span>
-              <h3 className="font-serif text-2xl font-semibold pt-2">Free</h3>
-              <p className="text-muted-foreground">
+              <div className="text-3xl mb-1">🤍</div>
+              <h3 className="font-serif text-2xl font-semibold text-[#2d1f1a]">
+                Free
+              </h3>
+              <p className="text-[#8a6055] text-sm">
                 The full calculator, forever free.
               </p>
-              <div className="flex items-baseline gap-1.5 pt-2">
-                <span className="text-4xl font-bold font-serif">$0</span>
-                <span className="text-muted-foreground">/ forever</span>
+              <div className="flex items-baseline gap-1.5 pt-1">
+                <span className="text-4xl font-bold font-serif text-[#2d1f1a]">
+                  $0
+                </span>
+                <span className="text-[#8a6055]">/ forever</span>
               </div>
             </div>
             <ul className="space-y-3">
               {FREE_FEATURES.map((feature) => (
                 <li key={feature} className="flex items-start gap-2.5">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground/90 text-sm">{feature}</span>
+                  <span className="text-[#c96b6b] shrink-0 mt-0.5 text-base leading-none">
+                    ✓
+                  </span>
+                  <span className="text-[#6b5050] text-sm">{feature}</span>
                 </li>
               ))}
             </ul>
@@ -266,7 +266,7 @@ export default function LandingPage() {
               asChild
               variant="outline"
               size="lg"
-              className="w-full rounded-2xl gap-2 border-border hover:bg-primary/5"
+              className="w-full rounded-2xl gap-2 border-[#d4a99c] text-[#8a6055] hover:bg-[#fce8e0] bg-transparent"
               data-testid="button-plan-free"
             >
               <Link href="/app">
@@ -276,35 +276,34 @@ export default function LandingPage() {
             </Button>
           </div>
 
-          {/* Full Pregnancy Pass — warm gradient */}
-          <div className="relative rounded-3xl p-7 md:p-8 text-white shadow-xl shadow-primary/20 space-y-6 overflow-hidden">
+          {/* Full Pregnancy Pass */}
+          <div className="relative rounded-3xl p-7 md:p-8 text-white shadow-xl shadow-[#c96b6b]/20 space-y-6 overflow-hidden">
             {/* Gradient background */}
             <div
               aria-hidden
-              className="absolute inset-0 bg-gradient-to-br from-primary via-[hsl(10_45%_52%)] to-[hsl(15_50%_45%)]"
+              className="absolute inset-0 bg-gradient-to-br from-[#c96b6b] to-[#a84f4f]"
             />
-            {/* Subtle blob inside card */}
+            {/* Subtle blob */}
             <div
               aria-hidden
               className="pointer-events-none absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/10 blur-2xl"
             />
 
-            <Badge className="relative -top-3 -left-1 gap-1.5 rounded-full px-3 py-1 bg-[hsl(30_80%_82%)] text-[hsl(10_45%_28%)] border-0 w-fit">
-              <Crown className="w-3.5 h-3.5" />
-              Best for the whole journey
-            </Badge>
+            <div className="relative -mt-2 mb-2">
+              <span className="inline-flex items-center gap-1.5 bg-[#f4c5a8] text-[#7a3030] text-xs font-semibold px-3 py-1 rounded-full">
+                👑 Best for the whole journey
+              </span>
+            </div>
 
             <div className="relative space-y-1.5">
-              <span className="inline-flex items-center justify-center p-2.5 bg-white/20 rounded-2xl">
-                <Sparkles className="w-6 h-6 text-white" />
-              </span>
-              <h3 className="font-serif text-2xl font-semibold pt-2">
+              <div className="text-3xl mb-1">✨</div>
+              <h3 className="font-serif text-2xl font-semibold">
                 Full Pregnancy Pass
               </h3>
-              <p className="text-white/75">
+              <p className="text-white/75 text-sm">
                 Unlimited AI support, all pregnancy long.
               </p>
-              <div className="flex items-baseline gap-1.5 pt-2">
+              <div className="flex items-baseline gap-1.5 pt-1">
                 <span className="text-4xl font-bold font-serif">$14.99</span>
                 <span className="text-white/70">one-time</span>
               </div>
@@ -314,9 +313,9 @@ export default function LandingPage() {
               {PASS_FEATURES.map((feature) => (
                 <li key={feature} className="flex items-start gap-2.5">
                   {feature.includes("Unlimited") ? (
-                    <InfinityIcon className="w-5 h-5 text-white/80 shrink-0 mt-0.5" />
+                    <InfinityIcon className="w-4 h-4 text-[#f4c5a8] shrink-0 mt-0.5" />
                   ) : (
-                    <Check className="w-5 h-5 text-white/80 shrink-0 mt-0.5" />
+                    <Check className="w-4 h-4 text-[#f4c5a8] shrink-0 mt-0.5" />
                   )}
                   <span className="text-white/90 text-sm">{feature}</span>
                 </li>
@@ -356,7 +355,7 @@ export default function LandingPage() {
                   size="lg"
                   onClick={handleGetPass}
                   disabled={isStartingCheckout}
-                  className="relative w-full rounded-2xl gap-2 bg-white text-primary hover:bg-white/90 font-semibold shadow-sm disabled:opacity-70"
+                  className="relative w-full rounded-2xl gap-2 bg-white text-[#c96b6b] hover:bg-[#fdf6f0] font-semibold shadow-sm border-0 disabled:opacity-70"
                   data-testid="button-plan-pass"
                 >
                   {isStartingCheckout ? (
@@ -366,8 +365,7 @@ export default function LandingPage() {
                     </>
                   ) : (
                     <>
-                      Get the Full Pass
-                      <ArrowRight className="w-4 h-4" />
+                      Get the Full Pass →
                     </>
                   )}
                 </Button>
@@ -384,26 +382,26 @@ export default function LandingPage() {
 
       {/* Closing CTA */}
       <section className="max-w-4xl mx-auto px-4 md:px-8 pb-20">
-        <div className="relative overflow-hidden bg-white rounded-3xl p-10 md:p-14 border border-border/60 text-center shadow-sm">
+        <div className="relative overflow-hidden bg-white rounded-3xl p-10 md:p-14 border border-[#e8d5c8] text-center shadow-sm">
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/8 via-accent/5 to-transparent"
+            className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#c96b6b]/8 via-[#f4c5a8]/5 to-transparent"
           />
           <div
             aria-hidden
-            className="pointer-events-none absolute -top-16 -right-16 w-64 h-64 rounded-full bg-[hsl(25_80%_80%/0.2)] blur-3xl"
+            className="pointer-events-none absolute -top-16 -right-16 w-64 h-64 rounded-full bg-[#f4c5a8]/20 blur-3xl"
           />
-          <h2 className="relative text-3xl md:text-4xl font-bold font-serif tracking-tight">
+          <h2 className="relative text-3xl md:text-4xl font-bold font-serif tracking-tight text-[#2d1f1a]">
             Start tracking your pregnancy today
           </h2>
-          <p className="relative text-lg text-muted-foreground max-w-xl mx-auto mt-3">
+          <p className="relative text-lg text-[#8a6055] max-w-xl mx-auto mt-3">
             Open the calculator and see your due date, your baby's progress, and
             your weekly milestones in seconds.
           </p>
           <Button
             asChild
             size="lg"
-            className="relative rounded-full gap-2 mt-7 shadow-md shadow-primary/20"
+            className="relative rounded-full gap-2 mt-7 bg-[#c96b6b] hover:bg-[#b85e5e] text-white border-0 shadow-lg shadow-[#c96b6b]/25"
             data-testid="button-cta-open-app"
           >
             <Link href="/app">
@@ -415,22 +413,24 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border/50">
-        <div className="max-w-6xl mx-auto px-4 md:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted-foreground">
+      <footer className="border-t border-[#e8d5c8]">
+        <div className="max-w-6xl mx-auto px-4 md:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-[#8a6055]">
           <div className="flex items-center gap-2">
-            <Baby className="w-4 h-4 text-primary" />
-            <span className="font-medium">Pregnancy Assistant</span>
+            <span className="text-base">🌸</span>
+            <span className="font-medium text-[#2d1f1a]">
+              Pregnancy Assistant
+            </span>
           </div>
           <div className="flex items-center gap-5">
             <Link
               href="/app"
-              className="hover:text-foreground transition-colors"
+              className="hover:text-[#2d1f1a] transition-colors"
             >
               Open the app
             </Link>
             <a
               href="#pricing"
-              className="hover:text-foreground transition-colors"
+              className="hover:text-[#2d1f1a] transition-colors"
             >
               Pricing
             </a>
