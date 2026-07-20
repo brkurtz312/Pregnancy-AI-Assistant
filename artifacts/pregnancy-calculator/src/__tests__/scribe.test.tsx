@@ -47,6 +47,8 @@ function defaultPassValue(): ReturnType<typeof usePass> {
     redeemCode: vi.fn(),
     isRedeeming: false,
     refresh: vi.fn(),
+    justPurchased: false,
+    dismissJustPurchased: vi.fn(),
   };
 }
 

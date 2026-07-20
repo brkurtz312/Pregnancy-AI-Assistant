@@ -71,6 +71,8 @@ function makePassValue(
     redeemCode: vi.fn(),
     isRedeeming: false,
     refresh: vi.fn(),
+    justPurchased: false,
+    dismissJustPurchased: vi.fn(),
     ...overrides,
   };
 }

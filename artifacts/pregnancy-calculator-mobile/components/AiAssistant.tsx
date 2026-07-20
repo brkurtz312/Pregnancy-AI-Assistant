@@ -130,13 +130,28 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
             </Text>
           </View>
           {pass.hasPass ? (
-            <View
-              style={[styles.unlimitedPill, { backgroundColor: colors.muted }]}
-            >
-              <Ionicons name="sparkles" size={12} color={colors.primary} />
-              <Text style={[styles.unlimitedText, { color: colors.primary }]}>
-                Unlimited
-              </Text>
+            <View style={styles.passHeaderWrap}>
+              <View
+                style={[
+                  styles.unlimitedPill,
+                  { backgroundColor: colors.muted },
+                ]}
+              >
+                <Ionicons name="sparkles" size={12} color={colors.primary} />
+                <Text style={[styles.unlimitedText, { color: colors.primary }]}>
+                  Unlimited
+                </Text>
+              </View>
+              {pass.freeUsed > 0 && (
+                <Text
+                  style={[
+                    styles.remainingText,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  {pass.freeUsed} this week
+                </Text>
+              )}
             </View>
           ) : pass.isSignedIn ? (
             <Text
@@ -350,6 +365,11 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
+  },
+  passHeaderWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
   askHeaderRow: {
     flexDirection: "row",

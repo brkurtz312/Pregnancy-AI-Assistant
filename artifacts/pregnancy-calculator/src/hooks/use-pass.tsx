@@ -3,6 +3,7 @@ import {
   useContext,
   useEffect,
   useRef,
+  useState,
   type ReactNode,
 } from "react";
 import { useAuth } from "@clerk/react";
@@ -40,6 +41,10 @@ interface PassContextValue {
   isRedeeming: boolean;
   /** Re-fetch pass status and usage from the server. */
   refresh: () => void;
+  /** True immediately after a successful Stripe checkout return. */
+  justPurchased: boolean;
+  /** Clear the post-purchase celebration state. */
+  dismissJustPurchased: () => void;
 }
 
 const PassContext = createContext<PassContextValue | null>(null);
@@ -55,6 +60,8 @@ export function PassProvider({ children }: { children: ReactNode }) {
   const confirm = useConfirmCheckout();
   const redeem = useRedeemCode();
 
+  const [justPurchased, setJustPurchased] = useState(false);
+
   // After returning from Stripe checkout (?checkout=success), confirm the
   // session for instant entitlement, then strip the params from the URL.
   const handledReturn = useRef(false);
@@ -67,7 +74,10 @@ export function PassProvider({ children }: { children: ReactNode }) {
     const sessionId = params.get("session_id") ?? undefined;
     confirm.mutate(
       { data: { sessionId } },
-      { onSettled: () => passQuery.refetch() },
+      {
+        onSuccess: () => setJustPurchased(true),
+        onSettled: () => passQuery.refetch(),
+      },
     );
 
     params.delete("checkout");
@@ -111,6 +121,8 @@ export function PassProvider({ children }: { children: ReactNode }) {
     refresh: () => {
       passQuery.refetch();
     },
+    justPurchased,
+    dismissJustPurchased: () => setJustPurchased(false),
   };
 
   return <PassContext.Provider value={value}>{children}</PassContext.Provider>;

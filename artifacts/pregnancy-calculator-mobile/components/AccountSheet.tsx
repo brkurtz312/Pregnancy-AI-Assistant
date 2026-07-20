@@ -61,6 +61,7 @@ export function AccountSheet({
   const [redeemError, setRedeemError] = React.useState<string | null>(null);
   const [confirmPurchase, setConfirmPurchase] = React.useState(false);
   const [purchaseError, setPurchaseError] = React.useState<string | null>(null);
+  const [purchaseSuccess, setPurchaseSuccess] = React.useState(false);
 
   // iOS/Android must use the in-app purchase (App Store/Play rules); web keeps
   // the existing Stripe checkout. Price is read from the live RevenueCat
@@ -80,6 +81,7 @@ export function AccountSheet({
       await subscription.purchase(pkg);
       await pass.reconcileRevenueCat();
       setConfirmPurchase(false);
+      setPurchaseSuccess(true);
     } catch (err) {
       if (isUserCancelledError(err)) {
         setConfirmPurchase(false);
@@ -235,6 +237,46 @@ export function AccountSheet({
                     >
                       <ActivityIndicator color={colors.primary} />
                     </View>
+                  ) : purchaseSuccess ? (
+                    <View
+                      style={[
+                        styles.statusCard,
+                        {
+                          backgroundColor: "#f0fdf4",
+                          borderColor: "#86efac",
+                        },
+                      ]}
+                    >
+                      <View style={styles.statusTitleRow}>
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={20}
+                          color="#16a34a"
+                        />
+                        <Text
+                          style={[styles.statusTitle, { color: "#14532d" }]}
+                        >
+                          You're all set!
+                        </Text>
+                      </View>
+                      <Text style={[styles.statusBody, { color: "#166534" }]}>
+                        The Full Pregnancy Pass is now active — unlimited questions, on every device, forever.
+                      </Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.primaryBtn,
+                          { backgroundColor: "#16a34a" },
+                        ]}
+                        onPress={() => {
+                          setPurchaseSuccess(false);
+                          onClose();
+                        }}
+                      >
+                        <Text style={styles.primaryBtnText}>
+                          Start asking questions
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
                   ) : pass.hasPass ? (
                     <View
                       style={[
@@ -266,7 +308,10 @@ export function AccountSheet({
                           { color: colors.mutedForeground },
                         ]}
                       >
-                        You have unlimited AI questions on every device.
+                        Unlimited AI questions on every device.
+                        {pass.freeUsed > 0
+                          ? ` You've asked ${pass.freeUsed} question${pass.freeUsed === 1 ? "" : "s"} this week.`
+                          : ""}
                       </Text>
                     </View>
                   ) : (

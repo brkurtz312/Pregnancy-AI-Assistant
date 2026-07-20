@@ -19,6 +19,8 @@ import {
   Info,
   Loader2,
   Crown,
+  CheckCircle2,
+  X,
 } from "lucide-react";
 
 interface AiAssistantProps {
@@ -47,9 +49,12 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
     hasPass,
     freeRemaining,
     freeLimit,
+    freeUsed,
     startCheckout,
     isStartingCheckout,
     refresh,
+    justPurchased,
+    dismissJustPurchased,
   } = usePass();
 
   const [messages, setMessages] = useState<ChatTurn[]>([]);
@@ -58,6 +63,13 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
   const [limitReached, setLimitReached] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastUserMsgRef = useRef<HTMLDivElement>(null);
+
+  // Auto-dismiss the post-purchase banner after 10 seconds.
+  useEffect(() => {
+    if (!justPurchased) return;
+    const t = setTimeout(dismissJustPurchased, 10_000);
+    return () => clearTimeout(t);
+  }, [justPurchased, dismissJustPurchased]);
 
   // Auto-load the weekly insight whenever the current week changes.
   useEffect(() => {
@@ -130,6 +142,29 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
         <Sparkles className="w-5 h-5 text-primary" />
         Ask About Your Pregnancy
       </h2>
+
+      {/* Post-purchase celebration banner */}
+      {justPurchased && (
+        <div
+          className="flex items-start gap-3 rounded-2xl border border-green-200 bg-green-50 p-4"
+          data-testid="purchase-confirmation"
+        >
+          <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-green-900">You're all set!</p>
+            <p className="text-sm text-green-800/80 mt-0.5">
+              The Full Pregnancy Pass is now active — unlimited questions, on every device, forever.
+            </p>
+          </div>
+          <button
+            onClick={dismissJustPurchased}
+            className="text-green-600 hover:text-green-800 shrink-0"
+            aria-label="Dismiss"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Weekly insight */}
       {week != null && (
@@ -264,7 +299,8 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
                   Full Pregnancy Pass
                 </span>{" "}
                 for unlimited questions — a one-time $14.99, tied to your
-                account and available on every device.
+                account and available on every device. Free questions reset each
+                Monday if you'd rather wait.
               </p>
               <Show when="signed-in">
                 <Button
@@ -316,6 +352,15 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
                 <Send className="w-4 h-4" />
               </Button>
             </div>
+          )}
+
+          {isSignedIn && hasPass && freeUsed > 0 && (
+            <p
+              className="text-xs text-muted-foreground/80"
+              data-testid="text-pass-usage"
+            >
+              {freeUsed} question{freeUsed === 1 ? "" : "s"} asked this week.
+            </p>
           )}
 
           {isSignedIn && !hasPass && !limitReached && (
