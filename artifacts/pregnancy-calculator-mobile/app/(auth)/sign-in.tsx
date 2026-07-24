@@ -1,6 +1,6 @@
 import { useSignIn } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
-import { type Href, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -42,11 +42,10 @@ export default function SignInScreen() {
     });
     if (error) return;
 
-    await signIn.finalize({
-      navigate: () => {
-        router.replace("/" as Href);
-      },
-    });
+    await signIn.finalize();
+    // dismissAll closes the fullScreenModal and returns to the root,
+    // where Clerk's now-active session renders the main app.
+    router.dismissAll();
   };
 
   const containerPad = {
@@ -82,40 +81,6 @@ export default function SignInScreen() {
             Sign in to sync your Full Pregnancy Pass and free questions across
             your devices.
           </Text>
-
-          <TouchableOpacity
-            style={[
-              styles.reviewerBanner,
-              { borderColor: "#0071e3", backgroundColor: "#e8f1fb" },
-            ]}
-            onPress={() => router.push("/reviewer-access" as Href)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="shield-checkmark" size={20} color="#0071e3" />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.reviewerBannerTitle}>
-                Apple Reviewer / Developer Access
-              </Text>
-              <Text style={styles.reviewerBannerSub}>
-                Tap here to sign in with your reviewer access code
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color="#0071e3" />
-          </TouchableOpacity>
-
-          <View style={styles.dividerRow}>
-            <View
-              style={[styles.dividerLine, { backgroundColor: colors.border }]}
-            />
-            <Text
-              style={[styles.dividerText, { color: colors.mutedForeground }]}
-            >
-              or sign in with email
-            </Text>
-            <View
-              style={[styles.dividerLine, { backgroundColor: colors.border }]}
-            />
-          </View>
 
           <Text style={[styles.label, { color: colors.foreground }]}>
             Email
@@ -191,9 +156,7 @@ export default function SignInScreen() {
             >
               New here?
             </Text>
-            <TouchableOpacity
-              onPress={() => router.replace("/sign-up" as Href)}
-            >
+            <TouchableOpacity onPress={() => router.replace("/sign-up")}>
               <Text style={[styles.footerLink, { color: colors.primary }]}>
                 Create an account
               </Text>
@@ -264,38 +227,4 @@ const styles = StyleSheet.create({
   },
   footerText: { fontSize: 14, fontFamily: "Inter_400Regular" },
   footerLink: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
-  dividerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginTop: 20,
-    marginBottom: 4,
-  },
-  dividerLine: { flex: 1, height: 1 },
-  dividerText: {
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-  },
-  reviewerBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderWidth: 1.5,
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    marginTop: 8,
-  },
-  reviewerBannerTitle: {
-    fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
-    color: "#0071e3",
-  },
-  reviewerBannerSub: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    color: "#0071e3",
-    marginTop: 2,
-    opacity: 0.8,
-  },
 });

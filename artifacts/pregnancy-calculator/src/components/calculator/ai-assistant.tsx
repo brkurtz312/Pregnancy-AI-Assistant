@@ -153,7 +153,8 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-green-900">You're all set!</p>
             <p className="text-sm text-green-800/80 mt-0.5">
-              The Full Pregnancy Pass is now active — unlimited questions, on every device, forever.
+              The Full Pregnancy Pass is now active — unlimited questions, on
+              every device, forever.
             </p>
           </div>
           <button

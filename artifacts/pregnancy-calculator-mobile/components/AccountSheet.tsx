@@ -260,7 +260,8 @@ export function AccountSheet({
                         </Text>
                       </View>
                       <Text style={[styles.statusBody, { color: "#166534" }]}>
-                        The Full Pregnancy Pass is now active — unlimited questions, on every device, forever.
+                        The Full Pregnancy Pass is now active — unlimited
+                        questions, on every device, forever.
                       </Text>
                       <TouchableOpacity
                         style={[
