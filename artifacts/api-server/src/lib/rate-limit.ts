@@ -94,14 +94,3 @@ export const redeemCodeLimiter: RequestHandler = makeLimiter(
   RATE_LIMIT_PREFIXES.redeemCode,
   "Redeem-code",
 );
-
-// Brute-force protection for the reviewer sign-in code: a successful guess
-// yields a Clerk sign-in token for the demo account, so cap attempts per IP
-// to the same conservative budget as the redeem-code endpoint.
-export const reviewerSignInLimiter: RequestHandler = makeLimiter(
-  REDEEM_REVIEWER_WINDOW_MS,
-  REDEEM_REVIEWER_LIMIT,
-  "Too many sign-in attempts. Please wait a few minutes and try again.",
-  RATE_LIMIT_PREFIXES.reviewerSignIn,
-  "Reviewer-sign-in",
-);

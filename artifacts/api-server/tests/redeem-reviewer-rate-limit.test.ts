@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import express, { type Express, type Request, type Response } from "express";
+import express, { type Express, type Request } from "express";
 import request from "supertest";
 
 // Replace the PostgreSQL-backed store with a hermetic in-memory implementation
@@ -48,14 +48,12 @@ vi.mock("../src/lib/rate-limit-store", () => {
       aiBurst: "ai-burst",
       aiDaily: "ai-daily",
       redeemCode: "redeem-code",
-      reviewerSignIn: "reviewer-sign-in",
     },
   };
 });
 
 import {
   redeemCodeLimiter,
-  reviewerSignInLimiter,
   REDEEM_REVIEWER_LIMIT,
 } from "../src/lib/rate-limit";
 
@@ -141,90 +139,6 @@ describe("POST /api/billing/redeem-code rate-limit protection", () => {
 
     // A completely different IP must still be served normally (gets 503, not 429).
     const res = await redeemCode(freshIp);
-    expect(res.status).toBe(503);
-  }, 15000);
-});
-
-// ─── reviewerSignInLimiter ────────────────────────────────────────────────────
-
-// Build a minimal app that applies ONLY the reviewerSignInLimiter so that
-// nothing else (DB lookups, CLERK_SECRET_KEY, Clerk API calls) interferes.
-// The stub handler returns 503, simulating "reviewer access not configured".
-function buildReviewerApp(): Express {
-  const app = express();
-  app.use(express.json());
-  app.use((req, _res, next) => {
-    (req as Request & { log: unknown }).log = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-    };
-    next();
-  });
-  app.use(reviewerSignInLimiter);
-  app.post("/api/reviewer/sign-in-token", (_req: Request, res: Response) => {
-    res.status(503).json({ error: "Reviewer access not configured" });
-  });
-  return app;
-}
-
-const reviewerApp = buildReviewerApp();
-
-// Helper: POST /api/reviewer/sign-in-token with an explicit client IP via
-// X-Forwarded-For. The reviewerSignInLimiter keys on the leftmost XFF entry.
-function reviewerSignIn(ip: string) {
-  return request(reviewerApp)
-    .post("/api/reviewer/sign-in-token")
-    .set("x-forwarded-for", ip)
-    .send({ code: "GUESS" });
-}
-
-describe("POST /api/reviewer/sign-in-token rate-limit protection", () => {
-  it("returns 503 when reviewer access is not configured (limiter not yet exhausted)", async () => {
-    const res = await reviewerSignIn("172.16.0.200");
-    expect(res.status).toBe(503);
-  });
-
-  it(`blocks the ${REDEEM_REVIEWER_LIMIT + 1}th request from the same IP with 429`, async () => {
-    const ip = "172.16.0.10";
-
-    // reviewerSignInLimiter allows up to REDEEM_REVIEWER_LIMIT requests per 10-minute window.
-    // All of them should reach the stub handler and get 503.
-    for (let i = 0; i < REDEEM_REVIEWER_LIMIT; i++) {
-      const res = await reviewerSignIn(ip);
-      expect(res.status).toBe(503);
-    }
-
-    // The next request from the same IP must be blocked before it reaches the
-    // handler — the rate limiter fires and returns 429.
-    const blocked = await reviewerSignIn(ip);
-    expect(blocked.status).toBe(429);
-  }, 15000);
-
-  it("includes Retry-After in the 429 response", async () => {
-    const ip = "172.16.0.11";
-
-    for (let i = 0; i < REDEEM_REVIEWER_LIMIT; i++) {
-      await reviewerSignIn(ip);
-    }
-
-    const blocked = await reviewerSignIn(ip);
-    expect(blocked.status).toBe(429);
-    expect(blocked.headers["retry-after"]).toBeTruthy();
-  }, 15000);
-
-  it("does not rate-limit a different IP even when another IP is exhausted", async () => {
-    const exhaustedIp = "172.16.0.20";
-    const freshIp = "172.16.0.21";
-
-    // Exhaust the limit for exhaustedIp.
-    for (let i = 0; i < REDEEM_REVIEWER_LIMIT; i++) {
-      await reviewerSignIn(exhaustedIp);
-    }
-    expect((await reviewerSignIn(exhaustedIp)).status).toBe(429);
-
-    // A completely different IP must still be served normally (gets 503, not 429).
-    const res = await reviewerSignIn(freshIp);
     expect(res.status).toBe(503);
   }, 15000);
 });

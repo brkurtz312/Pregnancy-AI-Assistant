@@ -13,7 +13,6 @@ export const RATE_LIMIT_PREFIXES = {
   aiBurst: "ai-burst",
   aiDaily: "ai-daily",
   redeemCode: "redeem-code",
-  reviewerSignIn: "reviewer-sign-in",
 } as const;
 
 export type RateLimitPrefix =

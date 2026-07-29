@@ -64,7 +64,7 @@ describe("PostgresRateLimitStore — duplicate-prefix guard", () => {
     }).not.toThrow();
   });
 
-  it("does not throw when all four production prefixes are each constructed exactly once", () => {
+  it("does not throw when all production prefixes are each constructed exactly once", () => {
     expect(() => {
       for (const prefix of Object.values(RATE_LIMIT_PREFIXES)) {
         new PostgresRateLimitStore(prefix);
@@ -74,7 +74,7 @@ describe("PostgresRateLimitStore — duplicate-prefix guard", () => {
 
   it("correctly tracks the registry — a duplicate after several distinct registrations also throws", () => {
     new PostgresRateLimitStore(RATE_LIMIT_PREFIXES.redeemCode);
-    new PostgresRateLimitStore(RATE_LIMIT_PREFIXES.reviewerSignIn);
+    new PostgresRateLimitStore(RATE_LIMIT_PREFIXES.aiDaily);
 
     expect(
       () => new PostgresRateLimitStore(RATE_LIMIT_PREFIXES.redeemCode),

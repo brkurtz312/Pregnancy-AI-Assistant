@@ -35,7 +35,7 @@ import {
 // hermetic — the test IPs (documentation range) ensure rows created here
 // never collide with real traffic.
 const PREFIX_A = RATE_LIMIT_PREFIXES.redeemCode;
-const PREFIX_B = RATE_LIMIT_PREFIXES.reviewerSignIn;
+const PREFIX_B = RATE_LIMIT_PREFIXES.aiDaily;
 
 // A representative client key (e.g. a normalised IPv6 /56 or an IPv4 address).
 // Using the documentation range (RFC 5737) so rows never collide with real traffic.
@@ -51,7 +51,7 @@ const AI_TEST_IP = "203.0.113.99";
 // IP used by the "mirrors production key-prefix naming" test (also RFC 5737).
 const MIRRORS_IP = "198.51.100.1";
 
-// IP used exclusively for the redeem-code / reviewer-sign-in restart tests.
+// IP used exclusively for the redeem-code restart tests.
 const RESTART_TEST_IP = "192.0.2.2";
 
 /** Remove all rows written by this test file. */
@@ -68,17 +68,10 @@ async function cleanTestRows() {
           rateLimitsTable.key,
           `${RATE_LIMIT_PREFIXES.redeemCode}:${MIRRORS_IP}`,
         ),
-        eq(
-          rateLimitsTable.key,
-          `${RATE_LIMIT_PREFIXES.reviewerSignIn}:${MIRRORS_IP}`,
-        ),
+        eq(rateLimitsTable.key, `${RATE_LIMIT_PREFIXES.aiDaily}:${MIRRORS_IP}`),
         eq(
           rateLimitsTable.key,
           `${RATE_LIMIT_PREFIXES.redeemCode}:${RESTART_TEST_IP}`,
-        ),
-        eq(
-          rateLimitsTable.key,
-          `${RATE_LIMIT_PREFIXES.reviewerSignIn}:${RESTART_TEST_IP}`,
         ),
       ),
     );
@@ -253,26 +246,26 @@ describe("PostgresRateLimitStore — prefix isolation", () => {
 
   it("mirrors the production key-prefix naming used by the real limiters", async () => {
     // Regression guard: the production store uses "<prefix>:<clientKey>" as
-    // the DB primary key. Two limiters — "redeem-code" and "reviewer-sign-in"
+    // the DB primary key. Two limiters — "redeem-code" and "ai-daily"
     // — must not share a counter even though they key on the same client IP.
     const redeemStore = makeStore(RATE_LIMIT_PREFIXES.redeemCode);
-    const reviewerStore = makeStore(RATE_LIMIT_PREFIXES.reviewerSignIn);
+    const aiDailyStore = makeStore(RATE_LIMIT_PREFIXES.aiDaily);
 
     try {
       await redeemStore.resetKey(MIRRORS_IP);
-      await reviewerStore.resetKey(MIRRORS_IP);
+      await aiDailyStore.resetKey(MIRRORS_IP);
 
       await redeemStore.increment(MIRRORS_IP);
       await redeemStore.increment(MIRRORS_IP);
       const redeem = await redeemStore.increment(MIRRORS_IP);
 
-      const reviewer = await reviewerStore.increment(MIRRORS_IP);
+      const aiDaily = await aiDailyStore.increment(MIRRORS_IP);
 
       expect(redeem.totalHits).toBe(3);
-      expect(reviewer.totalHits).toBe(1);
+      expect(aiDaily.totalHits).toBe(1);
     } finally {
       await redeemStore.resetKey(MIRRORS_IP);
-      await reviewerStore.resetKey(MIRRORS_IP);
+      await aiDailyStore.resetKey(MIRRORS_IP);
     }
   });
 });
@@ -561,71 +554,6 @@ describe("redeem-code limiter — 10-minute window and server-restart survival",
     // Brand-new object, same prefix — simulates the store being reconstructed
     // after a process restart or autoscale spin-up.
     const instanceB = makeRedeemStore();
-    const result = await instanceB.increment(RESTART_TEST_IP);
-
-    // Counter must continue from where instanceA left off (2 + 1 = 3),
-    // not restart at 1 as an in-memory store would.
-    expect(result.totalHits).toBe(3);
-
-    // resetTime on the resumed counter must still be ~10 minutes from now,
-    // not reset to 60 seconds or 24 hours.
-    const resetMs = result.resetTime.getTime();
-    expect(resetMs).toBeGreaterThan(Date.now() + 60 * 1000);
-    expect(resetMs).toBeLessThan(Date.now() + 24 * 60 * 60 * 1000);
-  });
-});
-
-// ─── reviewer-sign-in limiter — 10-minute window ─────────────────────────────
-
-describe("reviewer-sign-in limiter — 10-minute window and server-restart survival", () => {
-  function makeReviewerStore(): PostgresRateLimitStore {
-    const store = new PostgresRateLimitStore(
-      RATE_LIMIT_PREFIXES.reviewerSignIn,
-    );
-    store.init({ windowMs: REDEEM_REVIEWER_WINDOW_MS } as Parameters<
-      PostgresRateLimitStore["init"]
-    >[0]);
-    return store;
-  }
-
-  it("starts at totalHits=1 with a resetTime roughly 10 minutes out", async () => {
-    const store = makeReviewerStore();
-    const before = Date.now();
-    const result = await store.increment(RESTART_TEST_IP);
-    const after = Date.now();
-
-    expect(result.totalHits).toBe(1);
-
-    // resetTime must fall within the 10-minute window (with a small buffer).
-    const resetMs = result.resetTime.getTime();
-    expect(resetMs).toBeGreaterThan(before + REDEEM_REVIEWER_WINDOW_MS - 2_000);
-    expect(resetMs).toBeLessThan(after + REDEEM_REVIEWER_WINDOW_MS + 2_000);
-
-    // Confirm it is NOT a 60-second or 24-hour window.
-    expect(resetMs).toBeGreaterThan(after + 60 * 1000);
-    expect(resetMs).toBeLessThan(before + 24 * 60 * 60 * 1000);
-  });
-
-  it("accumulates hits within the same 10-minute window", async () => {
-    const store = makeReviewerStore();
-    await store.increment(RESTART_TEST_IP);
-    await store.increment(RESTART_TEST_IP);
-    const r = await store.increment(RESTART_TEST_IP);
-
-    expect(r.totalHits).toBe(3);
-  });
-
-  it("survives a simulated server restart — a fresh store object continues from the persisted count", async () => {
-    const instanceA = makeReviewerStore();
-    await instanceA.increment(RESTART_TEST_IP);
-    await instanceA.increment(RESTART_TEST_IP);
-
-    // Simulate process restart: the new process begins with a clean registry.
-    _resetPrefixRegistryForTesting();
-
-    // Brand-new object, same prefix — simulates the store being reconstructed
-    // after a process restart or autoscale spin-up.
-    const instanceB = makeReviewerStore();
     const result = await instanceB.increment(RESTART_TEST_IP);
 
     // Counter must continue from where instanceA left off (2 + 1 = 3),
