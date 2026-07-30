@@ -327,6 +327,9 @@ describe("journal-entry.tsx — handleSave storage-full alert wiring", () => {
 
     const savedLocallyCall = calls.find((args) => args[0] === "Saved locally");
     expect(savedLocallyCall).toBeDefined();
+    expect(savedLocallyCall![1]).toBe(
+      "No connection — your entry is saved on this device and will sync automatically when you're back online.",
+    );
 
     const genericCall = calls.find((args) => args[0] === "Couldn't save");
     expect(genericCall).toBeUndefined();
