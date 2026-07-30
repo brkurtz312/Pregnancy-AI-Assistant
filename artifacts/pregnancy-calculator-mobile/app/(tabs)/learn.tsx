@@ -227,7 +227,16 @@ export default function LearnScreen() {
   function handleResultPress(route: string) {
     Keyboard.dismiss();
     setQuery("");
-    router.push(route as Parameters<typeof router.push>[0]);
+    // Append a unique nonce to every /video-vault?topic=… route so the
+    // deepLinkVersion counter in VideoVaultScreen always increments — even when
+    // the user taps the same search result twice in a row without navigating
+    // elsewhere first.  Without the nonce the URL param value never changes,
+    // the useEffect dependency does not re-fire, and a manually-closed card
+    // stays closed.
+    const finalRoute = route.startsWith("/video-vault?topic=")
+      ? `${route}&t=${Date.now()}`
+      : route;
+    router.push(finalRoute as Parameters<typeof router.push>[0]);
   }
 
   return (

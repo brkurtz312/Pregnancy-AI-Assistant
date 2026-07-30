@@ -758,6 +758,29 @@ describe("TopicCard openTrigger — re-open after manual close", () => {
     return versions;
   }
 
+  // Simulates the nonce-aware counter introduced to fix the "same topic tapped
+  // twice" edge case.  The screen now reads both `topic` and `t` (nonce) from
+  // the URL params and increments the version when either changes, so that
+  // learn.tsx's `Date.now()` nonce always forces a re-open even when the topic
+  // ID is identical to the previous navigation.
+  function simulateScreenNavigationWithNonce(
+    navigations: Array<{ topicId?: string; nonce?: string }>,
+  ): number[] {
+    const versions: number[] = [];
+    let version = 0;
+    let prevTopicId: string | undefined = undefined;
+    let prevNonce: string | undefined = undefined;
+    for (const { topicId, nonce } of navigations) {
+      if (topicId && (topicId !== prevTopicId || nonce !== prevNonce)) {
+        version += 1;
+      }
+      prevTopicId = topicId;
+      prevNonce = nonce;
+      versions.push(version);
+    }
+    return versions;
+  }
+
   // Simulates the open/closed state inside a single TopicCard across renders.
   // `open` starts as `openTrigger > 0`; when the user toggles, `open` flips;
   // when `openTrigger` increases, the effect fires and forces `open = true`.
@@ -899,24 +922,99 @@ describe("TopicCard openTrigger — re-open after manual close", () => {
     }
   });
 
-  it("known limitation: identical param with no intervening change does not increment the counter", () => {
-    // If Expo Router keeps the screen mounted and the URL param value doesn't
-    // change (same topic tapped twice in a row without navigating elsewhere),
-    // the useEffect([deepLinkTopicId]) in the screen does NOT re-fire.
-    // In that case deepLinkVersion stays the same and openTrigger is unchanged.
-    // This scenario is expected to result in a stack-push remount by Expo
-    // Router (the screen is recreated with a fresh initialOpen state), so the
-    // card will open from initial state — this test documents that assumption.
+  // Previously documented as a "known limitation": tapping the same Video Vault
+  // search result twice in a row (without navigating elsewhere) left the URL
+  // param unchanged, so deepLinkVersion never incremented and a manually-closed
+  // card stayed closed.
+  //
+  // Fix: learn.tsx's handleResultPress now appends `&t=${Date.now()}` to every
+  // /video-vault?topic=… URL, and video-vault.tsx's useEffect now depends on
+  // BOTH [deepLinkTopicId, _deepLinkNonce].  A new nonce on each tap is
+  // sufficient to increment the counter even when the topic ID is identical.
+  //
+  // The tests below verify the fix using simulateScreenNavigationWithNonce.
+
+  it("nonce fix: same topic tapped twice with different nonces increments the counter each time", () => {
     const topicA = VIDEO_VAULT_TOPICS[0];
-    const navSequence = [topicA.id, topicA.id]; // same topic twice, no change
-    const versions = simulateScreenNavigation(navSequence);
-    // Counter does NOT increment because prevDeepLink === deepLinkTopicId
+    const navSequence = [
+      { topicId: topicA.id, nonce: "1000" },
+      { topicId: topicA.id, nonce: "1001" }, // same topic, fresh nonce
+    ];
+    const versions = simulateScreenNavigationWithNonce(navSequence);
+    // Both taps produce a new version because the nonce changed
     expect(versions[0]).toBe(1);
-    expect(versions[1]).toBe(1); // unchanged — no new navigation detected
-    // At the component level: openTrigger stays at 1 (doesn't go to 2).
-    // The card was closed by the user and openTrigger didn't change → stays
-    // closed at the state-machine level. In practice Expo Router remounts the
-    // screen on a fresh push, so the component gets fresh useState(true) anyway.
+    expect(versions[1]).toBe(2);
+  });
+
+  it("nonce fix: manually-closed card re-opens on second tap of the same topic", () => {
+    const topicA = VIDEO_VAULT_TOPICS[0];
+    const navSequence = [
+      { topicId: topicA.id, nonce: "2000" },
+      { topicId: topicA.id, nonce: "2001" }, // same topic, fresh nonce
+    ];
+    const versions = simulateScreenNavigationWithNonce(navSequence);
+    // openTrigger for topic A at each step
+    const triggersForA = navSequence.map(({ topicId }, i) =>
+      topicId === topicA.id ? versions[i] : 0,
+    );
+    expect(triggersForA).toEqual([1, 2]);
+    // User opens at step 0, manually closes, taps same topic at step 1
+    const cardStates = simulateCardState(triggersForA, 0);
+    expect(cardStates[0]).toBe(false); // closed by user after first tap
+    expect(cardStates[1]).toBe(true); // re-opened by second tap (trigger 1→2)
+  });
+
+  it("nonce fix: three consecutive taps on the same topic each increment the counter", () => {
+    const topicA = VIDEO_VAULT_TOPICS[0];
+    const navSequence = [
+      { topicId: topicA.id, nonce: "3000" },
+      { topicId: topicA.id, nonce: "3001" },
+      { topicId: topicA.id, nonce: "3002" },
+    ];
+    const versions = simulateScreenNavigationWithNonce(navSequence);
+    expect(versions).toEqual([1, 2, 3]);
+  });
+
+  it("nonce fix: same nonce on consecutive taps does NOT re-increment (duplicate event guard)", () => {
+    // If somehow the same nonce appears twice (e.g. rapid double-fire of the
+    // same event), the counter should not increment a second time.
+    const topicA = VIDEO_VAULT_TOPICS[0];
+    const navSequence = [
+      { topicId: topicA.id, nonce: "4000" },
+      { topicId: topicA.id, nonce: "4000" }, // exact same nonce — no increment
+    ];
+    const versions = simulateScreenNavigationWithNonce(navSequence);
+    expect(versions[0]).toBe(1);
+    expect(versions[1]).toBe(1); // unchanged — identical topic+nonce pair
+  });
+
+  it("nonce fix: non-video-vault routes in handleResultPress are NOT given a nonce", () => {
+    // Only /video-vault?topic=… routes get the &t= nonce appended.
+    // Support-person and healthy-pregnancy routes must remain unchanged so
+    // their screens (which don't use a deepLinkVersion counter) are unaffected.
+    const allResults = buildSearchIndex();
+    const nonVaultResults = allResults.filter(
+      (r) => r.section !== "videovault",
+    );
+    for (const result of nonVaultResults) {
+      // Simulate handleResultPress logic: nonce only appended to vault routes
+      const finalRoute = result.route.startsWith("/video-vault?topic=")
+        ? `${result.route}&t=12345`
+        : result.route;
+      expect(finalRoute).toBe(result.route); // no nonce added
+    }
+  });
+
+  it("nonce fix: every video-vault result route gets a nonce appended by handleResultPress logic", () => {
+    const allResults = buildSearchIndex();
+    const vaultResults = allResults.filter((r) => r.section === "videovault");
+    for (const result of vaultResults) {
+      // Simulate handleResultPress logic
+      const finalRoute = result.route.startsWith("/video-vault?topic=")
+        ? `${result.route}&t=99999`
+        : result.route;
+      expect(finalRoute).toMatch(/^\/video-vault\?topic=.+&t=99999$/);
+    }
   });
 });
 

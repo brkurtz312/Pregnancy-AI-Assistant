@@ -148,7 +148,10 @@ function TopicCard({
 export default function VideoVaultScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { topic: _rawTopic } = useLocalSearchParams<{ topic?: string }>();
+  const { topic: _rawTopic, t: _deepLinkNonce } = useLocalSearchParams<{
+    topic?: string;
+    t?: string;
+  }>();
   const deepLinkTopicId: VideoVaultTopicId | undefined =
     VIDEO_VAULT_TOPIC_IDS.includes(_rawTopic as VideoVaultTopicId)
       ? (_rawTopic as VideoVaultTopicId)
@@ -157,18 +160,30 @@ export default function VideoVaultScreen() {
   const [filterSource, setFilterSource] = useState("All");
 
   // Monotonically-increasing counter: increments every time deepLinkTopicId
-  // changes to a non-empty value. Passed as `openTrigger` to the matching
-  // TopicCard so that tapping the same search result a second time (after the
-  // user manually closed the card) still re-opens it, even when the URL param
-  // value did not change between navigations.
+  // is set AND either the topic ID or the nonce changes.  The nonce (`t`) is
+  // appended by learn.tsx's handleResultPress as `Date.now()`, making every
+  // tap produce a unique URL even when the same topic is tapped twice in a row.
+  // Without the nonce, repeating the same topic leaves `deepLinkTopicId`
+  // unchanged so the effect would not re-fire and a manually-closed card would
+  // stay closed.
+  const prevDeepLinkRef = useRef<{
+    topicId: VideoVaultTopicId | undefined;
+    nonce: string | undefined;
+  }>({ topicId: undefined, nonce: undefined });
   const [deepLinkVersion, setDeepLinkVersion] = useState(0);
-  const prevDeepLinkRef = useRef<VideoVaultTopicId | undefined>(undefined);
   useEffect(() => {
-    if (deepLinkTopicId && deepLinkTopicId !== prevDeepLinkRef.current) {
+    const prev = prevDeepLinkRef.current;
+    if (
+      deepLinkTopicId &&
+      (deepLinkTopicId !== prev.topicId || _deepLinkNonce !== prev.nonce)
+    ) {
       setDeepLinkVersion((v) => v + 1);
     }
-    prevDeepLinkRef.current = deepLinkTopicId;
-  }, [deepLinkTopicId]);
+    prevDeepLinkRef.current = {
+      topicId: deepLinkTopicId,
+      nonce: _deepLinkNonce,
+    };
+  }, [deepLinkTopicId, _deepLinkNonce]);
 
   const { totalVideos, verifiedCount, topicCount } = useMemo(
     () => getVideoVaultTotals(),
