@@ -1,7 +1,9 @@
-import { useSignUp } from "@clerk/expo";
+import { useSSO, useSignUp } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
+import * as AuthSession from "expo-auth-session";
 import { type Href, useRouter } from "expo-router";
-import React, { useState } from "react";
+import * as WebBrowser from "expo-web-browser";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -17,15 +19,34 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 
+// Handles the OAuth callback redirect on Android. This must be called at
+// module level so it runs before the component tree mounts.
+WebBrowser.maybeCompleteAuthSession();
+
+function useWarmUpBrowser() {
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    void WebBrowser.warmUpAsync();
+    return () => {
+      void WebBrowser.coolDownAsync();
+    };
+  }, []);
+}
+
 export default function SignUpScreen() {
+  useWarmUpBrowser();
+
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { signUp, errors, fetchStatus } = useSignUp();
+  const { startSSOFlow } = useSSO();
 
   const [emailAddress, setEmailAddress] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
 
   const fetching = fetchStatus === "fetching";
   const showVerify =
@@ -57,6 +78,32 @@ export default function SignUpScreen() {
       });
     }
   };
+
+  const onGooglePress = useCallback(async () => {
+    if (googleLoading) return;
+    setGoogleLoading(true);
+    setGoogleError(null);
+    try {
+      const { createdSessionId, setActive } = await startSSOFlow({
+        strategy: "oauth_google",
+        // makeRedirectUri reads the scheme from app.json ("pregnancy-calculator-mobile")
+        // and constructs the correct deep-link callback URL for both iOS and Android.
+        redirectUrl: AuthSession.makeRedirectUri({
+          scheme: "pregnancy-calculator-mobile",
+        }),
+      });
+
+      if (createdSessionId && setActive) {
+        await setActive({ session: createdSessionId });
+        router.replace("/" as Href);
+      }
+    } catch (err) {
+      console.error("Google sign-up error:", JSON.stringify(err, null, 2));
+      setGoogleError("Google sign-in failed. Please try again.");
+    } finally {
+      setGoogleLoading(false);
+    }
+  }, [googleLoading, startSSOFlow, router]);
 
   return (
     <View style={[styles.fill, { backgroundColor: colors.background }]}>
@@ -94,6 +141,66 @@ export default function SignUpScreen() {
                 Save your free questions and unlock the Full Pregnancy Pass on
                 every device.
               </Text>
+
+              {/* Google SSO */}
+              <TouchableOpacity
+                style={[
+                  styles.googleBtn,
+                  {
+                    borderColor: colors.border,
+                    backgroundColor: colors.card,
+                    opacity: googleLoading ? 0.7 : 1,
+                  },
+                ]}
+                onPress={onGooglePress}
+                disabled={googleLoading}
+              >
+                {googleLoading ? (
+                  <ActivityIndicator color={colors.foreground} />
+                ) : (
+                  <>
+                    <GoogleIcon />
+                    <Text
+                      style={[
+                        styles.googleBtnText,
+                        { color: colors.foreground },
+                      ]}
+                    >
+                      Continue with Google
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              {googleError && (
+                <Text style={[styles.error, { color: colors.destructive }]}>
+                  {googleError}
+                </Text>
+              )}
+
+              {/* Divider */}
+              <View style={styles.dividerRow}>
+                <View
+                  style={[
+                    styles.dividerLine,
+                    { backgroundColor: colors.border },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.dividerText,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  or
+                </Text>
+                <View
+                  style={[
+                    styles.dividerLine,
+                    { backgroundColor: colors.border },
+                  ]}
+                />
+              </View>
 
               <Text style={[styles.label, { color: colors.foreground }]}>
                 Email
@@ -262,6 +369,15 @@ export default function SignUpScreen() {
   );
 }
 
+/** Inline Google "G" logo rendered as a simple colored-block. */
+function GoogleIcon() {
+  return (
+    <View style={styles.googleIconContainer}>
+      <Text style={styles.googleIconText}>G</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   content: { paddingHorizontal: 24, gap: 6 },
@@ -282,6 +398,43 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 12,
   },
+  googleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 13,
+    gap: 10,
+    marginTop: 8,
+    minHeight: 50,
+  },
+  googleIconContainer: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "#4285F4",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  googleIconText: {
+    color: "#fff",
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    lineHeight: 16,
+  },
+  googleBtnText: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+  },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginVertical: 4,
+  },
+  dividerLine: { flex: 1, height: 1 },
+  dividerText: { fontSize: 13, fontFamily: "Inter_400Regular" },
   label: {
     fontSize: 13,
     fontFamily: "Inter_600SemiBold",
