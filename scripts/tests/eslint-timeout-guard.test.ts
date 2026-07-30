@@ -13,7 +13,13 @@
  *  - the test is self-contained and fast (no subprocesses)
  */
 
-import { describe, it, expect } from "vitest";
+import { beforeAll, describe, it, expect, vi } from "vitest";
+
+// ESLint config parsing is expensive. Under parallel test-suite load the
+// first lintText() call can exceed vitest's default 5 s timeout. Bump the
+// timeout for this entire file and pre-warm the shared instance so the
+// config is fully loaded before any test begins.
+vi.setConfig({ testTimeout: 30_000 });
 import { ESLint } from "eslint";
 import * as path from "path";
 import { fileURLToPath } from "url";
@@ -27,17 +33,32 @@ const CONFIG_FILE = path.join(WORKSPACE_ROOT, "eslint.config.mjs");
 // Helper
 // ---------------------------------------------------------------------------
 
+// Shared ESLint instance — created once at module load time so that the
+// expensive config-parse step is not repeated for every individual test.
+// All lintText() calls are stateless so sharing is safe.
+const eslint = new ESLint({
+  overrideConfigFile: CONFIG_FILE,
+  // cwd must match the workspace root so that the files globs in the
+  // flat config (e.g. "**/*.test.{ts,tsx}") resolve correctly against
+  // the absolute filePath we pass to lintText().
+  cwd: WORKSPACE_ROOT,
+});
+
+// Pre-warm: trigger the first lintText() before any describe block runs so
+// that ESLint's config-load cost is paid during beforeAll (which has its own
+// 30 s budget) rather than inside the first test (which would race against
+// whatever the individual test timeout happens to be).
+beforeAll(async () => {
+  await eslint.lintText("// warm-up", {
+    filePath: path.join(WORKSPACE_ROOT, "lib/db/src/warm-up.ts"),
+    warnIgnored: false,
+  });
+}, 60_000);
+
 async function lintAs(
   code: string,
   workspaceRelativePath: string,
 ): Promise<ESLint.LintResult> {
-  const eslint = new ESLint({
-    overrideConfigFile: CONFIG_FILE,
-    // cwd must match the workspace root so that the files globs in the
-    // flat config (e.g. "**/*.test.{ts,tsx}") resolve correctly against
-    // the absolute filePath we pass to lintText().
-    cwd: WORKSPACE_ROOT,
-  });
   const results = await eslint.lintText(code, {
     filePath: path.join(WORKSPACE_ROOT, workspaceRelativePath),
     warnIgnored: false,

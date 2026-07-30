@@ -11,6 +11,8 @@
  *                    → clearJournalCache / clearHospitalBagCache /
  *                       clearBirthPlanCache / clearVisitQuestionsCache called
  *   User B signs in  → queryClient.invalidateQueries() is called (fresh fetch)
+ *   Stale tenant 401 → signOut() is called so Clerk clears the token cache
+ *                      and the sign-in screen is shown
  *
  * This mirrors session-switch-isolation.spec.ts on the web side.
  */
@@ -21,11 +23,26 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 jest.mock("@clerk/expo", () => ({
   useSession: jest.fn(),
+  useClerk: jest.fn(),
 }));
 
-jest.mock("@workspace/api-client-react", () => ({
-  setAuthTokenGetter: jest.fn(),
-}));
+jest.mock("@workspace/api-client-react", () => {
+  // Define ApiError inside the factory so the same class is used by both the
+  // production module (imported by AuthTokenBridge) and the test helpers below.
+  // instanceof checks work correctly because both sides share this one class.
+  class ApiError extends Error {
+    status: number;
+    constructor(status: number, message?: string) {
+      super(message ?? String(status));
+      this.name = "ApiError";
+      this.status = status;
+    }
+  }
+  return {
+    setAuthTokenGetter: jest.fn(),
+    ApiError,
+  };
+});
 
 jest.mock("@/lib/journal", () => ({
   clearJournalCache: jest.fn(async () => {}),
@@ -43,8 +60,25 @@ jest.mock("@/lib/visit-questions", () => ({
   clearVisitQuestionsCache: jest.fn(async () => {}),
 }));
 
-import { useSession } from "@clerk/expo";
-import { setAuthTokenGetter } from "@workspace/api-client-react";
+import { useClerk, useSession } from "@clerk/expo";
+import { ApiError, setAuthTokenGetter } from "@workspace/api-client-react";
+
+/**
+ * Construct a mock ApiError for tests.
+ *
+ * TypeScript resolves `ApiError` to the real 3-param constructor from the
+ * original module declaration. Jest replaces the module at runtime with our
+ * simplified 2-param mock class. We cast through `unknown` so TypeScript
+ * accepts the simplified call; at runtime the mocked class is used, which
+ * preserves instanceof behaviour inside AuthTokenBridge.
+ */
+const MockApiErrorCtor = ApiError as unknown as new (
+  status: number,
+  msg?: string,
+) => ApiError;
+function makeApiError(status: number): ApiError {
+  return new MockApiErrorCtor(status);
+}
 import { clearJournalCache } from "@/lib/journal";
 import { clearHospitalBagCache } from "@/lib/hospital-bag";
 import { clearBirthPlanCache } from "@/lib/birth-plan";
@@ -52,6 +86,7 @@ import { clearVisitQuestionsCache } from "@/lib/visit-questions";
 import { AuthTokenBridge } from "../components/AuthTokenBridge";
 
 const mockUseSession = useSession as jest.Mock;
+const mockUseClerk = useClerk as jest.Mock;
 const mockSetAuthTokenGetter = setAuthTokenGetter as jest.Mock;
 const mockClearJournal = clearJournalCache as jest.Mock;
 const mockClearHospitalBag = clearHospitalBagCache as jest.Mock;
@@ -62,8 +97,13 @@ function makeSession(id: string) {
   return { getToken: jest.fn(async () => `token-${id}`) };
 }
 
-function renderBridge(queryClient: QueryClient, session: unknown) {
+function renderBridge(
+  queryClient: QueryClient,
+  session: unknown,
+  signOut?: jest.Mock,
+) {
   mockUseSession.mockReturnValue({ session });
+  mockUseClerk.mockReturnValue({ signOut: signOut ?? jest.fn(async () => {}) });
   let renderer!: ReturnType<typeof create>;
   act(() => {
     renderer = create(
@@ -272,5 +312,107 @@ describe("AuthTokenBridge — session-switch isolation", () => {
 
     expect(invalidate).not.toHaveBeenCalled();
     expect(clear).not.toHaveBeenCalled();
+  });
+});
+
+describe("AuthTokenBridge — stale-tenant 401 guard", () => {
+  it("calls signOut when a query settles in error state with a 401 while a session is active", async () => {
+    const mockSignOut = jest.fn(async () => {});
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
+    renderBridge(qc, makeSession("userA"), mockSignOut);
+    await act(async () => {});
+
+    // Simulate a query failing with a persistent 401 (e.g. stale tenant token).
+    await act(async () => {
+      await qc
+        .fetchQuery({
+          queryKey: ["stale-tenant-test"],
+          queryFn: () => Promise.reject(makeApiError(401)),
+          retry: false,
+        })
+        .catch(() => {});
+    });
+
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT call signOut when a query fails with a non-401 error (e.g. 500)", async () => {
+    const mockSignOut = jest.fn(async () => {});
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
+    renderBridge(qc, makeSession("userA"), mockSignOut);
+    await act(async () => {});
+
+    await act(async () => {
+      await qc
+        .fetchQuery({
+          queryKey: ["server-error-test"],
+          queryFn: () => Promise.reject(makeApiError(500)),
+          retry: false,
+        })
+        .catch(() => {});
+    });
+
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
+  it("does NOT call signOut when a 401 arrives but the session is already null", async () => {
+    const mockSignOut = jest.fn(async () => {});
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
+    // Session is null from the start — already signed out.
+    renderBridge(qc, null, mockSignOut);
+    await act(async () => {});
+
+    await act(async () => {
+      await qc
+        .fetchQuery({
+          queryKey: ["signed-out-401-test"],
+          queryFn: () => Promise.reject(makeApiError(401)),
+          retry: false,
+        })
+        .catch(() => {});
+    });
+
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
+  it("only calls signOut once even when multiple queries fail with 401 simultaneously", async () => {
+    const mockSignOut = jest.fn(async () => {});
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
+    renderBridge(qc, makeSession("userA"), mockSignOut);
+    await act(async () => {});
+
+    // Fire two concurrent 401 errors.
+    await act(async () => {
+      await Promise.all([
+        qc
+          .fetchQuery({
+            queryKey: ["stale-401-a"],
+            queryFn: () => Promise.reject(makeApiError(401)),
+            retry: false,
+          })
+          .catch(() => {}),
+        qc
+          .fetchQuery({
+            queryKey: ["stale-401-b"],
+            queryFn: () => Promise.reject(makeApiError(401)),
+            retry: false,
+          })
+          .catch(() => {}),
+      ]);
+    });
+
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
   });
 });

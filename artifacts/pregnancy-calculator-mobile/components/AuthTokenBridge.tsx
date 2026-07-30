@@ -1,6 +1,6 @@
-import { useSession } from "@clerk/expo";
+import { useClerk, useSession } from "@clerk/expo";
 import { useQueryClient } from "@tanstack/react-query";
-import { setAuthTokenGetter } from "@workspace/api-client-react";
+import { ApiError, setAuthTokenGetter } from "@workspace/api-client-react";
 import { useEffect, useRef } from "react";
 import { clearJournalCache } from "@/lib/journal";
 import { clearHospitalBagCache } from "@/lib/hospital-bag";
@@ -30,9 +30,13 @@ import { clearVisitQuestionsCache } from "@/lib/visit-questions";
  */
 export function AuthTokenBridge() {
   const { session } = useSession();
+  const { signOut } = useClerk();
   const queryClient = useQueryClient();
   const sessionRef = useRef(session);
   const prevSessionRef = useRef(session);
+  // Prevent redundant signOut() calls when multiple queries all fail with 401
+  // at the same time (e.g. on initial load with a stale tenant token).
+  const signingOutRef = useRef(false);
 
   // Keep ref current synchronously on every render so the getter closure
   // always sees the latest session without needing to re-register.
@@ -50,6 +54,34 @@ export function AuthTokenBridge() {
     });
     return () => setAuthTokenGetter(null);
   }, []);
+
+  useEffect(() => {
+    // Watch the query cache for persistent 401 errors while Clerk still holds a
+    // session. This covers the "stale tenant" scenario: the device has a cached
+    // token from the old Clerk tenant that will never validate against the new
+    // API. React Query exhausts its retries, lands the query in error state, and
+    // we detect it here — then call signOut() so Clerk clears the token cache
+    // and the app routes the user to the sign-in screen.
+    const cache = queryClient.getQueryCache();
+    const unsubscribe = cache.subscribe((event) => {
+      if (event.type !== "updated") return;
+      if (event.query.state.status !== "error") return;
+      const err = event.query.state.error;
+      if (!(err instanceof ApiError) || err.status !== 401) return;
+      // Only act when Clerk thinks we're signed in — a 401 while already signed
+      // out is expected (unauthenticated request) and should not trigger another
+      // sign-out cycle.
+      if (sessionRef.current == null) return;
+      if (signingOutRef.current) return;
+      signingOutRef.current = true;
+      signOut()
+        .catch(() => {})
+        .finally(() => {
+          signingOutRef.current = false;
+        });
+    });
+    return unsubscribe;
+  }, [queryClient, signOut]);
 
   useEffect(() => {
     const wasSignedIn = prevSessionRef.current != null;

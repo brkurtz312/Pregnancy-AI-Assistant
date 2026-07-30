@@ -1,12 +1,19 @@
 /**
  * Regression guard for SessionWatcher: proves that the React Query cache is
  * fully cleared the moment a Clerk session transitions from active to null
- * (i.e. the user signs out).
+ * (i.e. the user signs out), and that a persistent 401 while Clerk thinks the
+ * user is signed in (stale tenant token) triggers an automatic sign-out.
  *
  * Why this matters: without the queryClient.clear() call in SessionWatcher,
  * stale authenticated data — pass status, free-question count, profile — would
  * remain in the cache after sign-out and flash to the next visitor before the
  * invalidation triggered by the subsequent sign-in completed.
+ *
+ * The stale-tenant guard covers the scenario where a device still has a token
+ * from the old Clerk tenant: the API returns 401 on every request, but Clerk
+ * still reports isSignedIn = true. Without the guard the user would see an
+ * infinite spinner or broken screen; with it, signOut() is called and the
+ * sign-in page is shown.
  */
 import {
   describe,
@@ -16,16 +23,52 @@ import {
   beforeEach,
   type MockedFunction,
 } from "vitest";
-import { render } from "@testing-library/react";
+import { render, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useSession } from "@clerk/react";
+import { useClerk, useSession } from "@clerk/react";
 import { SessionWatcher } from "@/components/session-watcher";
 
 vi.mock("@clerk/react", () => ({
   useSession: vi.fn(),
+  useClerk: vi.fn(),
 }));
 
+vi.mock("@workspace/api-client-react", () => {
+  // Define ApiError inside the factory so the same class is shared by the
+  // production module (imported by SessionWatcher) and the test helpers.
+  // instanceof checks work because both sides see the same class reference.
+  class ApiError extends Error {
+    status: number;
+    constructor(status: number, message?: string) {
+      super(message ?? String(status));
+      this.name = "ApiError";
+      this.status = status;
+    }
+  }
+  return { ApiError };
+});
+
+import { ApiError } from "@workspace/api-client-react";
+
+/**
+ * Construct a mock ApiError for tests.
+ *
+ * TypeScript resolves `ApiError` to the real 3-param constructor from the
+ * original module declaration. vitest replaces the module at runtime with our
+ * simplified 2-param mock class. We cast through `unknown` so TypeScript
+ * accepts the simplified call; at runtime the mocked class is used, which
+ * preserves instanceof behaviour inside SessionWatcher.
+ */
+const MockApiErrorCtor = ApiError as unknown as new (
+  status: number,
+  msg?: string,
+) => ApiError;
+function makeApiError(status: number): ApiError {
+  return new MockApiErrorCtor(status);
+}
+
 const mockUseSession = useSession as MockedFunction<typeof useSession>;
+const mockUseClerk = useClerk as MockedFunction<typeof useClerk>;
 
 type UseSessionReturn = ReturnType<typeof useSession>;
 
@@ -48,7 +91,15 @@ function signedOutState(): UseSessionReturn {
   } as UseSessionReturn;
 }
 
-function renderWatcher(queryClient: QueryClient) {
+type UseClerkReturn = ReturnType<typeof useClerk>;
+
+function renderWatcher(
+  queryClient: QueryClient,
+  signOut?: ReturnType<typeof vi.fn>,
+) {
+  mockUseClerk.mockReturnValue({
+    signOut: signOut ?? vi.fn(async () => {}),
+  } as unknown as UseClerkReturn);
   return render(
     <QueryClientProvider client={queryClient}>
       <SessionWatcher />
@@ -64,6 +115,9 @@ describe("SessionWatcher", () => {
       defaultOptions: { queries: { retry: false } },
     });
     vi.clearAllMocks();
+    mockUseClerk.mockReturnValue({
+      signOut: vi.fn(async () => {}),
+    } as unknown as UseClerkReturn);
   });
 
   it("calls queryClient.clear() when session transitions from active to null (sign-out)", () => {
@@ -227,5 +281,104 @@ describe("SessionWatcher", () => {
 
     expect(queryClient.getQueryData(passStatusKey)).toBeUndefined();
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+  });
+});
+
+describe("SessionWatcher — stale-tenant 401 guard", () => {
+  let queryClient: QueryClient;
+
+  beforeEach(() => {
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    vi.clearAllMocks();
+  });
+
+  it("calls signOut when a query settles in error state with a 401 while a session is active", async () => {
+    const mockSignOut = vi.fn(async () => {});
+    mockUseSession.mockReturnValue(signedInState());
+
+    renderWatcher(queryClient, mockSignOut);
+
+    // Trigger a persistent 401 — simulates a stale tenant token that the API
+    // will never accept.
+    await act(async () => {
+      await queryClient
+        .fetchQuery({
+          queryKey: ["stale-tenant-test"],
+          queryFn: () => Promise.reject(makeApiError(401)),
+          retry: false,
+        })
+        .catch(() => {});
+    });
+
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT call signOut when a query fails with a non-401 error (e.g. 500)", async () => {
+    const mockSignOut = vi.fn(async () => {});
+    mockUseSession.mockReturnValue(signedInState());
+
+    renderWatcher(queryClient, mockSignOut);
+
+    await act(async () => {
+      await queryClient
+        .fetchQuery({
+          queryKey: ["server-error-test"],
+          queryFn: () => Promise.reject(makeApiError(500)),
+          retry: false,
+        })
+        .catch(() => {});
+    });
+
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
+  it("does NOT call signOut when a 401 arrives but the session is already null", async () => {
+    const mockSignOut = vi.fn(async () => {});
+    // Already signed out.
+    mockUseSession.mockReturnValue(signedOutState());
+
+    renderWatcher(queryClient, mockSignOut);
+
+    await act(async () => {
+      await queryClient
+        .fetchQuery({
+          queryKey: ["signed-out-401-test"],
+          queryFn: () => Promise.reject(makeApiError(401)),
+          retry: false,
+        })
+        .catch(() => {});
+    });
+
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
+  it("only calls signOut once even when multiple queries fail with 401 simultaneously", async () => {
+    const mockSignOut = vi.fn(async () => {});
+    mockUseSession.mockReturnValue(signedInState());
+
+    renderWatcher(queryClient, mockSignOut);
+
+    await act(async () => {
+      await Promise.all([
+        queryClient
+          .fetchQuery({
+            queryKey: ["stale-401-a"],
+            queryFn: () => Promise.reject(makeApiError(401)),
+            retry: false,
+          })
+          .catch(() => {}),
+        queryClient
+          .fetchQuery({
+            queryKey: ["stale-401-b"],
+            queryFn: () => Promise.reject(makeApiError(401)),
+            retry: false,
+          })
+          .catch(() => {}),
+      ]);
+    });
+
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
   });
 });

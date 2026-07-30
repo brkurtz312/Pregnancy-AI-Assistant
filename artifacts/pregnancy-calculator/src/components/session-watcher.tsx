@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
-import { useSession } from "@clerk/react";
+import { useClerk, useSession } from "@clerk/react";
 import { useQueryClient } from "@tanstack/react-query";
+import { ApiError } from "@workspace/api-client-react";
 
 /**
  * Watches the Clerk session and keeps the React Query cache consistent:
@@ -9,12 +10,27 @@ import { useQueryClient } from "@tanstack/react-query";
  * - Sign-out (session → null): clear the entire cache so stale authenticated
  *   data (profile, pass status, AI usage) does not linger for the next user.
  *
+ * Stale-tenant guard: if any query exhausts its retries and lands in error
+ * state with a 401 while Clerk still holds a session, it means the cached
+ * session token is from the old Clerk tenant and will never validate. We call
+ * signOut() immediately so Clerk clears the token cache and the sign-in page
+ * is shown rather than a broken/spinner state.
+ *
  * Must be rendered inside both <ClerkProvider> and <QueryClientProvider>.
  */
 export function SessionWatcher() {
   const { session } = useSession();
+  const { signOut } = useClerk();
   const queryClient = useQueryClient();
   const prevSessionRef = useRef(session);
+  const sessionRef = useRef(session);
+  // Prevent redundant signOut() calls when multiple queries fail with 401
+  // simultaneously (e.g. on initial load with a stale tenant token).
+  const signingOutRef = useRef(false);
+
+  // Keep sessionRef current synchronously so the cache-subscription closure
+  // below always reads the latest session without needing to re-subscribe.
+  sessionRef.current = session;
 
   useEffect(() => {
     const wasSignedIn = prevSessionRef.current != null;
@@ -31,6 +47,34 @@ export function SessionWatcher() {
       queryClient.clear();
     }
   }, [session, queryClient]);
+
+  useEffect(() => {
+    // Watch the query cache for persistent 401 errors while Clerk still holds a
+    // session. This covers the "stale tenant" scenario: the browser has a cached
+    // token from the old Clerk tenant that will never validate against the new
+    // API. React Query exhausts its retries, lands the query in error state, and
+    // we detect it here — then call signOut() so Clerk clears the token cache
+    // and the sign-in page is rendered.
+    const cache = queryClient.getQueryCache();
+    const unsubscribe = cache.subscribe((event) => {
+      if (event.type !== "updated") return;
+      if (event.query.state.status !== "error") return;
+      const err = event.query.state.error;
+      if (!(err instanceof ApiError) || err.status !== 401) return;
+      // Only act when Clerk thinks we're signed in — a 401 while already signed
+      // out is expected (unauthenticated request) and must not trigger a
+      // redundant sign-out cycle.
+      if (sessionRef.current == null) return;
+      if (signingOutRef.current) return;
+      signingOutRef.current = true;
+      signOut()
+        .catch(() => {})
+        .finally(() => {
+          signingOutRef.current = false;
+        });
+    });
+    return unsubscribe;
+  }, [queryClient, signOut]);
 
   return null;
 }
