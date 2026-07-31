@@ -2,22 +2,22 @@
 
 ## What's included
 
-| File | Purpose |
-|---|---|
-| `watchapp/PregnancyWatchApp.swift` | Watch app entry point (`@main`) |
-| `watchapp/ContentView.swift` | Root tab view (3 tabs) |
-| `watchapp/KickCounterView.swift` | Fetal kick counter |
-| `watchapp/ContractionTimerView.swift` | Contraction timer with interval alert |
-| `watchapp/TipsView.swift` | Gestational-age tip cards |
-| `watchapp/WatchSessionManager.swift` | WCSession on the watch side |
-| `watchapp/Models.swift` | Shared data models & WCSession message keys |
-| `watchapp/PhoneWatchBridge.swift` | WCSession on the iPhone side |
-| `watchapp/WatchConnectivityModule.swift` | Expo Module that exposes the bridge to JavaScript |
-| `watchapp/Info.plist` | Watch App Info.plist |
-| `watchapp/PregnancyWatchApp.entitlements` | Watch App entitlements |
-| `plugins/withWatchExtension.js` | Expo config plugin (auto-wires everything into Xcode) |
-| `hooks/useWatchConnectivity.ts` | React hook for sending tips + receiving watch events |
-| `modules/WatchConnectivity.ts` | JS shim for the native module |
+| File                                      | Purpose                                               |
+| ----------------------------------------- | ----------------------------------------------------- |
+| `watchapp/PregnancyWatchApp.swift`        | Watch app entry point (`@main`)                       |
+| `watchapp/ContentView.swift`              | Root tab view (3 tabs)                                |
+| `watchapp/KickCounterView.swift`          | Fetal kick counter                                    |
+| `watchapp/ContractionTimerView.swift`     | Contraction timer with interval alert                 |
+| `watchapp/TipsView.swift`                 | Gestational-age tip cards                             |
+| `watchapp/WatchSessionManager.swift`      | WCSession on the watch side                           |
+| `watchapp/Models.swift`                   | Shared data models & WCSession message keys           |
+| `watchapp/PhoneWatchBridge.swift`         | WCSession on the iPhone side                          |
+| `watchapp/WatchConnectivityModule.swift`  | Expo Module that exposes the bridge to JavaScript     |
+| `watchapp/Info.plist`                     | Watch App Info.plist                                  |
+| `watchapp/PregnancyWatchApp.entitlements` | Watch App entitlements                                |
+| `plugins/withWatchExtension.js`           | Expo config plugin (auto-wires everything into Xcode) |
+| `hooks/useWatchConnectivity.ts`           | React hook for sending tips + receiving watch events  |
+| `modules/WatchConnectivity.ts`            | JS shim for the native module                         |
 
 ---
 
@@ -63,6 +63,7 @@ In `app.json`, add the plugin **before** `expo-build-properties`:
 ## Step 3 — Build with EAS
 
 The config plugin runs automatically during `eas build` and:
+
 - Copies Swift source files into the generated `ios/PregnancyWatchApp/` folder
 - Copies `PhoneWatchBridge.swift` and `WatchConnectivityModule.swift` into the main app's iOS folder
 - Adds the `PregnancyWatchApp` WatchKit Extension target to the Xcode project
@@ -83,7 +84,7 @@ Verify:
 1. **Targets** — you see `PregnancyWatchApp` alongside the main target
 2. **Signing** — set the Watch target's team and ensure `app.replit.pregnancycalculator.watchapp` is selected
 3. **App Group** — both targets have the App Group capability enabled
-4. **Embed Watch Content** — in the main target's **Build Phases**, the watch app is listed under *Embed Watch Content*
+4. **Embed Watch Content** — in the main target's **Build Phases**, the watch app is listed under _Embed Watch Content_
 
 If the plugin didn't fully configure signing, set it manually in the Watch target's **Signing & Capabilities** tab.
 
@@ -96,7 +97,10 @@ import { useWatchConnectivity } from "@/hooks/useWatchConnectivity";
 import { useListKickSessions } from "@workspace/api-client-react";
 
 function ToolsScreen() {
-  const { data: kickSessions, refetch } = useListKickSessions({ limit: 10, offset: 0 });
+  const { data: kickSessions, refetch } = useListKickSessions({
+    limit: 10,
+    offset: 0,
+  });
 
   // Build tip list for the current gestational week
   const tips = [

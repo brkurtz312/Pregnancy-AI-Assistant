@@ -40,7 +40,6 @@
       "expo-updates",
       "expo-font",
       "expo-web-browser",
-      "./plugins/withWatchExtension",
       [
         "expo-build-properties",
         {

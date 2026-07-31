@@ -16,7 +16,6 @@ import { Platform } from "react-native";
 function getModule() {
   if (Platform.OS !== "ios") return null;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require("../modules/WatchConnectivity");
     return mod?.default ?? mod ?? null;
   } catch {

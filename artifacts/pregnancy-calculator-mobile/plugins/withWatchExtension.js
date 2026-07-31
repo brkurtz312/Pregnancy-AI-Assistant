@@ -13,11 +13,7 @@
  *   "plugins": ["./plugins/withWatchExtension"]
  */
 
-const {
-  withXcodeProject,
-  withDangerousMod,
-  withInfoPlist,
-} = require("@expo/config-plugins");
+const { withXcodeProject, withDangerousMod } = require("@expo/config-plugins");
 const path = require("path");
 const fs = require("fs");
 
@@ -57,7 +53,8 @@ function withWatchFiles(config) {
 
       // --- Watch Extension target dir ---
       const watchExtDir = path.join(iosRoot, WATCH_TARGET_NAME);
-      if (!fs.existsSync(watchExtDir)) fs.mkdirSync(watchExtDir, { recursive: true });
+      if (!fs.existsSync(watchExtDir))
+        fs.mkdirSync(watchExtDir, { recursive: true });
 
       for (const file of WATCH_SWIFT_SOURCES) {
         const src = path.join(sourceDir, file);
@@ -67,9 +64,17 @@ function withWatchFiles(config) {
 
       // Copy Info.plist and entitlements
       const infoPlistSrc = path.join(sourceDir, "Info.plist");
-      const entitlementsSrc = path.join(sourceDir, "PregnancyWatchApp.entitlements");
-      if (fs.existsSync(infoPlistSrc)) fs.copyFileSync(infoPlistSrc, path.join(watchExtDir, "Info.plist"));
-      if (fs.existsSync(entitlementsSrc)) fs.copyFileSync(entitlementsSrc, path.join(watchExtDir, `${WATCH_TARGET_NAME}.entitlements`));
+      const entitlementsSrc = path.join(
+        sourceDir,
+        "PregnancyWatchApp.entitlements",
+      );
+      if (fs.existsSync(infoPlistSrc))
+        fs.copyFileSync(infoPlistSrc, path.join(watchExtDir, "Info.plist"));
+      if (fs.existsSync(entitlementsSrc))
+        fs.copyFileSync(
+          entitlementsSrc,
+          path.join(watchExtDir, `${WATCH_TARGET_NAME}.entitlements`),
+        );
 
       // --- Phone bridge files → main app iOS target dir ---
       const appName = config.modRequest.projectName;
@@ -101,9 +106,12 @@ function withWatchXcodeTarget(config) {
     if (alreadyAdded) return config;
 
     // ── 1. Watch App Extension target ──────────────────────────────────────
+    // "watch2_extension" is the correct Xcode target type for modern watchOS
+    // (watchOS 7+). "watchkit_extension" is not a valid type and throws
+    // "Target type invalid" during EAS prebuild.
     const extTarget = project.addTarget(
       WATCH_TARGET_NAME,
-      "watchkit_extension",
+      "watch2_extension",
       WATCH_TARGET_NAME,
       WATCH_EXTENSION_BUNDLE_ID,
     );
@@ -128,7 +136,12 @@ function withWatchXcodeTarget(config) {
     );
 
     // Resources build phase (empty)
-    project.addBuildPhase([], "PBXResourcesBuildPhase", "Resources", extTarget.uuid);
+    project.addBuildPhase(
+      [],
+      "PBXResourcesBuildPhase",
+      "Resources",
+      extTarget.uuid,
+    );
 
     // Build settings for the extension
     const extBuildConfig = project.pbxXCBuildConfigurationSection();
@@ -170,7 +183,9 @@ function withWatchXcodeTarget(config) {
         (f) => f.comment && f.comment.includes("WatchConnectivity"),
       );
     if (!hasWatchConn) {
-      project.addFramework("WatchConnectivity.framework", { target: mainTarget });
+      project.addFramework("WatchConnectivity.framework", {
+        target: mainTarget,
+      });
     }
 
     // ── 4. Add "Embed Watch Content" copy-files build phase to main app ────
@@ -195,21 +210,9 @@ function withWatchXcodeTarget(config) {
   });
 }
 
-/**
- * Step 3 – Add WKCompanionAppBundleIdentifier to the main app's Info.plist
- * (not strictly required for modern watchOS but good practice).
- */
-function withWatchInfoPlist(config) {
-  return withInfoPlist(config, (config) => {
-    config.modResults.WKCompanionAppBundleIdentifier = MAIN_BUNDLE_ID;
-    return config;
-  });
-}
-
-// Compose all three modifiers
+// Compose modifiers
 module.exports = (config) => {
   config = withWatchFiles(config);
   config = withWatchXcodeTarget(config);
-  // withWatchInfoPlist modifies the *main* app plist, skip to avoid confusion
   return config;
 };
