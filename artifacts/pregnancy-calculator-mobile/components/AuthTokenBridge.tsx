@@ -74,11 +74,13 @@ export function AuthTokenBridge() {
       if (sessionRef.current == null) return;
       if (signingOutRef.current) return;
       signingOutRef.current = true;
-      signOut()
-        .catch(() => {})
-        .finally(() => {
-          signingOutRef.current = false;
-        });
+      // Do NOT reset signingOutRef in .finally(). Clerk's own sign-out flow
+      // can trigger new queries that return 401 before `session` becomes null,
+      // which would re-enter this branch and call signOut() a second time.
+      // Instead, signingOutRef is cleared only when a new sign-in is detected
+      // (see the session-transition effect below), ensuring the guard holds for
+      // the entire duration of the sign-out sequence.
+      signOut().catch(() => {});
     });
     return unsubscribe;
   }, [queryClient, signOut]);
@@ -96,6 +98,10 @@ export function AuthTokenBridge() {
     // token was available) are refreshed immediately without waiting for
     // staleTime to expire.
     if (wasSignedOut && isNowSignedIn) {
+      // A fresh sign-in means any previous sign-out sequence has fully
+      // completed. Reset the guard so a future stale-tenant 401 can trigger
+      // sign-out again if needed.
+      signingOutRef.current = false;
       queryClient.invalidateQueries();
     }
 
