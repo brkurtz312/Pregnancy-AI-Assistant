@@ -19,6 +19,7 @@ import {
   getGetProfileQueryKey,
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 import { calculateByDueDate } from "@/lib/pregnancy-math";
 
 export default function AskScreen() {
@@ -75,7 +76,7 @@ export default function AskScreen() {
           </Text>
         </View>
 
-        <View style={styles.content}>
+        <ResponsiveContainer style={styles.content}>
           {!isSignedIn ? (
             <View
               style={[
@@ -156,7 +157,7 @@ export default function AskScreen() {
               <AiAssistant currentWeek={currentWeek} />
             </>
           )}
-        </View>
+        </ResponsiveContainer>
       </ScrollView>
     </View>
   );

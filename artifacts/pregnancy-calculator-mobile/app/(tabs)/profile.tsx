@@ -35,6 +35,7 @@ import {
   type SupportContact,
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 import { usePass } from "@/hooks/usePass";
 import { formatPhone } from "@/lib/phone";
 import { useSettings } from "@/contexts/SettingsContext";
@@ -417,7 +418,7 @@ export default function ProfileScreen() {
           </Text>
         </View>
 
-        <View style={styles.content}>
+        <ResponsiveContainer style={styles.content}>
           {!isSignedIn ? (
             <View
               style={[
@@ -1633,7 +1634,7 @@ export default function ProfileScreen() {
               />
             </View>
           </View>
-        </View>
+        </ResponsiveContainer>
       </ScrollView>
     </KeyboardAvoidingView>
   );

@@ -4,6 +4,7 @@ import React, { useCallback, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 
 type SectionOption = {
   key: string;
@@ -55,7 +56,9 @@ export default function GetReadyScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={[styles.content, { paddingTop: insets.top + 40 }]}>
+      <ResponsiveContainer
+        style={[styles.content, { paddingTop: insets.top + 40 }]}
+      >
         <Ionicons
           name="checkmark-done-circle-outline"
           size={48}
@@ -77,7 +80,7 @@ export default function GetReadyScreen() {
             Choose a Section
           </Text>
         </Pressable>
-      </View>
+      </ResponsiveContainer>
 
       <Modal
         visible={pickerVisible}

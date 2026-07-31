@@ -31,6 +31,7 @@ import {
   useDeleteContraction,
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 
 const SYMPTOMS = [
   "Nausea",
@@ -1045,139 +1046,146 @@ export default function ToolsScreen() {
   }
 
   return (
-    <ScrollView
-      style={{ backgroundColor: colors.background }}
-      contentContainerStyle={[
-        styles.scroll,
-        { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 },
-      ]}
-      showsVerticalScrollIndicator={false}
-    >
-      <Animated.View entering={FadeInDown.duration(400)}>
-        <Text style={[styles.pageTitle, { color: colors.foreground }]}>
-          Pregnancy Tools
-        </Text>
-        <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
-          Journal your journey, track symptoms, kicks, and contractions.
-        </Text>
-      </Animated.View>
-
-      <Animated.View
-        entering={FadeInDown.delay(40).duration(400)}
-        style={[
-          styles.card,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-      >
-        <TouchableOpacity
-          style={styles.navCard}
-          onPress={() => router.push("/journal")}
-          activeOpacity={0.8}
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <ResponsiveContainer>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scroll,
+            { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 },
+          ]}
+          showsVerticalScrollIndicator={false}
         >
-          <View
+          <Animated.View entering={FadeInDown.duration(400)}>
+            <Text style={[styles.pageTitle, { color: colors.foreground }]}>
+              Pregnancy Tools
+            </Text>
+            <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
+              Journal your journey, track symptoms, kicks, and contractions.
+            </Text>
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.delay(40).duration(400)}
             style={[
-              styles.navCardIcon,
-              { backgroundColor: (colors.primary ?? "#e86cad") + "18" },
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
             ]}
           >
-            <Ionicons
-              name="book"
-              size={22}
-              color={colors.primary ?? "#e86cad"}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.navCardTitle, { color: colors.foreground }]}>
-              My Pregnancy Journal
-            </Text>
-            <Text
-              style={[styles.navCardSub, { color: colors.mutedForeground }]}
+            <TouchableOpacity
+              style={styles.navCard}
+              onPress={() => router.push("/journal")}
+              activeOpacity={0.8}
             >
-              Write entries, attach bump photos, and save ultrasound images —
-              all stored privately on your phone.
-            </Text>
-          </View>
-          <Ionicons
-            name="chevron-forward"
-            size={18}
-            color={colors.mutedForeground}
-          />
-        </TouchableOpacity>
-      </Animated.View>
+              <View
+                style={[
+                  styles.navCardIcon,
+                  { backgroundColor: (colors.primary ?? "#e86cad") + "18" },
+                ]}
+              >
+                <Ionicons
+                  name="book"
+                  size={22}
+                  color={colors.primary ?? "#e86cad"}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[styles.navCardTitle, { color: colors.foreground }]}
+                >
+                  My Pregnancy Journal
+                </Text>
+                <Text
+                  style={[styles.navCardSub, { color: colors.mutedForeground }]}
+                >
+                  Write entries, attach bump photos, and save ultrasound images
+                  — all stored privately on your phone.
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={colors.mutedForeground}
+              />
+            </TouchableOpacity>
+          </Animated.View>
 
-      <Animated.View
-        entering={FadeInDown.delay(60).duration(400)}
-        style={[
-          styles.card,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-      >
-        <TouchableOpacity
-          style={styles.navCard}
-          onPress={() => router.push("/fetal-heart-rate")}
-          activeOpacity={0.8}
-        >
-          <View
+          <Animated.View
+            entering={FadeInDown.delay(60).duration(400)}
             style={[
-              styles.navCardIcon,
-              { backgroundColor: (colors.primary ?? "#e86cad") + "18" },
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
             ]}
           >
-            <Ionicons
-              name="pulse"
-              size={22}
-              color={colors.primary ?? "#e86cad"}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.navCardTitle, { color: colors.foreground }]}>
-              Fetal Heart Rate
-            </Text>
-            <Text
-              style={[styles.navCardSub, { color: colors.mutedForeground }]}
+            <TouchableOpacity
+              style={styles.navCard}
+              onPress={() => router.push("/fetal-heart-rate")}
+              activeOpacity={0.8}
             >
-              Record the heartbeat heard on Doppler during an office visit —
-              saved privately on your phone.
-            </Text>
-          </View>
-          <Ionicons
-            name="chevron-forward"
-            size={18}
-            color={colors.mutedForeground}
-          />
-        </TouchableOpacity>
-      </Animated.View>
+              <View
+                style={[
+                  styles.navCardIcon,
+                  { backgroundColor: (colors.primary ?? "#e86cad") + "18" },
+                ]}
+              >
+                <Ionicons
+                  name="pulse"
+                  size={22}
+                  color={colors.primary ?? "#e86cad"}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[styles.navCardTitle, { color: colors.foreground }]}
+                >
+                  Fetal Heart Rate
+                </Text>
+                <Text
+                  style={[styles.navCardSub, { color: colors.mutedForeground }]}
+                >
+                  Record the heartbeat heard on Doppler during an office visit —
+                  saved privately on your phone.
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={colors.mutedForeground}
+              />
+            </TouchableOpacity>
+          </Animated.View>
 
-      <Animated.View
-        entering={FadeInDown.delay(80).duration(400)}
-        style={[
-          styles.card,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-      >
-        <SymptomLogSection />
-      </Animated.View>
+          <Animated.View
+            entering={FadeInDown.delay(80).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <SymptomLogSection />
+          </Animated.View>
 
-      <Animated.View
-        entering={FadeInDown.delay(160).duration(400)}
-        style={[
-          styles.card,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-      >
-        <KickCounterSection />
-      </Animated.View>
+          <Animated.View
+            entering={FadeInDown.delay(160).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <KickCounterSection />
+          </Animated.View>
 
-      <Animated.View
-        entering={FadeInDown.delay(240).duration(400)}
-        style={[
-          styles.card,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-      >
-        <ContractionTimerSection />
-      </Animated.View>
-    </ScrollView>
+          <Animated.View
+            entering={FadeInDown.delay(240).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <ContractionTimerSection />
+          </Animated.View>
+        </ScrollView>
+      </ResponsiveContainer>
+    </View>
   );
 }
 

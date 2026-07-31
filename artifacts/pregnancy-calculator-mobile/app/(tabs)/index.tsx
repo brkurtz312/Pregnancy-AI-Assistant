@@ -32,6 +32,7 @@ import {
   useUpdateProfile,
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 import { getWeeklyDevelopment } from "@/lib/fetal-development";
 import { getFetalImage } from "@/lib/fetal-images";
 import {
@@ -655,7 +656,7 @@ export default function CalculatorScreen() {
           </Text>
         </View>
 
-        <View style={styles.content}>
+        <ResponsiveContainer style={styles.content}>
           {!isSignedIn ? (
             <View
               style={[
@@ -922,7 +923,7 @@ export default function CalculatorScreen() {
               </TouchableOpacity>
             </>
           )}
-        </View>
+        </ResponsiveContainer>
       </ScrollView>
     </View>
   );

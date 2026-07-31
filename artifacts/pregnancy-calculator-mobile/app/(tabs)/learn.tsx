@@ -14,6 +14,7 @@ import {
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 import { VIDEO_VAULT_TOPICS } from "@/lib/video-vault";
 import {
   SUPPORT_PERSON_VOLUMES,
@@ -240,252 +241,267 @@ export default function LearnScreen() {
   }
 
   return (
-    <ScrollView
-      style={{ backgroundColor: colors.background }}
-      contentContainerStyle={[
-        styles.scroll,
-        { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 },
-      ]}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-    >
-      <Animated.View entering={FadeInDown.duration(400)}>
-        <Text style={[styles.pageTitle, { color: colors.foreground }]}>
-          Learn
-        </Text>
-        <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
-          Educational resources to help you understand your pregnancy journey.
-        </Text>
-      </Animated.View>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <ResponsiveContainer>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scroll,
+            { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 },
+          ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Animated.View entering={FadeInDown.duration(400)}>
+            <Text style={[styles.pageTitle, { color: colors.foreground }]}>
+              Learn
+            </Text>
+            <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
+              Educational resources to help you understand your pregnancy
+              journey.
+            </Text>
+          </Animated.View>
 
-      <Animated.View
-        entering={FadeInDown.delay(40).duration(400)}
-        style={[
-          styles.searchContainer,
-          {
-            backgroundColor: colors.card,
-            borderColor: colors.border,
-          },
-        ]}
-      >
-        <Ionicons
-          name="search-outline"
-          size={17}
-          color={colors.mutedForeground}
-          style={styles.searchIcon}
-        />
-        <TextInput
-          ref={inputRef}
-          style={[styles.searchInput, { color: colors.foreground }]}
-          placeholder="Search videos, articles, guides…"
-          placeholderTextColor={colors.mutedForeground}
-          value={query}
-          onChangeText={setQuery}
-          returnKeyType="search"
-          clearButtonMode="never"
-          autoCorrect={false}
-          autoCapitalize="none"
-        />
-        {query.length > 0 && (
-          <TouchableOpacity
-            onPress={() => {
-              setQuery("");
-              inputRef.current?.focus();
-            }}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          <Animated.View
+            entering={FadeInDown.delay(40).duration(400)}
+            style={[
+              styles.searchContainer,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+              },
+            ]}
           >
             <Ionicons
-              name="close-circle"
+              name="search-outline"
               size={17}
               color={colors.mutedForeground}
+              style={styles.searchIcon}
             />
-          </TouchableOpacity>
-        )}
-      </Animated.View>
+            <TextInput
+              ref={inputRef}
+              style={[styles.searchInput, { color: colors.foreground }]}
+              placeholder="Search videos, articles, guides…"
+              placeholderTextColor={colors.mutedForeground}
+              value={query}
+              onChangeText={setQuery}
+              returnKeyType="search"
+              clearButtonMode="never"
+              autoCorrect={false}
+              autoCapitalize="none"
+            />
+            {query.length > 0 && (
+              <TouchableOpacity
+                onPress={() => {
+                  setQuery("");
+                  inputRef.current?.focus();
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons
+                  name="close-circle"
+                  size={17}
+                  color={colors.mutedForeground}
+                />
+              </TouchableOpacity>
+            )}
+          </Animated.View>
 
-      {trimmed ? (
-        <>
-          {searchResults!.length === 0 ? (
-            <Animated.View
-              entering={FadeInDown.duration(300)}
-              style={styles.emptyState}
-            >
-              <Text style={styles.emptyEmoji}>🔍</Text>
-              <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-                No results found
-              </Text>
-              <Text
-                style={[
-                  styles.emptySubtitle,
-                  { color: colors.mutedForeground },
-                ]}
-              >
-                Try a different keyword — e.g. "nutrition", "warning signs", or
-                "labor".
-              </Text>
-            </Animated.View>
-          ) : (
-            <Animated.View entering={FadeInDown.duration(300)}>
-              <Text
-                style={[styles.resultCount, { color: colors.mutedForeground }]}
-              >
-                {searchResults!.length} result
-                {searchResults!.length !== 1 ? "s" : ""} for "
-                <Text style={{ color: colors.foreground }}>{query.trim()}</Text>
-                "
-              </Text>
-              {grouped!.map(({ section, items }) => (
-                <View key={section} style={styles.resultGroup}>
+          {trimmed ? (
+            <>
+              {searchResults!.length === 0 ? (
+                <Animated.View
+                  entering={FadeInDown.duration(300)}
+                  style={styles.emptyState}
+                >
+                  <Text style={styles.emptyEmoji}>🔍</Text>
+                  <Text
+                    style={[styles.emptyTitle, { color: colors.foreground }]}
+                  >
+                    No results found
+                  </Text>
                   <Text
                     style={[
-                      styles.groupLabel,
+                      styles.emptySubtitle,
                       { color: colors.mutedForeground },
                     ]}
                   >
-                    {SECTION_META[section].label.toUpperCase()}
+                    Try a different keyword — e.g. "nutrition", "warning signs",
+                    or "labor".
                   </Text>
-                  {items.map((item) => (
-                    <TouchableOpacity
-                      key={`${item.section}-${item.label}`}
-                      style={[
-                        styles.resultCard,
-                        {
-                          backgroundColor: colors.card,
-                          borderColor: colors.border,
-                        },
-                      ]}
-                      onPress={() => handleResultPress(item.route)}
-                      activeOpacity={0.8}
-                    >
-                      <View
+                </Animated.View>
+              ) : (
+                <Animated.View entering={FadeInDown.duration(300)}>
+                  <Text
+                    style={[
+                      styles.resultCount,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    {searchResults!.length} result
+                    {searchResults!.length !== 1 ? "s" : ""} for "
+                    <Text style={{ color: colors.foreground }}>
+                      {query.trim()}
+                    </Text>
+                    "
+                  </Text>
+                  {grouped!.map(({ section, items }) => (
+                    <View key={section} style={styles.resultGroup}>
+                      <Text
                         style={[
-                          styles.resultIcon,
-                          { backgroundColor: item.color + "18" },
+                          styles.groupLabel,
+                          { color: colors.mutedForeground },
                         ]}
                       >
-                        <Text style={styles.resultEmoji}>{item.icon}</Text>
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text
+                        {SECTION_META[section].label.toUpperCase()}
+                      </Text>
+                      {items.map((item) => (
+                        <TouchableOpacity
+                          key={`${item.section}-${item.label}`}
                           style={[
-                            styles.resultLabel,
-                            { color: colors.foreground },
+                            styles.resultCard,
+                            {
+                              backgroundColor: colors.card,
+                              borderColor: colors.border,
+                            },
                           ]}
+                          onPress={() => handleResultPress(item.route)}
+                          activeOpacity={0.8}
                         >
-                          {item.label}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.resultSublabel,
-                            { color: colors.mutedForeground },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {item.sublabel}
-                        </Text>
-                      </View>
-                      <Ionicons
-                        name="chevron-forward"
-                        size={16}
-                        color={colors.mutedForeground}
-                      />
-                    </TouchableOpacity>
+                          <View
+                            style={[
+                              styles.resultIcon,
+                              { backgroundColor: item.color + "18" },
+                            ]}
+                          >
+                            <Text style={styles.resultEmoji}>{item.icon}</Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text
+                              style={[
+                                styles.resultLabel,
+                                { color: colors.foreground },
+                              ]}
+                            >
+                              {item.label}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.resultSublabel,
+                                { color: colors.mutedForeground },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {item.sublabel}
+                            </Text>
+                          </View>
+                          <Ionicons
+                            name="chevron-forward"
+                            size={16}
+                            color={colors.mutedForeground}
+                          />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
                   ))}
-                </View>
-              ))}
-            </Animated.View>
-          )}
-        </>
-      ) : (
-        <>
-          <ResourceCard
-            icon="leaf-outline"
-            title="Fetal & Maternal Development"
-            description="Explore week-by-week changes for your baby and your body, from conception to birth."
-            onPress={() => router.push("/development")}
-            delay={80}
-          />
-
-          <ResourceCard
-            icon="heart-circle-outline"
-            title="Healthy Pregnancy"
-            description="Travel, work, nutrition, intimacy, medications, and exercise — evidence-based guidance for everyday pregnancy questions."
-            onPress={() => router.push("/healthy-pregnancy")}
-            delay={140}
-          />
-
-          <ResourceCard
-            icon="play-circle-outline"
-            title="Video Vault"
-            description="100+ trusted videos from ACOG, CDC, AAP, NICHD, and more — organized by topic, from fetal development to newborn safe sleep."
-            onPress={() => router.push("/video-vault")}
-            delay={200}
-          />
-
-          <Animated.View
-            entering={FadeInDown.delay(260).duration(400)}
-            style={[
-              styles.card,
-              styles.externalCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <View
-              style={[
-                styles.cardIcon,
-                { backgroundColor: colors.primary + "18" },
-              ]}
-            >
-              <Ionicons
-                name="medkit-outline"
-                size={20}
-                color={colors.primary}
+                </Animated.View>
+              )}
+            </>
+          ) : (
+            <>
+              <ResourceCard
+                icon="leaf-outline"
+                title="Fetal & Maternal Development"
+                description="Explore week-by-week changes for your baby and your body, from conception to birth."
+                onPress={() => router.push("/development")}
+                delay={80}
               />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.cardTitle, { color: colors.foreground }]}>
-                ACOG Women&apos;s Health Resources
-              </Text>
-              <Text
+
+              <ResourceCard
+                icon="heart-circle-outline"
+                title="Healthy Pregnancy"
+                description="Travel, work, nutrition, intimacy, medications, and exercise — evidence-based guidance for everyday pregnancy questions."
+                onPress={() => router.push("/healthy-pregnancy")}
+                delay={140}
+              />
+
+              <ResourceCard
+                icon="play-circle-outline"
+                title="Video Vault"
+                description="100+ trusted videos from ACOG, CDC, AAP, NICHD, and more — organized by topic, from fetal development to newborn safe sleep."
+                onPress={() => router.push("/video-vault")}
+                delay={200}
+              />
+
+              <Animated.View
+                entering={FadeInDown.delay(260).duration(400)}
                 style={[
-                  styles.cardDesc,
-                  { color: colors.mutedForeground, marginBottom: 10 },
+                  styles.card,
+                  styles.externalCard,
+                  { backgroundColor: colors.card, borderColor: colors.border },
                 ]}
               >
-                The American College of Obstetricians and Gynecologists (ACOG)
-                is the leading professional organization for OB-GYNs in the
-                United States. Their women&apos;s health resource hub offers
-                free, evidence-based guides on pregnancy, labor and delivery,
-                postpartum care, and general women&apos;s health topics —
-                written and reviewed by practicing physicians.
-              </Text>
-              <TouchableOpacity
-                style={[styles.linkBtn, { borderColor: colors.primary }]}
-                onPress={() => Linking.openURL(ACOG_URL)}
-                activeOpacity={0.8}
-              >
-                <Ionicons
-                  name="open-outline"
-                  size={16}
-                  color={colors.primary}
-                />
-                <Text style={[styles.linkBtnText, { color: colors.primary }]}>
-                  Visit acog.org
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
+                <View
+                  style={[
+                    styles.cardIcon,
+                    { backgroundColor: colors.primary + "18" },
+                  ]}
+                >
+                  <Ionicons
+                    name="medkit-outline"
+                    size={20}
+                    color={colors.primary}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[styles.cardTitle, { color: colors.foreground }]}
+                  >
+                    ACOG Women&apos;s Health Resources
+                  </Text>
+                  <Text
+                    style={[
+                      styles.cardDesc,
+                      { color: colors.mutedForeground, marginBottom: 10 },
+                    ]}
+                  >
+                    The American College of Obstetricians and Gynecologists
+                    (ACOG) is the leading professional organization for OB-GYNs
+                    in the United States. Their women&apos;s health resource hub
+                    offers free, evidence-based guides on pregnancy, labor and
+                    delivery, postpartum care, and general women&apos;s health
+                    topics — written and reviewed by practicing physicians.
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.linkBtn, { borderColor: colors.primary }]}
+                    onPress={() => Linking.openURL(ACOG_URL)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name="open-outline"
+                      size={16}
+                      color={colors.primary}
+                    />
+                    <Text
+                      style={[styles.linkBtnText, { color: colors.primary }]}
+                    >
+                      Visit acog.org
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </Animated.View>
 
-          <Animated.View entering={FadeInDown.delay(320).duration(400)}>
-            <Text
-              style={[styles.footerNote, { color: colors.mutedForeground }]}
-            >
-              More educational links and resources are on the way.
-            </Text>
-          </Animated.View>
-        </>
-      )}
-    </ScrollView>
+              <Animated.View entering={FadeInDown.delay(320).duration(400)}>
+                <Text
+                  style={[styles.footerNote, { color: colors.mutedForeground }]}
+                >
+                  More educational links and resources are on the way.
+                </Text>
+              </Animated.View>
+            </>
+          )}
+        </ScrollView>
+      </ResponsiveContainer>
+    </View>
   );
 }
 

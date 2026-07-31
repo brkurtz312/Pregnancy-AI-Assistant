@@ -9,6 +9,8 @@ import {
   type GestureResponderEvent,
 } from "react-native";
 import { useColors } from "@/hooks/useColors";
+import { useIsTablet } from "@/hooks/useIsTablet";
+import { IPadSidebar } from "@/components/IPadSidebar";
 
 function AskTabButton({
   onPress,
@@ -28,8 +30,11 @@ function AskTabButton({
 
 export default function TabLayout() {
   const colors = useColors();
+  const isTablet = useIsTablet();
+
   return (
     <Tabs
+      tabBar={isTablet ? (props) => <IPadSidebar {...props} /> : undefined}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
@@ -67,7 +72,9 @@ export default function TabLayout() {
         name="ask"
         options={{
           title: "Ask",
-          tabBarButton: (props) => <AskTabButton onPress={props.onPress} />,
+          tabBarButton: isTablet
+            ? undefined
+            : (props) => <AskTabButton onPress={props.onPress} />,
         }}
       />
       <Tabs.Screen
