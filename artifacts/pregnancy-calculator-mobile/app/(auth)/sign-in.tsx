@@ -23,6 +23,22 @@ import { useColors } from "@/hooks/useColors";
 // module level so it runs before the component tree mounts.
 WebBrowser.maybeCompleteAuthSession();
 
+/**
+ * Returns true when `err` signals that the user deliberately cancelled the
+ * Google consent screen (browser dismissed / back-button / swipe-down).
+ * These should not show an error message to the user.
+ */
+function isGoogleCancelError(err: unknown): boolean {
+  if (!err) return false;
+  const msg =
+    err instanceof Error
+      ? err.message
+      : typeof err === "object"
+        ? JSON.stringify(err)
+        : String(err);
+  return /cancel|dismiss|user_cancel/i.test(msg);
+}
+
 function useWarmUpBrowser() {
   useEffect(() => {
     if (Platform.OS !== "android") return;
@@ -86,8 +102,12 @@ export default function SignInScreen() {
         router.dismissAll();
       }
     } catch (err) {
-      console.error("Google sign-in error:", JSON.stringify(err, null, 2));
-      setNotice("Google sign-in failed. Please try again.");
+      // Suppress errors that indicate the user deliberately dismissed the
+      // consent screen — no message needed in that case.
+      if (!isGoogleCancelError(err)) {
+        console.error("Google sign-in error:", JSON.stringify(err, null, 2));
+        setNotice("Google sign-in failed. Please try again.");
+      }
     } finally {
       setGoogleLoading(false);
     }
