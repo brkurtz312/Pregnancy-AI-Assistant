@@ -94,6 +94,7 @@ import {
   runScheduledCheck,
   startReviewerCheckScheduler,
   resetSchedulerState,
+  DEFAULT_COOLDOWN_MS,
 } from "../src/lib/reviewer-check-scheduler";
 import { logger } from "../src/lib/logger";
 
@@ -394,6 +395,41 @@ describe("DB-persist failure (real runReviewerPassCheck, appConfigTable writes r
       expect(dispatch).toHaveBeenCalledTimes(2);
       expect(dispatch.mock.calls[1][0].subject).toContain("failed");
       expect(dispatch.mock.calls[1][0].body).toContain("pass_revoked");
+    });
+
+    it("fires an alert end-to-end when hasPass is flipped to false outside the app (e.g. by a DB migration)", async () => {
+      // Scenario: a migration or manual DB edit sets the demo user's hasPass=false
+      // without going through the app.  The scheduler's next tick must detect
+      // this, heal the row, and dispatch an alert through the configured channel.
+      //
+      // This is an integration-level test: the real runReviewerPassCheck runs
+      // against the mocked DB (no _runCheck injection).  appConfigTable writes
+      // (record()) still reject per the file-level mock, but the healing update
+      // on usersTable succeeds, so the full "detect → heal → alert" path is
+      // exercised end-to-end.
+
+      const dispatch = vi.fn().mockResolvedValue(undefined);
+
+      // Seed: getConfig returns no config row (env var used); user row has hasPass=false
+      dbSelectImpl
+        .mockReset()
+        .mockResolvedValueOnce([]) // getConfig("reviewer_demo_user_id") → null
+        .mockResolvedValueOnce([{ id: DEMO_USER_ID, hasPass: false }]); // user lookup
+
+      stopScheduler = startReviewerCheckScheduler({
+        intervalMs: 5_000,
+        cooldownMs: DEFAULT_COOLDOWN_MS,
+        _dispatch: dispatch,
+      });
+
+      // Advance through the 30-second boot delay so the first scheduler tick fires
+      await vi.advanceTimersByTimeAsync(30_000);
+
+      // The scheduler must have detected the revoked pass and dispatched an alert
+      expect(dispatch).toHaveBeenCalledTimes(1);
+      const payload = dispatch.mock.calls[0][0];
+      expect(payload.subject).toContain("failed");
+      expect(payload.body).toContain("pass_revoked");
     });
 
     it("dispatches a fail alert and continues scheduling when pass is revoked and DB persist fails", async () => {
