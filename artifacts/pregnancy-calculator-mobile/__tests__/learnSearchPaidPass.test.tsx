@@ -383,6 +383,124 @@ describe("Learn tab — cross-section search (paid user)", () => {
   });
 });
 
+// ── 7. Force-quit mid-query: remount resets to empty state ───────────────────
+//
+// Simulates the user force-quitting the app while a search query is active,
+// then relaunching it.  In React Native this corresponds to the component
+// being fully unmounted (process terminated) and then remounted from scratch.
+//
+// Because LearnScreen stores its query in plain React state (useState("")) and
+// does not persist it to AsyncStorage or navigation params, the remounted
+// screen must always initialise with an empty query and the browse view —
+// regardless of what query was active before the unmount.
+//
+// Covers all three section types so that if any future change adds persistence
+// for a specific section, CI will catch it immediately.
+
+describe("Learn tab — force-quit mid-query (VideoVault, paid user)", () => {
+  beforeEach(() => {
+    setupPaidUser();
+    mockPush.mockClear();
+  });
+
+  it("remounts with empty query and browse view after force-quit mid Video Vault query", async () => {
+    // --- first mount: get into search mode ---
+    const first = renderScreen();
+    await flushAsync(3);
+
+    await typeQuery(first, "fetal");
+    expect(JSON.stringify(first.toJSON())).toContain("VIDEO VAULT");
+
+    // Simulate force-quit: unmount the component.
+    act(() => {
+      first.unmount();
+    });
+
+    // --- second mount: fresh app launch ---
+    const second = renderScreen();
+    await flushAsync(3);
+
+    const tree = JSON.stringify(second.toJSON());
+
+    // Browse-view cards are rendered; no search results.
+    expect(tree).toContain("Fetal & Maternal Development");
+    expect(tree).not.toContain("VIDEO VAULT");
+
+    // Search input is empty.
+    const input = second.root.findByType(TextInput);
+    expect(input.props.value).toBe("");
+  });
+});
+
+describe("Learn tab — force-quit mid-query (SupportPerson, paid user)", () => {
+  beforeEach(() => {
+    setupPaidUser();
+    mockPush.mockClear();
+  });
+
+  it("remounts with empty query and browse view after force-quit mid Support Person query", async () => {
+    const vol = SUPPORT_PERSON_VOLUMES[0];
+    const keyword = vol.handoutTitle.toLowerCase().slice(0, 5);
+
+    // --- first mount: get into search mode ---
+    const first = renderScreen();
+    await flushAsync(3);
+
+    await typeQuery(first, keyword);
+    expect(JSON.stringify(first.toJSON())).toContain("SUPPORT PERSON");
+
+    // Simulate force-quit: unmount the component.
+    act(() => {
+      first.unmount();
+    });
+
+    // --- second mount: fresh app launch ---
+    const second = renderScreen();
+    await flushAsync(3);
+
+    const tree = JSON.stringify(second.toJSON());
+
+    expect(tree).toContain("Fetal & Maternal Development");
+    expect(tree).not.toContain("SUPPORT PERSON");
+
+    const input = second.root.findByType(TextInput);
+    expect(input.props.value).toBe("");
+  });
+});
+
+describe("Learn tab — force-quit mid-query (HealthyPregnancy, paid user)", () => {
+  beforeEach(() => {
+    setupPaidUser();
+    mockPush.mockClear();
+  });
+
+  it("remounts with empty query and browse view after force-quit mid Healthy Pregnancy query", async () => {
+    // --- first mount: get into search mode ---
+    const first = renderScreen();
+    await flushAsync(3);
+
+    await typeQuery(first, "nutrition");
+    expect(JSON.stringify(first.toJSON())).toContain("HEALTHY PREGNANCY");
+
+    // Simulate force-quit: unmount the component.
+    act(() => {
+      first.unmount();
+    });
+
+    // --- second mount: fresh app launch ---
+    const second = renderScreen();
+    await flushAsync(3);
+
+    const tree = JSON.stringify(second.toJSON());
+
+    expect(tree).toContain("Fetal & Maternal Development");
+    expect(tree).not.toContain("HEALTHY PREGNANCY");
+
+    const input = second.root.findByType(TextInput);
+    expect(input.props.value).toBe("");
+  });
+});
+
 // ── 6. Clear search restores browse view ─────────────────────────────────────
 
 describe("Learn tab — search clear (paid user)", () => {
