@@ -382,3 +382,161 @@ describe("SessionWatcher — stale-tenant 401 guard", () => {
     expect(mockSignOut).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("SessionWatcher — mid-session token expiry", () => {
+  let queryClient: QueryClient;
+
+  beforeEach(() => {
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    vi.clearAllMocks();
+  });
+
+  it("calls signOut when a 401 arrives mid-session with cached data in the query cache", async () => {
+    const mockSignOut = vi.fn(async () => {});
+
+    // Seed the cache to simulate a user who has already been using the app
+    // (profile, pass status, AI usage — typical mid-session entries).
+    const passStatusKey = ["get-pass-status"];
+    const profileKey = ["get-profile"];
+    await queryClient.fetchQuery({
+      queryKey: passStatusKey,
+      queryFn: () =>
+        Promise.resolve({ hasPass: true, freeUsed: 2, freeLimit: 5 }),
+    });
+    await queryClient.fetchQuery({
+      queryKey: profileKey,
+      queryFn: () => Promise.resolve({ providerName: "Dr_Active" }),
+    });
+
+    // Confirm the cache is populated before the expiry scenario begins.
+    expect(queryClient.getQueryData(passStatusKey)).toEqual({
+      hasPass: true,
+      freeUsed: 2,
+      freeLimit: 5,
+    });
+    expect(queryClient.getQueryCache().getAll().length).toBeGreaterThan(0);
+
+    // User is actively signed in.
+    mockUseSession.mockReturnValue(signedInState());
+    renderWatcher(queryClient, mockSignOut);
+
+    // A subsequent query returns 401 — token expired mid-session.
+    await act(async () => {
+      await queryClient
+        .fetchQuery({
+          queryKey: ["mid-session-api-call"],
+          queryFn: () => Promise.reject(makeApiError(401)),
+          retry: false,
+        })
+        .catch(() => {});
+    });
+
+    // signOut() must have been triggered by the stale-token guard.
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears all cached data after a mid-session 401 causes signOut and the session transitions to null", async () => {
+    const mockSignOut = vi.fn(async () => {});
+
+    // Pre-populate the cache (mid-session state).
+    const passStatusKey = ["get-pass-status"];
+    const profileKey = ["get-profile"];
+    await queryClient.fetchQuery({
+      queryKey: passStatusKey,
+      queryFn: () =>
+        Promise.resolve({ hasPass: false, freeUsed: 4, freeLimit: 5 }),
+    });
+    await queryClient.fetchQuery({
+      queryKey: profileKey,
+      queryFn: () => Promise.resolve({ providerName: "Dr_MidSession" }),
+    });
+
+    // Confirm data is present.
+    expect(queryClient.getQueryData(passStatusKey)).toBeDefined();
+    expect(queryClient.getQueryData(profileKey)).toBeDefined();
+
+    // Active session — user is in the middle of using the app.
+    mockUseSession.mockReturnValue(signedInState());
+    const { rerender } = renderWatcher(queryClient, mockSignOut);
+
+    // A query returns 401 (token expired mid-session), triggering signOut().
+    await act(async () => {
+      await queryClient
+        .fetchQuery({
+          queryKey: ["expired-token-call"],
+          queryFn: () => Promise.reject(makeApiError(401)),
+          retry: false,
+        })
+        .catch(() => {});
+    });
+
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+
+    // Clerk fires the session-change event after signOut() resolves — simulate
+    // the session transitioning to null (the same transition that the
+    // session-watcher effect already covers on cold sign-out, but here it
+    // follows a mid-session expiry).
+    mockUseSession.mockReturnValue(signedOutState());
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <SessionWatcher />
+      </QueryClientProvider>,
+    );
+
+    // All cached data must be gone — no stale data can flash to a subsequent
+    // visitor or after the user re-authenticates.
+    expect(queryClient.getQueryData(passStatusKey)).toBeUndefined();
+    expect(queryClient.getQueryData(profileKey)).toBeUndefined();
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+  });
+
+  it("does not flash stale data: cache is empty by the time the sign-in UI would appear", async () => {
+    const mockSignOut = vi.fn(async () => {});
+
+    // Simulate rich mid-session cache.
+    const keys = [
+      ["get-pass-status"],
+      ["get-profile"],
+      ["get-ai-usage"],
+      ["get-appointments"],
+    ];
+    for (const key of keys) {
+      await queryClient.fetchQuery({
+        queryKey: key,
+        queryFn: () => Promise.resolve({ data: `cached-${key[0]}` }),
+      });
+    }
+    expect(queryClient.getQueryCache().getAll().length).toBe(keys.length);
+
+    mockUseSession.mockReturnValue(signedInState());
+    const { rerender } = renderWatcher(queryClient, mockSignOut);
+
+    // Token expires — 401 received mid-session.
+    await act(async () => {
+      await queryClient
+        .fetchQuery({
+          queryKey: ["stale-mid-session"],
+          queryFn: () => Promise.reject(makeApiError(401)),
+          retry: false,
+        })
+        .catch(() => {});
+    });
+
+    // signOut fires; Clerk transitions session to null.
+    mockUseSession.mockReturnValue(signedOutState());
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <SessionWatcher />
+      </QueryClientProvider>,
+    );
+
+    // The sign-in screen is effectively "shown" once session is null.
+    // At that exact moment the cache must already be empty — no stale flash.
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+    for (const key of keys) {
+      expect(queryClient.getQueryData(key)).toBeUndefined();
+    }
+  });
+});
