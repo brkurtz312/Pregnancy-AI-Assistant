@@ -2,28 +2,25 @@
  * withWatchExtension.js
  *
  * Expo config plugin that adds the Pregnancy AI Watch App target to the
- * generated Xcode project. Runs during `expo prebuild` / `eas build`.
+ * generated Xcode project during `expo prebuild` / `eas build`.
  *
- * Requirements:
- *   - Expo SDK 50+
- *   - watchOS deployment target 8.0+
- *   - The source files in `watchapp/` are copied to `ios/WatchApp/`
- *
- * Usage in app.json:
- *   "plugins": ["./plugins/withWatchExtension"]
+ * Fixed version: finds build configurations by target UUID (not PRODUCT_NAME)
+ * and explicitly sets PRODUCT_BUNDLE_IDENTIFIER so EAS can provision it.
  */
 
-const { withXcodeProject, withDangerousMod } = require("@expo/config-plugins");
+const {
+  withXcodeProject,
+  withDangerousMod,
+} = require("@expo/config-plugins");
 const path = require("path");
 const fs = require("fs");
 
 const WATCH_TARGET_NAME = "PregnancyWatchApp";
 const MAIN_BUNDLE_ID = "app.replit.pregnancycalculator";
 const WATCH_BUNDLE_ID = `${MAIN_BUNDLE_ID}.watchapp`;
-const WATCH_EXTENSION_BUNDLE_ID = `${WATCH_BUNDLE_ID}.watchkitextension`;
+const DEVELOPMENT_TEAM = "AW7GD9Q3AP";
 const WATCHOS_DEPLOYMENT_TARGET = "8.0";
 
-// Swift source files that make up the watch app (in watchapp/ at project root)
 const WATCH_SWIFT_SOURCES = [
   "PregnancyWatchApp.swift",
   "ContentView.swift",
@@ -34,15 +31,13 @@ const WATCH_SWIFT_SOURCES = [
   "Models.swift",
 ];
 
-// iPhone-side native files to add to the main iOS target
 const PHONE_BRIDGE_SOURCES = [
   "PhoneWatchBridge.swift",
   "WatchConnectivityModule.swift",
 ];
 
-/**
- * Step 1 – Copy source files into the generated ios/ directory.
- */
+// ─── Step 1: copy Swift files into the generated ios/ directory ────────────
+
 function withWatchFiles(config) {
   return withDangerousMod(config, [
     "ios",
@@ -50,39 +45,27 @@ function withWatchFiles(config) {
       const projectRoot = config.modRequest.projectRoot;
       const iosRoot = config.modRequest.platformProjectRoot;
       const sourceDir = path.join(projectRoot, "watchapp");
+      const appName = config.modRequest.projectName;
 
-      // --- Watch Extension target dir ---
-      const watchExtDir = path.join(iosRoot, WATCH_TARGET_NAME);
-      if (!fs.existsSync(watchExtDir))
-        fs.mkdirSync(watchExtDir, { recursive: true });
+      // Watch Extension target dir
+      const watchDir = path.join(iosRoot, WATCH_TARGET_NAME);
+      fs.mkdirSync(watchDir, { recursive: true });
 
       for (const file of WATCH_SWIFT_SOURCES) {
         const src = path.join(sourceDir, file);
-        const dst = path.join(watchExtDir, file);
-        if (fs.existsSync(src)) fs.copyFileSync(src, dst);
+        if (fs.existsSync(src)) fs.copyFileSync(src, path.join(watchDir, file));
       }
+      // Info.plist + entitlements
+      ["Info.plist", "PregnancyWatchApp.entitlements"].forEach((f) => {
+        const src = path.join(sourceDir, f);
+        if (fs.existsSync(src)) fs.copyFileSync(src, path.join(watchDir, f));
+      });
 
-      // Copy Info.plist and entitlements
-      const infoPlistSrc = path.join(sourceDir, "Info.plist");
-      const entitlementsSrc = path.join(
-        sourceDir,
-        "PregnancyWatchApp.entitlements",
-      );
-      if (fs.existsSync(infoPlistSrc))
-        fs.copyFileSync(infoPlistSrc, path.join(watchExtDir, "Info.plist"));
-      if (fs.existsSync(entitlementsSrc))
-        fs.copyFileSync(
-          entitlementsSrc,
-          path.join(watchExtDir, `${WATCH_TARGET_NAME}.entitlements`),
-        );
-
-      // --- Phone bridge files → main app iOS target dir ---
-      const appName = config.modRequest.projectName;
-      const mainAppDir = path.join(iosRoot, appName);
+      // Phone bridge files → main app dir
+      const mainDir = path.join(iosRoot, appName);
       for (const file of PHONE_BRIDGE_SOURCES) {
         const src = path.join(sourceDir, file);
-        const dst = path.join(mainAppDir, file);
-        if (fs.existsSync(src)) fs.copyFileSync(src, dst);
+        if (fs.existsSync(src)) fs.copyFileSync(src, path.join(mainDir, file));
       }
 
       return config;
@@ -90,33 +73,32 @@ function withWatchFiles(config) {
   ]);
 }
 
-/**
- * Step 2 – Modify the Xcode project to add the Watch targets.
- */
+// ─── Step 2: add Watch Extension target to the Xcode project ──────────────
+
 function withWatchXcodeTarget(config) {
-  return withXcodeProject(config, async (config) => {
+  return withXcodeProject(config, (config) => {
     const project = config.modResults;
     const appName = config.modRequest.projectName;
 
-    // Avoid adding the target twice on repeated prebuild runs
-    const existingTargets = project.pbxNativeTargetSection();
-    const alreadyAdded = Object.values(existingTargets).some(
-      (t) => t && t.name === WATCH_TARGET_NAME,
-    );
-    if (alreadyAdded) return config;
+    // Idempotency guard
+    const targets = project.pbxNativeTargetSection();
+    if (Object.values(targets).some((t) => t && t.name === WATCH_TARGET_NAME)) {
+      return config;
+    }
 
-    // ── 1. Watch App Extension target ──────────────────────────────────────
-    // "watch2_extension" is the correct Xcode target type for modern watchOS
-    // (watchOS 7+). "watchkit_extension" is not a valid type and throws
-    // "Target type invalid" during EAS prebuild.
+    // ── Add the WatchKit Extension target ─────────────────────────────────
     const extTarget = project.addTarget(
       WATCH_TARGET_NAME,
-      "watch2_extension",
+      "watchkit_extension",
       WATCH_TARGET_NAME,
-      WATCH_EXTENSION_BUNDLE_ID,
+      WATCH_BUNDLE_ID,
     );
+    const extUuid = extTarget.uuid;
 
-    // Source files build phase
+    // ── Set build settings via target UUID (reliable, not PRODUCT_NAME) ───
+    applyWatchBuildSettings(project, extUuid);
+
+    // ── Add build phases ──────────────────────────────────────────────────
     const swiftFiles = WATCH_SWIFT_SOURCES.map(
       (f) => `${WATCH_TARGET_NAME}/${f}`,
     );
@@ -124,85 +106,59 @@ function withWatchXcodeTarget(config) {
       swiftFiles,
       "PBXSourcesBuildPhase",
       "Sources",
-      extTarget.uuid,
+      extUuid,
     );
-
-    // Frameworks build phase
     project.addBuildPhase(
       ["WatchKit.framework", "WatchConnectivity.framework"],
       "PBXFrameworksBuildPhase",
       "Frameworks",
-      extTarget.uuid,
+      extUuid,
     );
+    project.addBuildPhase([], "PBXResourcesBuildPhase", "Resources", extUuid);
 
-    // Resources build phase (empty)
-    project.addBuildPhase(
-      [],
-      "PBXResourcesBuildPhase",
-      "Resources",
-      extTarget.uuid,
-    );
-
-    // Build settings for the extension
-    const extBuildConfig = project.pbxXCBuildConfigurationSection();
-    Object.keys(extBuildConfig).forEach((key) => {
-      const bc = extBuildConfig[key];
-      if (
-        bc &&
-        bc.buildSettings &&
-        bc.buildSettings.PRODUCT_NAME === `"${WATCH_TARGET_NAME}"`
-      ) {
-        bc.buildSettings.SWIFT_VERSION = "5.0";
-        bc.buildSettings.WATCHOS_DEPLOYMENT_TARGET = WATCHOS_DEPLOYMENT_TARGET;
-        bc.buildSettings.TARGETED_DEVICE_FAMILY = '"4"';
-        bc.buildSettings.SDKROOT = "watchos";
-        bc.buildSettings.SUPPORTED_PLATFORMS = '"watchos watchsimulator"';
-        bc.buildSettings.ALWAYS_SEARCH_USER_PATHS = "NO";
-        bc.buildSettings.CODE_SIGN_ENTITLEMENTS = `"${WATCH_TARGET_NAME}/${WATCH_TARGET_NAME}.entitlements"`;
-        bc.buildSettings.INFOPLIST_FILE = `"${WATCH_TARGET_NAME}/Info.plist"`;
-        bc.buildSettings.LD_RUNPATH_SEARCH_PATHS =
-          '"$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"';
-      }
-    });
-
-    // ── 2. Add phone bridge sources to the main app target ─────────────────
-    const mainTarget = project.getFirstTarget().uuid;
-    PHONE_BRIDGE_SOURCES.forEach((file) => {
+    // ── Phone bridge files → main app target ──────────────────────────────
+    const mainTargetUuid = project.getFirstTarget().uuid;
+    for (const file of PHONE_BRIDGE_SOURCES) {
       project.addFile(`${appName}/${file}`, null, {
-        target: mainTarget,
+        target: mainTargetUuid,
         lastKnownFileType: "sourcecode.swift",
-      });
-    });
-
-    // ── 3. Add WatchConnectivity.framework to the main app ─────────────────
-    const existingFrameworks = project.pbxFrameworksBuildPhaseObj(mainTarget);
-    const hasWatchConn =
-      existingFrameworks &&
-      existingFrameworks.files &&
-      existingFrameworks.files.some(
-        (f) => f.comment && f.comment.includes("WatchConnectivity"),
-      );
-    if (!hasWatchConn) {
-      project.addFramework("WatchConnectivity.framework", {
-        target: mainTarget,
       });
     }
 
-    // ── 4. Add "Embed Watch Content" copy-files build phase to main app ────
-    const copyPhase = project.addBuildPhase(
+    // ── Link WatchConnectivity to main app ────────────────────────────────
+    const mainFrameworkPhase = project.pbxFrameworksBuildPhaseObj(mainTargetUuid);
+    const hasWC =
+      mainFrameworkPhase &&
+      Array.isArray(mainFrameworkPhase.files) &&
+      mainFrameworkPhase.files.some(
+        (f) => f.comment && f.comment.includes("WatchConnectivity"),
+      );
+    if (!hasWC) {
+      project.addFramework("WatchConnectivity.framework", {
+        target: mainTargetUuid,
+      });
+    }
+
+    // ── Embed Watch Content copy-files build phase ────────────────────────
+    project.addBuildPhase(
       [],
       "PBXCopyFilesBuildPhase",
       "Embed Watch Content",
-      mainTarget,
+      mainTargetUuid,
       "$(CONTENTS_FOLDER_PATH)/Watch",
     );
-    // Reference the Watch Extension product
-    if (extTarget && extTarget.pbxNativeTarget) {
-      const productRef = extTarget.pbxNativeTarget.productReference;
-      if (productRef && copyPhase && copyPhase.buildPhase) {
-        const fileRef = { value: productRef, comment: "Embed Watch Content" };
-        copyPhase.buildPhase.files = copyPhase.buildPhase.files || [];
-        copyPhase.buildPhase.files.push(fileRef);
+
+    // Add Watch Extension product to the embed phase
+    const productRef =
+      extTarget.pbxNativeTarget && extTarget.pbxNativeTarget.productReference;
+    if (productRef) {
+      const pbxCopy = project.pbxCopyfilesBuildPhaseObj(mainTargetUuid);
+      if (pbxCopy) {
+        pbxCopy.files = pbxCopy.files || [];
+        pbxCopy.files.push({
+          value: productRef,
+          comment: `${WATCH_TARGET_NAME}.appex in Embed Watch Content`,
+        });
       }
     }
 
@@ -210,7 +166,65 @@ function withWatchXcodeTarget(config) {
   });
 }
 
-// Compose modifiers
+/**
+ * Find the build configurations owned by a specific native target UUID
+ * and apply all required Watch Extension build settings.
+ *
+ * Using target UUID is reliable; searching by PRODUCT_NAME is not because
+ * newly created targets may not yet have PRODUCT_NAME in buildSettings.
+ */
+function applyWatchBuildSettings(project, targetUuid) {
+  // Get the native target object
+  const nativeTargets = project.pbxNativeTargetSection();
+  const targetObj = nativeTargets[targetUuid];
+  if (!targetObj) return;
+
+  // Get this target's configuration list
+  const configListUuid =
+    typeof targetObj.buildConfigurationList === "object"
+      ? targetObj.buildConfigurationList.value
+      : targetObj.buildConfigurationList;
+
+  const configLists = project.pbxXCConfigurationListSection
+    ? project.pbxXCConfigurationListSection()
+    : project.hash.project.objects.XCConfigurationList;
+
+  const configList = configLists[configListUuid];
+  if (!configList) return;
+
+  const buildConfigs = project.pbxXCBuildConfigurationSection
+    ? project.pbxXCBuildConfigurationSection()
+    : project.hash.project.objects.XCBuildConfiguration;
+
+  // Apply settings to each configuration (Debug, Release, …)
+  (configList.buildConfigurations || []).forEach((ref) => {
+    const cfgUuid = typeof ref === "object" ? ref.value : ref;
+    const cfg = buildConfigs[cfgUuid];
+    if (!cfg || !cfg.buildSettings) return;
+
+    Object.assign(cfg.buildSettings, {
+      PRODUCT_BUNDLE_IDENTIFIER: WATCH_BUNDLE_ID,
+      PRODUCT_NAME: `"${WATCH_TARGET_NAME}"`,
+      CODE_SIGN_STYLE: "Automatic",
+      DEVELOPMENT_TEAM: DEVELOPMENT_TEAM,
+      SWIFT_VERSION: "5.0",
+      WATCHOS_DEPLOYMENT_TARGET: WATCHOS_DEPLOYMENT_TARGET,
+      TARGETED_DEVICE_FAMILY: '"4"',
+      SDKROOT: "watchos",
+      SUPPORTED_PLATFORMS: '"watchos watchsimulator"',
+      ALWAYS_SEARCH_USER_PATHS: "NO",
+      CLANG_ENABLE_MODULES: "YES",
+      INFOPLIST_FILE: `"${WATCH_TARGET_NAME}/Info.plist"`,
+      CODE_SIGN_ENTITLEMENTS: `"${WATCH_TARGET_NAME}/PregnancyWatchApp.entitlements"`,
+      LD_RUNPATH_SEARCH_PATHS:
+        '"$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"',
+      SKIP_INSTALL: "YES",
+    });
+  });
+}
+
+// ─── Compose ────────────────────────────────────────────────────────────────
+
 module.exports = (config) => {
   config = withWatchFiles(config);
   config = withWatchXcodeTarget(config);
