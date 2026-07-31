@@ -732,6 +732,9 @@ importers:
       '@workspace/learn-content-ids':
         specifier: workspace:*
         version: link:../../lib/learn-content-ids
+      expo:
+        specifier: ~54.0.35
+        version: 54.0.35(@babel/core@7.29.6)(@expo/metro-runtime@6.1.2)(expo-router@6.0.24)(react-native-webview@13.15.0(react-native@0.81.5(@babel/core@7.29.6)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.6)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)(typescript@5.9.3)
       expo-asset:
         specifier: ^12.0.13
         version: 12.0.13(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.6)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)(typescript@5.9.3)
@@ -756,6 +759,12 @@ importers:
       expo-updates:
         specifier: ~29.0.19
         version: 29.0.19(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.6)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
+      react:
+        specifier: 19.1.0
+        version: 19.1.0
+      react-native:
+        specifier: 0.81.5
+        version: 0.81.5(@babel/core@7.29.6)(@types/react@19.1.17)(react@19.1.0)
       react-native-purchases:
         specifier: ^10.4.0
         version: 10.4.0(react-native-web@0.21.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.6)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
@@ -814,9 +823,6 @@ importers:
       babel-preset-expo:
         specifier: ~54.0.11
         version: 54.0.11(@babel/core@7.29.6)(@babel/runtime@7.28.6)(expo@54.0.35)(react-refresh@0.18.0)
-      expo:
-        specifier: ~54.0.27
-        version: 54.0.35(@babel/core@7.29.6)(@expo/metro-runtime@6.1.2)(expo-router@6.0.24)(react-native-webview@13.15.0(react-native@0.81.5(@babel/core@7.29.6)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.6)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)(typescript@5.9.3)
       expo-auth-session:
         specifier: ~7.0.11
         version: 7.0.11(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.6)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
@@ -883,15 +889,9 @@ importers:
       jest-expo:
         specifier: ^56.0.5
         version: 56.0.5(@babel/core@7.29.6)(expo@54.0.35)(jest@29.7.0(@types/node@25.3.5))(react-native@0.81.5(@babel/core@7.29.6)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
-      react:
-        specifier: 'catalog:'
-        version: 19.1.0
       react-dom:
         specifier: 'catalog:'
         version: 19.1.0(react@19.1.0)
-      react-native:
-        specifier: 0.81.5
-        version: 0.81.5(@babel/core@7.29.6)(@types/react@19.1.17)(react@19.1.0)
       react-native-gesture-handler:
         specifier: ~2.28.0
         version: 2.28.0(react-native@0.81.5(@babel/core@7.29.6)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
