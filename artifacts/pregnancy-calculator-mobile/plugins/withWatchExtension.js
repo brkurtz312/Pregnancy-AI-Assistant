@@ -163,28 +163,12 @@ function withWatchXcodeTarget(config) {
     // ── Override build settings (addTarget sets some defaults we need to fix) ─
     applyWatchBuildSettings(project, watchUuid);
 
-    // ── Phone bridge → main target ────────────────────────────────────────
-    const mainTargetUuid = project.getFirstTarget().uuid;
-    for (const file of PHONE_BRIDGE_SOURCES) {
-      project.addFile(`${appName}/${file}`, null, {
-        target: mainTargetUuid,
-        lastKnownFileType: "sourcecode.swift",
-      });
-    }
-
-    // ── WatchConnectivity on main app ─────────────────────────────────────
-    const mainFrameworks = project.pbxFrameworksBuildPhaseObj(mainTargetUuid);
-    const hasWC =
-      mainFrameworks &&
-      Array.isArray(mainFrameworks.files) &&
-      mainFrameworks.files.some(
-        (f) => f.comment && f.comment.includes("WatchConnectivity"),
-      );
-    if (!hasWC) {
-      project.addFramework("WatchConnectivity.framework", {
-        target: mainTargetUuid,
-      });
-    }
+    // NOTE: Phone bridge Swift files (PhoneWatchBridge, WatchConnectivityModule)
+    // are copied to the main app directory by withWatchFiles but are NOT added
+    // to the Xcode project here — project.addFile() with null group crashes the
+    // xcode library and silently unwinds the whole modifier, leaving no Watch
+    // target in the pbxproj. Wire them in via a separate config plugin or
+    // manually once the Watch bundle is confirmed working.
 
     return config;
   });
