@@ -115,6 +115,33 @@ function withWatchXcodeTarget(config) {
     const watchUuid = watchTarget.uuid;
     console.log(`[Watch] uuid: ${watchUuid}`);
 
+    // Fix: addToPbxNativeTargetSection stores comment as '"PregnancyWatchApp"'
+    // (JS string includes the surrounding double-quote chars). EAS searches by
+    // comment without quotes → "Could not find target". Strip them here.
+    const nts = project.pbxNativeTargetSection();
+    const commentKey = `${watchUuid}_comment`;
+    if (typeof nts[commentKey] === "string") {
+      nts[commentKey] = nts[commentKey].replace(/^"|"$/g, "");
+      console.log(`[Watch] fixed comment key → ${nts[commentKey]}`);
+    }
+
+    // Same fix for the product file reference comment
+    const nativeObj = nts[watchUuid];
+    if (nativeObj) {
+      const prodRefUuid =
+        typeof nativeObj.productReference === "object"
+          ? nativeObj.productReference.value
+          : nativeObj.productReference;
+      if (prodRefUuid) {
+        const frs = project.pbxFileReferenceSection();
+        const frComment = `${prodRefUuid}_comment`;
+        if (typeof frs[frComment] === "string") {
+          frs[frComment] = frs[frComment].replace(/^"|"$/g, "");
+          console.log(`[Watch] fixed product ref comment → ${frs[frComment]}`);
+        }
+      }
+    }
+
     // ── Build phases on the Watch target ──────────────────────────────────
     const swiftFiles = WATCH_SWIFT_SOURCES.map(
       (f) => `${WATCH_TARGET_NAME}/${f}`,
