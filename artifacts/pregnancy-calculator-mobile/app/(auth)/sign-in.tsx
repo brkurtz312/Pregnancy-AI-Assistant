@@ -1,6 +1,7 @@
 import { useSSO, useSignIn } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import * as AuthSession from "expo-auth-session";
+import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import React, { useCallback, useEffect, useState } from "react";
@@ -88,12 +89,17 @@ export default function SignInScreen() {
     if (googleLoading) return;
     setGoogleLoading(true);
     try {
+      const appScheme = Constants.expoConfig?.scheme;
+      if (!appScheme) {
+        console.error(
+          "Google sign-in: expo.scheme is not set in app.json — OAuth redirect URI will be incorrect.",
+        );
+      }
       const { createdSessionId, setActive } = await startSSOFlow({
         strategy: "oauth_google",
-        // makeRedirectUri reads the scheme from app.json ("pregnancy-calculator-mobile")
-        // and constructs the correct deep-link callback URL for both iOS and Android.
+        // Read the scheme from app.json via Constants so a rename stays in sync.
         redirectUrl: AuthSession.makeRedirectUri({
-          scheme: "pregnancy-calculator-mobile",
+          scheme: typeof appScheme === "string" ? appScheme : appScheme?.[0],
         }),
       });
 
