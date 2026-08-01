@@ -19,26 +19,11 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { isCancelError } from "@/lib/auth-cancel";
 
 // Handles the OAuth callback redirect on Android. This must be called at
 // module level so it runs before the component tree mounts.
 WebBrowser.maybeCompleteAuthSession();
-
-/**
- * Returns true when `err` signals that the user deliberately cancelled the
- * Google consent screen (browser dismissed / back-button / swipe-down).
- * These should not show an error message to the user.
- */
-function isGoogleCancelError(err: unknown): boolean {
-  if (!err) return false;
-  const msg =
-    err instanceof Error
-      ? err.message
-      : typeof err === "object"
-        ? JSON.stringify(err)
-        : String(err);
-  return /cancel|dismiss|user_cancel/i.test(msg);
-}
 
 function useWarmUpBrowser() {
   useEffect(() => {
@@ -64,6 +49,8 @@ export default function SignUpScreen() {
   const [code, setCode] = useState("");
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleError, setGoogleError] = useState<string | null>(null);
+  const [appleLoading, setAppleLoading] = useState(false);
+  const [appleError, setAppleError] = useState<string | null>(null);
 
   const fetching = fetchStatus === "fetching";
   const showVerify =
@@ -124,7 +111,7 @@ export default function SignUpScreen() {
     } catch (err) {
       // Suppress errors that indicate the user deliberately dismissed the
       // consent screen — no message needed in that case.
-      if (!isGoogleCancelError(err)) {
+      if (!isCancelError(err)) {
         console.error("Google sign-up error:", JSON.stringify(err, null, 2));
         setGoogleError("Google sign-in failed. Please try again.");
       }
@@ -132,6 +119,35 @@ export default function SignUpScreen() {
       setGoogleLoading(false);
     }
   }, [googleLoading, startSSOFlow, router]);
+
+  const onApplePress = useCallback(async () => {
+    if (appleLoading) return;
+    setAppleLoading(true);
+    setAppleError(null);
+    try {
+      const { createdSessionId, setActive } = await startSSOFlow({
+        strategy: "oauth_apple",
+      });
+
+      if (createdSessionId && setActive) {
+        await setActive({ session: createdSessionId });
+        router.replace("/" as Href);
+      } else {
+        setAppleError(
+          "Apple sign-in could not be completed — please try again.",
+        );
+      }
+    } catch (err) {
+      // Suppress errors that indicate the user deliberately dismissed the
+      // Apple Sign-In sheet — no message needed in that case.
+      if (!isCancelError(err)) {
+        console.error("Apple sign-up error:", JSON.stringify(err, null, 2));
+        setAppleError("Apple sign-in failed. Please try again.");
+      }
+    } finally {
+      setAppleLoading(false);
+    }
+  }, [appleLoading, startSSOFlow, router]);
 
   return (
     <View style={[styles.fill, { backgroundColor: colors.background }]}>
@@ -203,6 +219,32 @@ export default function SignUpScreen() {
               {googleError && (
                 <Text style={[styles.error, { color: colors.destructive }]}>
                   {googleError}
+                </Text>
+              )}
+
+              {/* Apple SSO — shown on iOS only */}
+              {Platform.OS === "ios" && (
+                <TouchableOpacity
+                  style={[styles.appleBtn, { opacity: appleLoading ? 0.7 : 1 }]}
+                  onPress={onApplePress}
+                  disabled={appleLoading}
+                >
+                  {appleLoading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="logo-apple" size={20} color="#fff" />
+                      <Text style={styles.appleBtnText}>
+                        Continue with Apple
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              {appleError && (
+                <Text style={[styles.error, { color: colors.destructive }]}>
+                  {appleError}
                 </Text>
               )}
 
@@ -502,6 +544,22 @@ const styles = StyleSheet.create({
   },
   footerText: { fontSize: 14, fontFamily: "Inter_400Regular" },
   footerLink: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  appleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    paddingVertical: 13,
+    gap: 10,
+    marginTop: 8,
+    minHeight: 50,
+    backgroundColor: "#000",
+  },
+  appleBtnText: {
+    color: "#fff",
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+  },
   resendBtn: { alignItems: "center", marginTop: 16 },
   spamNote: {
     fontSize: 12,
