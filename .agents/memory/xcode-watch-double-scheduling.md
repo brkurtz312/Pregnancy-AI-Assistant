@@ -40,6 +40,13 @@ Shell script content stored in PBXShellScriptBuildPhase must NOT contain unescap
 
 **Why:** The xcode npm library writes values with outer `"` as-is; any inner `"` that isn't escaped as `\"` breaks the pbxproj parser on next read → `SyntaxError: Expected "/*" or ";" but "P" found`.
 
+## Critical embed phase detection rule
+`addTarget("watch2_app")` names the auto-created PBXCopyFilesBuildPhase differently by context:
+- Local (stale ios/ dir, older xcode lib): `"Embed Watch Content"`
+- EAS (fresh generate): `"Embed PregnancyWatchApp"` (uses target product name)
+
+**Always detect by `dstSubfolderSpec = 16`** (Xcode's Watch Content destination), never by name. Build #106 (v7, commit 6ed14a1) confirmed this fix — archive succeeded.
+
 ## Key identifiers
 - Watch bundle ID: `app.replit.pregnancycalculator.watchapp`
 - iOS bundle ID: `app.replit.pregnancycalculator`
