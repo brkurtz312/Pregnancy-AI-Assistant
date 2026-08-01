@@ -18,7 +18,7 @@ import Constants from "expo-constants";
 import { type Href, Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import { WhatsNewModal } from "@/components/WhatsNewModal";
 import { useWhatsNew } from "@/hooks/useWhatsNew";
 import { GestureHandlerRootView } from "react-native-gesture-handler";

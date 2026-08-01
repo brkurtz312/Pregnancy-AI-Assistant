@@ -23,6 +23,12 @@ public class WatchConnectivityModule: Module {
             PhoneWatchBridge.shared.sendGestationalWeek(week)
         }
 
+        // Preferred over the individual calls above: sends week and tips in a
+        // single atomic payload so the Watch never receives a mismatched state.
+        AsyncFunction("sendWeekAndTips") { (week: Int, tips: [[String: Any]]) in
+            PhoneWatchBridge.shared.sendWeekAndTips(week, tips: tips)
+        }
+
         // Returns a snapshot of activation state + watch app install + reachability
         AsyncFunction("getSessionState") { () -> [String: Any] in
             PhoneWatchBridge.shared.sessionState()

@@ -27,6 +27,12 @@ export interface WatchSessionState {
 interface WatchConnectivityInterface {
   sendTips: (tips: object[]) => Promise<void>;
   sendGestationalWeek: (week: number) => Promise<void>;
+  /**
+   * Atomically sends gestational week and tips in a single WCSession
+   * payload.  Prefer this over calling sendGestationalWeek + sendTips
+   * individually to guarantee both values arrive as one coherent snapshot.
+   */
+  sendWeekAndTips: (week: number, tips: object[]) => Promise<void>;
   getSessionState: () => Promise<WatchSessionState>;
   addListener: (event: string, cb: Listener) => Subscription;
 }
@@ -34,6 +40,7 @@ interface WatchConnectivityInterface {
 const stub: WatchConnectivityInterface = {
   sendTips: async () => {},
   sendGestationalWeek: async () => {},
+  sendWeekAndTips: async () => {},
   getSessionState: async () => ({
     activationState: "notActivated",
     isWatchAppInstalled: false,
@@ -53,6 +60,8 @@ function buildModule(): WatchConnectivityInterface {
     return {
       sendTips: (tips: object[]) => native.sendTips(tips),
       sendGestationalWeek: (week: number) => native.sendGestationalWeek(week),
+      sendWeekAndTips: (week: number, tips: object[]) =>
+        native.sendWeekAndTips(week, tips),
       getSessionState: () => native.getSessionState(),
       addListener: (event: string, cb: Listener) =>
         emitter.addListener(event, cb),

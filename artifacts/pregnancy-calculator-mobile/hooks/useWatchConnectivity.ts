@@ -115,17 +115,14 @@ export function useWatchConnectivity({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!mod]);
 
-  // Push gestational week to the watch whenever it changes
+  // Push gestational week + tips atomically whenever either changes.
+  // Using a single sendWeekAndTips call ensures the Watch always receives
+  // a coherent snapshot — never a state where the week is from the new
+  // due date but the tips are still from the old one (or vice versa).
   useEffect(() => {
-    if (!mod || gestationalWeek == null) return;
-    mod.sendGestationalWeek(gestationalWeek).catch(() => {});
-  }, [mod, gestationalWeek]);
-
-  // Push tips to the watch whenever they change
-  useEffect(() => {
-    if (!mod || !tips?.length) return;
-    mod.sendTips(tips).catch(() => {});
-  }, [mod, tips]);
+    if (!mod || gestationalWeek == null || !tips?.length) return;
+    mod.sendWeekAndTips(gestationalWeek, tips).catch(() => {});
+  }, [mod, gestationalWeek, tips]);
 
   // Subscribe to watch events
   useEffect(() => {

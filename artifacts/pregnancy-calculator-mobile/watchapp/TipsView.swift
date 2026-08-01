@@ -62,5 +62,14 @@ struct TipsView: View {
             }
             .padding()
         }
+        // Reset to the first tip whenever the gestational week changes so
+        // users see up-to-date content immediately after a due-date edit.
+        .onChange(of: session.gestationalWeek) { _ in
+            tipIndex = 0
+        }
+        // Also reset when a fresh batch of tips arrives (e.g. background sync)
+        .onChange(of: session.tips.first?.week) { _ in
+            tipIndex = 0
+        }
     }
 }

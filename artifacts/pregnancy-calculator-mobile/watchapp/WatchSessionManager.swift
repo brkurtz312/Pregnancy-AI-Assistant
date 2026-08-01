@@ -25,10 +25,14 @@ final class WatchSessionManager: NSObject, ObservableObject {
             WCSession.default.activate()
         }
 
-        // Load persisted tips from UserDefaults
+        // Load persisted tips and gestational week from UserDefaults
         if let data = UserDefaults.standard.data(forKey: "watchTips"),
            let saved = try? decoder.decode([WatchTip].self, from: data) {
             tips = saved
+        }
+        let savedWeek = UserDefaults.standard.integer(forKey: "watchGestationalWeek")
+        if savedWeek > 0 {
+            gestationalWeek = savedWeek
         }
     }
 
@@ -109,6 +113,7 @@ extension WatchSessionManager: WCSessionDelegate {
 
             if let week = payload[WatchMessage.gestationalWeek] as? Int {
                 self.gestationalWeek = week
+                UserDefaults.standard.set(week, forKey: "watchGestationalWeek")
             }
 
             if let count = payload[WatchMessage.kickCount] as? Int {

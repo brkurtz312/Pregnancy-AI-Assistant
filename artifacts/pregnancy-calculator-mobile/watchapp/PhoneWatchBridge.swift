@@ -11,6 +11,19 @@ import WatchConnectivity
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
+    // MARK: - Cached values for atomic application-context fallback
+    //
+    // `sendGestationalWeek` and `sendTips` are called from JS sequentially
+    // but independently.  `updateApplicationContext` replaces the entire
+    // context on every call, so the second call would clobber the first.
+    // We cache the latest value from each call site and always write *both*
+    // together so the Watch receives a single atomic snapshot.
+    //
+    // Both properties are written on the JS (main) queue, so no additional
+    // synchronisation is needed.
+    private var lastKnownWeek: Int?
+    private var lastKnownTipsData: Data?
+
     private override init() {
         super.init()
         encoder.dateEncodingStrategy = .iso8601
@@ -25,18 +38,59 @@ import WatchConnectivity
     // MARK: - Send tips to watch
 
     @objc func sendTips(_ tips: [[String: Any]]) {
-        guard WCSession.default.activationState == .activated else { return }
+        guard WCSession.default.activationState == .activated,
+              WCSession.default.isWatchAppInstalled else { return }
         guard let data = try? JSONSerialization.data(withJSONObject: tips) else { return }
-        let payload: [String: Any] = ["tips": data]
-        if WCSession.default.isWatchAppInstalled {
-            try? WCSession.default.updateApplicationContext(payload)
+        lastKnownTipsData = data    // cache for atomic fallback
+        let realtimePayload: [String: Any] = [WatchMessage.tips: data]
+        // Use sendMessage for immediate delivery when the Watch app is in the
+        // foreground; fall back to a combined atomic context update otherwise.
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(realtimePayload, replyHandler: nil, errorHandler: { [weak self] _ in
+                self?.sendFallbackContext()
+            })
+        } else {
+            sendFallbackContext()
         }
     }
 
     @objc func sendGestationalWeek(_ week: Int) {
         guard WCSession.default.activationState == .activated,
               WCSession.default.isWatchAppInstalled else { return }
-        try? WCSession.default.updateApplicationContext(["gestationalWeek": week])
+        lastKnownWeek = week        // cache for atomic fallback
+        let realtimePayload: [String: Any] = [WatchMessage.gestationalWeek: week]
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(realtimePayload, replyHandler: nil, errorHandler: { [weak self] _ in
+                self?.sendFallbackContext()
+            })
+        } else {
+            sendFallbackContext()
+        }
+    }
+
+    /// Sends gestational week and tips as one atomic payload.
+    /// When the Watch is reachable both values travel in a single sendMessage;
+    /// when unreachable they are written to a single updateApplicationContext so
+    /// neither value can overwrite the other mid-flight.
+    @objc func sendWeekAndTips(_ week: Int, tips tipsJson: [[String: Any]]) {
+        guard WCSession.default.activationState == .activated,
+              WCSession.default.isWatchAppInstalled else { return }
+        guard let data = try? JSONSerialization.data(withJSONObject: tipsJson) else { return }
+        // Update cache so any subsequent individual-field call still produces
+        // a consistent combined context.
+        lastKnownWeek = week
+        lastKnownTipsData = data
+        let payload: [String: Any] = [
+            WatchMessage.gestationalWeek: week,
+            WatchMessage.tips: data,
+        ]
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(payload, replyHandler: nil, errorHandler: { _ in
+                try? WCSession.default.updateApplicationContext(payload)
+            })
+        } else {
+            try? WCSession.default.updateApplicationContext(payload)
+        }
     }
 
     // MARK: - Session state
@@ -65,6 +119,23 @@ import WatchConnectivity
     var onKickUpdate: ((Int) -> Void)?
     /// Called whenever Watch connectivity state changes (reachability, activation, install)
     var onSessionStateChange: (([String: Any]) -> Void)?
+
+    // MARK: - Private helpers
+
+    /// Builds one application context containing every cached due-date value so
+    /// the Watch always receives an atomic snapshot — never a partial update
+    /// where week and tips belong to different due dates.
+    private func sendFallbackContext() {
+        var ctx: [String: Any] = [:]
+        if let week = lastKnownWeek {
+            ctx[WatchMessage.gestationalWeek] = week
+        }
+        if let data = lastKnownTipsData {
+            ctx[WatchMessage.tips] = data
+        }
+        guard !ctx.isEmpty else { return }
+        try? WCSession.default.updateApplicationContext(ctx)
+    }
 }
 
 // MARK: - WCSessionDelegate
