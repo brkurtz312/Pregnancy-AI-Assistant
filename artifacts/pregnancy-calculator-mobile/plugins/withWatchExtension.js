@@ -47,6 +47,26 @@ const WATCH_SWIFT_SOURCES = [
   "Models.swift",
 ];
 
+// Standalone icon PNGs copied directly into the Watch bundle root.
+// Required for Apple's ITMS-90391 validator which checks CFBundleIconFiles
+// for actual PNG files in the bundle — it does not inspect Assets.car.
+// Sizes cover all watchOS icon slots (notificationCenter, appLauncher,
+// quickLook, companionSettings, and watch-marketing).
+const WATCH_ICON_FILES = [
+  "AppIcon-58.png",   // 29pt @2x  — Companion Settings
+  "AppIcon-80.png",   // 40pt @2x  — Home 38mm
+  "AppIcon-87.png",   // 29pt @3x  — Companion Settings @3x
+  "AppIcon-88.png",   // 44pt @2x  — Home 40mm
+  "AppIcon-100.png",  // 50pt @2x  — Home 44mm
+  "AppIcon-102.png",  // 51pt @2x  — Home 45mm
+  "AppIcon-108.png",  // 54pt @2x  — Home 49mm (Ultra)
+  "AppIcon-172.png",  // 86pt @2x  — QuickLook 38mm
+  "AppIcon-196.png",  // 98pt @2x  — QuickLook 42mm
+  "AppIcon-216.png",  // 108pt @2x — QuickLook 44/45mm
+  "AppIcon-234.png",  // 117pt @2x — QuickLook 49mm (Ultra)
+  "AppIcon-1024.png", // 1024pt @1x — App Store marketing
+];
+
 const PHONE_BRIDGE_SOURCES = [
   "PhoneWatchBridge.swift",
   "WatchConnectivityModule.swift",
@@ -81,6 +101,17 @@ function withWatchFiles(config) {
         if (fs.existsSync(src)) {
           fs.copyFileSync(src, path.join(watchDir, file));
           console.log(`[Watch] copied ${file}`);
+        }
+      }
+
+      // Copy standalone icon PNGs (required for CFBundleIconFiles / ITMS-90391).
+      for (const iconFile of WATCH_ICON_FILES) {
+        const src = path.join(sourceDir, iconFile);
+        if (fs.existsSync(src)) {
+          fs.copyFileSync(src, path.join(watchDir, iconFile));
+          console.log(`[Watch] copied ${iconFile}`);
+        } else {
+          console.warn(`[Watch] icon NOT FOUND: ${src}`);
         }
       }
 
@@ -284,8 +315,12 @@ function _withWatchXcodeTargetInner(config) {
 
     // Register Assets.xcassets in the Watch target's Resources phase so that
     // ASSETCATALOG_COMPILER_APPICON_NAME has input at build time.
-    // Without this the Watch bundle ships with no icons → ITMS-90391/90713.
     addWatchAssetCatalogToResources(project, watchUuid);
+
+    // Register standalone icon PNGs in the Watch Resources phase.
+    // Apple's ITMS-90391 validator checks for actual PNG files listed in
+    // CFBundleIconFiles — it does not look inside Assets.car for icons.
+    addWatchIconFilesToResources(project, watchUuid);
   }
 
   // ── Always apply: phone bridge Swift files to main target Sources ─────────
@@ -295,6 +330,87 @@ function _withWatchXcodeTargetInner(config) {
   addPhoneBridgeToMainTarget(project, appName);
 
   return config;
+}
+
+/**
+ * Registers each standalone icon PNG (from WATCH_ICON_FILES) directly in the
+ * Watch target's Resources build phase so they are copied into the Watch bundle
+ * root. Idempotent — skips files already present in the phase.
+ *
+ * Apple's ITMS-90391 validator scans the bundle for actual PNG files listed in
+ * CFBundleIconFiles. It does NOT inspect Assets.car for icons. Without these
+ * standalone PNGs in the bundle the validator says "No icons found" even though
+ * Assets.car contains correctly compiled icon data.
+ */
+function addWatchIconFilesToResources(project, watchTargetUuid) {
+  const objects = project.hash.project.objects;
+  const nts = project.pbxNativeTargetSection();
+  const watchTarget = nts[watchTargetUuid];
+  if (!watchTarget) return;
+
+  const frs = project.pbxFileReferenceSection();
+  const resourcesSection = objects["PBXResourcesBuildPhase"] || {};
+  const buildFileSection = objects["PBXBuildFile"] || {};
+  if (!objects["PBXFileReference"]) objects["PBXFileReference"] = {};
+  if (!objects["PBXBuildFile"]) objects["PBXBuildFile"] = {};
+
+  // Find Watch target's Resources phase
+  let resourcesPhaseUuid = null;
+  for (const phase of watchTarget.buildPhases || []) {
+    const uuid = typeof phase === "object" ? phase.value : phase;
+    if (resourcesSection[uuid]) { resourcesPhaseUuid = uuid; break; }
+  }
+  if (!resourcesPhaseUuid) {
+    console.warn("[Watch] addWatchIconFilesToResources: Resources phase not found");
+    return;
+  }
+  const resourcesPhase = resourcesSection[resourcesPhaseUuid];
+  if (!resourcesPhase.files) resourcesPhase.files = [];
+
+  for (const iconFile of WATCH_ICON_FILES) {
+    const iconPath = `${WATCH_TARGET_NAME}/${iconFile}`;
+
+    // Find existing file reference (idempotency)
+    let fileRefUuid = Object.keys(frs).find((k) => {
+      if (k.endsWith("_comment")) return false;
+      const fr = frs[k];
+      if (!fr || typeof fr !== "object") return false;
+      const p = fr.path || fr.name || "";
+      return p === `"${iconPath}"` || p === iconPath || p === `"${iconFile}"` || p === iconFile;
+    });
+
+    if (fileRefUuid) {
+      // Check if already in Resources phase
+      const inPhase = resourcesPhase.files.some((ref) => {
+        const bfUuid = typeof ref === "object" ? ref.value : ref;
+        if (!bfUuid || bfUuid.endsWith("_comment")) return false;
+        const bf = buildFileSection[bfUuid];
+        if (!bf) return false;
+        const fr = typeof bf.fileRef === "object" ? bf.fileRef.value : bf.fileRef;
+        return fr === fileRefUuid;
+      });
+      if (inPhase) {
+        console.log(`[Watch] ${iconFile} already in Resources — skipping`);
+        continue;
+      }
+    } else {
+      fileRefUuid = project.generateUuid();
+      objects["PBXFileReference"][fileRefUuid] = {
+        isa: "PBXFileReference",
+        lastKnownFileType: "image.png",
+        name: `"${iconFile}"`,
+        path: `"${iconPath}"`,
+        sourceTree: '"<group>"',
+      };
+      objects["PBXFileReference"][`${fileRefUuid}_comment`] = iconFile;
+    }
+
+    const buildFileUuid = project.generateUuid();
+    objects["PBXBuildFile"][buildFileUuid] = { isa: "PBXBuildFile", fileRef: fileRefUuid };
+    objects["PBXBuildFile"][`${buildFileUuid}_comment`] = `${iconFile} in Resources`;
+    resourcesPhase.files.push({ value: buildFileUuid, comment: `${iconFile} in Resources` });
+    console.log(`[Watch] Registered ${iconFile} in Watch Resources phase`);
+  }
 }
 
 /**
