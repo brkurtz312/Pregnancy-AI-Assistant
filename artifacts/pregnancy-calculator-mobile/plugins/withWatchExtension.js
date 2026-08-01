@@ -742,14 +742,71 @@ function withWatchScheme(config) {
   });
 }
 
-// ─── Export ───────────────────────────────────────────────────────────────────
+// ─── Step 3: Strip Watch from scheme (dep-only scheduling) ───────────────────
+//
+// addTarget("watch2_app") auto-adds a BuildActionEntry to the scheme in addition
+// to creating the PBXTargetDependency. Having both triggers causes double-scheduling
+// → "Multiple commands produce". This modifier strips the Watch scheme entry so
+// only the PBXTargetDependency (+ ATPS=YES) drives the build.
+//
+// Applied BEFORE withWatchXcodeTarget in the export chain so it executes AFTER
+// (LIFO), i.e. after addTarget has already added the entry.
 
-// Dep-only approach: the PBXTargetDependency (kept from addTarget's auto-create,
-// enforced by ensureWatchTargetDependency on re-runs) + ATPS=YES is the sole
-// scheduling mechanism. withWatchScheme is NOT applied — a scheme entry alongside
-// the dep causes double-scheduling in every combination tested.
+function withWatchSchemeCleanup(config) {
+  return withXcodeProject(config, (config) => {
+    try {
+      const iosRoot = config.modRequest.platformProjectRoot;
+      const projectName = config.modRequest.projectName;
+
+      const schemePath = path.join(
+        iosRoot,
+        `${projectName}.xcodeproj`,
+        "xcshareddata",
+        "xcschemes",
+        `${projectName}.xcscheme`,
+      );
+
+      if (!fs.existsSync(schemePath)) {
+        console.warn(`[Watch/SchemeCleanup] Scheme not found at ${schemePath}`);
+        return config;
+      }
+
+      let schemeXml = fs.readFileSync(schemePath, "utf8");
+
+      // Strip any BuildActionEntry that references the Watch target.
+      // addTarget("watch2_app") injects one automatically; keeping it alongside
+      // the PBXTargetDependency schedules the Watch twice.
+      const watchEntryRegex =
+        /[ \t]*<BuildActionEntry[\s\S]*?BlueprintName\s*=\s*"PregnancyWatchApp"[\s\S]*?<\/BuildActionEntry>\n?/g;
+      const before = schemeXml;
+      schemeXml = schemeXml.replace(watchEntryRegex, "");
+      if (schemeXml !== before) {
+        fs.writeFileSync(schemePath, schemeXml, "utf8");
+        console.log("[Watch/SchemeCleanup] Stripped Watch BuildActionEntry from scheme (dep-only scheduling)");
+      } else {
+        console.log("[Watch/SchemeCleanup] No Watch BuildActionEntry found — nothing to strip");
+      }
+    } catch (e) {
+      console.error("[Watch/SchemeCleanup] ERROR:", e && e.message);
+      throw e;
+    }
+    return config;
+  });
+}
+
+// ─── Export ───────────────────────────────────────────────────────────────────
+//
+// Dep-only scheduling: addTarget("watch2_app") auto-creates a PBXTargetDependency
+// AND a scheme BuildActionEntry. We keep the dep (single scheduling trigger) and
+// strip the scheme entry via withWatchSchemeCleanup.
+//
+// LIFO execution order (last applied = first executed):
+//   withWatchXcodeTarget    → runs first: creates Watch target + dep + scheme entry
+//   withWatchSchemeCleanup  → runs second: strips the scheme entry addTarget just added
+//   withWatchFiles          → runs third: copies source files
 module.exports = (config) => {
   config = withWatchFiles(config);
-  config = withWatchXcodeTarget(config);
+  config = withWatchSchemeCleanup(config); // applied second → executes second
+  config = withWatchXcodeTarget(config);   // applied last   → executes first
   return config;
 };
