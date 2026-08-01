@@ -47,6 +47,7 @@ import {
   type ContractionRecord,
 } from "@/hooks/useWatchConnectivity";
 import { calculateByDueDate } from "@/lib/pregnancy-math";
+import { getWeeklyTips } from "@/lib/watch-tips";
 
 const SYMPTOMS = [
   "Nausea",
@@ -1046,28 +1047,7 @@ export default function ToolsScreen() {
 
   const watchTips = useMemo((): WatchTip[] => {
     if (gestationalWeek == null) return [];
-    return [
-      {
-        week: gestationalWeek,
-        emoji: "👶",
-        text: `Week ${gestationalWeek}: Baby is growing every day.`,
-      },
-      {
-        week: gestationalWeek,
-        emoji: "💧",
-        text: "Stay hydrated — aim for 8–10 glasses of water daily.",
-      },
-      {
-        week: gestationalWeek,
-        emoji: "🚶",
-        text: "Gentle walks help circulation and mood.",
-      },
-      {
-        week: gestationalWeek,
-        emoji: "❤️",
-        text: "Track kicks daily for peace of mind.",
-      },
-    ];
+    return getWeeklyTips(gestationalWeek);
   }, [gestationalWeek]);
 
   const watchKickMutation = useCreateKickSession();
