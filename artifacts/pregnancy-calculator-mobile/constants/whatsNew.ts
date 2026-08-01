@@ -27,6 +27,26 @@ export interface WhatsNewEntry {
  * the build before it reaches the App Store.
  */
 export const WHATS_NEW: Record<string, WhatsNewEntry> = {
+  "1.0.12": {
+    headline: "Now on Apple Watch",
+    items: [
+      {
+        icon: "watch-outline",
+        title: "Contraction Timer on Your Wrist",
+        body: "Start, stop, and track contractions right from your Apple Watch — no need to reach for your phone during labor.",
+      },
+      {
+        icon: "fitness-outline",
+        title: "Kick Counter on Your Wrist",
+        body: "Log baby kicks from your Watch and keep an eye on movement patterns without unlocking your phone.",
+      },
+      {
+        icon: "bulb-outline",
+        title: "Weekly Tips on Your Watch",
+        body: "Get bite-sized pregnancy tips for your current week, always available at a glance on your wrist.",
+      },
+    ],
+  },
   "1.0.7": {
     headline: "Appointment Reminders",
     items: [
