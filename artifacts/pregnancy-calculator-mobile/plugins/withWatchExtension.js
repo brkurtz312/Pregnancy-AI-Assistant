@@ -193,37 +193,34 @@ function _withWatchXcodeTargetInner(config) {
     // ── Override build settings ────────────────────────────────────────────
     applyWatchBuildSettings(project, watchUuid);
 
-    // CRITICAL: addTarget("watch2_app") auto-creates a PBXTargetDependency
-    // from the iOS app → Watch target. Combined with the scheme entry
-    // (buildForArchiving=YES) this causes the Watch to be scheduled TWICE
-    // → "Multiple commands produce ...watchos/PregnancyWatchApp.app/...".
-    // Remove the auto-created dep immediately so only the scheme entry triggers
-    // the build. ATPS=YES on the iOS app target ensures the Watch's own
-    // SDKROOT=watchos is respected even when archiving with
-    // -destination 'generic/platform=iOS'.
-    removeWatchTargetDependency(project, watchUuid);
-    console.log("[Watch] Removed auto-created PBXTargetDependency (scheme-only scheduling)");
+    // NOTE: addTarget("watch2_app") auto-creates a PBXTargetDependency from
+    // the iOS app → Watch target. We intentionally KEEP it (do NOT call
+    // removeWatchTargetDependency here). The dep + ATPS=YES is the correct
+    // mechanism for Xcode to build the Watch for watchos and embed it via the
+    // auto-created "Embed Watch Content" phase.
+    //
+    // History of scheduling approaches tried:
+    //   Scheme + dep (buildForArchiving=YES)  → double-schedule → "Multiple commands produce"
+    //   Scheme + dep (buildForArchiving=NO)   → still double-schedules (dep fires regardless)
+    //   Dep only, no ATPS                     → Watch NOT compiled (Xcode 26 ignores cross-platform deps)
+    //   Scheme only + ATPS, no dep            → Watch builds for watchos but embed phase
+    //                                           looks in Release-iphoneos/ → lstat ENOENT
+    //   Dep only + ATPS=YES (current)         → ATPS tells Xcode the dep may build for a
+    //                                           different SDK; embed phase resolves correctly.
   }
 
   if (watchUuid) {
-    // Scheme-only approach (NO PBXTargetDependency).
+    // Dep-only approach (NO scheme entry).
     //
-    // History of attempts:
-    //   Scheme + dep (buildForArchiving=YES)  → double-schedule → "Multiple commands produce"
-    //   Scheme + dep (buildForArchiving=NO)   → still double-schedule (dep fires regardless)
-    //   Dep only (no scheme entry)            → Watch NOT compiled (Xcode 26 ignores cross-platform deps)
-    //   Scheme only — UNTESTED with ATPS=YES on iOS app target.
-    //
-    // Hypothesis: ALLOW_TARGET_PLATFORM_SPECIALIZATION=YES on the iOS *app*
-    // target tells Xcode 26 that scheme entries may build for a different SDK
-    // than the archive destination. With that flag, the Watch target's own
-    // SDKROOT=watchos should be respected even when the archive destination
-    // is 'generic/platform=iOS', eliminating the wrong-platform issue that
-    // was seen in earlier scheme-only builds (which did not have ATPS on the
-    // main app target).
-    //
-    // Do NOT call ensureWatchTargetDependency — adding a PBXTargetDependency
-    // alongside the scheme entry causes the Watch to be scheduled twice.
+    // ALLOW_TARGET_PLATFORM_SPECIALIZATION=YES on the iOS app target is what
+    // makes cross-platform PBXTargetDependency work in Xcode 26. Without it,
+    // Xcode ignores the dep when archiving for iOS. With it, the Watch target's
+    // own SDKROOT=watchos is respected and the "Embed Watch Content" build phase
+    // can locate the Watch app output in the watchos build products directory.
+
+    // Ensure the dep is present unconditionally — handles re-runs where addTarget
+    // is skipped (alreadyPresent=true) and the dep would otherwise be absent.
+    ensureWatchTargetDependency(project, watchUuid);
 
     // Add ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES to the iOS app target's
     // build configurations. Always run — idempotent.
@@ -742,13 +739,12 @@ function withWatchScheme(config) {
 
 // ─── Export ───────────────────────────────────────────────────────────────────
 
-// Export order matters: Expo processes withXcodeProject mods LIFO (last applied
-// runs first). withWatchXcodeTarget must run BEFORE withWatchScheme because the
-// scheme step needs the Watch target UUID that withWatchXcodeTarget creates.
-// Therefore withWatchXcodeTarget is applied LAST so it executes FIRST.
+// Dep-only approach: the PBXTargetDependency (kept from addTarget's auto-create,
+// enforced by ensureWatchTargetDependency on re-runs) + ATPS=YES is the sole
+// scheduling mechanism. withWatchScheme is NOT applied — a scheme entry alongside
+// the dep causes double-scheduling in every combination tested.
 module.exports = (config) => {
   config = withWatchFiles(config);
-  config = withWatchScheme(config);     // applied second → executes second (LIFO)
-  config = withWatchXcodeTarget(config); // applied last  → executes first  (LIFO)
+  config = withWatchXcodeTarget(config);
   return config;
 };
