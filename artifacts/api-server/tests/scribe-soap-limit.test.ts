@@ -57,6 +57,10 @@ vi.mock("../src/middlewares/auth", () => ({
 vi.mock("@workspace/db", () => ({
   db: {},
   aiUsageTable: {},
+  // scribe-idempotency.ts imports scribeIdempotencyKeysTable for its
+  // background dbSweep timer; without this export the timer logs a warning
+  // and can leave handles open, blocking test teardown.
+  scribeIdempotencyKeysTable: {},
 }));
 
 // ─── Test app ────────────────────────────────────────────────────────────────

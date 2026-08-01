@@ -91,9 +91,19 @@ export function PassProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signedIn]);
 
-  const hasPass = passQuery.data?.hasPass ?? false;
-  const freeLimit = passQuery.data?.freeLimit ?? 5;
-  const freeUsed = passQuery.data?.freeUsed ?? 0;
+  // Gate data extraction on signedIn.
+  //
+  // React Query keeps the previously fetched data in `passQuery.data` even
+  // when the query is disabled (enabled: false). This means that during the
+  // brief render window BEFORE SessionWatcher's useEffect fires
+  // queryClient.clear(), a signed-out render could see User A's stale
+  // entitlement (e.g. hasPass: true, freeUsed: 4). By returning safe defaults
+  // whenever signedIn is false, we guarantee that consumers never paint stale
+  // pass-status or AI quota values for a different user, regardless of what
+  // the cache contains at that moment.
+  const hasPass = signedIn ? (passQuery.data?.hasPass ?? false) : false;
+  const freeLimit = signedIn ? (passQuery.data?.freeLimit ?? 5) : 5;
+  const freeUsed = signedIn ? (passQuery.data?.freeUsed ?? 0) : 0;
 
   const value: PassContextValue = {
     isSignedIn: signedIn,

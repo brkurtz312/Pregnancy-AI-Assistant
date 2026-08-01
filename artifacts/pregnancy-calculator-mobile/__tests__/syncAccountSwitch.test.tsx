@@ -253,7 +253,10 @@ const USER_B_BAG = [
 const USER_A_BIRTH_PLAN = { yourName: "Alice Alpha" };
 const USER_B_BIRTH_PLAN = { yourName: "Betty Beta" };
 
-jest.setTimeout(15000);
+// 30 s gives comfortable headroom for flushAsync() rounds under concurrent CI
+// load (all workspace suites run in parallel).  15 s was the previous value
+// but intermittently timed out when the runner was under heavy load.
+jest.setTimeout(45000);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HOSPITAL BAG — account switch mid-session

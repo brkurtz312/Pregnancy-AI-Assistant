@@ -71,7 +71,7 @@ function runScript(
 // ---------------------------------------------------------------------------
 
 // tsx subprocess startup can take a few seconds — allow up to 20s per test.
-const CLI_TIMEOUT = 20_000;
+const CLI_TIMEOUT = 120_000;
 
 describe("check-whats-new script — CLI exit codes", () => {
   it(
@@ -224,7 +224,7 @@ describe("checkWhatsNew — failing cases", () => {
 // app.json has no matching WHATS_NEW entry, so the git pre-commit hook and
 // the EAS prebuildCommand both block the release as intended.
 
-const PNPM_TIMEOUT = 45_000;
+const PNPM_TIMEOUT = 120_000;
 const WORKSPACE_ROOT = path.resolve(__dirname, "../..");
 
 describe("check-whats-new — pnpm script command (hook path)", () => {

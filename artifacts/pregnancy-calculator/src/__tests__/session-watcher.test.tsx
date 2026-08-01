@@ -540,3 +540,170 @@ describe("SessionWatcher — mid-session token expiry", () => {
     }
   });
 });
+
+/**
+ * Regression guard: pass-status and AI quota must never flash stale values
+ * from a previous user when a returning user signs back in.
+ *
+ * Scenario: User A's pass entitlement (hasPass: true, freeUsed: 4) and AI
+ * quota are in the React Query cache.  User A signs out.  User B signs in on
+ * the same device.  At the exact moment User B's session becomes active the
+ * cache must already be empty — no stale entitlement or quota data can be
+ * visible in the UI, even for a single render cycle.
+ */
+describe("SessionWatcher — no stale pass-status or AI quota flash on sign-in", () => {
+  let queryClient: QueryClient;
+
+  beforeEach(() => {
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    vi.clearAllMocks();
+    mockUseClerk.mockReturnValue({
+      signOut: vi.fn(async () => {}),
+    } as unknown as UseClerkReturn);
+  });
+
+  it("pass-status (hasPass, freeUsed, freeLimit) is absent from the cache the moment a new session starts", async () => {
+    // Seed user A's pass entitlement into the cache (rich paid user).
+    const passStatusKey = ["get-pass-status"];
+    await queryClient.fetchQuery({
+      queryKey: passStatusKey,
+      queryFn: () =>
+        Promise.resolve({ hasPass: true, freeUsed: 4, freeLimit: 5 }),
+    });
+    expect(queryClient.getQueryData(passStatusKey)).toEqual({
+      hasPass: true,
+      freeUsed: 4,
+      freeLimit: 5,
+    });
+
+    // User A is signed in; SessionWatcher is mounted.
+    mockUseSession.mockReturnValue(signedInState("sess_user_a"));
+    const { rerender } = renderWatcher(queryClient);
+
+    // User A signs out — SessionWatcher must call queryClient.clear().
+    mockUseSession.mockReturnValue(signedOutState());
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <SessionWatcher />
+      </QueryClientProvider>,
+    );
+
+    // Cache must be fully empty before User B's session arrives.
+    // If any pass-status data lingers here, the UI would flash User A's
+    // entitlement (e.g. "Full Pass active", free-question count = 4) to User B.
+    expect(queryClient.getQueryData(passStatusKey)).toBeUndefined();
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+
+    // User B signs in — invalidateQueries fires but there is nothing to flash.
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    mockUseSession.mockReturnValue(signedInState("sess_user_b"));
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <SessionWatcher />
+      </QueryClientProvider>,
+    );
+
+    expect(invalidateSpy).toHaveBeenCalledTimes(1);
+    // Still empty — User B's pass-status will be fetched fresh from the server.
+    expect(queryClient.getQueryData(passStatusKey)).toBeUndefined();
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+  });
+
+  it("AI quota (freeUsed, freeLimit) is absent from the cache the moment a new session starts", async () => {
+    // Seed user A's AI usage quota (they have used all free questions).
+    const passStatusKey = ["get-pass-status"];
+    await queryClient.fetchQuery({
+      queryKey: passStatusKey,
+      queryFn: () =>
+        Promise.resolve({ hasPass: false, freeUsed: 5, freeLimit: 5 }),
+    });
+    expect(queryClient.getQueryData(passStatusKey)).toEqual({
+      hasPass: false,
+      freeUsed: 5,
+      freeLimit: 5,
+    });
+
+    // User A signed in, then signs out.
+    mockUseSession.mockReturnValue(signedInState("sess_user_a"));
+    const { rerender } = renderWatcher(queryClient);
+
+    mockUseSession.mockReturnValue(signedOutState());
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <SessionWatcher />
+      </QueryClientProvider>,
+    );
+
+    // AI quota data must be cleared — User B must not see "0 free questions
+    // remaining" or "quota exhausted" inherited from User A's session.
+    expect(queryClient.getQueryData(passStatusKey)).toBeUndefined();
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+
+    // User B signs in — cache remains empty until their own fetch completes.
+    mockUseSession.mockReturnValue(signedInState("sess_user_b"));
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <SessionWatcher />
+      </QueryClientProvider>,
+    );
+
+    expect(queryClient.getQueryData(passStatusKey)).toBeUndefined();
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+  });
+
+  it("multiple cache entries (pass-status, AI quota, profile) are all absent simultaneously at sign-in", async () => {
+    // Seed a full set of user A's authenticated data — the kind of rich cache
+    // that would be present after the user has been using the app for a while.
+    const passStatusKey = ["get-pass-status"];
+    const profileKey = ["get-profile"];
+    const aiUsageKey = ["get-ai-usage"];
+
+    await queryClient.fetchQuery({
+      queryKey: passStatusKey,
+      queryFn: () =>
+        Promise.resolve({ hasPass: true, freeUsed: 2, freeLimit: 5 }),
+    });
+    await queryClient.fetchQuery({
+      queryKey: profileKey,
+      queryFn: () => Promise.resolve({ providerName: "Dr_UserA" }),
+    });
+    await queryClient.fetchQuery({
+      queryKey: aiUsageKey,
+      queryFn: () => Promise.resolve({ used: 2, limit: 5, resetAt: null }),
+    });
+
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(3);
+
+    // Sign-out cycle.
+    mockUseSession.mockReturnValue(signedInState("sess_user_a"));
+    const { rerender } = renderWatcher(queryClient);
+
+    mockUseSession.mockReturnValue(signedOutState());
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <SessionWatcher />
+      </QueryClientProvider>,
+    );
+
+    // ALL entries cleared atomically — the sign-in UI never has access to
+    // any of User A's stale data.
+    expect(queryClient.getQueryData(passStatusKey)).toBeUndefined();
+    expect(queryClient.getQueryData(profileKey)).toBeUndefined();
+    expect(queryClient.getQueryData(aiUsageKey)).toBeUndefined();
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+
+    // User B signs in — fresh fetch, no stale flash possible.
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    mockUseSession.mockReturnValue(signedInState("sess_user_b"));
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <SessionWatcher />
+      </QueryClientProvider>,
+    );
+
+    expect(invalidateSpy).toHaveBeenCalledTimes(1);
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+  });
+});

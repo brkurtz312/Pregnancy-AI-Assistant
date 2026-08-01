@@ -116,8 +116,14 @@ export function useFakeTimersWithScheduler(): void {
   // flushAsync() rounds this helper enables never exceed the default 5 s limit
   // under concurrent CI load.  Callers do not need to add jest.setTimeout()
   // themselves — this beforeAll handles it automatically.
+  //
+  // NOTE: 30 000 ms is intentionally higher than 15 000 ms so that test files
+  // which set a longer file-level jest.setTimeout() (e.g. syncColdReinstall
+  // sets 25 000 ms) are never silently reduced by this beforeAll hook.  A
+  // file-level call executes before beforeAll, so a smaller value here would
+  // inadvertently shrink the timeout back down.
   beforeAll(() => {
-    jest.setTimeout(15000);
+    jest.setTimeout(30000);
   });
   beforeEach(() => {
     jest.useFakeTimers({ doNotFake: ["setImmediate", "nextTick"] });

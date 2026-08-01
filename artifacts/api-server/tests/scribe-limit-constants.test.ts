@@ -90,6 +90,7 @@ vi.mock("../src/middlewares/auth", () => ({
 vi.mock("@workspace/db", () => ({
   db: {},
   aiUsageTable: {},
+  scribeIdempotencyKeysTable: {},
 }));
 
 import supertest from "supertest";

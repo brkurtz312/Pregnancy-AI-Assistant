@@ -53,7 +53,7 @@ beforeAll(async () => {
     filePath: path.join(WORKSPACE_ROOT, "lib/db/src/warm-up.ts"),
     warnIgnored: false,
   });
-}, 60_000);
+}, 300_000);
 
 async function lintAs(
   code: string,

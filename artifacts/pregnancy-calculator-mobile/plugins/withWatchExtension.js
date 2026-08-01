@@ -227,11 +227,11 @@ function _withWatchXcodeTargetInner(config) {
     applyAllowPlatformSpecializationToMainApp(project);
   }
 
-  // NOTE: Phone bridge Swift files (PhoneWatchBridge, WatchConnectivityModule)
-  // are copied to the main app directory by withWatchFiles but are NOT added
-  // to the Xcode project here — project.addFile() with null group crashes the
-  // xcode library and silently unwinds the whole modifier. Wire them manually
-  // once the Watch bundle is confirmed working.
+  // ── Always apply: phone bridge Swift files to main target Sources ─────────
+  // project.addFile() with null group crashes the xcode library. Instead we
+  // manually insert PBXFileReference + PBXBuildFile entries with phase-aware
+  // idempotency (checks phase membership, not just global file refs).
+  addPhoneBridgeToMainTarget(project, appName);
 
   return config;
 }
@@ -307,14 +307,20 @@ function ensureWatchTargetDependency(project, watchTargetUuid) {
 }
 
 /**
- * Removes any PBXTargetDependency (and its PBXContainerItemProxy) wired from
- * the main iOS app target to the Watch target. Kept for reference; not called.
+ * Adds both phone-side bridge Swift files (PhoneWatchBridge.swift and
+ * WatchConnectivityModule.swift) to the main iOS app target's Sources build
+ * phase, and links WatchConnectivity.framework to its Frameworks phase.
+ *
+ * Uses phase-aware idempotency: checks whether the PBXBuildFile is already
+ * listed in the phase (not just whether a global file reference exists).
+ * project.addFile() with a null group would crash the xcode library, so all
+ * insertions are done manually into the pbxproj object graph.
  */
-function removeWatchTargetDependency(project, watchTargetUuid) {
+function addPhoneBridgeToMainTarget(project, appName) {
   const nts = project.pbxNativeTargetSection();
   const objects = project.hash.project.objects;
 
-  // Find the main iOS app target
+  // Find the main iOS app target UUID
   const mainTargetUuid = Object.keys(nts).find((key) => {
     if (key.endsWith("_comment")) return false;
     const t = nts[key];
@@ -326,54 +332,191 @@ function removeWatchTargetDependency(project, watchTargetUuid) {
     );
   });
   if (!mainTargetUuid) {
-    console.warn("[Watch] removeWatchTargetDependency: main app target not found");
+    console.warn("[Watch] addPhoneBridgeToMainTarget: main app target not found");
     return;
   }
 
   const mainTarget = nts[mainTargetUuid];
-  if (!mainTarget.dependencies || !mainTarget.dependencies.length) {
-    console.log("[Watch] No dependencies on main target — nothing to remove");
+  const buildPhases = mainTarget.buildPhases || [];
+
+  // ── Locate Sources and Frameworks phases by comment ────────────────────────
+  let sourcesPhaseUuid = null;
+  let frameworksPhaseUuid = null;
+  for (const phase of buildPhases) {
+    const uuid = typeof phase === "object" ? phase.value : phase;
+    const comment = typeof phase === "object" ? (phase.comment || "") : "";
+    if (comment === "Sources") sourcesPhaseUuid = uuid;
+    if (comment === "Frameworks") frameworksPhaseUuid = uuid;
+  }
+
+  const sourcesSection = objects["PBXSourcesBuildPhase"] || {};
+  const frameworksSection = objects["PBXFrameworksBuildPhase"] || {};
+
+  // Fallback: find by ISA only within phases listed in the main target,
+  // to avoid accidentally picking the Watch target's Sources/Frameworks phase.
+  const mainTargetPhaseUuids = new Set(
+    buildPhases.map((p) => (typeof p === "object" ? p.value : p)),
+  );
+  if (!sourcesPhaseUuid) {
+    sourcesPhaseUuid = Object.keys(sourcesSection).find(
+      (k) => !k.endsWith("_comment") && sourcesSection[k] && mainTargetPhaseUuids.has(k),
+    ) || null;
+  }
+  if (!frameworksPhaseUuid) {
+    frameworksPhaseUuid = Object.keys(frameworksSection).find(
+      (k) => !k.endsWith("_comment") && frameworksSection[k] && mainTargetPhaseUuids.has(k),
+    ) || null;
+  }
+
+  const sourcesPhase = sourcesPhaseUuid ? sourcesSection[sourcesPhaseUuid] : null;
+  const frameworksPhase = frameworksPhaseUuid ? frameworksSection[frameworksPhaseUuid] : null;
+
+  if (!sourcesPhase) {
+    console.warn("[Watch] addPhoneBridgeToMainTarget: Sources phase not found on main target");
+    return;
+  }
+  if (!sourcesPhase.files) sourcesPhase.files = [];
+
+  const frs = project.pbxFileReferenceSection();
+  const buildFileSection = objects["PBXBuildFile"] || {};
+  if (!objects["PBXBuildFile"]) objects["PBXBuildFile"] = {};
+  if (!objects["PBXFileReference"]) objects["PBXFileReference"] = {};
+
+  // ── Add Swift bridge files to Sources (phase-aware idempotency) ────────────
+  for (const fileName of PHONE_BRIDGE_SOURCES) {
+    const filePath = `${appName}/${fileName}`;
+
+    // Phase-aware idempotency: find existing file reference (if any), then
+    // check if a PBXBuildFile pointing to it is already in the Sources phase.
+    let fileRefUuid = null;
+    for (const [k, v] of Object.entries(frs)) {
+      if (k.endsWith("_comment")) continue;
+      if (!v || typeof v !== "object") continue;
+      const p = v.path || v.name || "";
+      // Match either bare file name OR app-relative path (what we write on creation)
+      if (
+        p === `"${fileName}"` ||
+        p === fileName ||
+        p === `"${filePath}"` ||
+        p === filePath
+      ) {
+        fileRefUuid = k;
+        break;
+      }
+    }
+
+    if (fileRefUuid) {
+      // Check if a build file for this ref is already in Sources phase.
+      // PBX objects store references as either a plain UUID string OR an
+      // object { value: uuid, comment: "..." }. Normalize before comparing.
+      const inPhase = sourcesPhase.files.some((bf) => {
+        const bfUuid = typeof bf === "object" ? bf.value : bf;
+        if (!bfUuid || bfUuid.endsWith("_comment")) return false;
+        const bfObj = buildFileSection[bfUuid];
+        if (!bfObj) return false;
+        const refVal =
+          typeof bfObj.fileRef === "object"
+            ? bfObj.fileRef.value
+            : bfObj.fileRef;
+        return refVal === fileRefUuid;
+      });
+      if (inPhase) {
+        console.log(`[Watch] ${fileName} already in main target Sources — skipping`);
+        continue;
+      }
+    } else {
+      // Create the PBXFileReference
+      fileRefUuid = project.generateUuid();
+      objects["PBXFileReference"][fileRefUuid] = {
+        isa: "PBXFileReference",
+        lastKnownFileType: "sourcecode.swift",
+        name: `"${fileName}"`,
+        path: `"${filePath}"`,
+        sourceTree: '"<group>"',
+      };
+      objects["PBXFileReference"][`${fileRefUuid}_comment`] = fileName;
+      console.log(`[Watch] Created PBXFileReference for ${fileName} (${fileRefUuid})`);
+    }
+
+    // Create PBXBuildFile and add to Sources phase
+    const buildFileUuid = project.generateUuid();
+    objects["PBXBuildFile"][buildFileUuid] = {
+      isa: "PBXBuildFile",
+      fileRef: fileRefUuid,
+    };
+    objects["PBXBuildFile"][`${buildFileUuid}_comment`] = `${fileName} in Sources`;
+    sourcesPhase.files.push({ value: buildFileUuid, comment: `${fileName} in Sources` });
+    console.log(`[Watch] Added ${fileName} to main target Sources (buildFile=${buildFileUuid})`);
+  }
+
+  // ── Add WatchConnectivity.framework to main target Frameworks ──────────────
+  if (!frameworksPhase) {
+    console.warn("[Watch] addPhoneBridgeToMainTarget: Frameworks phase not found — skipping WatchConnectivity");
+    return;
+  }
+  if (!frameworksPhase.files) frameworksPhase.files = [];
+
+  const WC_FRAMEWORK = "WatchConnectivity.framework";
+  const WC_PATH = `System/Library/Frameworks/${WC_FRAMEWORK}`;
+
+  // Check if already in Frameworks phase.
+  // Normalize fileRef: PBX may store it as a UUID string or { value, comment }.
+  // Normalize PBX path/name: the xcode library wraps values in double quotes
+  // (e.g. '"WatchConnectivity.framework"'), so strip surrounding quotes before
+  // comparing, and also accept a full path ending in the framework basename.
+  const stripQuotes = (s) => (typeof s === "string" ? s.replace(/^"(.*)"$/, "$1") : s);
+  const wcAlreadyLinked = frameworksPhase.files.some((bf) => {
+    const bfUuid = typeof bf === "object" ? bf.value : bf;
+    if (!bfUuid || bfUuid.endsWith("_comment")) return false;
+    const bfObj = buildFileSection[bfUuid];
+    if (!bfObj) return false;
+    const ref =
+      typeof bfObj.fileRef === "object" ? bfObj.fileRef.value : bfObj.fileRef;
+    const refObj = frs[ref];
+    if (!refObj) return false;
+    const pNorm = stripQuotes(refObj.path || refObj.name || "");
+    return pNorm === WC_FRAMEWORK || pNorm.endsWith(`/${WC_FRAMEWORK}`);
+  });
+
+  if (wcAlreadyLinked) {
+    console.log("[Watch] WatchConnectivity.framework already in main Frameworks — skipping");
     return;
   }
 
-  const depSection = objects["PBXTargetDependency"] || {};
-  const proxySection = objects["PBXContainerItemProxy"] || {};
-  const toRemove = [];
+  // Find or create file reference for WatchConnectivity.framework
+  let wcRefUuid = Object.keys(frs).find((k) => {
+    if (k.endsWith("_comment")) return false;
+    const v = frs[k];
+    if (!v || typeof v !== "object") return false;
+    const pNorm = stripQuotes(v.path || v.name || "");
+    return pNorm === WC_FRAMEWORK || pNorm.endsWith(`/${WC_FRAMEWORK}`);
+  });
 
-  for (const dep of mainTarget.dependencies) {
-    const depUuid = typeof dep === "object" ? dep.value : dep;
-    const depObj = depSection[depUuid];
-    if (!depObj) continue;
-    const remoteUuid =
-      typeof depObj.target === "object" ? depObj.target.value : depObj.target;
-    if (remoteUuid === watchTargetUuid) {
-      toRemove.push(depUuid);
-      // Also remove the proxy object
-      const proxyUuid =
-        typeof depObj.targetProxy === "object"
-          ? depObj.targetProxy.value
-          : depObj.targetProxy;
-      if (proxyUuid) {
-        delete proxySection[proxyUuid];
-        delete proxySection[`${proxyUuid}_comment`];
-        console.log(`[Watch] Removed PBXContainerItemProxy ${proxyUuid}`);
-      }
-      delete depSection[depUuid];
-      delete depSection[`${depUuid}_comment`];
-    }
+  if (!wcRefUuid) {
+    wcRefUuid = project.generateUuid();
+    objects["PBXFileReference"][wcRefUuid] = {
+      isa: "PBXFileReference",
+      lastKnownFileType: "wrapper.framework",
+      name: `"${WC_FRAMEWORK}"`,
+      path: `"${WC_PATH}"`,
+      sourceTree: '"SDKROOT"',
+    };
+    objects["PBXFileReference"][`${wcRefUuid}_comment`] = WC_FRAMEWORK;
+    console.log(`[Watch] Created PBXFileReference for ${WC_FRAMEWORK} (${wcRefUuid})`);
   }
 
-  if (toRemove.length > 0) {
-    mainTarget.dependencies = mainTarget.dependencies.filter((dep) => {
-      const depUuid = typeof dep === "object" ? dep.value : dep;
-      return !toRemove.includes(depUuid);
-    });
-    console.log(
-      `[Watch] Removed ${toRemove.length} PBXTargetDependency entry(ies) → main app is clean`,
-    );
-  } else {
-    console.log("[Watch] PBXTargetDependency already absent — nothing to strip");
-  }
+  const wcBuildFileUuid = project.generateUuid();
+  objects["PBXBuildFile"][wcBuildFileUuid] = {
+    isa: "PBXBuildFile",
+    fileRef: wcRefUuid,
+    settings: { ATTRIBUTES: ["Required"] },
+  };
+  objects["PBXBuildFile"][`${wcBuildFileUuid}_comment`] = `${WC_FRAMEWORK} in Frameworks`;
+  frameworksPhase.files.push({
+    value: wcBuildFileUuid,
+    comment: `${WC_FRAMEWORK} in Frameworks`,
+  });
+  console.log(`[Watch] Linked ${WC_FRAMEWORK} to main target Frameworks (buildFile=${wcBuildFileUuid})`);
 }
 
 /**
@@ -482,7 +625,6 @@ function applyWatchBuildSettings(project, targetUuid) {
     console.log(`[Watch] patched buildSettings for config ${cfgUuid}`);
   });
 }
-
 // ─── Step 3: Xcode scheme — ensure Watch target IS in BuildActionEntries ──────
 //
 // Xcode 26's new build system does NOT honor cross-platform PBXTargetDependency
@@ -542,8 +684,11 @@ function withWatchScheme(config) {
 
       // 2. Strip any existing Watch BuildActionEntry (idempotency — prevents
       //    duplicates on repeated prebuild runs).
+      // Match any BuildActionEntry block (across multiple lines) that references
+      // the Watch target by BlueprintName. The opening tag spans multiple lines
+      // (attribute-per-line format), so [^>]* would not match; use [\s\S]*? instead.
       const watchEntryRegex =
-        /[ \t]*<BuildActionEntry[^>]*>[\s\S]*?<BuildableReference[^>]*>[\s\S]*?BlueprintName\s*=\s*"PregnancyWatchApp"[\s\S]*?<\/BuildableReference>[\s\S]*?<\/BuildActionEntry>\n?/g;
+        /[ \t]*<BuildActionEntry[\s\S]*?BlueprintName\s*=\s*"PregnancyWatchApp"[\s\S]*?<\/BuildActionEntry>\n?/g;
       const before = schemeXml;
       schemeXml = schemeXml.replace(watchEntryRegex, "");
       if (schemeXml !== before) {

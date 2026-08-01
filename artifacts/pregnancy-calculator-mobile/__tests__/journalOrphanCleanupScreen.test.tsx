@@ -223,7 +223,7 @@ describe("Journal screen — orphaned media index keys cleaned up during sync", 
     mockApiLoadJournal.mockResolvedValue([SURVIVING_ENTRY]);
 
     const JournalScreen = require("../app/journal").default;
-    act(() => {
+    await act(async () => {
       create(React.createElement(JournalScreen));
     });
     await flushAsync();
@@ -269,7 +269,7 @@ describe("Journal screen — orphaned media index keys cleaned up during sync", 
     mockApiLoadJournal.mockResolvedValue([{ ...SURVIVING_ENTRY, media: [] }]);
 
     const JournalScreen = require("../app/journal").default;
-    act(() => {
+    await act(async () => {
       create(React.createElement(JournalScreen));
     });
     await flushAsync();
@@ -296,7 +296,7 @@ describe("Journal screen — orphaned media index keys cleaned up during sync", 
 
     const JournalScreen = require("../app/journal").default;
     let renderer: ReturnType<typeof create>;
-    act(() => {
+    await act(async () => {
       renderer = create(React.createElement(JournalScreen));
     });
     await flushAsync();
@@ -345,7 +345,7 @@ describe("Journal screen — orphaned media index keys cleaned up during sync", 
 
     const JournalScreen = require("../app/journal").default;
     let renderer: ReturnType<typeof create>;
-    act(() => {
+    await act(async () => {
       renderer = create(React.createElement(JournalScreen));
     });
     await flushAsync();
@@ -414,7 +414,7 @@ describe("Journal screen — orphaned media index keys cleaned up during sync", 
     try {
       const JournalScreen = require("../app/journal").default;
       let renderer: ReturnType<typeof create>;
-      act(() => {
+      await act(async () => {
         renderer = create(React.createElement(JournalScreen));
       });
       await flushAsync();

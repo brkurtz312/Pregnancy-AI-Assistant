@@ -57,6 +57,7 @@ vi.mock("../src/middlewares/auth", () => ({
 vi.mock("@workspace/db", () => ({
   db: {},
   aiUsageTable: {},
+  scribeIdempotencyKeysTable: {},
 }));
 
 // ─── Test app ─────────────────────────────────────────────────────────────────

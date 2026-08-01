@@ -93,9 +93,9 @@ const mockUseRouter = useRouter as jest.Mock;
 const mockUseGetProfile = useGetProfile as jest.Mock;
 const mockUseUpdateProfile = useUpdateProfile as jest.Mock;
 
-function renderScreen() {
+async function renderScreen() {
   let renderer!: ReturnType<typeof create>;
-  act(() => {
+  await act(async () => {
     renderer = create(React.createElement(CalculatorScreen));
   });
   return renderer;
@@ -115,7 +115,7 @@ describe("Home tab — sign-in gate", () => {
     mockUseAuth.mockReturnValue({ isSignedIn: false });
     mockUseRouter.mockReturnValue({ push: jest.fn() });
 
-    const renderer = renderScreen();
+    const renderer = await renderScreen();
     await act(async () => {});
 
     const json = JSON.stringify(renderer.toJSON());
@@ -126,7 +126,7 @@ describe("Home tab — sign-in gate", () => {
     mockUseAuth.mockReturnValue({ isSignedIn: false });
     mockUseRouter.mockReturnValue({ push: jest.fn() });
 
-    const renderer = renderScreen();
+    const renderer = await renderScreen();
     await act(async () => {});
 
     const json = JSON.stringify(renderer.toJSON());
@@ -138,7 +138,7 @@ describe("Home tab — sign-in gate", () => {
     mockUseAuth.mockReturnValue({ isSignedIn: false });
     mockUseRouter.mockReturnValue({ push });
 
-    const renderer = renderScreen();
+    const renderer = await renderScreen();
     await act(async () => {});
 
     const root = renderer.root;
@@ -172,7 +172,7 @@ describe("Home tab — sign-in gate", () => {
     mockUseAuth.mockReturnValue({ isSignedIn: true });
     mockUseRouter.mockReturnValue({ push: jest.fn() });
 
-    const renderer = renderScreen();
+    const renderer = await renderScreen();
     await act(async () => {});
 
     const json = JSON.stringify(renderer.toJSON());
@@ -183,7 +183,7 @@ describe("Home tab — sign-in gate", () => {
     mockUseAuth.mockReturnValue({ isSignedIn: true });
     mockUseRouter.mockReturnValue({ push: jest.fn() });
 
-    const renderer = renderScreen();
+    const renderer = await renderScreen();
     await act(async () => {});
 
     const json = JSON.stringify(renderer.toJSON());

@@ -339,7 +339,7 @@ describe("Journal — retry local-only entries when connectivity is restored", (
     mockApiUpsertJournal.mockResolvedValue(SERVER_ENTRY_FOR_LOCAL);
 
     const JournalScreen = require("../app/journal").default;
-    act(() => {
+    await act(async () => {
       create(React.createElement(JournalScreen));
     });
     await flushAsync(1);
@@ -397,7 +397,7 @@ describe("Hospital Bag — retry save when connectivity is restored", () => {
 
     const HospitalBagScreen = require("../app/hospital-bag").default;
     let renderer: ReturnType<typeof create>;
-    act(() => {
+    await act(async () => {
       renderer = create(React.createElement(HospitalBagScreen));
     });
     await flushAsync(1);
@@ -461,7 +461,7 @@ describe("Birth Plan — retry save when connectivity is restored", () => {
 
     const BirthPlanScreen = require("../app/birth-plan").default;
     let renderer: ReturnType<typeof create>;
-    act(() => {
+    await act(async () => {
       renderer = create(React.createElement(BirthPlanScreen));
     });
     await flushAsync(1);

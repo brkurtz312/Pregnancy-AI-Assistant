@@ -211,7 +211,7 @@ describe("Hospital Bag — offline edits sync back on reconnect (useNetReconnect
     mockApiSaveBag.mockResolvedValue(undefined);
 
     const HospitalBagScreen = require("../app/hospital-bag").default;
-    act(() => {
+    await act(async () => {
       create(React.createElement(HospitalBagScreen));
     });
 
@@ -242,7 +242,7 @@ describe("Hospital Bag — offline edits sync back on reconnect (useNetReconnect
     mockApiSaveBag.mockResolvedValue(undefined);
 
     const HospitalBagScreen = require("../app/hospital-bag").default;
-    act(() => {
+    await act(async () => {
       create(React.createElement(HospitalBagScreen));
     });
 
@@ -267,7 +267,7 @@ describe("Hospital Bag — offline edits sync back on reconnect (useNetReconnect
 
     const HospitalBagScreen = require("../app/hospital-bag").default;
     let renderer: ReturnType<typeof create>;
-    act(() => {
+    await act(async () => {
       renderer = create(React.createElement(HospitalBagScreen));
     });
 
@@ -291,11 +291,9 @@ describe("Hospital Bag — offline edits sync back on reconnect (useNetReconnect
 
     const HospitalBagScreen = require("../app/hospital-bag").default;
     let renderer: ReturnType<typeof create>;
-    expect(() => {
-      act(() => {
-        renderer = create(React.createElement(HospitalBagScreen));
-      });
-    }).not.toThrow();
+    await act(async () => {
+      renderer = create(React.createElement(HospitalBagScreen));
+    });
 
     await act(async () => {
       await new Promise((r) => setTimeout(r, 0));
@@ -316,7 +314,7 @@ describe("Hospital Bag — offline edits sync back on reconnect (useNetReconnect
     mockApiSaveBag.mockResolvedValue(undefined);
 
     const HospitalBagScreen = require("../app/hospital-bag").default;
-    act(() => {
+    await act(async () => {
       create(React.createElement(HospitalBagScreen));
     });
 
@@ -344,7 +342,7 @@ describe("Hospital Bag — offline edits sync back on reconnect (useNetReconnect
     mockApiSaveBag.mockResolvedValue(undefined);
 
     const HospitalBagScreen = require("../app/hospital-bag").default;
-    act(() => {
+    await act(async () => {
       create(React.createElement(HospitalBagScreen));
     });
 

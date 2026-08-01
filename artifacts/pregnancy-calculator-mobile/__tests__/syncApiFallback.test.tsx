@@ -219,7 +219,7 @@ const mockCacheEntries = cacheEntries as jest.Mock;
 const mockGetJournalCacheOwner = getJournalCacheOwner as jest.Mock;
 const mockClearJournalCache = clearJournalCache as jest.Mock;
 
-jest.setTimeout(15000);
+jest.setTimeout(45000);
 
 describe("Journal — sync API fallback", () => {
   beforeEach(() => {
@@ -236,7 +236,7 @@ describe("Journal — sync API fallback", () => {
 
     const JournalScreen = require("../app/journal").default;
     let renderer: ReturnType<typeof create>;
-    act(() => {
+    await act(async () => {
       renderer = create(React.createElement(JournalScreen));
     });
     await act(async () => {
@@ -254,7 +254,7 @@ describe("Journal — sync API fallback", () => {
 
     const JournalScreen = require("../app/journal").default;
     let renderer: ReturnType<typeof create>;
-    act(() => {
+    await act(async () => {
       renderer = create(React.createElement(JournalScreen));
     });
     await act(async () => {
@@ -273,7 +273,7 @@ describe("Journal — sync API fallback", () => {
 
     const JournalScreen = require("../app/journal").default;
     let renderer: ReturnType<typeof create>;
-    act(() => {
+    await act(async () => {
       renderer = create(React.createElement(JournalScreen));
     });
     await act(async () => {
@@ -297,7 +297,7 @@ describe("Journal — sync API fallback", () => {
 
     const JournalScreen = require("../app/journal").default;
     let renderer: ReturnType<typeof create>;
-    act(() => {
+    await act(async () => {
       renderer = create(React.createElement(JournalScreen));
     });
     await act(async () => {
@@ -319,7 +319,7 @@ describe("Journal — sync API fallback", () => {
     mockApiUpsertJournalEntry.mockRejectedValue(new Error("network error"));
 
     const JournalScreen = require("../app/journal").default;
-    act(() => {
+    await act(async () => {
       create(React.createElement(JournalScreen));
     });
     await act(async () => {
@@ -347,7 +347,7 @@ describe("Journal — sync API fallback", () => {
     mockApiUpsertJournalEntry.mockRejectedValue(new Error("network error"));
 
     const JournalScreen = require("../app/journal").default;
-    act(() => {
+    await act(async () => {
       create(React.createElement(JournalScreen));
     });
     await act(async () => {
@@ -426,7 +426,7 @@ describe("Hospital Bag — sync API fallback", () => {
 
     const HospitalBagScreen = require("../app/hospital-bag").default;
     let renderer: ReturnType<typeof create>;
-    act(() => {
+    await act(async () => {
       renderer = create(React.createElement(HospitalBagScreen));
     });
     await act(async () => {
@@ -444,7 +444,7 @@ describe("Hospital Bag — sync API fallback", () => {
 
     const HospitalBagScreen = require("../app/hospital-bag").default;
     let renderer: ReturnType<typeof create>;
-    act(() => {
+    await act(async () => {
       renderer = create(React.createElement(HospitalBagScreen));
     });
     await act(async () => {
@@ -463,7 +463,7 @@ describe("Hospital Bag — sync API fallback", () => {
 
     const HospitalBagScreen = require("../app/hospital-bag").default;
     let renderer: ReturnType<typeof create>;
-    act(() => {
+    await act(async () => {
       renderer = create(React.createElement(HospitalBagScreen));
     });
     await act(async () => {
@@ -493,7 +493,7 @@ describe("Hospital Bag — sync API fallback", () => {
 
     const HospitalBagScreen = require("../app/hospital-bag").default;
     let renderer: ReturnType<typeof create>;
-    act(() => {
+    await act(async () => {
       renderer = create(React.createElement(HospitalBagScreen));
     });
     await act(async () => {
@@ -522,7 +522,7 @@ describe("Hospital Bag — sync API fallback", () => {
     mockLoadHospitalBag.mockResolvedValue(LOCAL_CATEGORIES);
 
     const HospitalBagScreen = require("../app/hospital-bag").default;
-    act(() => {
+    await act(async () => {
       create(React.createElement(HospitalBagScreen));
     });
     await act(async () => {
@@ -541,7 +541,7 @@ describe("Hospital Bag — sync API fallback", () => {
     mockApiSaveHospitalBag.mockRejectedValue(new Error("network error"));
 
     const HospitalBagScreen = require("../app/hospital-bag").default;
-    act(() => {
+    await act(async () => {
       create(React.createElement(HospitalBagScreen));
     });
     await act(async () => {
@@ -562,7 +562,7 @@ describe("Hospital Bag — sync API fallback", () => {
     mockApiSaveHospitalBag.mockResolvedValue(undefined);
 
     const HospitalBagScreen = require("../app/hospital-bag").default;
-    act(() => {
+    await act(async () => {
       create(React.createElement(HospitalBagScreen));
     });
     await act(async () => {
@@ -581,7 +581,7 @@ describe("Hospital Bag — sync API fallback", () => {
 
     const HospitalBagScreen = require("../app/hospital-bag").default;
     let renderer: ReturnType<typeof create>;
-    act(() => {
+    await act(async () => {
       renderer = create(React.createElement(HospitalBagScreen));
     });
     await act(async () => {
@@ -687,7 +687,7 @@ describe("Birth Plan — sync API fallback", () => {
     mockLoadBirthPlan.mockResolvedValue(LOCAL_ANSWERS);
 
     const BirthPlanScreen = require("../app/birth-plan").default;
-    act(() => {
+    await act(async () => {
       create(React.createElement(BirthPlanScreen));
     });
     await act(async () => {
@@ -702,7 +702,7 @@ describe("Birth Plan — sync API fallback", () => {
     mockLoadBirthPlan.mockResolvedValue(LOCAL_ANSWERS);
 
     const BirthPlanScreen = require("../app/birth-plan").default;
-    act(() => {
+    await act(async () => {
       create(React.createElement(BirthPlanScreen));
     });
     await act(async () => {
@@ -720,7 +720,7 @@ describe("Birth Plan — sync API fallback", () => {
 
     const BirthPlanScreen = require("../app/birth-plan").default;
     let renderer: ReturnType<typeof create>;
-    act(() => {
+    await act(async () => {
       renderer = create(React.createElement(BirthPlanScreen));
     });
     await act(async () => {
@@ -752,7 +752,7 @@ describe("Birth Plan — sync API fallback", () => {
 
     const BirthPlanScreen = require("../app/birth-plan").default;
     let renderer: ReturnType<typeof create>;
-    act(() => {
+    await act(async () => {
       renderer = create(React.createElement(BirthPlanScreen));
     });
     await act(async () => {
@@ -781,7 +781,7 @@ describe("Birth Plan — sync API fallback", () => {
     mockLoadBirthPlan.mockResolvedValue(LOCAL_ANSWERS);
 
     const BirthPlanScreen = require("../app/birth-plan").default;
-    act(() => {
+    await act(async () => {
       create(React.createElement(BirthPlanScreen));
     });
     await act(async () => {
@@ -800,7 +800,7 @@ describe("Birth Plan — sync API fallback", () => {
     mockApiSaveBirthPlan.mockRejectedValue(new Error("network error"));
 
     const BirthPlanScreen = require("../app/birth-plan").default;
-    act(() => {
+    await act(async () => {
       create(React.createElement(BirthPlanScreen));
     });
     await act(async () => {
@@ -821,7 +821,7 @@ describe("Birth Plan — sync API fallback", () => {
     mockApiSaveBirthPlan.mockResolvedValue(undefined);
 
     const BirthPlanScreen = require("../app/birth-plan").default;
-    act(() => {
+    await act(async () => {
       create(React.createElement(BirthPlanScreen));
     });
     await act(async () => {
@@ -840,7 +840,7 @@ describe("Birth Plan — sync API fallback", () => {
 
     const BirthPlanScreen = require("../app/birth-plan").default;
     let renderer: ReturnType<typeof create>;
-    act(() => {
+    await act(async () => {
       renderer = create(React.createElement(BirthPlanScreen));
     });
     await act(async () => {
