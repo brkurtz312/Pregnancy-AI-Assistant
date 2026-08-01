@@ -32,6 +32,15 @@ jest.mock("expo-web-browser", () => ({
   coolDownAsync: jest.fn(),
 }));
 
+jest.mock("expo-constants", () => ({
+  __esModule: true,
+  default: {
+    expoConfig: {
+      scheme: "pregnancy-calculator-mobile",
+    },
+  },
+}));
+
 jest.mock("expo-auth-session", () => ({
   makeRedirectUri: jest.fn(({ scheme }: { scheme: string }) => `${scheme}://`),
 }));
@@ -247,6 +256,99 @@ describe("SignInScreen — Google SSO", () => {
     expect(btn.props.disabled).toBe(false);
   });
 
+  // ── cancel-handling ────────────────────────────────────────────────────────
+
+  it("does NOT show an error notice when startSSOFlow rejects with an iOS WKWebView dismiss error", async () => {
+    // iOS reports browser dismissal as a message containing "dismiss"
+    mockStartSSOFlow.mockRejectedValue(
+      new Error(
+        "The operation couldn't be completed. (com.apple.AuthenticationServices.AuthorizationError error 1.) dismiss",
+      ),
+    );
+
+    let renderer!: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(SignInScreen));
+    });
+    await act(async () => {});
+
+    const btn = findGoogleButton(renderer.root);
+    await act(async () => {
+      btn.props.onPress();
+    });
+
+    const json = JSON.stringify(renderer.toJSON());
+    // No error text must appear
+    expect(json).not.toContain("Google sign-in failed");
+    expect(json).not.toContain("Sign-in could not be completed");
+    // Navigation must NOT have been called
+    expect(dismissAll).not.toHaveBeenCalled();
+    // Button re-enabled (loading cleared)
+    expect(btn.props.disabled).toBe(false);
+  });
+
+  it("does NOT show an error notice when startSSOFlow rejects with an Android back-press cancel error", async () => {
+    // Android Chrome Custom Tabs back-press surfaces "user_cancel" in the message
+    mockStartSSOFlow.mockRejectedValue(new Error("user_cancel"));
+
+    let renderer!: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(SignInScreen));
+    });
+    await act(async () => {});
+
+    const btn = findGoogleButton(renderer.root);
+    await act(async () => {
+      btn.props.onPress();
+    });
+
+    const json = JSON.stringify(renderer.toJSON());
+    expect(json).not.toContain("Google sign-in failed");
+    expect(json).not.toContain("Sign-in could not be completed");
+    expect(dismissAll).not.toHaveBeenCalled();
+    expect(btn.props.disabled).toBe(false);
+  });
+
+  it("does NOT show an error notice when startSSOFlow rejects with a plain 'cancel' message", async () => {
+    mockStartSSOFlow.mockRejectedValue(new Error("The flow was cancelled"));
+
+    let renderer!: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(SignInScreen));
+    });
+    await act(async () => {});
+
+    const btn = findGoogleButton(renderer.root);
+    await act(async () => {
+      btn.props.onPress();
+    });
+
+    const json = JSON.stringify(renderer.toJSON());
+    expect(json).not.toContain("Google sign-in failed");
+    expect(dismissAll).not.toHaveBeenCalled();
+  });
+
+  it("DOES show an error notice when startSSOFlow rejects with a real network error (not a cancel)", async () => {
+    mockStartSSOFlow.mockRejectedValue(
+      new Error("Network request failed — no internet"),
+    );
+
+    let renderer!: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(SignInScreen));
+    });
+    await act(async () => {});
+
+    const btn = findGoogleButton(renderer.root);
+    await act(async () => {
+      btn.props.onPress();
+    });
+
+    const json = JSON.stringify(renderer.toJSON());
+    expect(json).toContain("Google sign-in failed");
+    expect(dismissAll).not.toHaveBeenCalled();
+  });
+
   it("does not call startSSOFlow a second time while the first call is in-flight", async () => {
     let resolveSSOFlow!: (v: unknown) => void;
     mockStartSSOFlow.mockReturnValue(
@@ -407,5 +509,93 @@ describe("SignUpScreen — Google SSO", () => {
     expect(replace).not.toHaveBeenCalled();
     // Button must be re-enabled (googleLoading back to false)
     expect(btn.props.disabled).toBe(false);
+  });
+
+  // ── cancel-handling ────────────────────────────────────────────────────────
+
+  it("does NOT show an error when startSSOFlow rejects with an iOS WKWebView dismiss error", async () => {
+    mockStartSSOFlow.mockRejectedValue(
+      new Error(
+        "The operation couldn't be completed. (com.apple.AuthenticationServices.AuthorizationError error 1.) dismiss",
+      ),
+    );
+
+    let renderer!: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(SignUpScreen));
+    });
+    await act(async () => {});
+
+    const btn = findGoogleButton(renderer.root);
+    await act(async () => {
+      btn.props.onPress();
+    });
+
+    const json = JSON.stringify(renderer.toJSON());
+    expect(json).not.toContain("Google sign-in failed");
+    expect(json).not.toContain("Sign-in could not be completed");
+    expect(replace).not.toHaveBeenCalled();
+    expect(btn.props.disabled).toBe(false);
+  });
+
+  it("does NOT show an error when startSSOFlow rejects with an Android back-press cancel error", async () => {
+    mockStartSSOFlow.mockRejectedValue(new Error("user_cancel"));
+
+    let renderer!: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(SignUpScreen));
+    });
+    await act(async () => {});
+
+    const btn = findGoogleButton(renderer.root);
+    await act(async () => {
+      btn.props.onPress();
+    });
+
+    const json = JSON.stringify(renderer.toJSON());
+    expect(json).not.toContain("Google sign-in failed");
+    expect(json).not.toContain("Sign-in could not be completed");
+    expect(replace).not.toHaveBeenCalled();
+    expect(btn.props.disabled).toBe(false);
+  });
+
+  it("does NOT show an error when startSSOFlow rejects with a plain 'cancel' message", async () => {
+    mockStartSSOFlow.mockRejectedValue(new Error("The flow was cancelled"));
+
+    let renderer!: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(SignUpScreen));
+    });
+    await act(async () => {});
+
+    const btn = findGoogleButton(renderer.root);
+    await act(async () => {
+      btn.props.onPress();
+    });
+
+    const json = JSON.stringify(renderer.toJSON());
+    expect(json).not.toContain("Google sign-in failed");
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("DOES show an error when startSSOFlow rejects with a real network error (not a cancel)", async () => {
+    mockStartSSOFlow.mockRejectedValue(
+      new Error("Network request failed — no internet"),
+    );
+
+    let renderer!: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(SignUpScreen));
+    });
+    await act(async () => {});
+
+    const btn = findGoogleButton(renderer.root);
+    await act(async () => {
+      btn.props.onPress();
+    });
+
+    const json = JSON.stringify(renderer.toJSON());
+    expect(json).toContain("Google sign-in failed");
+    expect(replace).not.toHaveBeenCalled();
   });
 });
