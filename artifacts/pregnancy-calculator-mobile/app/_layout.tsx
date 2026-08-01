@@ -29,6 +29,7 @@ import { AuthTokenBridge } from "@/components/AuthTokenBridge";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ErrorFallback } from "@/components/ErrorFallback";
 import { LocationModeGate } from "@/components/LocationModePrompt";
+import { WatchBackgroundListener } from "@/components/WatchBackgroundListener";
 import { SubscriptionProvider } from "@/lib/revenuecat";
 import { SettingsProvider } from "@/contexts/SettingsContext";
 import { useGlobalBackgroundSync } from "@/hooks/useGlobalBackgroundSync";
@@ -143,6 +144,7 @@ function RootLayoutNav() {
     <>
       <OnboardingGate />
       <LocationModeGate />
+      <WatchBackgroundListener />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen

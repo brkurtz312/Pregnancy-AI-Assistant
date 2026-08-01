@@ -43,8 +43,6 @@ import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 import {
   useWatchConnectivity,
   type WatchTip,
-  type KickSessionSummary,
-  type ContractionRecord,
 } from "@/hooks/useWatchConnectivity";
 import { calculateByDueDate } from "@/lib/pregnancy-math";
 import { getWeeklyTips } from "@/lib/watch-tips";
@@ -1050,60 +1048,12 @@ export default function ToolsScreen() {
     return getWeeklyTips(gestationalWeek);
   }, [gestationalWeek]);
 
-  const watchKickMutation = useCreateKickSession();
-  const watchContractionMutation = useCreateContraction();
-  const { refetch: refetchKickSessions } = useListKickSessions({
-    limit: 10,
-    offset: 0,
-  });
-  const { refetch: refetchContractions } = useListContractions({
-    sessionDate: todayDate(),
-    limit: 50,
-  });
-
-  const handleWatchKickSessionEnd = useCallback(
-    async (session: KickSessionSummary) => {
-      await watchKickMutation.mutateAsync({
-        data: {
-          startedAt: session.startedAt,
-          endedAt: session.endedAt,
-          kickCount: session.kickCount,
-        },
-      });
-      refetchKickSessions();
-    },
-    [watchKickMutation, refetchKickSessions],
-  );
-
-  const handleWatchContractionUpdate = useCallback(
-    async (record: ContractionRecord) => {
-      const durationSeconds =
-        record.startedAt && record.endedAt
-          ? Math.round(
-              (new Date(record.endedAt).getTime() -
-                new Date(record.startedAt).getTime()) /
-                1000,
-            )
-          : undefined;
-      await watchContractionMutation.mutateAsync({
-        data: {
-          startedAt: record.startedAt,
-          endedAt: record.endedAt,
-          durationSeconds,
-          intervalSeconds: record.interval,
-          sessionDate: todayDate(),
-        },
-      });
-      refetchContractions();
-    },
-    [watchContractionMutation, refetchContractions],
-  );
-
+  // Push gestational-week tips to the Watch; actual event handling (kick session
+  // end, contraction update) is done by WatchBackgroundListener in the root
+  // layout so data is saved regardless of which tab is active.
   useWatchConnectivity({
     gestationalWeek,
     tips: watchTips,
-    onKickSessionEnd: handleWatchKickSessionEnd,
-    onContractionUpdate: handleWatchContractionUpdate,
   });
   // ── End watch connectivity ───────────────────────────────────────────────
 
