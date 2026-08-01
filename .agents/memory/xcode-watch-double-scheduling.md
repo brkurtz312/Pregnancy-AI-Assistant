@@ -47,6 +47,13 @@ Shell script content stored in PBXShellScriptBuildPhase must NOT contain unescap
 
 **Always detect by `dstSubfolderSpec = 16`** (Xcode's Watch Content destination), never by name. Build #106 (v7, commit 6ed14a1) confirmed this fix — archive succeeded.
 
+## Critical productType rule
+`addTarget("watch2_app")` always sets `productType = "com.apple.product-type.application.watchapp2"` (legacy WatchKit 2 container). For modern standalone watchOS 7+ apps (`@main App` + `WKApplication = true` in Info.plist), the correct type is `"com.apple.product-type.application"`. With the wrong type:
+- Archive succeeds, TestFlight upload succeeds
+- Watch app never appears in the iPhone Watch app → Available Apps (silent failure)
+Fix: overwrite `nts[watchUuid].productType` to `'"com.apple.product-type.application"'` after `addTarget`. Run fix unconditionally in both fresh-add and re-run paths.
+After this fix both iOS and Watch share `productType = application`, so all "find main iOS app target" helpers MUST exclude the Watch by name (`t.name !== WATCH_TARGET_NAME`) — see `findMainAppTargetUuid(nts)` helper in plugin.
+
 ## Key identifiers
 - Watch bundle ID: `app.replit.pregnancycalculator.watchapp`
 - iOS bundle ID: `app.replit.pregnancycalculator`
