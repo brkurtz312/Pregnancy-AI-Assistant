@@ -21,9 +21,9 @@ Never call `project.addFile(path, null, opts)` inside a `withXcodeProject` modif
 - Create a `PBXContainerItemProxy` pointing at the Watch target UUID
 - Create a `PBXTargetDependency` referencing that proxy
 - Add the dependency UUID to the main iOS app target's `dependencies = (...)` array
-- This is INDEPENDENT of the scheme — the scheme `BuildActionEntry` can coexist but the pbxproj dependency is what actually triggers the build
+- **DO NOT also add the Watch target to the scheme's `BuildActionEntries`** — having it in both places causes Xcode to schedule it twice, producing "Multiple commands produce" / `CreateUniversalBinary` duplicate-output errors
 
-**Verified with:** xcodebuild on iPhoneOS26.0.sdk. Before the fix: 156 targets in dependency graph, Watch target absent. After fix: Watch target appears at top level.
+**Verified with:** xcodebuild on iPhoneOS26.0.sdk. Before fix: Watch absent from dependency graph (`lstat: No such file or directory`). After adding PBXTargetDependency only (no scheme entry): Watch compiled successfully (`UninstalledProducts/watchos/PregnancyWatchApp.app` produced).
 
 ## Watch target config specifics
 - Target type: `watch2_app` → `com.apple.product-type.application.watchapp2`

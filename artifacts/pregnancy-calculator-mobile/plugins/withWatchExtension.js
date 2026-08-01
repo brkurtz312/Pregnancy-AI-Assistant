@@ -347,17 +347,14 @@ function applyWatchBuildSettings(project, targetUuid) {
   });
 }
 
-// ─── Step 3: Add Watch target to Xcode scheme ────────────────────────────────
+// ─── Step 3: Xcode scheme — ensure Watch target is NOT in BuildActionEntries ──
 //
-// xcode library's addTarget() only writes to the .pbxproj — it does NOT touch
-// the .xcscheme file. xcodebuild -scheme X only builds targets listed in
-// BuildActionEntries; targets reached solely via PBXTargetDependency are NOT
-// compiled when they target a different platform (watchOS vs iOS). So we must
-// inject the Watch target into the scheme's BuildActionEntries with
-// buildForArchiving = "YES".
-//
-// This runs via withDangerousMod, which executes AFTER withXcodeProject, so
-// the pbxproj already has the Watch target and its UUID.
+// The PBXTargetDependency (added in Step 2 via ensureWatchTargetDependency) is
+// sufficient for Xcode 16+'s build system to schedule the Watch target. Adding
+// the Watch target ALSO to BuildActionEntries in the scheme causes Xcode to
+// schedule it TWICE — once as a direct buildable and once as a dependency —
+// which produces "Multiple commands produce" duplicate-output errors during
+// CreateUniversalBinary. This step removes any Watch BuildActionEntry if present.
 
 function withWatchScheme(config) {
   return withDangerousMod(config, [
@@ -367,34 +364,6 @@ function withWatchScheme(config) {
         const iosRoot = config.modRequest.platformProjectRoot;
         const projectName = config.modRequest.projectName;
 
-        // ── 1. Read the pbxproj and extract the Watch target UUID ─────────
-        const pbxprojPath = path.join(
-          iosRoot,
-          `${projectName}.xcodeproj`,
-          "project.pbxproj",
-        );
-        const pbxContent = fs.readFileSync(pbxprojPath, "utf8");
-
-        // Find the PBXNativeTarget block for PregnancyWatchApp
-        // Format: <UUID> /* PregnancyWatchApp */ = { isa = PBXNativeTarget; ... }
-        const uuidRegex =
-          /([A-F0-9]{24})\s*\/\*\s*"?PregnancyWatchApp"?\s*\*\/\s*=\s*\{[^}]*isa\s*=\s*PBXNativeTarget/g;
-        let watchUuid = null;
-        let m;
-        while ((m = uuidRegex.exec(pbxContent)) !== null) {
-          watchUuid = m[1];
-          break;
-        }
-
-        if (!watchUuid) {
-          console.error(
-            "[Watch/Scheme] Could not find PregnancyWatchApp UUID in pbxproj – skipping scheme patch",
-          );
-          return config;
-        }
-        console.log(`[Watch/Scheme] Watch target UUID: ${watchUuid}`);
-
-        // ── 2. Find and patch the scheme file ────────────────────────────
         const schemePath = path.join(
           iosRoot,
           `${projectName}.xcodeproj`,
@@ -410,43 +379,22 @@ function withWatchScheme(config) {
 
         let schemeXml = fs.readFileSync(schemePath, "utf8");
 
-        // Idempotency: skip if already in the scheme
-        if (schemeXml.includes(watchUuid)) {
-          console.log("[Watch/Scheme] Watch target already in scheme, skipping");
-          return config;
+        // Remove any Watch BuildActionEntry from the scheme.
+        // PBXTargetDependency in the pbxproj is sufficient for Xcode 16+'s
+        // build system. Having the Watch target in BOTH the scheme's
+        // BuildActionEntries AND as a PBXTargetDependency causes Xcode to
+        // schedule it twice → "Multiple commands produce" duplicate-output
+        // error during CreateUniversalBinary.
+        const watchEntryRegex =
+          /\s*<BuildActionEntry[^>]*>[\s\S]*?<BuildableReference[^>]*>[\s\S]*?BlueprintName\s*=\s*"PregnancyWatchApp"[\s\S]*?<\/BuildableReference>\s*<\/BuildActionEntry>/g;
+
+        if (watchEntryRegex.test(schemeXml)) {
+          schemeXml = schemeXml.replace(watchEntryRegex, "");
+          fs.writeFileSync(schemePath, schemeXml, "utf8");
+          console.log("[Watch/Scheme] Removed Watch BuildActionEntry from scheme");
+        } else {
+          console.log("[Watch/Scheme] Watch entry not in scheme — nothing to remove");
         }
-
-        // Inject Watch BuildActionEntry after the last </BuildActionEntry>
-        const insertAfter = "</BuildActionEntry>";
-        const lastIdx = schemeXml.lastIndexOf(insertAfter);
-        if (lastIdx === -1) {
-          console.error("[Watch/Scheme] Could not find </BuildActionEntry> in scheme");
-          return config;
-        }
-
-        const watchEntry = `
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "YES"
-            buildForArchiving = "YES"
-            buildForAnalyzing = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "${watchUuid}"
-               BuildableName = "PregnancyWatchApp.app"
-               BlueprintName = "PregnancyWatchApp"
-               ReferencedContainer = "container:${projectName}.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>`;
-
-        schemeXml =
-          schemeXml.slice(0, lastIdx + insertAfter.length) +
-          watchEntry +
-          schemeXml.slice(lastIdx + insertAfter.length);
-
-        fs.writeFileSync(schemePath, schemeXml, "utf8");
-        console.log("[Watch/Scheme] Successfully patched scheme with Watch target");
       } catch (e) {
         console.error("[Watch/Scheme] ERROR:", e && e.message);
         console.error("[Watch/Scheme] Stack:", e && e.stack);
