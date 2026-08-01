@@ -1,33 +1,37 @@
 ---
 name: Xcode 26 Watch target double-scheduling
-description: How to wire an Apple Watch app target in EAS/Xcode 26 without "Multiple commands produce"
+description: How to wire an Apple Watch app target in EAS/Xcode 26 without "Multiple commands produce" or embed lstat errors
 ---
 
-## The Rule
+## The Rule (current — dep-only + ATPS)
 
-Use **both** scheme entry AND PBXTargetDependency, but set `buildForArchiving="NO"` on the scheme entry.
+Use **PBXTargetDependency only** (no scheme entry) + `ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES` on the iOS app target. The dep triggers the Watch build; ATPS tells Xcode 26 the dep may build for a different SDK.
 
-## Xcode 26 Behavior Table
+Do NOT add a scheme `BuildActionEntry` for the Watch — every combination with both a dep and a scheme entry causes double-scheduling.
+
+## Full Decision Table
 
 | Combination | Result |
 |---|---|
-| Scheme entry only (buildForArchiving=YES) | Watch compiles for **iphoneos** (wrong) — `-destination generic/platform=iOS` overrides SDKROOT |
-| PBXTargetDependency only | Watch **not compiled** — Xcode 26 ignores cross-platform explicit deps |
-| Both, buildForArchiving=YES | Watch compiles for watchos (correct) but **twice** → "Multiple commands produce" |
-| Both, buildForArchiving=NO | Watch compiles for watchos (correct) **once** ✓ |
+| Scheme entry only, no ATPS | Watch compiles for **iphoneos** (wrong) |
+| Scheme entry only + ATPS, no dep | Watch builds for watchos ✓ but "Embed Watch Content" phase looks in `Release-iphoneos/` → **lstat ENOENT** at archive time |
+| PBXTargetDependency only, no ATPS | Watch **not compiled** — Xcode 26 ignores cross-platform explicit deps |
+| Both, buildForArchiving=YES | Watch compiles for watchos ✓ but **twice** → "Multiple commands produce" |
+| Both, buildForArchiving=NO | Still double-schedules (dep fires regardless of scheme flag) |
+| Dep only + ATPS=YES (**current**) | ATPS enables cross-platform dep; embed phase resolves watchos output correctly ✓ |
 
-**Why:** The scheme entry with `buildForArchiving=NO` gives Xcode the watchOS platform context it needs to resolve the cross-platform dep without independently scheduling a second archive build. The dep handles the actual build trigger; the scheme entry is only for platform resolution.
+**Why scheme-only + ATPS fails on embed:** The "Embed Watch Content" `PBXCopyFilesBuildPhase` (auto-created by `addTarget("watch2_app")`) references the Watch product by file ref. At build time Xcode resolves it relative to `$(BUILT_PRODUCTS_DIR)` of the iOS app, which is `Release-iphoneos/`. With no PBXTargetDependency, Xcode never sets up the cross-platform build products mapping, so the Watch app (built to `Release-watchos/`) is invisible to the embed phase → `lstat ...Release-iphoneos/PregnancyWatchApp.app: No such file or directory` at archive time.
 
-**How to apply:** In the config plugin's `withWatchScheme`, always write `buildForArchiving = "NO"` for the Watch `BuildActionEntry`. `ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES` on the iOS app target is also required (set by `applyAllowPlatformSpecializationToMainApp`).
+**Why dep-only failed without ATPS:** Xcode 26 silently skips cross-platform PBXTargetDependencies unless `ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES` is set on the parent target.
 
-## Root Cause of Double-Scheduling (the miss across 15 builds)
+## Critical EAS Detail
 
-`addTarget("watch2_app")` in the `xcode` npm package **auto-creates a PBXTargetDependency** from the iOS app → Watch target. EAS always clears `ios/` and re-runs prebuild from scratch, so `addTarget` runs on every EAS build — recreating the dep even when the committed `pbxproj` doesn't have it. Combined with the scheme entry (also scheduled by `withWatchScheme`), this produced two scheduling triggers every time.
-
-**Fix**: call `removeWatchTargetDependency(project, watchUuid)` immediately after `addTarget()` in the `!alreadyPresent` branch, before the plugin returns.
+`addTarget("watch2_app")` auto-creates a PBXTargetDependency on every fresh EAS build (EAS always clears `ios/` and re-runs prebuild). So the dep is always present after `addTarget`. To keep it present on re-runs (where `addTarget` is skipped because `alreadyPresent=true`), call `ensureWatchTargetDependency(project, watchUuid)` unconditionally — it is idempotent.
 
 ## Plugin Structure (withWatchExtension.js)
 
-- Export order: `withWatchScheme` applied before `withWatchXcodeTarget` — Expo processes `withXcodeProject` mods **LIFO**, so `withWatchXcodeTarget` (applied last) runs first.
-- `ensureWatchTargetDependency` must be called unconditionally (not just on fresh target creation) — `addTarget()` is skipped on subsequent prebuild runs when the target already exists.
+- Export: `withWatchFiles` → `withWatchXcodeTarget` only. `withWatchScheme` is NOT in the export chain.
+- `ensureWatchTargetDependency` called unconditionally in the `if (watchUuid)` block.
+- `applyAllowPlatformSpecializationToMainApp` called unconditionally in the same block.
 - EAS always clears ios/ and re-runs prebuild from scratch — the committed ios/ files are irrelevant; the plugin is the single source of truth.
+- Expo processes `withXcodeProject` mods **LIFO** — if scheme were re-added, apply it before `withWatchXcodeTarget` in the export chain.
