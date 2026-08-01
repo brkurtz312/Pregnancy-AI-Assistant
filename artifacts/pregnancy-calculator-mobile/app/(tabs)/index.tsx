@@ -6,7 +6,7 @@ import { useAuth } from "@clerk/expo";
 import * as Haptics from "expo-haptics";
 import * as haptics from "@/lib/haptics";
 import { useRouter } from "expo-router";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   type DimensionValue,
   Image,
@@ -34,6 +34,10 @@ import {
 import { useColors } from "@/hooks/useColors";
 import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 import { getWeeklyDevelopment } from "@/lib/fetal-development";
+import {
+  useWatchConnectivity,
+  type WatchTip,
+} from "@/hooks/useWatchConnectivity";
 import { getFetalImage } from "@/lib/fetal-images";
 import {
   PregnancyResults,
@@ -626,6 +630,52 @@ export default function CalculatorScreen() {
     setUsDays(0);
     haptics.impact(Haptics.ImpactFeedbackStyle.Light);
   }
+
+  // ── Apple Watch bridge ────────────────────────────────────────────────────
+  // Derive gestational week: prefer live results, fall back to saved profile.
+  const gestationalWeek = useMemo(() => {
+    if (results?.currentGestationalAgeWeeks != null) {
+      return results.currentGestationalAgeWeeks;
+    }
+    if (!profile?.dueDate) return undefined;
+    try {
+      return calculateByDueDate(new Date(profile.dueDate))
+        .currentGestationalAgeWeeks;
+    } catch {
+      return undefined;
+    }
+  }, [results, profile?.dueDate]);
+
+  const watchTips = useMemo((): WatchTip[] => {
+    if (gestationalWeek == null) return [];
+    const weekData = getWeeklyDevelopment(gestationalWeek);
+    const tips: WatchTip[] = [
+      {
+        week: gestationalWeek,
+        emoji: "👶",
+        text: weekData.development[0] ?? `Week ${gestationalWeek}: Baby is growing every day.`,
+      },
+      {
+        week: gestationalWeek,
+        emoji: "🤰",
+        text: weekData.motherChanges[0] ?? "Take care of yourself this week.",
+      },
+      {
+        week: gestationalWeek,
+        emoji: "📅",
+        text: weekData.comingUp,
+      },
+      {
+        week: gestationalWeek,
+        emoji: "💧",
+        text: "Stay hydrated — aim for 8–10 glasses of water daily.",
+      },
+    ];
+    return tips;
+  }, [gestationalWeek]);
+
+  useWatchConnectivity({ gestationalWeek, tips: watchTips });
+  // ── End Watch bridge ──────────────────────────────────────────────────────
 
   const topPad = isWeb ? 67 : insets.top;
   const bottomPad = isWeb ? 34 : insets.bottom + 16;
