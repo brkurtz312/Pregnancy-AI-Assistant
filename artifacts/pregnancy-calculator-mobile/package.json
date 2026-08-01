@@ -10,7 +10,8 @@
     "test": "jest --forceExit",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "android": "expo run:android",
-    "ios": "expo run:ios"
+    "ios": "expo run:ios",
+    "validate:provisioning": "node scripts/validate-eas-provisioning.js"
   },
   "jest": {
     "preset": "jest-expo",
