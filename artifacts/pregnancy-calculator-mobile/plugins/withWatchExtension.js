@@ -370,10 +370,17 @@ function ensureWatchTargetDependency(project, watchTargetUuid) {
 }
 
 /**
- * Removes the "Embed Watch Content" PBXCopyFilesBuildPhase from the iOS app
- * target. addTarget("watch2_app") auto-creates this phase but it looks in
- * Release-iphoneos/ for the Watch app, which never exists there (Watch builds
- * to watchos path). We replace it with a shell script phase.
+ * Removes the auto-created Watch embed PBXCopyFilesBuildPhase from the iOS
+ * app target. addTarget("watch2_app") auto-creates this phase, but:
+ *  - its name varies: "Embed Watch Content" (older xcode lib) or
+ *    "Embed PregnancyWatchApp" (xcode lib using target product name on EAS)
+ *  - it looks in BUILT_PRODUCTS_DIR (Release-iphoneos/) which is wrong;
+ *    Watch builds to UninstalledProducts/watchos/ with SKIP_INSTALL=YES
+ *
+ * Detection strategy: look for any PBXCopyFilesBuildPhase on the iOS app
+ * target with dstSubfolderSpec = 16 (Xcode's "Watch Content" destination).
+ * This is name-independent and matches both naming conventions.
+ *
  * Idempotent — safe to call multiple times.
  */
 function removeEmbedWatchPhase(project) {
@@ -397,33 +404,37 @@ function removeEmbedWatchPhase(project) {
 
   const copySection = objects["PBXCopyFilesBuildPhase"] || {};
 
-  // Find the "Embed Watch Content" phase UUID
-  const phaseRef = mainTarget.buildPhases.find((ref) => {
+  // dstSubfolderSpec = 16 is Xcode's "Watch Content" destination — the only
+  // PBXCopyFilesBuildPhase that addTarget("watch2_app") creates on the iOS
+  // app target. This detects "Embed Watch Content" AND "Embed PregnancyWatchApp"
+  // regardless of xcode library version or target name.
+  const watchPhaseRefs = mainTarget.buildPhases.filter((ref) => {
     const uuid = typeof ref === "object" ? ref.value : ref;
     const phase = copySection[uuid];
     if (!phase) return false;
-    const name = phase.name || "";
-    return name === '"Embed Watch Content"' || name === "Embed Watch Content";
+    const spec = phase.dstSubfolderSpec;
+    return spec === 16 || spec === "16";
   });
 
-  if (!phaseRef) {
-    console.log("[Watch] No 'Embed Watch Content' phase found — nothing to remove");
+  if (watchPhaseRefs.length === 0) {
+    console.log("[Watch] No Watch-content copy phase (dstSubfolderSpec=16) found — nothing to remove");
     return;
   }
 
-  const phaseUuid = typeof phaseRef === "object" ? phaseRef.value : phaseRef;
+  for (const phaseRef of watchPhaseRefs) {
+    const phaseUuid = typeof phaseRef === "object" ? phaseRef.value : phaseRef;
+    const phaseName = (copySection[phaseUuid] || {}).name || phaseUuid;
 
-  // Remove from main target's buildPhases list
-  mainTarget.buildPhases = mainTarget.buildPhases.filter((ref) => {
-    const uuid = typeof ref === "object" ? ref.value : ref;
-    return uuid !== phaseUuid;
-  });
+    mainTarget.buildPhases = mainTarget.buildPhases.filter((ref) => {
+      const uuid = typeof ref === "object" ? ref.value : ref;
+      return uuid !== phaseUuid;
+    });
 
-  // Remove from PBXCopyFilesBuildPhase section
-  delete copySection[phaseUuid];
-  delete copySection[`${phaseUuid}_comment`];
+    delete copySection[phaseUuid];
+    delete copySection[`${phaseUuid}_comment`];
 
-  console.log(`[Watch] Removed 'Embed Watch Content' phase (${phaseUuid})`);
+    console.log(`[Watch] Removed Watch embed copy phase ${phaseName} (${phaseUuid})`);
+  }
 }
 
 /**
