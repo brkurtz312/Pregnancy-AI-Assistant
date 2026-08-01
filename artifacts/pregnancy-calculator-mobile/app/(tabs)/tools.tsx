@@ -1020,6 +1020,57 @@ function ContractionTimerSection() {
   );
 }
 
+// ─── Watch Status Badge ──────────────────────────────────────────────────────
+
+function WatchStatusBadge({
+  isReachable,
+  isWatchAppInstalled,
+}: {
+  isReachable: boolean;
+  isWatchAppInstalled: boolean;
+}) {
+  const colors = useColors();
+  if (Platform.OS !== "ios") return null;
+
+  const connected = isReachable;
+  const dotColor = connected ? "#22c55e" : colors.mutedForeground;
+  const label = connected
+    ? "Apple Watch connected"
+    : isWatchAppInstalled
+      ? "Watch not reachable"
+      : "Watch app not installed";
+
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        marginBottom: 8,
+        alignSelf: "flex-start",
+      }}
+    >
+      <View
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: dotColor,
+        }}
+      />
+      <Text
+        style={{
+          fontSize: 12,
+          fontFamily: "Inter_400Regular",
+          color: connected ? "#22c55e" : colors.mutedForeground,
+        }}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 // ─── Main Tools Screen ───────────────────────────────────────────────────────
 
 export default function ToolsScreen() {
@@ -1051,7 +1102,7 @@ export default function ToolsScreen() {
   // Push gestational-week tips to the Watch; actual event handling (kick session
   // end, contraction update) is done by WatchBackgroundListener in the root
   // layout so data is saved regardless of which tab is active.
-  useWatchConnectivity({
+  const { watchStatus } = useWatchConnectivity({
     gestationalWeek,
     tips: watchTips,
   });
@@ -1206,6 +1257,15 @@ export default function ToolsScreen() {
           >
             <SymptomLogSection />
           </Animated.View>
+
+          {Platform.OS === "ios" && (
+            <Animated.View entering={FadeInDown.delay(140).duration(400)}>
+              <WatchStatusBadge
+                isReachable={watchStatus.isReachable}
+                isWatchAppInstalled={watchStatus.isWatchAppInstalled}
+              />
+            </Animated.View>
+          )}
 
           <Animated.View
             entering={FadeInDown.delay(160).duration(400)}

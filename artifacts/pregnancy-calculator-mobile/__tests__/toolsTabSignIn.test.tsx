@@ -66,6 +66,11 @@ jest.mock("@/hooks/useWatchConnectivity", () => ({
   useWatchConnectivity: jest.fn(() => ({
     pushTips: jest.fn(),
     isSupported: false,
+    watchStatus: {
+      isReachable: false,
+      isWatchAppInstalled: false,
+      activationState: "notActivated",
+    },
   })),
 }));
 

@@ -39,20 +39,63 @@ import WatchConnectivity
         try? WCSession.default.updateApplicationContext(["gestationalWeek": week])
     }
 
+    // MARK: - Session state
+
+    /// Returns a snapshot of the current WCSession connectivity state.
+    func sessionState() -> [String: Any] {
+        let session = WCSession.default
+        let stateStr: String
+        switch session.activationState {
+        case .activated:   stateStr = "activated"
+        case .inactive:    stateStr = "inactive"
+        case .notActivated: stateStr = "notActivated"
+        @unknown default:  stateStr = "unknown"
+        }
+        return [
+            "activationState": stateStr,
+            "isWatchAppInstalled": WCSession.isSupported() && session.isWatchAppInstalled,
+            "isReachable": WCSession.isSupported() && session.isReachable,
+        ]
+    }
+
     // MARK: - Callbacks registered by React Native
 
     var onKickSessionEnd: (([String: Any]) -> Void)?
     var onContractionUpdate: (([String: Any]) -> Void)?
     var onKickUpdate: ((Int) -> Void)?
+    /// Called whenever Watch connectivity state changes (reachability, activation, install)
+    var onSessionStateChange: (([String: Any]) -> Void)?
 }
 
 // MARK: - WCSessionDelegate
 
 extension PhoneWatchBridge: WCSessionDelegate {
-    func session(_ session: WCSession, activationDidCompleteWith state: WCSessionActivationState, error: Error?) {}
-    func sessionDidBecomeInactive(_ session: WCSession) {}
+    func session(_ session: WCSession, activationDidCompleteWith state: WCSessionActivationState, error: Error?) {
+        notifyStateChange()
+    }
+
+    func sessionDidBecomeInactive(_ session: WCSession) {
+        notifyStateChange()
+    }
+
     func sessionDidDeactivate(_ session: WCSession) {
         WCSession.default.activate()
+        notifyStateChange()
+    }
+
+    func sessionWatchStateDidChange(_ session: WCSession) {
+        notifyStateChange()
+    }
+
+    func sessionReachabilityDidChange(_ session: WCSession) {
+        notifyStateChange()
+    }
+
+    private func notifyStateChange() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.onSessionStateChange?(self.sessionState())
+        }
     }
 
     func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {

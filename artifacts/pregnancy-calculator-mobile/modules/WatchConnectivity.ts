@@ -15,15 +15,30 @@
 type Listener = (...args: any[]) => void;
 type Subscription = { remove: () => void };
 
+export interface WatchSessionState {
+  /** "activated" | "inactive" | "notActivated" | "unknown" */
+  activationState: string;
+  /** true if the Watch companion app is installed */
+  isWatchAppInstalled: boolean;
+  /** true if the Watch is currently reachable */
+  isReachable: boolean;
+}
+
 interface WatchConnectivityInterface {
   sendTips: (tips: object[]) => Promise<void>;
   sendGestationalWeek: (week: number) => Promise<void>;
+  getSessionState: () => Promise<WatchSessionState>;
   addListener: (event: string, cb: Listener) => Subscription;
 }
 
 const stub: WatchConnectivityInterface = {
   sendTips: async () => {},
   sendGestationalWeek: async () => {},
+  getSessionState: async () => ({
+    activationState: "notActivated",
+    isWatchAppInstalled: false,
+    isReachable: false,
+  }),
   addListener: () => ({ remove: () => {} }),
 };
 
@@ -38,6 +53,7 @@ function buildModule(): WatchConnectivityInterface {
     return {
       sendTips: (tips: object[]) => native.sendTips(tips),
       sendGestationalWeek: (week: number) => native.sendGestationalWeek(week),
+      getSessionState: () => native.getSessionState(),
       addListener: (event: string, cb: Listener) =>
         emitter.addListener(event, cb),
     };

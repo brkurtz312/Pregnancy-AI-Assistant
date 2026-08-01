@@ -2,9 +2,10 @@
  * watchKickSync.test.tsx
  *
  * Verifies that when the Apple Watch fires onKickSessionEnd or
- * onContractionUpdate, the ToolsScreen:
+ * onContractionUpdate, the WatchBackgroundListener:
  *   1. Persists the record via the create mutation
- *   2. Calls refetch so the list updates without a manual refresh
+ *   2. Invalidates the relevant React Query caches so the Tools tab sees
+ *      fresh data next time it mounts (no manual refresh needed)
  */
 
 import React from "react";
@@ -17,97 +18,33 @@ jest.mock("react-native-reanimated", () =>
 
 // ── Navigation / icons ────────────────────────────────────────────────────────
 jest.mock("@clerk/expo", () => ({
-  useUser: jest.fn(),
-}));
-
-jest.mock("expo-router", () => ({
-  router: { push: jest.fn() },
-  useRouter: jest.fn(() => ({ push: jest.fn() })),
-}));
-
-jest.mock("expo-haptics", () => ({
-  impactAsync: jest.fn(),
-  notificationAsync: jest.fn(),
-  ImpactFeedbackStyle: { Light: "Light", Medium: "Medium", Heavy: "Heavy" },
-  NotificationFeedbackType: { Success: "Success" },
+  useAuth: jest.fn(),
 }));
 
 jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 
-jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-}));
+// ── React Query ───────────────────────────────────────────────────────────────
+const mockInvalidateQueries = jest.fn().mockResolvedValue(undefined);
 
-jest.mock("@/lib/haptics", () => ({
-  impact: jest.fn(),
-  notification: jest.fn(),
-}));
-
-jest.mock("@/hooks/useColors", () => ({
-  useColors: () => ({
-    background: "#fff",
-    card: "#fff",
-    border: "#eee",
-    primary: "#ff69b4",
-    primaryForeground: "#fff",
-    foreground: "#000",
-    mutedForeground: "#666",
-    muted: "#f5f5f5",
-    accent: "#f0f0f0",
-    destructive: "#e00",
-  }),
-}));
-
-jest.mock("@/lib/pregnancy-math", () => ({
-  calculateByDueDate: jest.fn(() => ({ currentGestationalAgeWeeks: 20 })),
-}));
-
-jest.mock("@/components/ResponsiveContainer", () => ({
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ResponsiveContainer: ({ children }: { children: any }) => children,
+jest.mock("@tanstack/react-query", () => ({
+  useQueryClient: jest.fn(() => ({ invalidateQueries: mockInvalidateQueries })),
 }));
 
 // ── API hooks ────────────────────────────────────────────────────────────────
-// Each mutation/refetch stub is declared at module scope so tests can inspect calls.
 const mockKickMutateAsync = jest.fn().mockResolvedValue({ id: 99 });
-const mockRefetchKickSessions = jest.fn().mockResolvedValue(undefined);
 const mockContractionMutateAsync = jest.fn().mockResolvedValue({ id: 77 });
-const mockRefetchContractions = jest.fn().mockResolvedValue(undefined);
 
 jest.mock("@workspace/api-client-react", () => ({
-  useListSymptoms: jest.fn(() => ({
-    data: undefined,
-    isLoading: false,
-    refetch: jest.fn(),
-  })),
-  useCreateSymptom: jest.fn(() => ({
-    mutateAsync: jest.fn(),
-    isPending: false,
-  })),
-  useDeleteSymptom: jest.fn(() => ({ mutateAsync: jest.fn() })),
-  useListKickSessions: jest.fn(() => ({
-    data: undefined,
-    isLoading: false,
-    refetch: mockRefetchKickSessions,
-  })),
   useCreateKickSession: jest.fn(() => ({
     mutateAsync: mockKickMutateAsync,
     isPending: false,
-  })),
-  useUpdateKickSession: jest.fn(() => ({ mutateAsync: jest.fn() })),
-  useDeleteKickSession: jest.fn(() => ({ mutateAsync: jest.fn() })),
-  useListContractions: jest.fn(() => ({
-    data: undefined,
-    isLoading: false,
-    refetch: mockRefetchContractions,
   })),
   useCreateContraction: jest.fn(() => ({
     mutateAsync: mockContractionMutateAsync,
     isPending: false,
   })),
-  useDeleteContraction: jest.fn(() => ({ mutateAsync: jest.fn() })),
-  useGetProfile: jest.fn(() => ({ data: undefined })),
-  getGetProfileQueryKey: jest.fn(() => ["profile"]),
+  getListKickSessionsQueryKey: jest.fn((p) => ["kick-sessions", p]),
+  getListContractionsQueryKey: jest.fn((p) => ["contractions", p]),
 }));
 
 // ── Watch connectivity ───────────────────────────────────────────────────────
@@ -123,73 +60,55 @@ jest.mock("@/hooks/useWatchConnectivity", () => ({
     }) => {
       capturedOnKickSessionEnd = opts.onKickSessionEnd;
       capturedOnContractionUpdate = opts.onContractionUpdate;
-      return { pushTips: jest.fn(), isSupported: true };
+      return {
+        pushTips: jest.fn(),
+        isSupported: true,
+        watchStatus: {
+          isReachable: false,
+          isWatchAppInstalled: false,
+          activationState: "notActivated",
+        },
+      };
     },
   ),
 }));
 
 // ── Imports (after all mocks) ─────────────────────────────────────────────────
-import { useUser } from "@clerk/expo";
-import ToolsScreen from "../app/(tabs)/tools";
+import { useAuth } from "@clerk/expo";
+import { WatchBackgroundListener } from "../components/WatchBackgroundListener";
 
-const mockUseUser = useUser as jest.Mock;
+const mockUseAuth = useAuth as jest.Mock;
 
 function renderSignedIn() {
-  mockUseUser.mockReturnValue({ isSignedIn: true });
+  mockUseAuth.mockReturnValue({ isSignedIn: true });
   let renderer!: ReturnType<typeof create>;
   act(() => {
-    renderer = create(React.createElement(ToolsScreen));
+    renderer = create(React.createElement(WatchBackgroundListener));
   });
   return renderer;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("ToolsScreen — Watch → Tools sync (no manual refresh)", () => {
+describe("WatchBackgroundListener — Watch → Tools sync (no manual refresh)", () => {
   beforeEach(() => {
     capturedOnKickSessionEnd = undefined;
     capturedOnContractionUpdate = undefined;
     jest.clearAllMocks();
     // Re-apply the mock return values cleared by clearAllMocks
-    mockUseUser.mockReturnValue({ isSignedIn: true });
+    mockUseAuth.mockReturnValue({ isSignedIn: true });
+    mockInvalidateQueries.mockResolvedValue(undefined);
+    mockKickMutateAsync.mockResolvedValue({ id: 99 });
+    mockContractionMutateAsync.mockResolvedValue({ id: 77 });
     const apiMock = require("@workspace/api-client-react");
     apiMock.useCreateKickSession.mockReturnValue({
       mutateAsync: mockKickMutateAsync,
       isPending: false,
     });
-    apiMock.useListKickSessions.mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      refetch: mockRefetchKickSessions,
-    });
     apiMock.useCreateContraction.mockReturnValue({
       mutateAsync: mockContractionMutateAsync,
       isPending: false,
     });
-    apiMock.useListContractions.mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      refetch: mockRefetchContractions,
-    });
-    apiMock.useListSymptoms.mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      refetch: jest.fn(),
-    });
-    apiMock.useCreateSymptom.mockReturnValue({
-      mutateAsync: jest.fn(),
-      isPending: false,
-    });
-    apiMock.useDeleteSymptom.mockReturnValue({ mutateAsync: jest.fn() });
-    apiMock.useUpdateKickSession.mockReturnValue({ mutateAsync: jest.fn() });
-    apiMock.useDeleteKickSession.mockReturnValue({ mutateAsync: jest.fn() });
-    apiMock.useDeleteContraction.mockReturnValue({ mutateAsync: jest.fn() });
-    apiMock.useGetProfile.mockReturnValue({ data: undefined });
-    apiMock.getGetProfileQueryKey.mockReturnValue(["profile"]);
-    mockKickMutateAsync.mockResolvedValue({ id: 99 });
-    mockRefetchKickSessions.mockResolvedValue(undefined);
-    mockContractionMutateAsync.mockResolvedValue({ id: 77 });
-    mockRefetchContractions.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -232,7 +151,7 @@ describe("ToolsScreen — Watch → Tools sync (no manual refresh)", () => {
     });
   });
 
-  it("calls refetchKickSessions after persisting the watch kick session", async () => {
+  it("invalidates kick-session cache after persisting the watch kick session", async () => {
     renderSignedIn();
     await act(async () => {});
 
@@ -246,11 +165,11 @@ describe("ToolsScreen — Watch → Tools sync (no manual refresh)", () => {
       await capturedOnKickSessionEnd!(session);
     });
 
-    // refetch must be called so the list updates without a manual pull-to-refresh
-    expect(mockRefetchKickSessions).toHaveBeenCalledTimes(1);
+    // Query cache must be invalidated so Tools tab fetches fresh data
+    expect(mockInvalidateQueries).toHaveBeenCalledTimes(1);
   });
 
-  it("calls refetchKickSessions even for a zero-kick watch session", async () => {
+  it("invalidates kick-session cache even for a zero-kick watch session", async () => {
     renderSignedIn();
     await act(async () => {});
 
@@ -263,7 +182,7 @@ describe("ToolsScreen — Watch → Tools sync (no manual refresh)", () => {
     });
 
     expect(mockKickMutateAsync).toHaveBeenCalledTimes(1);
-    expect(mockRefetchKickSessions).toHaveBeenCalledTimes(1);
+    expect(mockInvalidateQueries).toHaveBeenCalledTimes(1);
   });
 
   // ── Contraction update ───────────────────────────────────────────────────────
@@ -298,7 +217,7 @@ describe("ToolsScreen — Watch → Tools sync (no manual refresh)", () => {
     expect(call.data.intervalSeconds).toBe(300);
   });
 
-  it("calls refetchContractions after persisting the watch contraction", async () => {
+  it("invalidates contraction cache after persisting the watch contraction", async () => {
     renderSignedIn();
     await act(async () => {});
 
@@ -311,7 +230,7 @@ describe("ToolsScreen — Watch → Tools sync (no manual refresh)", () => {
     });
 
     // list must refresh automatically — no manual pull required
-    expect(mockRefetchContractions).toHaveBeenCalledTimes(1);
+    expect(mockInvalidateQueries).toHaveBeenCalledTimes(1);
   });
 
   it("handles a contraction record without an interval field", async () => {
@@ -328,8 +247,7 @@ describe("ToolsScreen — Watch → Tools sync (no manual refresh)", () => {
 
     expect(mockContractionMutateAsync).toHaveBeenCalledTimes(1);
     const call = mockContractionMutateAsync.mock.calls[0][0];
-    expect(call.data.durationSeconds).toBe(90);
     expect(call.data.intervalSeconds).toBeUndefined();
-    expect(mockRefetchContractions).toHaveBeenCalledTimes(1);
+    expect(call.data.durationSeconds).toBe(90);
   });
 });

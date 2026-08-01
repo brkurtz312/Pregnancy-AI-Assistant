@@ -23,7 +23,12 @@ public class WatchConnectivityModule: Module {
             PhoneWatchBridge.shared.sendGestationalWeek(week)
         }
 
-        Events("onKickSessionEnd", "onContractionUpdate", "onKickUpdate")
+        // Returns a snapshot of activation state + watch app install + reachability
+        AsyncFunction("getSessionState") { () -> [String: Any] in
+            PhoneWatchBridge.shared.sessionState()
+        }
+
+        Events("onKickSessionEnd", "onContractionUpdate", "onKickUpdate", "onWatchStateChange")
 
         OnStartObserving {
             PhoneWatchBridge.shared.onKickSessionEnd = { [weak self] session in
@@ -35,12 +40,16 @@ public class WatchConnectivityModule: Module {
             PhoneWatchBridge.shared.onKickUpdate = { [weak self] count in
                 self?.sendEvent("onKickUpdate", ["count": count])
             }
+            PhoneWatchBridge.shared.onSessionStateChange = { [weak self] state in
+                self?.sendEvent("onWatchStateChange", state)
+            }
         }
 
         OnStopObserving {
             PhoneWatchBridge.shared.onKickSessionEnd = nil
             PhoneWatchBridge.shared.onContractionUpdate = nil
             PhoneWatchBridge.shared.onKickUpdate = nil
+            PhoneWatchBridge.shared.onSessionStateChange = nil
         }
     }
 }

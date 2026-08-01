@@ -9,8 +9,9 @@
  * On Android / when the native module is absent it is a no-op.
  */
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
 import { Platform } from "react-native";
+import type { WatchSessionState } from "../modules/WatchConnectivity";
 
 // Lazy-require so the module is only resolved on iOS at runtime
 function getModule() {
@@ -56,6 +57,15 @@ interface UseWatchConnectivityOptions {
   onKickUpdate?: (count: number) => void;
 }
 
+export interface WatchConnectivityStatus {
+  /** true if the Watch is currently reachable over the air */
+  isReachable: boolean;
+  /** true if the Watch companion app is installed */
+  isWatchAppInstalled: boolean;
+  /** "activated" | "inactive" | "notActivated" | "unknown" */
+  activationState: string;
+}
+
 export function useWatchConnectivity({
   gestationalWeek,
   tips,
@@ -64,6 +74,46 @@ export function useWatchConnectivity({
   onKickUpdate,
 }: UseWatchConnectivityOptions = {}) {
   const mod = getModule();
+
+  // ── Real-time session state ──────────────────────────────────────────────
+  const [watchStatus, setWatchStatus] = useState<WatchConnectivityStatus>({
+    isReachable: false,
+    isWatchAppInstalled: false,
+    activationState: "notActivated",
+  });
+
+  // Fetch initial state once on mount (iOS only)
+  useEffect(() => {
+    if (!mod) return;
+    mod
+      .getSessionState()
+      .then((s: WatchSessionState) => {
+        setWatchStatus({
+          isReachable: s.isReachable,
+          isWatchAppInstalled: s.isWatchAppInstalled,
+          activationState: s.activationState,
+        });
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!mod]);
+
+  // Subscribe to real-time state changes
+  useEffect(() => {
+    if (!mod) return;
+    const sub = mod.addListener(
+      "onWatchStateChange",
+      (s: WatchSessionState) => {
+        setWatchStatus({
+          isReachable: s.isReachable,
+          isWatchAppInstalled: s.isWatchAppInstalled,
+          activationState: s.activationState,
+        });
+      },
+    );
+    return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!mod]);
 
   // Push gestational week to the watch whenever it changes
   useEffect(() => {
@@ -109,5 +159,5 @@ export function useWatchConnectivity({
     [mod],
   );
 
-  return { pushTips, isSupported: !!mod };
+  return { pushTips, isSupported: !!mod, watchStatus };
 }
