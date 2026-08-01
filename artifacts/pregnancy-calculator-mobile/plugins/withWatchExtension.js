@@ -3,17 +3,28 @@
  *
  * Expo config plugin – adds the Pregnancy AI Watch App target.
  *
- * v5 – Xcode 26 / EAS fix:
- *  • Xcode 26 does NOT honor cross-platform PBXTargetDependency (iOS→watchOS).
- *    The Watch target MUST appear in the scheme's BuildActionEntries to be
- *    compiled during an archive build.
- *  • addTarget("watch2_app") auto-creates a PBXTargetDependency we don't want
- *    (Xcode 26 ignores it anyway). Strip it immediately after addTarget().
- *  • ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES must be set on the iOS app
- *    target (not only on the Watch target) to allow Xcode 26 to specialize
- *    the build system for cross-platform dependencies.
- *  • withWatchScheme now ADDS the Watch entry (buildForArchiving=YES) instead
- *    of removing it, and restores buildImplicitDependencies = "YES".
+ * v6 – Xcode 26 / EAS final approach:
+ *
+ * History of scheduling combinations tried (all with ATPS=YES on iOS app):
+ *   Dep only                 → Watch NOT compiled (Xcode 26 ignores cross-platform deps entirely)
+ *   Scheme only              → Watch compiles for watchos ✓ but "Embed Watch Content" copy phase
+ *                              looks in Release-iphoneos/ → lstat ENOENT at archive time
+ *   Scheme + dep             → Watch compiles for watchos ✓ but scheduled TWICE (dep + scheme)
+ *                              → "Multiple commands produce"
+ *   Scheme only, strip dep,  → Still double-schedules because addTarget("watch2_app") ALSO
+ *   but call ensureWatchDep    auto-adds to scheme — two triggers: manual scheme + auto-scheme
+ *
+ * Final design:
+ *   1. Scheme entry ONLY (no PBXTargetDependency):
+ *      - addTarget auto-injects Watch into scheme; we keep it
+ *      - removeWatchTargetDependency strips the auto-created dep unconditionally
+ *      - Watch is placed FIRST in BuildActionEntries so it builds before iOS app
+ *   2. "Embed Watch Content" PBXCopyFilesBuildPhase is REMOVED (it hardcodes
+ *      Release-iphoneos/ which the Watch never occupies)
+ *   3. A PBXShellScriptBuildPhase on the iOS app does the actual embed:
+ *      - Locates PregnancyWatchApp.app in OBJROOT/UninstalledProducts/watchos/
+ *        (where SKIP_INSTALL=YES targets land during archive)
+ *      - Copies it into $(BUILT_PRODUCTS_DIR)/$(WRAPPER_NAME)/Watch/
  */
 
 const { withXcodeProject, withDangerousMod } = require("@expo/config-plugins");
@@ -193,42 +204,31 @@ function _withWatchXcodeTargetInner(config) {
     // ── Override build settings ────────────────────────────────────────────
     applyWatchBuildSettings(project, watchUuid);
 
-    // NOTE: addTarget("watch2_app") auto-creates a PBXTargetDependency from
-    // the iOS app → Watch target. We intentionally KEEP it (do NOT call
-    // removeWatchTargetDependency here). The dep + ATPS=YES is the correct
-    // mechanism for Xcode to build the Watch for watchos and embed it via the
-    // auto-created "Embed Watch Content" phase.
-    //
-    // History of scheduling approaches tried:
-    //   Scheme + dep (buildForArchiving=YES)  → double-schedule → "Multiple commands produce"
-    //   Scheme + dep (buildForArchiving=NO)   → still double-schedules (dep fires regardless)
-    //   Dep only, no ATPS                     → Watch NOT compiled (Xcode 26 ignores cross-platform deps)
-    //   Scheme only + ATPS, no dep            → Watch builds for watchos but embed phase
-    //                                           looks in Release-iphoneos/ → lstat ENOENT
-    //   Dep only + ATPS=YES (current)         → ATPS tells Xcode the dep may build for a
-    //                                           different SDK; embed phase resolves correctly.
+    // addTarget("watch2_app") auto-creates a PBXTargetDependency AND injects
+    // the Watch into the scheme. We KEEP the scheme entry (Watch must be in the
+    // scheme to build in Xcode 26) but REMOVE the dep (dep + scheme = double
+    // scheduling → "Multiple commands produce").
+    removeWatchTargetDependency(project, watchUuid);
+    console.log("[Watch] Removed auto-created dep (scheme-only scheduling)");
   }
 
   if (watchUuid) {
-    // Dep-only approach (NO scheme entry).
-    //
-    // ALLOW_TARGET_PLATFORM_SPECIALIZATION=YES on the iOS app target is what
-    // makes cross-platform PBXTargetDependency work in Xcode 26. Without it,
-    // Xcode ignores the dep when archiving for iOS. With it, the Watch target's
-    // own SDKROOT=watchos is respected and the "Embed Watch Content" build phase
-    // can locate the Watch app output in the watchos build products directory.
+    // Scheme-only scheduling (NO PBXTargetDependency).
+    // removeWatchTargetDependency is idempotent — call unconditionally so that
+    // on re-runs (alreadyPresent=true) any leftover dep from a previous run is
+    // also stripped.
+    removeWatchTargetDependency(project, watchUuid);
 
-    // ensureWatchTargetDependency is only called when alreadyPresent=true (i.e.
-    // addTarget was skipped). When alreadyPresent=false, addTarget("watch2_app")
-    // already auto-creates exactly one PBXTargetDependency — calling
-    // ensureWatchTargetDependency on top of that adds a second dep, causing the
-    // Watch to be scheduled twice → "Multiple commands produce".
-    if (alreadyPresent) {
-      ensureWatchTargetDependency(project, watchUuid);
-    }
+    // Remove the "Embed Watch Content" PBXCopyFilesBuildPhase that addTarget
+    // created. It looks in Release-iphoneos/ which the Watch never occupies
+    // (Watch builds to watchos path). A shell script phase replaces it.
+    removeEmbedWatchPhase(project);
 
-    // Add ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES to the iOS app target's
-    // build configurations. Always run — idempotent.
+    // Add a shell script phase that finds the Watch app in the correct watchos
+    // build products directory and copies it into the iOS app bundle.
+    addEmbedWatchShellScript(project);
+
+    // ATPS belt-and-suspenders — keep it in case future Xcode versions use it.
     applyAllowPlatformSpecializationToMainApp(project);
   }
 
@@ -239,6 +239,64 @@ function _withWatchXcodeTargetInner(config) {
   addPhoneBridgeToMainTarget(project, appName);
 
   return config;
+}
+
+/**
+ * Removes all PBXTargetDependency + PBXContainerItemProxy entries that point
+ * from the main iOS app target to the Watch target. Idempotent.
+ *
+ * addTarget("watch2_app") auto-creates one such dep. Having it alongside the
+ * scheme BuildActionEntry (buildForArchiving=YES) causes the Watch to be
+ * scheduled twice → "Multiple commands produce ...watchos/PregnancyWatchApp.app".
+ */
+function removeWatchTargetDependency(project, watchTargetUuid) {
+  const nts = project.pbxNativeTargetSection();
+  const objects = project.hash.project.objects;
+
+  const mainTargetUuid = Object.keys(nts).find((key) => {
+    if (key.endsWith("_comment")) return false;
+    const t = nts[key];
+    return (
+      t &&
+      typeof t === "object" &&
+      (t.productType === '"com.apple.product-type.application"' ||
+        t.productType === "com.apple.product-type.application")
+    );
+  });
+  if (!mainTargetUuid) return;
+
+  const mainTarget = nts[mainTargetUuid];
+  if (!mainTarget.dependencies) return;
+
+  const depSection = objects["PBXTargetDependency"] || {};
+  const proxySection = objects["PBXContainerItemProxy"] || {};
+
+  const toRemove = [];
+  mainTarget.dependencies = mainTarget.dependencies.filter((ref) => {
+    const depUuid = typeof ref === "object" ? ref.value : ref;
+    const depObj = depSection[depUuid];
+    if (!depObj) return true;
+    const remote =
+      typeof depObj.target === "object" ? depObj.target.value : depObj.target;
+    if (remote !== watchTargetUuid) return true;
+    toRemove.push({ depUuid, proxyUuid: depObj.targetProxy });
+    return false; // remove from dependencies list
+  });
+
+  for (const { depUuid, proxyUuid } of toRemove) {
+    delete depSection[depUuid];
+    delete depSection[`${depUuid}_comment`];
+    if (proxyUuid) {
+      const proxyKey =
+        typeof proxyUuid === "object" ? proxyUuid.value : proxyUuid;
+      delete proxySection[proxyKey];
+      delete proxySection[`${proxyKey}_comment`];
+    }
+    console.log(`[Watch] Removed PBXTargetDependency (${depUuid}) → Watch`);
+  }
+  if (toRemove.length === 0) {
+    console.log("[Watch] No PBXTargetDependency to Watch found — nothing to remove");
+  }
 }
 
 /**
@@ -309,6 +367,177 @@ function ensureWatchTargetDependency(project, watchTargetUuid) {
 
   mainTarget.dependencies.push({ value: depUuid, comment: "PBXTargetDependency" });
   console.log(`[Watch] Added PBXTargetDependency (${depUuid}): ${mainTargetUuid} → ${watchTargetUuid}`);
+}
+
+/**
+ * Removes the "Embed Watch Content" PBXCopyFilesBuildPhase from the iOS app
+ * target. addTarget("watch2_app") auto-creates this phase but it looks in
+ * Release-iphoneos/ for the Watch app, which never exists there (Watch builds
+ * to watchos path). We replace it with a shell script phase.
+ * Idempotent — safe to call multiple times.
+ */
+function removeEmbedWatchPhase(project) {
+  const nts = project.pbxNativeTargetSection();
+  const objects = project.hash.project.objects;
+
+  const mainTargetUuid = Object.keys(nts).find((key) => {
+    if (key.endsWith("_comment")) return false;
+    const t = nts[key];
+    return (
+      t &&
+      typeof t === "object" &&
+      (t.productType === '"com.apple.product-type.application"' ||
+        t.productType === "com.apple.product-type.application")
+    );
+  });
+  if (!mainTargetUuid) return;
+
+  const mainTarget = nts[mainTargetUuid];
+  if (!mainTarget.buildPhases) return;
+
+  const copySection = objects["PBXCopyFilesBuildPhase"] || {};
+
+  // Find the "Embed Watch Content" phase UUID
+  const phaseRef = mainTarget.buildPhases.find((ref) => {
+    const uuid = typeof ref === "object" ? ref.value : ref;
+    const phase = copySection[uuid];
+    if (!phase) return false;
+    const name = phase.name || "";
+    return name === '"Embed Watch Content"' || name === "Embed Watch Content";
+  });
+
+  if (!phaseRef) {
+    console.log("[Watch] No 'Embed Watch Content' phase found — nothing to remove");
+    return;
+  }
+
+  const phaseUuid = typeof phaseRef === "object" ? phaseRef.value : phaseRef;
+
+  // Remove from main target's buildPhases list
+  mainTarget.buildPhases = mainTarget.buildPhases.filter((ref) => {
+    const uuid = typeof ref === "object" ? ref.value : ref;
+    return uuid !== phaseUuid;
+  });
+
+  // Remove from PBXCopyFilesBuildPhase section
+  delete copySection[phaseUuid];
+  delete copySection[`${phaseUuid}_comment`];
+
+  console.log(`[Watch] Removed 'Embed Watch Content' phase (${phaseUuid})`);
+}
+
+/**
+ * Adds a PBXShellScriptBuildPhase to the iOS app target that embeds the Watch
+ * app from the correct watchos build products path.
+ *
+ * addTarget's auto-created "Embed Watch Content" PBXCopyFilesBuildPhase always
+ * looks in $(BUILT_PRODUCTS_DIR) = Release-iphoneos/, but the Watch (with
+ * SKIP_INSTALL=YES) lands in $(OBJROOT)/UninstalledProducts/watchos/ during an
+ * archive build. This script finds and copies it from the correct location.
+ *
+ * Idempotent — skips if a phase with the same name already exists.
+ */
+function addEmbedWatchShellScript(project) {
+  const nts = project.pbxNativeTargetSection();
+  const objects = project.hash.project.objects;
+
+  const mainTargetUuid = Object.keys(nts).find((key) => {
+    if (key.endsWith("_comment")) return false;
+    const t = nts[key];
+    return (
+      t &&
+      typeof t === "object" &&
+      (t.productType === '"com.apple.product-type.application"' ||
+        t.productType === "com.apple.product-type.application")
+    );
+  });
+  if (!mainTargetUuid) return;
+
+  const mainTarget = nts[mainTargetUuid];
+  if (!mainTarget.buildPhases) mainTarget.buildPhases = [];
+
+  const scriptSection = objects["PBXShellScriptBuildPhase"] || {};
+
+  // Idempotency: skip if already present
+  const alreadyAdded = mainTarget.buildPhases.some((ref) => {
+    const uuid = typeof ref === "object" ? ref.value : ref;
+    const phase = scriptSection[uuid];
+    if (!phase) return false;
+    const name = phase.name || "";
+    return name === '"Embed Watch App"' || name === "Embed Watch App";
+  });
+  if (alreadyAdded) {
+    // Remove the stale phase so we can re-add it with the current script content.
+    const staleRef = mainTarget.buildPhases.find((ref) => {
+      const uuid = typeof ref === "object" ? ref.value : ref;
+      const phase = scriptSection[uuid];
+      if (!phase) return false;
+      const name = phase.name || "";
+      return name === '"Embed Watch App"' || name === "Embed Watch App";
+    });
+    if (staleRef) {
+      const staleUuid = typeof staleRef === "object" ? staleRef.value : staleRef;
+      mainTarget.buildPhases = mainTarget.buildPhases.filter((ref) => {
+        const uuid = typeof ref === "object" ? ref.value : ref;
+        return uuid !== staleUuid;
+      });
+      delete scriptSection[staleUuid];
+      delete scriptSection[`${staleUuid}_comment`];
+      console.log("[Watch] Replaced stale 'Embed Watch App' shell script phase");
+    }
+  }
+
+  const phaseUuid = project.generateUuid();
+
+  // The shell script — intentionally avoids double-quotes in the script body
+  // to prevent escaping issues in the pbxproj string format. Bash variables
+  // expand correctly without surrounding quotes for path components.
+  //
+  // SKIP_INSTALL=YES (standard for Watch extensions) means the Watch app lands
+  // in $OBJROOT/UninstalledProducts/watchos/ during an archive build, not in
+  // the normal BUILT_PRODUCTS_DIR. Falls back to find(1) if the path changes.
+  const scriptLines = [
+    "#!/bin/bash",
+    "set -e",
+    "WATCH_APP_NAME=PregnancyWatchApp",
+    "WATCH_DEST=${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}/Watch",
+    "WATCH_SRC=${OBJROOT}/UninstalledProducts/watchos/${WATCH_APP_NAME}.app",
+    "if [ ! -d ${WATCH_SRC} ]; then",
+    "  WATCH_SRC=$(find $(dirname ${OBJROOT}) -maxdepth 6 -name ${WATCH_APP_NAME}.app -not -path '*/${WRAPPER_NAME}/*' 2>/dev/null | head -1)",
+    "fi",
+    "if [ -z ${WATCH_SRC} ] || [ ! -d ${WATCH_SRC} ]; then",
+    "  echo error: Cannot locate ${WATCH_APP_NAME}.app to embed >&2",
+    "  exit 1",
+    "fi",
+    "echo note: Embedding ${WATCH_APP_NAME}.app from ${WATCH_SRC}",
+    "mkdir -p ${WATCH_DEST}",
+    "cp -R ${WATCH_SRC} ${WATCH_DEST}/",
+  ];
+  // Join with \n (2-char sequence) — the pbxproj string format uses \n for newlines.
+  const shellScriptContent = scriptLines.join("\\n");
+  // Wrap in pbxproj string quotes. No " inside the script body so no escaping needed.
+  const shellScriptValue = `"${shellScriptContent}"`;
+
+  if (!objects["PBXShellScriptBuildPhase"]) objects["PBXShellScriptBuildPhase"] = {};
+  objects["PBXShellScriptBuildPhase"][phaseUuid] = {
+    isa: "PBXShellScriptBuildPhase",
+    alwaysOutOfDate: 1,
+    buildActionMask: 2147483647,
+    files: [],
+    inputFileListPaths: [],
+    inputPaths: [],
+    outputFileListPaths: [],
+    outputPaths: ['"$(BUILT_PRODUCTS_DIR)/$(WRAPPER_NAME)/Watch/PregnancyWatchApp.app"'],
+    runOnlyForDeploymentPostprocessing: 0,
+    shellPath: "/bin/bash",
+    shellScript: shellScriptValue,
+    showEnvVarsInLog: 0,
+    name: '"Embed Watch App"',
+  };
+  objects["PBXShellScriptBuildPhase"][`${phaseUuid}_comment`] = "Embed Watch App";
+
+  mainTarget.buildPhases.push({ value: phaseUuid, comment: "Embed Watch App" });
+  console.log(`[Watch] Added 'Embed Watch App' shell script phase (${phaseUuid})`);
 }
 
 /**
@@ -700,9 +929,11 @@ function withWatchScheme(config) {
         console.log("[Watch/Scheme] Removed stale Watch BuildActionEntry");
       }
 
-      // 3. Inject a fresh Watch entry immediately before </BuildActionEntries>.
+      // 3. Inject the Watch entry as the FIRST item in BuildActionEntries.
+      //    Without a PBXTargetDependency, Xcode builds scheme entries in the
+      //    order they appear. Watch must be first so it compiles before the
+      //    iOS app's "Embed Watch App" shell script runs.
       //    buildForArchiving = YES ensures it compiles during `xcodebuild archive`.
-      //    All other flags are NO — no simulator runs, no tests, no profiling.
       const watchEntry =
         `         <BuildActionEntry\n` +
         `            buildForTesting = "NO"\n` +
@@ -719,19 +950,21 @@ function withWatchScheme(config) {
         `            </BuildableReference>\n` +
         `         </BuildActionEntry>\n`;
 
-      if (!schemeXml.includes("</BuildActionEntries>")) {
-        console.warn("[Watch/Scheme] </BuildActionEntries> marker not found — scheme may be malformed");
+      if (!schemeXml.includes("<BuildActionEntries>")) {
+        console.warn("[Watch/Scheme] <BuildActionEntries> marker not found — scheme may be malformed");
         return config;
       }
 
+      // Insert Watch BEFORE the first existing BuildActionEntry (after the
+      // opening <BuildActionEntries> tag) so it is first in the build order.
       schemeXml = schemeXml.replace(
-        "</BuildActionEntries>",
-        `${watchEntry}      </BuildActionEntries>`,
+        /(<BuildActionEntries>\s*\n)/,
+        `$1${watchEntry}`,
       );
 
       fs.writeFileSync(schemePath, schemeXml, "utf8");
       console.log(
-        `[Watch/Scheme] Added Watch BuildActionEntry (UUID: ${watchTargetUuid}, buildForArchiving=YES)`,
+        `[Watch/Scheme] Inserted Watch BuildActionEntry FIRST (UUID: ${watchTargetUuid}, buildForArchiving=YES)`,
       );
     } catch (e) {
       console.error("[Watch/Scheme] ERROR:", e && e.message);
@@ -742,71 +975,21 @@ function withWatchScheme(config) {
   });
 }
 
-// ─── Step 3: Strip Watch from scheme (dep-only scheduling) ───────────────────
-//
-// addTarget("watch2_app") auto-adds a BuildActionEntry to the scheme in addition
-// to creating the PBXTargetDependency. Having both triggers causes double-scheduling
-// → "Multiple commands produce". This modifier strips the Watch scheme entry so
-// only the PBXTargetDependency (+ ATPS=YES) drives the build.
-//
-// Applied BEFORE withWatchXcodeTarget in the export chain so it executes AFTER
-// (LIFO), i.e. after addTarget has already added the entry.
-
-function withWatchSchemeCleanup(config) {
-  return withXcodeProject(config, (config) => {
-    try {
-      const iosRoot = config.modRequest.platformProjectRoot;
-      const projectName = config.modRequest.projectName;
-
-      const schemePath = path.join(
-        iosRoot,
-        `${projectName}.xcodeproj`,
-        "xcshareddata",
-        "xcschemes",
-        `${projectName}.xcscheme`,
-      );
-
-      if (!fs.existsSync(schemePath)) {
-        console.warn(`[Watch/SchemeCleanup] Scheme not found at ${schemePath}`);
-        return config;
-      }
-
-      let schemeXml = fs.readFileSync(schemePath, "utf8");
-
-      // Strip any BuildActionEntry that references the Watch target.
-      // addTarget("watch2_app") injects one automatically; keeping it alongside
-      // the PBXTargetDependency schedules the Watch twice.
-      const watchEntryRegex =
-        /[ \t]*<BuildActionEntry[\s\S]*?BlueprintName\s*=\s*"PregnancyWatchApp"[\s\S]*?<\/BuildActionEntry>\n?/g;
-      const before = schemeXml;
-      schemeXml = schemeXml.replace(watchEntryRegex, "");
-      if (schemeXml !== before) {
-        fs.writeFileSync(schemePath, schemeXml, "utf8");
-        console.log("[Watch/SchemeCleanup] Stripped Watch BuildActionEntry from scheme (dep-only scheduling)");
-      } else {
-        console.log("[Watch/SchemeCleanup] No Watch BuildActionEntry found — nothing to strip");
-      }
-    } catch (e) {
-      console.error("[Watch/SchemeCleanup] ERROR:", e && e.message);
-      throw e;
-    }
-    return config;
-  });
-}
-
 // ─── Export ───────────────────────────────────────────────────────────────────
 //
-// Dep-only scheduling: addTarget("watch2_app") auto-creates a PBXTargetDependency
-// AND a scheme BuildActionEntry. We keep the dep (single scheduling trigger) and
-// strip the scheme entry via withWatchSchemeCleanup.
+// Scheme-only scheduling + shell script embed:
+//   1. addTarget("watch2_app") auto-creates: dep + scheme entry + embed copy phase
+//   2. withWatchXcodeTarget strips the dep and copy phase, adds shell script embed
+//   3. withWatchScheme strips any auto-added Watch scheme entry and re-injects it
+//      FIRST in BuildActionEntries (so Watch builds before the iOS app)
 //
 // LIFO execution order (last applied = first executed):
-//   withWatchXcodeTarget    → runs first: creates Watch target + dep + scheme entry
-//   withWatchSchemeCleanup  → runs second: strips the scheme entry addTarget just added
-//   withWatchFiles          → runs third: copies source files
+//   withWatchXcodeTarget → runs first:  creates Watch, strips dep + copy phase, adds shell script
+//   withWatchScheme      → runs second: strips auto-added Watch entry, re-injects it first
+//   withWatchFiles       → runs third:  copies Swift source files
 module.exports = (config) => {
   config = withWatchFiles(config);
-  config = withWatchSchemeCleanup(config); // applied second → executes second
-  config = withWatchXcodeTarget(config);   // applied last   → executes first
+  config = withWatchScheme(config);      // applied second → executes second
+  config = withWatchXcodeTarget(config); // applied last   → executes first
   return config;
 };
