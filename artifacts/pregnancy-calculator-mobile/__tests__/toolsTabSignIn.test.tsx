@@ -58,6 +58,19 @@ jest.mock("@workspace/api-client-react", () => ({
     isPending: false,
   })),
   useDeleteContraction: jest.fn(() => ({ mutateAsync: jest.fn() })),
+  useGetProfile: jest.fn(() => ({ data: undefined })),
+  getGetProfileQueryKey: jest.fn(() => ["profile"]),
+}));
+
+jest.mock("@/hooks/useWatchConnectivity", () => ({
+  useWatchConnectivity: jest.fn(() => ({
+    pushTips: jest.fn(),
+    isSupported: false,
+  })),
+}));
+
+jest.mock("@/lib/pregnancy-math", () => ({
+  calculateByDueDate: jest.fn(() => ({ currentGestationalAgeWeeks: 20 })),
 }));
 
 jest.mock("@/hooks/useColors", () => ({

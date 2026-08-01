@@ -3,7 +3,13 @@ import { useUser } from "@clerk/expo";
 import * as Haptics from "expo-haptics";
 import * as haptics from "@/lib/haptics";
 import { router, useRouter } from "expo-router";
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -29,9 +35,18 @@ import {
   useListContractions,
   useCreateContraction,
   useDeleteContraction,
+  useGetProfile,
+  getGetProfileQueryKey,
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { ResponsiveContainer } from "@/components/ResponsiveContainer";
+import {
+  useWatchConnectivity,
+  type WatchTip,
+  type KickSessionSummary,
+  type ContractionRecord,
+} from "@/hooks/useWatchConnectivity";
+import { calculateByDueDate } from "@/lib/pregnancy-math";
 
 const SYMPTOMS = [
   "Nausea",
@@ -1013,6 +1028,104 @@ export default function ToolsScreen() {
   const insets = useSafeAreaInsets();
   const { isSignedIn } = useUser();
   const nav = useRouter();
+
+  // ── Watch connectivity ───────────────────────────────────────────────────
+  const { data: profile } = useGetProfile({
+    query: { enabled: !!isSignedIn, queryKey: getGetProfileQueryKey() },
+  });
+
+  const gestationalWeek = useMemo(() => {
+    if (!profile?.dueDate) return undefined;
+    try {
+      return calculateByDueDate(new Date(profile.dueDate))
+        .currentGestationalAgeWeeks;
+    } catch {
+      return undefined;
+    }
+  }, [profile?.dueDate]);
+
+  const watchTips = useMemo((): WatchTip[] => {
+    if (gestationalWeek == null) return [];
+    return [
+      {
+        week: gestationalWeek,
+        emoji: "👶",
+        text: `Week ${gestationalWeek}: Baby is growing every day.`,
+      },
+      {
+        week: gestationalWeek,
+        emoji: "💧",
+        text: "Stay hydrated — aim for 8–10 glasses of water daily.",
+      },
+      {
+        week: gestationalWeek,
+        emoji: "🚶",
+        text: "Gentle walks help circulation and mood.",
+      },
+      {
+        week: gestationalWeek,
+        emoji: "❤️",
+        text: "Track kicks daily for peace of mind.",
+      },
+    ];
+  }, [gestationalWeek]);
+
+  const watchKickMutation = useCreateKickSession();
+  const watchContractionMutation = useCreateContraction();
+  const { refetch: refetchKickSessions } = useListKickSessions({
+    limit: 10,
+    offset: 0,
+  });
+  const { refetch: refetchContractions } = useListContractions({
+    sessionDate: todayDate(),
+    limit: 50,
+  });
+
+  const handleWatchKickSessionEnd = useCallback(
+    async (session: KickSessionSummary) => {
+      await watchKickMutation.mutateAsync({
+        data: {
+          startedAt: session.startedAt,
+          endedAt: session.endedAt,
+          kickCount: session.kickCount,
+        },
+      });
+      refetchKickSessions();
+    },
+    [watchKickMutation, refetchKickSessions],
+  );
+
+  const handleWatchContractionUpdate = useCallback(
+    async (record: ContractionRecord) => {
+      const durationSeconds =
+        record.startedAt && record.endedAt
+          ? Math.round(
+              (new Date(record.endedAt).getTime() -
+                new Date(record.startedAt).getTime()) /
+                1000,
+            )
+          : undefined;
+      await watchContractionMutation.mutateAsync({
+        data: {
+          startedAt: record.startedAt,
+          endedAt: record.endedAt,
+          durationSeconds,
+          intervalSeconds: record.interval,
+          sessionDate: todayDate(),
+        },
+      });
+      refetchContractions();
+    },
+    [watchContractionMutation, refetchContractions],
+  );
+
+  useWatchConnectivity({
+    gestationalWeek,
+    tips: watchTips,
+    onKickSessionEnd: handleWatchKickSessionEnd,
+    onContractionUpdate: handleWatchContractionUpdate,
+  });
+  // ── End watch connectivity ───────────────────────────────────────────────
 
   if (!isSignedIn) {
     return (
