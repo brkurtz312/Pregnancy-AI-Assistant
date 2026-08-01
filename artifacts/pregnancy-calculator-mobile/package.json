@@ -12,6 +12,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "validate:provisioning": "node scripts/validate-eas-provisioning.js",
+    "validate:watch-icons": "node scripts/validate-watch-icon-format.js",
     "cancel-stale-builds": "node scripts/cancel-stale-eas-builds.js",
     "cancel-stale-builds:dry-run": "node scripts/cancel-stale-eas-builds.js --dry-run"
   },

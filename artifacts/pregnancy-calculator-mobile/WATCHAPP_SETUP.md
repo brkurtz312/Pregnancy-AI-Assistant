@@ -141,9 +141,53 @@ The watch alerts (haptic + red warning text) when the interval between contracti
 
 ---
 
+## Pre-build validation scripts
+
+Two scripts catch common Watch configuration issues before an EAS build is submitted:
+
+| Script                          | Command                          | What it catches                                               |
+| ------------------------------- | -------------------------------- | ------------------------------------------------------------- |
+| `validate-eas-provisioning.js`  | `pnpm run validate:provisioning` | Missing Watch bundle ID, App Group, or EAS credentials source |
+| `validate-watch-icon-format.js` | `pnpm run validate:watch-icons`  | Legacy per-size AppIcon format that triggers ITMS-90391       |
+
+### Why the icon format check matters (ITMS-90391)
+
+Build #116 passed EAS compilation and produced a valid `Assets.car`, but Apple's App Store Connect validator rejected it with **ITMS-90391** because the `AppIcon.appiconset/Contents.json` used the **legacy per-size format** — multiple image entries (one per watch face slot) each reusing the same 1024×1024 PNG. Xcode's asset catalog compiler accepts this format silently. The rejection only appears after uploading to App Store Connect.
+
+Build #124 fixed this by switching to the **modern single-image format**:
+
+```json
+{
+  "images": [
+    {
+      "filename": "AppIcon.png",
+      "idiom": "universal",
+      "platform": "watchos",
+      "size": "1024x1024"
+    }
+  ],
+  "info": { "author": "xcode", "version": 1 }
+}
+```
+
+The `validate:watch-icons` script enforces this before any build is triggered:
+
+```bash
+pnpm run validate:watch-icons
+```
+
+Run it (along with `validate:provisioning`) before every EAS submission:
+
+```bash
+pnpm run validate:provisioning && pnpm run validate:watch-icons
+```
+
+---
+
 ## App Store submission
 
-1. New binary build required (OTA cannot add a Watch App)
-2. Add **iPad screenshots** and **Apple Watch screenshots** to App Store Connect
-3. Watch screenshot sizes required: **40mm** and **44mm** (or 44mm and 49mm for Ultra)
-4. In App Store Connect, the Watch App is bundled with the iPhone app — no separate listing needed
+1. Run pre-build validation: `pnpm run validate:provisioning && pnpm run validate:watch-icons`
+2. New binary build required (OTA cannot add a Watch App)
+3. Add **iPad screenshots** and **Apple Watch screenshots** to App Store Connect
+4. Watch screenshot sizes required: **40mm** and **44mm** (or 44mm and 49mm for Ultra)
+5. In App Store Connect, the Watch App is bundled with the iPhone app — no separate listing needed
