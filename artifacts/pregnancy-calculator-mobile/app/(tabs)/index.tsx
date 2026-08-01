@@ -653,7 +653,9 @@ export default function CalculatorScreen() {
       {
         week: gestationalWeek,
         emoji: "👶",
-        text: weekData.development[0] ?? `Week ${gestationalWeek}: Baby is growing every day.`,
+        text:
+          weekData.development[0] ??
+          `Week ${gestationalWeek}: Baby is growing every day.`,
       },
       {
         week: gestationalWeek,

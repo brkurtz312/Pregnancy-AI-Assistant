@@ -89,8 +89,7 @@ const EXPECTED_WATCH_BUNDLE_ID = mainBundleId
   ? `${mainBundleId}.watchapp`
   : "app.replit.pregnancycalculator.watchapp";
 
-const appExtensions =
-  extraEas?.build?.experimental?.ios?.appExtensions ?? [];
+const appExtensions = extraEas?.build?.experimental?.ios?.appExtensions ?? [];
 
 const watchExtension = appExtensions.find(
   (ext) => ext.bundleIdentifier === EXPECTED_WATCH_BUNDLE_ID,

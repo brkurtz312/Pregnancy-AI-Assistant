@@ -26,6 +26,14 @@ struct WatchTip: Codable, Identifiable {
     var week: Int
     var emoji: String
     var text: String
+
+    /// Exclude `id` from Codable so that tips arriving from JavaScript
+    /// (which never send an `id` field) decode successfully. The field
+    /// keeps its default value `UUID()` and is still used by SwiftUI's
+    /// `ForEach`/`Identifiable` machinery.
+    enum CodingKeys: String, CodingKey {
+        case week, emoji, text
+    }
 }
 
 // MARK: - Message keys (shared with phone bridge)
