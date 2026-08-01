@@ -51,11 +51,13 @@ Shell script content stored in PBXShellScriptBuildPhase must NOT contain unescap
 Apple's binary validator (ITMS-90391/90713) requires the Watch bundle to contain compiled icons from an asset catalog. Without `Assets.xcassets`:
 - Build succeeds, archive succeeds, upload succeeds
 - Apple processing fails: "No icons found for watch application" (90391) + "Missing CFBundleIconName" (90713)
-Fix requires ALL four of:
-1. `watchapp/Assets.xcassets/AppIcon.appiconset/` with a `Contents.json` covering all watchOS icon slots (notificationCenter, appLauncher, quickLook, companionSettings, watch-marketing 1024x1024) and an `AppIcon.png`
-2. `CFBundleIconName = AppIcon` in `watchapp/Info.plist`
+Fix requires ALL of:
+1. `watchapp/Assets.xcassets/AppIcon.appiconset/` with `Contents.json` (`idiom:universal, platform:watchos, 1024x1024`) and `AppIcon.png`
+2. `CFBundleIconName = AppIcon` AND `CFBundleIconFiles` array in `watchapp/Info.plist`
 3. `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon` in `applyWatchBuildSettings`
-4. Register `Assets.xcassets` as a PBXFileReference + PBXBuildFile in the Watch target's Resources phase (see `addWatchAssetCatalogToResources`)
+4. Register `Assets.xcassets` in the Watch Resources phase (`addWatchAssetCatalogToResources`)
+5. **Standalone icon PNGs at all required watchOS sizes (58–1024px) copied into the Watch bundle root** — Apple's ITMS-90391 validator does NOT inspect `Assets.car`; it only looks for PNG files listed in `CFBundleIconFiles`. `Assets.car` can be present but is irrelevant to the validator. See `addWatchIconFilesToResources` and `WATCH_ICON_FILES` constant in the plugin.
+6. Generate PNGs with `magick <src> -resize NxN AppIcon-N.png` for sizes: 58 80 87 88 100 102 108 172 196 216 234 1024
 
 ## Critical productType rule
 `addTarget("watch2_app")` always sets `productType = "com.apple.product-type.application.watchapp2"` (legacy WatchKit 2 container). For modern standalone watchOS 7+ apps (`@main App` + `WKApplication = true` in Info.plist), the correct type is `"com.apple.product-type.application"`. With the wrong type:
