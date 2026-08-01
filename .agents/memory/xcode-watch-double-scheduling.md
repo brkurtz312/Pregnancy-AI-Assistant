@@ -20,6 +20,12 @@ Use **both** scheme entry AND PBXTargetDependency, but set `buildForArchiving="N
 
 **How to apply:** In the config plugin's `withWatchScheme`, always write `buildForArchiving = "NO"` for the Watch `BuildActionEntry`. `ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES` on the iOS app target is also required (set by `applyAllowPlatformSpecializationToMainApp`).
 
+## Root Cause of Double-Scheduling (the miss across 15 builds)
+
+`addTarget("watch2_app")` in the `xcode` npm package **auto-creates a PBXTargetDependency** from the iOS app → Watch target. EAS always clears `ios/` and re-runs prebuild from scratch, so `addTarget` runs on every EAS build — recreating the dep even when the committed `pbxproj` doesn't have it. Combined with the scheme entry (also scheduled by `withWatchScheme`), this produced two scheduling triggers every time.
+
+**Fix**: call `removeWatchTargetDependency(project, watchUuid)` immediately after `addTarget()` in the `!alreadyPresent` branch, before the plugin returns.
+
 ## Plugin Structure (withWatchExtension.js)
 
 - Export order: `withWatchScheme` applied before `withWatchXcodeTarget` — Expo processes `withXcodeProject` mods **LIFO**, so `withWatchXcodeTarget` (applied last) runs first.
