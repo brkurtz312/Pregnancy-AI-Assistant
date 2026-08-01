@@ -47,6 +47,16 @@ Shell script content stored in PBXShellScriptBuildPhase must NOT contain unescap
 
 **Always detect by `dstSubfolderSpec = 16`** (Xcode's Watch Content destination), never by name. Build #106 (v7, commit 6ed14a1) confirmed this fix — archive succeeded.
 
+## Watch app icons required for App Store submission
+Apple's binary validator (ITMS-90391/90713) requires the Watch bundle to contain compiled icons from an asset catalog. Without `Assets.xcassets`:
+- Build succeeds, archive succeeds, upload succeeds
+- Apple processing fails: "No icons found for watch application" (90391) + "Missing CFBundleIconName" (90713)
+Fix requires ALL four of:
+1. `watchapp/Assets.xcassets/AppIcon.appiconset/` with a `Contents.json` covering all watchOS icon slots (notificationCenter, appLauncher, quickLook, companionSettings, watch-marketing 1024x1024) and an `AppIcon.png`
+2. `CFBundleIconName = AppIcon` in `watchapp/Info.plist`
+3. `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon` in `applyWatchBuildSettings`
+4. Register `Assets.xcassets` as a PBXFileReference + PBXBuildFile in the Watch target's Resources phase (see `addWatchAssetCatalogToResources`)
+
 ## Critical productType rule
 `addTarget("watch2_app")` always sets `productType = "com.apple.product-type.application.watchapp2"` (legacy WatchKit 2 container). For modern standalone watchOS 7+ apps (`@main App` + `WKApplication = true` in Info.plist), the correct type is `"com.apple.product-type.application"`. With the wrong type:
 - Archive succeeds, TestFlight upload succeeds
