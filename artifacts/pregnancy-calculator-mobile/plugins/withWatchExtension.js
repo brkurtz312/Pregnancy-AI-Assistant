@@ -379,6 +379,15 @@ function withWatchScheme(config) {
 
         let schemeXml = fs.readFileSync(schemePath, "utf8");
 
+        // Disable implicit dependencies so xcodebuild doesn't schedule the
+        // Watch target a second time via the "Embed Watch Content" phase's
+        // BUILT_PRODUCTS_DIR file reference. The explicit PBXTargetDependency
+        // (added in withWatchXcodeTarget) is the single authoritative trigger.
+        schemeXml = schemeXml.replace(
+          /buildImplicitDependencies\s*=\s*"YES"/g,
+          'buildImplicitDependencies = "NO"',
+        );
+
         // Remove any Watch BuildActionEntry from the scheme.
         // PBXTargetDependency in the pbxproj is sufficient for Xcode 16+'s
         // build system. Having the Watch target in BOTH the scheme's
