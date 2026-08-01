@@ -4,16 +4,21 @@ struct ContentView: View {
     @EnvironmentObject var session: WatchSessionManager
 
     var body: some View {
-        TabView {
-            KickCounterView()
-                .tabItem { Label("Kicks", systemImage: "hand.tap") }
+        NavigationStack {
+            List {
+                NavigationLink(destination: KickCounterView()) {
+                    Label("Kick Counter", systemImage: "hand.tap.fill")
+                }
 
-            ContractionTimerView()
-                .tabItem { Label("Contractions", systemImage: "timer") }
+                NavigationLink(destination: ContractionTimerView()) {
+                    Label("Contractions", systemImage: "timer")
+                }
 
-            TipsView()
-                .tabItem { Label("Tips", systemImage: "sparkles") }
+                NavigationLink(destination: TipsView()) {
+                    Label("Weekly Tips", systemImage: "sparkles")
+                }
+            }
+            .navigationTitle("Pregnancy")
         }
-        .tabViewStyle(.page)
     }
 }
