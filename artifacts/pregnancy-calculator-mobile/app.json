@@ -60,7 +60,8 @@
             ]
           }
         }
-      ]
+      ],
+      "./plugins/withWatchExtension"
     ],
     "experiments": {
       "typedRoutes": true,

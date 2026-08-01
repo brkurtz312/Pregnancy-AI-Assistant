@@ -88,13 +88,31 @@ function withWatchFiles(config) {
 
 function withWatchXcodeTarget(config) {
   return withXcodeProject(config, (config) => {
+    try {
+      return _withWatchXcodeTargetInner(config);
+    } catch (e) {
+      console.error("[Watch] FATAL ERROR in withWatchXcodeTarget:", e && e.message);
+      console.error("[Watch] Stack:", e && e.stack);
+      throw e; // re-throw so EAS knows the plugin failed
+    }
+  });
+}
+
+function _withWatchXcodeTargetInner(config) {
     const project = config.modResults;
     const appName = config.modRequest.projectName;
 
+    console.log("[Watch] projectName:", appName);
+
     // Idempotency
     const nativeTargets = project.pbxNativeTargetSection();
+    const targetNames = Object.values(nativeTargets)
+      .filter(t => t && typeof t === "object" && t.name)
+      .map(t => t.name);
+    console.log("[Watch] existing target names:", JSON.stringify(targetNames));
+
     if (
-      Object.values(nativeTargets).some((t) => t && t.name === `"${WATCH_TARGET_NAME}"`)
+      targetNames.some((n) => n === `"${WATCH_TARGET_NAME}"` || n === WATCH_TARGET_NAME)
     ) {
       console.log("[Watch] target already present, skipping");
       return config;
@@ -171,7 +189,6 @@ function withWatchXcodeTarget(config) {
     // manually once the Watch bundle is confirmed working.
 
     return config;
-  });
 }
 
 /**
