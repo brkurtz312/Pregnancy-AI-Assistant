@@ -147,7 +147,14 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
     ...process.env,
     EXPO_PUBLIC_DOMAIN: expoPublicDomain,
     EXPO_PUBLIC_REPL_ID: expoPublicReplId,
-    EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.CLERK_PUBLISHABLE_KEY || "",
+    // Prefer an explicit EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY if set; otherwise use
+    // VITE_CLERK_PUBLISHABLE_KEY (the live key that powers the web app) so OTA
+    // bundles always carry the production Clerk key, not the test key.
+    EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY:
+      process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ||
+      process.env.VITE_CLERK_PUBLISHABLE_KEY ||
+      process.env.CLERK_PUBLISHABLE_KEY ||
+      "",
     EXPO_PUBLIC_CLERK_PROXY_URL: clerkProxyUrl,
     EXPO_PUBLIC_REVENUECAT_TEST_API_KEY:
       process.env.REVENUECAT_TEST_API_KEY || "",

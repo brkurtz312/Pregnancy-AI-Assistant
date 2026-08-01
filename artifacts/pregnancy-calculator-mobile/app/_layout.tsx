@@ -17,7 +17,7 @@ import {
 import Constants from "expo-constants";
 import { type Href, Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import * as Updates from "expo-updates";
+
 import React, { useEffect, useRef, useState } from "react";
 import { WhatsNewModal } from "@/components/WhatsNewModal";
 import { useWhatsNew } from "@/hooks/useWhatsNew";
@@ -35,33 +35,6 @@ import { SettingsProvider } from "@/contexts/SettingsContext";
 import { useGlobalBackgroundSync } from "@/hooks/useGlobalBackgroundSync";
 
 SplashScreen.preventAutoHideAsync();
-
-// Check for an OTA update as early as possible, before any rendering happens.
-// This is critical because the embedded EAS bundle uses dev/test Clerk keys,
-// while the deployed OTA bundles carry the production Clerk keys. Applying the
-// update here (before the sign-in screen is ever shown) means production users
-// always authenticate against the correct Clerk environment.
-//
-// In dev mode (Expo Go / metro) expo-updates is a no-op, so we skip the check.
-// On error (offline, OTA server down) we fall through and let the app launch
-// with the embedded bundle — sign-in will fail for new users, but that is the
-// same situation we had before, and being offline blocks sign-in anyway.
-const otaReadyPromise: Promise<void> = !__DEV__
-  ? (async () => {
-      try {
-        const update = await Updates.checkForUpdateAsync();
-        if (update.isAvailable) {
-          await Updates.fetchUpdateAsync();
-          // reloadAsync() never returns — the app restarts from scratch with
-          // the new bundle, at which point no update is available and the
-          // promise resolves immediately on the next launch.
-          await Updates.reloadAsync();
-        }
-      } catch {
-        // Network offline or OTA server unreachable — proceed with embedded bundle.
-      }
-    })()
-  : Promise.resolve();
 
 // Native builds need an absolute API base URL (they don't share the web proxy
 // origin). EXPO_PUBLIC_DOMAIN is the deployment/dev domain without a protocol.
@@ -310,21 +283,13 @@ function RootLayout() {
     Inter_700Bold,
   });
 
-  // Start as true in dev (no OTA check), false in production (wait for check).
-  const [otaReady, setOtaReady] = useState(__DEV__);
-
   useEffect(() => {
-    otaReadyPromise.then(() => setOtaReady(true));
-  }, []);
-
-  useEffect(() => {
-    if ((fontsLoaded || fontError) && otaReady) {
+    if (fontsLoaded || fontError) {
       SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, fontError, otaReady]);
+  }, [fontsLoaded, fontError]);
 
   if (!fontsLoaded && !fontError) return null;
-  if (!otaReady) return null;
 
   // ErrorBoundary + SafeAreaProvider are the outermost wrappers so that any
   // throw from the provider tree below (including ClerkProvider) surfaces as a
