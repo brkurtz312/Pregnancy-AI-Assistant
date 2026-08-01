@@ -415,4 +415,59 @@ describe("AuthTokenBridge — stale-tenant 401 guard", () => {
 
     expect(mockSignOut).toHaveBeenCalledTimes(1);
   });
+
+  it("resets the signing-out guard after 5 s when signOut() rejects so the next 401 is handled", async () => {
+    jest.useFakeTimers();
+    // signOut() always rejects (e.g. network offline, Clerk error).
+    const mockSignOut = jest.fn().mockRejectedValue(new Error("network error"));
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
+    renderBridge(qc, makeSession("userA"), mockSignOut);
+    await act(async () => {});
+
+    // First 401 — sets the guard and calls signOut() which rejects.
+    await act(async () => {
+      await qc
+        .fetchQuery({
+          queryKey: ["reject-signout-1"],
+          queryFn: () => Promise.reject(makeApiError(401)),
+          retry: false,
+        })
+        .catch(() => {});
+    });
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+
+    // Guard is still set — a second 401 before the timer fires is ignored.
+    await act(async () => {
+      await qc
+        .fetchQuery({
+          queryKey: ["reject-signout-2"],
+          queryFn: () => Promise.reject(makeApiError(401)),
+          retry: false,
+        })
+        .catch(() => {});
+    });
+    expect(mockSignOut).toHaveBeenCalledTimes(1); // unchanged
+
+    // Advance past the 5 s reset window.
+    await act(async () => {
+      jest.advanceTimersByTime(5000);
+    });
+
+    // A fresh 401 after the reset should trigger signOut() again.
+    await act(async () => {
+      await qc
+        .fetchQuery({
+          queryKey: ["reject-signout-3"],
+          queryFn: () => Promise.reject(makeApiError(401)),
+          retry: false,
+        })
+        .catch(() => {});
+    });
+    expect(mockSignOut).toHaveBeenCalledTimes(2);
+
+    jest.useRealTimers();
+  });
 });

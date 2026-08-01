@@ -80,7 +80,15 @@ export function AuthTokenBridge() {
       // Instead, signingOutRef is cleared only when a new sign-in is detected
       // (see the session-transition effect below), ensuring the guard holds for
       // the entire duration of the sign-out sequence.
-      signOut().catch(() => {});
+      //
+      // If signOut() itself rejects (e.g. network offline, Clerk error), we
+      // reset the guard after 5 s so the next 401 can trigger a fresh attempt
+      // rather than silently ignoring all 401s until the app is force-quit.
+      signOut().catch(() => {
+        setTimeout(() => {
+          signingOutRef.current = false;
+        }, 5000);
+      });
     });
     return unsubscribe;
   }, [queryClient, signOut]);
