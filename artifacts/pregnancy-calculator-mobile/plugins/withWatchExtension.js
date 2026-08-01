@@ -84,6 +84,26 @@ function withWatchFiles(config) {
         }
       }
 
+      // Copy Assets.xcassets (app icons + any other assets) recursively.
+      // Required for ASSETCATALOG_COMPILER_APPICON_NAME to find AppIcon at build time.
+      const assetsSrc = path.join(sourceDir, "Assets.xcassets");
+      const assetsDst = path.join(watchDir, "Assets.xcassets");
+      if (fs.existsSync(assetsSrc)) {
+        function copyDirRecursive(src, dst) {
+          fs.mkdirSync(dst, { recursive: true });
+          for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+            const s = path.join(src, entry.name);
+            const d = path.join(dst, entry.name);
+            if (entry.isDirectory()) copyDirRecursive(s, d);
+            else fs.copyFileSync(s, d);
+          }
+        }
+        copyDirRecursive(assetsSrc, assetsDst);
+        console.log(`[Watch] copied Assets.xcassets → ${assetsDst}`);
+      } else {
+        console.warn(`[Watch] Assets.xcassets not found at ${assetsSrc} — Watch icons will be missing`);
+      }
+
       const mainDir = path.join(iosRoot, appName);
       for (const file of PHONE_BRIDGE_SOURCES) {
         const src = path.join(sourceDir, file);
@@ -261,6 +281,11 @@ function _withWatchXcodeTargetInner(config) {
 
     // ATPS belt-and-suspenders — keep it in case future Xcode versions use it.
     applyAllowPlatformSpecializationToMainApp(project);
+
+    // Register Assets.xcassets in the Watch target's Resources phase so that
+    // ASSETCATALOG_COMPILER_APPICON_NAME has input at build time.
+    // Without this the Watch bundle ships with no icons → ITMS-90391/90713.
+    addWatchAssetCatalogToResources(project, watchUuid);
   }
 
   // ── Always apply: phone bridge Swift files to main target Sources ─────────
@@ -270,6 +295,98 @@ function _withWatchXcodeTargetInner(config) {
   addPhoneBridgeToMainTarget(project, appName);
 
   return config;
+}
+
+/**
+ * Registers PregnancyWatchApp/Assets.xcassets as a PBXFileReference on the
+ * Watch target's Resources build phase. Idempotent — skips if already present.
+ *
+ * Must be called unconditionally (both fresh-add and re-run paths) because
+ * addTarget() skips the Resources phase setup on subsequent prebuild runs.
+ * Without the asset catalog registered here, ASSETCATALOG_COMPILER_APPICON_NAME
+ * has no input → no icons compiled → ITMS-90391 / ITMS-90713 on submission.
+ */
+function addWatchAssetCatalogToResources(project, watchTargetUuid) {
+  const CATALOG_PATH = `${WATCH_TARGET_NAME}/Assets.xcassets`;
+  const objects = project.hash.project.objects;
+  const nts = project.pbxNativeTargetSection();
+  const watchTarget = nts[watchTargetUuid];
+  if (!watchTarget) return;
+
+  // ── 1. Locate (or create) the PBXFileReference for Assets.xcassets ───────
+  const frs = project.pbxFileReferenceSection();
+  let assetRefUuid = Object.keys(frs).find((k) => {
+    if (k.endsWith("_comment")) return false;
+    const fr = frs[k];
+    if (!fr || typeof fr !== "object") return false;
+    const p = fr.path || fr.name || "";
+    return (
+      p === `"${CATALOG_PATH}"` ||
+      p === CATALOG_PATH ||
+      p === '"Assets.xcassets"' ||
+      p === "Assets.xcassets"
+    );
+  });
+
+  if (!assetRefUuid) {
+    if (!objects["PBXFileReference"]) objects["PBXFileReference"] = {};
+    assetRefUuid = project.generateUuid();
+    objects["PBXFileReference"][assetRefUuid] = {
+      isa: "PBXFileReference",
+      lastKnownFileType: "folder.assetcatalog",
+      name: '"Assets.xcassets"',
+      path: `"${CATALOG_PATH}"`,
+      sourceTree: '"<group>"',
+    };
+    objects["PBXFileReference"][`${assetRefUuid}_comment`] = "Assets.xcassets";
+    console.log(`[Watch] Created PBXFileReference for Assets.xcassets (${assetRefUuid})`);
+  }
+
+  // ── 2. Find Watch target's Resources build phase ──────────────────────────
+  const resourcesSection = objects["PBXResourcesBuildPhase"] || {};
+  const buildPhases = watchTarget.buildPhases || [];
+  const buildFileSection = objects["PBXBuildFile"] || {};
+
+  let resourcesPhaseUuid = null;
+  for (const phase of buildPhases) {
+    const uuid = typeof phase === "object" ? phase.value : phase;
+    if (resourcesSection[uuid]) {
+      resourcesPhaseUuid = uuid;
+      break;
+    }
+  }
+  if (!resourcesPhaseUuid) {
+    console.warn("[Watch] addWatchAssetCatalogToResources: Resources phase not found on Watch target");
+    return;
+  }
+
+  const resourcesPhase = resourcesSection[resourcesPhaseUuid];
+  if (!resourcesPhase.files) resourcesPhase.files = [];
+
+  // ── 3. Idempotency — skip if already present ──────────────────────────────
+  const alreadyInResources = resourcesPhase.files.some((ref) => {
+    const bfUuid = typeof ref === "object" ? ref.value : ref;
+    if (!bfUuid || bfUuid.endsWith("_comment")) return false;
+    const bf = buildFileSection[bfUuid];
+    if (!bf) return false;
+    const fileRef = typeof bf.fileRef === "object" ? bf.fileRef.value : bf.fileRef;
+    return fileRef === assetRefUuid;
+  });
+  if (alreadyInResources) {
+    console.log("[Watch] Assets.xcassets already in Watch Resources phase — skipping");
+    return;
+  }
+
+  // ── 4. Create PBXBuildFile and add to Resources phase ─────────────────────
+  if (!objects["PBXBuildFile"]) objects["PBXBuildFile"] = {};
+  const buildFileUuid = project.generateUuid();
+  objects["PBXBuildFile"][buildFileUuid] = {
+    isa: "PBXBuildFile",
+    fileRef: assetRefUuid,
+  };
+  objects["PBXBuildFile"][`${buildFileUuid}_comment`] = "Assets.xcassets in Resources";
+  resourcesPhase.files.push({ value: buildFileUuid, comment: "Assets.xcassets in Resources" });
+  console.log(`[Watch] Added Assets.xcassets to Watch Resources phase (buildFile=${buildFileUuid})`);
 }
 
 /**
@@ -873,6 +990,8 @@ function applyWatchBuildSettings(project, targetUuid) {
       CLANG_ENABLE_MODULES: "YES",
       // Belt-and-suspenders: also set on Watch target itself
       ALLOW_TARGET_PLATFORM_SPECIALIZATION: "YES",
+      // Asset catalog icon — required for App Store submission (ITMS-90391/90713)
+      ASSETCATALOG_COMPILER_APPICON_NAME: "AppIcon",
     });
     console.log(`[Watch] patched buildSettings for config ${cfgUuid}`);
   });
