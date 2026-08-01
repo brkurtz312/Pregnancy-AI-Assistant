@@ -37,6 +37,11 @@ export default function TabLayout() {
       tabBar={isTablet ? (props) => <IPadSidebar {...props} /> : undefined}
       screenOptions={{
         headerShown: false,
+        // On tablet the sidebar sits to the left of the content pane.
+        // Without this the BottomTabNavigator defaults to 'bottom', which
+        // renders the sidebar as a 220-pt-wide block at the bottom and
+        // leaves the rest of that row as a gray gap.
+        tabBarPosition: isTablet ? "left" : "bottom",
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedForeground,
         tabBarStyle: {
