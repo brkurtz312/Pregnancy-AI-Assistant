@@ -218,9 +218,14 @@ function _withWatchXcodeTargetInner(config) {
     // own SDKROOT=watchos is respected and the "Embed Watch Content" build phase
     // can locate the Watch app output in the watchos build products directory.
 
-    // Ensure the dep is present unconditionally — handles re-runs where addTarget
-    // is skipped (alreadyPresent=true) and the dep would otherwise be absent.
-    ensureWatchTargetDependency(project, watchUuid);
+    // ensureWatchTargetDependency is only called when alreadyPresent=true (i.e.
+    // addTarget was skipped). When alreadyPresent=false, addTarget("watch2_app")
+    // already auto-creates exactly one PBXTargetDependency — calling
+    // ensureWatchTargetDependency on top of that adds a second dep, causing the
+    // Watch to be scheduled twice → "Multiple commands produce".
+    if (alreadyPresent) {
+      ensureWatchTargetDependency(project, watchUuid);
+    }
 
     // Add ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES to the iOS app target's
     // build configurations. Always run — idempotent.
