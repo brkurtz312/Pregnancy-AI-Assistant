@@ -58,17 +58,26 @@ export default function SignInScreen() {
 
   const onSubmit = async () => {
     if (fetching) return;
+    if (!signIn) {
+      setNotice("Sign-in is not ready yet — please wait a moment and try again.");
+      return;
+    }
     setNotice(null);
-    const { error } = await signIn.password({
-      emailAddress: emailAddress.trim(),
-      password,
-    });
-    if (error) return;
+    try {
+      const { error } = await signIn.password({
+        emailAddress: emailAddress.trim(),
+        password,
+      });
+      if (error) return;
 
-    await signIn.finalize();
-    // dismissAll closes the fullScreenModal and returns to the root,
-    // where Clerk's now-active session renders the main app.
-    router.dismissAll();
+      await signIn.finalize();
+      // dismissAll closes the fullScreenModal and returns to the root,
+      // where Clerk's now-active session renders the main app.
+      router.dismissAll();
+    } catch (err) {
+      console.error("Sign-in error:", err);
+      setNotice("Sign-in failed. Please check your credentials and try again.");
+    }
   };
 
   const onGooglePress = useCallback(async () => {
