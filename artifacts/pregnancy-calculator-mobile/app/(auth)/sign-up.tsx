@@ -112,6 +112,8 @@ export default function SignUpScreen() {
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
         router.replace("/" as Href);
+      } else {
+        setGoogleError("Sign-in could not be completed — please try again.");
       }
     } catch (err) {
       // Suppress errors that indicate the user deliberately dismissed the

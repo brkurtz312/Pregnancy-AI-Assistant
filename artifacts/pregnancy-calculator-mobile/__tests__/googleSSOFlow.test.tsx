@@ -222,6 +222,31 @@ describe("SignInScreen — Google SSO", () => {
     expect(dismissAll).not.toHaveBeenCalled();
   });
 
+  it("shows a notice and re-enables the button when startSSOFlow resolves with null session", async () => {
+    mockStartSSOFlow.mockResolvedValue({
+      createdSessionId: null,
+      setActive: null,
+    });
+
+    let renderer!: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(SignInScreen));
+    });
+    await act(async () => {});
+
+    const btn = findGoogleButton(renderer.root);
+    await act(async () => {
+      btn.props.onPress();
+    });
+
+    const json = JSON.stringify(renderer.toJSON());
+    expect(json).toContain("Sign-in could not be completed");
+    // dismissAll must NOT have been called — no session was established
+    expect(dismissAll).not.toHaveBeenCalled();
+    // Button must be re-enabled (googleLoading back to false)
+    expect(btn.props.disabled).toBe(false);
+  });
+
   it("does not call startSSOFlow a second time while the first call is in-flight", async () => {
     let resolveSSOFlow!: (v: unknown) => void;
     mockStartSSOFlow.mockReturnValue(
@@ -357,5 +382,30 @@ describe("SignUpScreen — Google SSO", () => {
     const json = JSON.stringify(renderer.toJSON());
     expect(json).toContain("Google sign-in failed");
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("shows a notice and re-enables the button when startSSOFlow resolves with null session", async () => {
+    mockStartSSOFlow.mockResolvedValue({
+      createdSessionId: null,
+      setActive: null,
+    });
+
+    let renderer!: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(SignUpScreen));
+    });
+    await act(async () => {});
+
+    const btn = findGoogleButton(renderer.root);
+    await act(async () => {
+      btn.props.onPress();
+    });
+
+    const json = JSON.stringify(renderer.toJSON());
+    expect(json).toContain("Sign-in could not be completed");
+    // replace must NOT have been called — no session was established
+    expect(replace).not.toHaveBeenCalled();
+    // Button must be re-enabled (googleLoading back to false)
+    expect(btn.props.disabled).toBe(false);
   });
 });

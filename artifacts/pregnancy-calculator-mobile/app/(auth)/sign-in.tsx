@@ -100,6 +100,8 @@ export default function SignInScreen() {
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
         router.dismissAll();
+      } else {
+        setNotice("Sign-in could not be completed — please try again.");
       }
     } catch (err) {
       // Suppress errors that indicate the user deliberately dismissed the

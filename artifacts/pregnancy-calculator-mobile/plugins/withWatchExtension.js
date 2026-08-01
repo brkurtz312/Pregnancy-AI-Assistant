@@ -306,7 +306,7 @@ function removeWatchTargetDependency(project, watchTargetUuid) {
  * Must be called unconditionally (even when the Watch target already exists)
  * because addTarget() is skipped on subsequent prebuild runs.
  */
-function ensureWatchTargetDependency(project, watchTargetUuid) {
+function _ensureWatchTargetDependency(project, watchTargetUuid) {
   const nts = project.pbxNativeTargetSection();
   const objects = project.hash.project.objects;
 
