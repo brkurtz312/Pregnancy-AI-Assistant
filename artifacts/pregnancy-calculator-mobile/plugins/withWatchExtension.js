@@ -256,10 +256,121 @@ function applyWatchBuildSettings(project, targetUuid) {
   });
 }
 
+// ─── Step 3: Add Watch target to Xcode scheme ────────────────────────────────
+//
+// xcode library's addTarget() only writes to the .pbxproj — it does NOT touch
+// the .xcscheme file. xcodebuild -scheme X only builds targets listed in
+// BuildActionEntries; targets reached solely via PBXTargetDependency are NOT
+// compiled when they target a different platform (watchOS vs iOS). So we must
+// inject the Watch target into the scheme's BuildActionEntries with
+// buildForArchiving = "YES".
+//
+// This runs via withDangerousMod, which executes AFTER withXcodeProject, so
+// the pbxproj already has the Watch target and its UUID.
+
+function withWatchScheme(config) {
+  return withDangerousMod(config, [
+    "ios",
+    async (config) => {
+      try {
+        const iosRoot = config.modRequest.platformProjectRoot;
+        const projectName = config.modRequest.projectName;
+
+        // ── 1. Read the pbxproj and extract the Watch target UUID ─────────
+        const pbxprojPath = path.join(
+          iosRoot,
+          `${projectName}.xcodeproj`,
+          "project.pbxproj",
+        );
+        const pbxContent = fs.readFileSync(pbxprojPath, "utf8");
+
+        // Find the PBXNativeTarget block for PregnancyWatchApp
+        // Format: <UUID> /* PregnancyWatchApp */ = { isa = PBXNativeTarget; ... }
+        const uuidRegex =
+          /([A-F0-9]{24})\s*\/\*\s*"?PregnancyWatchApp"?\s*\*\/\s*=\s*\{[^}]*isa\s*=\s*PBXNativeTarget/g;
+        let watchUuid = null;
+        let m;
+        while ((m = uuidRegex.exec(pbxContent)) !== null) {
+          watchUuid = m[1];
+          break;
+        }
+
+        if (!watchUuid) {
+          console.error(
+            "[Watch/Scheme] Could not find PregnancyWatchApp UUID in pbxproj – skipping scheme patch",
+          );
+          return config;
+        }
+        console.log(`[Watch/Scheme] Watch target UUID: ${watchUuid}`);
+
+        // ── 2. Find and patch the scheme file ────────────────────────────
+        const schemePath = path.join(
+          iosRoot,
+          `${projectName}.xcodeproj`,
+          "xcshareddata",
+          "xcschemes",
+          `${projectName}.xcscheme`,
+        );
+
+        if (!fs.existsSync(schemePath)) {
+          console.warn(`[Watch/Scheme] Scheme not found at ${schemePath}`);
+          return config;
+        }
+
+        let schemeXml = fs.readFileSync(schemePath, "utf8");
+
+        // Idempotency: skip if already in the scheme
+        if (schemeXml.includes(watchUuid)) {
+          console.log("[Watch/Scheme] Watch target already in scheme, skipping");
+          return config;
+        }
+
+        // Inject Watch BuildActionEntry after the last </BuildActionEntry>
+        const insertAfter = "</BuildActionEntry>";
+        const lastIdx = schemeXml.lastIndexOf(insertAfter);
+        if (lastIdx === -1) {
+          console.error("[Watch/Scheme] Could not find </BuildActionEntry> in scheme");
+          return config;
+        }
+
+        const watchEntry = `
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "${watchUuid}"
+               BuildableName = "PregnancyWatchApp.app"
+               BlueprintName = "PregnancyWatchApp"
+               ReferencedContainer = "container:${projectName}.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>`;
+
+        schemeXml =
+          schemeXml.slice(0, lastIdx + insertAfter.length) +
+          watchEntry +
+          schemeXml.slice(lastIdx + insertAfter.length);
+
+        fs.writeFileSync(schemePath, schemeXml, "utf8");
+        console.log("[Watch/Scheme] Successfully patched scheme with Watch target");
+      } catch (e) {
+        console.error("[Watch/Scheme] ERROR:", e && e.message);
+        console.error("[Watch/Scheme] Stack:", e && e.stack);
+        throw e;
+      }
+      return config;
+    },
+  ]);
+}
+
 // ─── Export ───────────────────────────────────────────────────────────────────
 
 module.exports = (config) => {
   config = withWatchFiles(config);
   config = withWatchXcodeTarget(config);
+  config = withWatchScheme(config);
   return config;
 };
