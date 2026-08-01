@@ -21,9 +21,12 @@ import {
   expect,
   vi,
   beforeEach,
+  afterEach,
   type MockedFunction,
 } from "vitest";
-import { render, act } from "@testing-library/react";
+import { render, act, cleanup } from "@testing-library/react";
+import { Switch, Route, Router as WouterRouter } from "wouter";
+import { memoryLocation } from "wouter/memory-location";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useClerk, useSession } from "@clerk/react";
 import { SessionWatcher } from "@/components/session-watcher";
@@ -705,5 +708,215 @@ describe("SessionWatcher — no stale pass-status or AI quota flash on sign-in",
 
     expect(invalidateSpy).toHaveBeenCalledTimes(1);
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+  });
+});
+
+/**
+ * Regression guard: after a mid-session 401 fires during a background refetch,
+ * the routing outcome must be the sign-in screen — not a loading spinner or
+ * error boundary.
+ *
+ * Scenario: The user is actively signed in (Clerk session is active, React
+ * Query cache is populated). A background refetch of a live query returns 401
+ * (the session token expired mid-session). SessionWatcher detects the error,
+ * calls signOut(), and Clerk transitions the session to null. At that point the
+ * app must render the sign-in UI, not leave a spinner on screen or hit an error
+ * boundary.
+ *
+ * How this is tested: The shell uses wouter's memoryLocation so the router
+ * reacts to real location changes driven by signOut(). In production, Clerk's
+ * signOut() navigates to the signInUrl configured on ClerkProvider; the mock
+ * here replicates that contract — it navigates to /sign-in and updates the
+ * session hook, mirroring exactly what Clerk does.  No manual rerender() is
+ * needed: the wouter Router re-renders automatically via useSyncExternalStore
+ * when navigate() fires, so the routing outcome is observable as a direct
+ * consequence of the 401 → signOut() → navigate flow.
+ */
+describe("SessionWatcher — sign-in screen visible after mid-session background-refetch 401", () => {
+  let location: ReturnType<typeof memoryLocation>;
+  let queryClient: QueryClient;
+  let mockSignOut: ReturnType<typeof vi.fn>;
+
+  // A minimal app shell that uses the real wouter Router + Switch/Route
+  // structure, matching the shape of App.tsx. Page components are stubbed to
+  // avoid pulling in the full component tree, but the routing logic is real.
+  // The shell closes over `location` and `queryClient` (let-bindings) so each
+  // test sees the fresh instances created in beforeEach.
+  function TestAppShell() {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <SessionWatcher />
+        <WouterRouter hook={location.hook}>
+          <Switch>
+            <Route path="/app">
+              <div data-testid="app-content">App content</div>
+            </Route>
+            <Route path="/sign-in/*?">
+              <div data-testid="sign-in-screen">Sign in</div>
+            </Route>
+          </Switch>
+        </WouterRouter>
+      </QueryClientProvider>
+    );
+  }
+
+  beforeEach(() => {
+    // Start the in-memory router on /app, matching the authenticated route in
+    // the real app. record:true lets us assert on location.history.
+    location = memoryLocation({ path: "/app", record: true });
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    vi.clearAllMocks();
+    // signOut() replicates Clerk's production behaviour: navigate to the
+    // signInUrl configured on ClerkProvider AND transition the session to null.
+    // Both happen synchronously before any await so they run inside the act()
+    // block that wraps the 401-triggering fetchQuery call.
+    mockSignOut = vi.fn(async () => {
+      location.navigate("/sign-in");
+      mockUseSession.mockReturnValue(signedOutState());
+    });
+    mockUseClerk.mockReturnValue({
+      signOut: mockSignOut,
+    } as unknown as UseClerkReturn);
+    mockUseSession.mockReturnValue(signedInState());
+  });
+
+  // globals: false means @testing-library/react cannot auto-register its
+  // cleanup hook. We call it explicitly so each test starts with a clean DOM.
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("navigates to /sign-in and renders the sign-in screen after a background refetch returns 401", async () => {
+    const { getByTestId, queryByTestId } = render(<TestAppShell />);
+
+    // Start on /app — app content is visible, sign-in screen is not.
+    expect(getByTestId("app-content")).not.toBeNull();
+    expect(queryByTestId("sign-in-screen")).toBeNull();
+
+    // A background refetch returns 401 (mid-session token expiry).
+    // act() flushes the cache subscription → signOut() → navigate("/sign-in")
+    // → wouter re-renders via useSyncExternalStore → sign-in route mounts.
+    await act(async () => {
+      await queryClient
+        .fetchQuery({
+          queryKey: ["background-refetch"],
+          queryFn: () => Promise.reject(makeApiError(401)),
+          retry: false,
+        })
+        .catch(() => {});
+    });
+
+    // SessionWatcher must have called signOut() once.
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+
+    // The router navigated to /sign-in as a result of signOut().
+    expect((location as { history: string[] }).history).toContain("/sign-in");
+
+    // The sign-in screen is rendered; app content is gone.
+    expect(getByTestId("sign-in-screen")).not.toBeNull();
+    expect(queryByTestId("app-content")).toBeNull();
+  });
+
+  it("renders only the sign-in screen — not an error boundary — when multiple concurrent background refetches return 401", async () => {
+    // Populate the cache to simulate an active mid-session state.
+    await queryClient.fetchQuery({
+      queryKey: ["get-profile"],
+      queryFn: () => Promise.resolve({ providerName: "Dr_Active" }),
+    });
+
+    const { getByTestId, queryByTestId } = render(<TestAppShell />);
+
+    expect(getByTestId("app-content")).not.toBeNull();
+
+    // Multiple concurrent background refetches all return 401.
+    await act(async () => {
+      await Promise.all([
+        queryClient
+          .fetchQuery({
+            queryKey: ["bg-refetch-a"],
+            queryFn: () => Promise.reject(makeApiError(401)),
+            retry: false,
+          })
+          .catch(() => {}),
+        queryClient
+          .fetchQuery({
+            queryKey: ["bg-refetch-b"],
+            queryFn: () => Promise.reject(makeApiError(401)),
+            retry: false,
+          })
+          .catch(() => {}),
+      ]);
+    });
+
+    // The deduplication guard ensures signOut() is called exactly once, not
+    // once per failing query — which would make redundant Clerk calls.
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+
+    // Outcome: sign-in screen only, no app content, no error boundary.
+    expect(getByTestId("sign-in-screen")).not.toBeNull();
+    expect(queryByTestId("app-content")).toBeNull();
+  });
+
+  it("sign-in screen appears even when the cache was populated with mid-session data before the 401", async () => {
+    // Pre-populate cache as a mid-session user would have (profile, pass
+    // status, etc.). The point of this test is the routing outcome — that
+    // having data in the cache before the 401 does not block or delay the
+    // sign-in screen from appearing. Cache-clearing correctness is proven in
+    // the SessionWatcher — mid-session token expiry suite above.
+    await queryClient.fetchQuery({
+      queryKey: ["get-pass-status"],
+      queryFn: () =>
+        Promise.resolve({ hasPass: true, freeUsed: 1, freeLimit: 5 }),
+    });
+    await queryClient.fetchQuery({
+      queryKey: ["get-profile"],
+      queryFn: () => Promise.resolve({ providerName: "Dr_MidSession" }),
+    });
+
+    const { getByTestId, queryByTestId } = render(<TestAppShell />);
+
+    // Background refetch hits 401.
+    await act(async () => {
+      await queryClient
+        .fetchQuery({
+          queryKey: ["bg-check"],
+          queryFn: () => Promise.reject(makeApiError(401)),
+          retry: false,
+        })
+        .catch(() => {});
+    });
+
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+
+    // Routing outcome: the sign-in screen is rendered regardless of how much
+    // cached data was present before the expiry.
+    expect(getByTestId("sign-in-screen")).not.toBeNull();
+    expect(queryByTestId("app-content")).toBeNull();
+  });
+
+  it("stays on /app and shows app content — no sign-out — when a background refetch returns a non-401 error", async () => {
+    const { getByTestId, queryByTestId } = render(<TestAppShell />);
+
+    expect(getByTestId("app-content")).not.toBeNull();
+
+    // A background refetch fails with a 500 (server error, not an auth failure).
+    await act(async () => {
+      await queryClient
+        .fetchQuery({
+          queryKey: ["bg-server-error"],
+          queryFn: () => Promise.reject(makeApiError(500)),
+          retry: false,
+        })
+        .catch(() => {});
+    });
+
+    // signOut must NOT be called — 500 is not an auth error.
+    expect(mockSignOut).not.toHaveBeenCalled();
+
+    // Router stays on /app; sign-in screen must not appear.
+    expect(getByTestId("app-content")).not.toBeNull();
+    expect(queryByTestId("sign-in-screen")).toBeNull();
   });
 });
