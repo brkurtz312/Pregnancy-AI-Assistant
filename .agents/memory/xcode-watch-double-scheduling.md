@@ -1,37 +1,47 @@
 ---
-name: Xcode 26 Watch target double-scheduling
-description: How to wire an Apple Watch app target in EAS/Xcode 26 without "Multiple commands produce" or embed lstat errors
+name: Xcode 26 Watch double-scheduling fix
+description: How to add a watchOS companion target to an EAS/Expo iOS build without "Multiple commands produce" or lstat ENOENT errors.
 ---
 
-## The Rule (current — dep-only + ATPS)
+## The rule
+Use **scheme-only scheduling + shell script embed**. Never use PBXTargetDependency for cross-platform (iOS→watchOS) targets in Xcode 26.
 
-Use **PBXTargetDependency only** (no scheme entry) + `ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES` on the iOS app target. The dep triggers the Watch build; ATPS tells Xcode 26 the dep may build for a different SDK.
+## Full history of failed approaches
 
-Do NOT add a scheme `BuildActionEntry` for the Watch — every combination with both a dep and a scheme entry causes double-scheduling.
-
-## Full Decision Table
-
-| Combination | Result |
+| Config | Failure |
 |---|---|
-| Scheme entry only, no ATPS | Watch compiles for **iphoneos** (wrong) |
-| Scheme entry only + ATPS, no dep | Watch builds for watchos ✓ but "Embed Watch Content" phase looks in `Release-iphoneos/` → **lstat ENOENT** at archive time |
-| PBXTargetDependency only, no ATPS | Watch **not compiled** — Xcode 26 ignores cross-platform explicit deps |
-| Both, buildForArchiving=YES | Watch compiles for watchos ✓ but **twice** → "Multiple commands produce" |
-| Both, buildForArchiving=NO | Still double-schedules (dep fires regardless of scheme flag) |
-| Dep only + ATPS=YES (**current**) | ATPS enables cross-platform dep; embed phase resolves watchos output correctly ✓ |
+| PBXTargetDependency only, no scheme entry | Watch NOT compiled (Xcode 26 ignores cross-platform deps entirely) |
+| Scheme entry only, dep removed, auto "Embed Watch Content" phase kept | Phase looks in Release-iphoneos/ → lstat ENOENT at archive |
+| Scheme entry + PBXTargetDependency | Double-scheduling → "Multiple commands produce ...watchos/PregnancyWatchApp.app" |
+| addTarget auto-dep + ensureWatchTargetDependency | Two deps → double-schedule |
+| Scheme only + withWatchSchemeCleanup strips auto-entry | Watch never in scheme → not compiled |
 
-**Why scheme-only + ATPS fails on embed:** The "Embed Watch Content" `PBXCopyFilesBuildPhase` (auto-created by `addTarget("watch2_app")`) references the Watch product by file ref. At build time Xcode resolves it relative to `$(BUILT_PRODUCTS_DIR)` of the iOS app, which is `Release-iphoneos/`. With no PBXTargetDependency, Xcode never sets up the cross-platform build products mapping, so the Watch app (built to `Release-watchos/`) is invisible to the embed phase → `lstat ...Release-iphoneos/PregnancyWatchApp.app: No such file or directory` at archive time.
+## Working design (v6, commit 0948e3a)
 
-**Why dep-only failed without ATPS:** Xcode 26 silently skips cross-platform PBXTargetDependencies unless `ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES` is set on the parent target.
+1. **addTarget("watch2_app")** auto-creates: PBXTargetDependency + scheme BuildActionEntry + "Embed Watch Content" PBXCopyFilesBuildPhase
+2. **removeWatchTargetDependency** — strips the auto-dep unconditionally (dep + scheme = double-schedule)
+3. **removeEmbedWatchPhase** — strips "Embed Watch Content" copy phase (looks in Release-iphoneos/ which Watch never occupies)
+4. **addEmbedWatchShellScript** — adds PBXShellScriptBuildPhase to iOS app:
+   - Finds Watch at `${OBJROOT}/UninstalledProducts/watchos/PregnancyWatchApp.app` (SKIP_INSTALL=YES archive path)
+   - Falls back to `find` in build tree
+   - Copies to `${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}/Watch/`
+5. **withWatchScheme** — strips auto-added Watch scheme entry, re-injects it **FIRST** in BuildActionEntries (Watch must build before iOS app's embed script runs)
 
-## Critical EAS Detail
+## LIFO execution order in module.exports
 
-`addTarget("watch2_app")` auto-creates a PBXTargetDependency on every fresh EAS build (EAS always clears `ios/` and re-runs prebuild). So the dep is always present after `addTarget`. To keep it present on re-runs (where `addTarget` is skipped because `alreadyPresent=true`), call `ensureWatchTargetDependency(project, watchUuid)` unconditionally — it is idempotent.
+```
+withWatchFiles       → applied first  → executes third   (Swift source files)
+withWatchScheme      → applied second → executes second  (scheme XML fixup)
+withWatchXcodeTarget → applied last   → executes first   (pbxproj target + phases)
+```
 
-## Plugin Structure (withWatchExtension.js)
+## Critical pbxproj format rule
+Shell script content stored in PBXShellScriptBuildPhase must NOT contain unescaped `"` characters. The pbxproj string format uses `\n` (2-char literal) for newlines inside quoted values. Avoid double-quotes inside the script body entirely — use unquoted bash variables (safe for simple paths).
 
-- Export: `withWatchFiles` → `withWatchXcodeTarget` only. `withWatchScheme` is NOT in the export chain.
-- `ensureWatchTargetDependency` called unconditionally in the `if (watchUuid)` block.
-- `applyAllowPlatformSpecializationToMainApp` called unconditionally in the same block.
-- EAS always clears ios/ and re-runs prebuild from scratch — the committed ios/ files are irrelevant; the plugin is the single source of truth.
-- Expo processes `withXcodeProject` mods **LIFO** — if scheme were re-added, apply it before `withWatchXcodeTarget` in the export chain.
+**Why:** The xcode npm library writes values with outer `"` as-is; any inner `"` that isn't escaped as `\"` breaks the pbxproj parser on next read → `SyntaxError: Expected "/*" or ";" but "P" found`.
+
+## Key identifiers
+- Watch bundle ID: `app.replit.pregnancycalculator.watchapp`
+- iOS bundle ID: `app.replit.pregnancycalculator`
+- Watch archive output: `$OBJROOT/UninstalledProducts/watchos/PregnancyWatchApp.app`
+- Plugin file: `artifacts/pregnancy-calculator-mobile/plugins/withWatchExtension.js`
