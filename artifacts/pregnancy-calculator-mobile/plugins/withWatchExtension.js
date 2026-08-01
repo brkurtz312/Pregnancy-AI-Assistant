@@ -188,13 +188,15 @@ function _withWatchXcodeTargetInner(config) {
     // target in the pbxproj. Wire them in via a separate config plugin or
     // manually once the Watch bundle is confirmed working.
 
-    // ── Explicit PBXTargetDependency: main → Watch ────────────────────────
-    // Xcode 16+'s build system (Swift Build) requires an explicit
-    // PBXTargetDependency from the iOS main app to the watchOS Watch app for
-    // the Watch target to appear in the dependency graph and be compiled during
-    // `xcodebuild archive`. A scheme BuildActionEntry alone is NOT enough for
-    // cross-platform (iOS → watchOS) targets in the new build system.
-    ensureWatchTargetDependency(project, watchUuid);
+    // NOTE: Do NOT add an explicit PBXTargetDependency from the iOS main app
+    // to the watchOS Watch app. The "Embed Watch Content" build phase already
+    // references BUILT_PRODUCTS_DIR/PregnancyWatchApp.app, which the Xcode
+    // build system treats as a build-phase-level implicit dependency — it
+    // automatically schedules the Watch target to build before the embed phase
+    // runs. Adding an explicit PBXTargetDependency on top of this causes Xcode
+    // to schedule the Watch build TWICE (once via dep, once via embed phase),
+    // producing "Multiple commands produce" / CreateUniversalBinary
+    // duplicate-output errors.
 
     return config;
 }

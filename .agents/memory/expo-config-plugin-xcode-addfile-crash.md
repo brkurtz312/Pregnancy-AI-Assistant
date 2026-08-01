@@ -12,18 +12,24 @@ Never call `project.addFile(path, null, opts)` inside a `withXcodeProject` modif
 
 **How to apply:** Pass the actual group name string, or handle source file registration in a separate `withDangerousMod` that writes `.pbxproj` text directly.
 
-## Xcode 26 build system: explicit PBXTargetDependency required for Watch targets
-**Rule:** Xcode 26 (iOS 26 SDK, Swift Build system) will NOT schedule a watchOS target for compilation when building an iOS archive with `-destination generic/platform=iOS`, even if the watchOS target is listed in the scheme's `BuildActionEntries` with `buildForArchiving="YES"`. An explicit `PBXTargetDependency` in the pbxproj (from the iOS main app → watchOS target) is required for it to appear in `ComputeTargetDependencyGraph`.
+## Xcode 26 Watch app build: three sources of double-scheduling
+**Rule:** In Xcode 26, a watchOS companion app embedded in an iOS archive can be scheduled to build by THREE independent mechanisms. Having more than ONE active simultaneously causes "Multiple commands produce / CreateUniversalBinary duplicate-output" errors. Only ONE must be active.
 
-**Why:** The new Xcode build system (Swift Build / XCBuild) ignores cross-platform `BuildActionEntry` items from the scheme when computing the dependency graph for a single destination. Only PBXTargetDependency entries in the pbxproj are followed across SDK/platform boundaries.
+The three mechanisms:
+1. **Scheme `BuildActionEntry`** with `buildForArchiving="YES"` — Xcode 26's new build system IGNORES this for cross-platform targets when building `generic/platform=iOS`. Produces nothing. Safe to remove.
+2. **Explicit `PBXTargetDependency`** from iOS main app → watchOS target — DOES schedule the Watch build. If combined with (3) produces a double-build.
+3. **Embed Watch Content phase implicit dep** — The `PBXCopyFilesBuildPhase` with `dstSubfolderSpec=16` referencing `BUILT_PRODUCTS_DIR/PregnancyWatchApp.app` creates a build-system-level implicit dependency that is **NOT** controlled by the scheme's `buildImplicitDependencies` flag. It always fires.
 
-**How to apply:**
-- Create a `PBXContainerItemProxy` pointing at the Watch target UUID
-- Create a `PBXTargetDependency` referencing that proxy
-- Add the dependency UUID to the main iOS app target's `dependencies = (...)` array
-- **DO NOT also add the Watch target to the scheme's `BuildActionEntries`** — having it in both places causes Xcode to schedule it twice, producing "Multiple commands produce" / `CreateUniversalBinary` duplicate-output errors
+**Confirmed failure states:**
+- Scheme entry only (no PBXTargetDep): Watch absent from dependency graph entirely (Xcode 26 ignores scheme cross-platform entries)
+- PBXTargetDep + embed implicit dep: Watch built twice → `CreateUniversalBinary arm64 arm64_32` duplicate-output error
+- PBXTargetDep + `buildImplicitDependencies=NO`: same duplicate error (flag controls scheme-level implicits only, not phase-level)
 
-**Verified with:** xcodebuild on iPhoneOS26.0.sdk. Before fix: Watch absent from dependency graph (`lstat: No such file or directory`). After adding PBXTargetDependency only (no scheme entry): Watch compiled successfully (`UninstalledProducts/watchos/PregnancyWatchApp.app` produced).
+**Correct setup for Xcode 26:**
+- NO scheme `BuildActionEntry` for Watch
+- NO explicit `PBXTargetDependency` from iOS → watchOS
+- `buildImplicitDependencies = "YES"` in scheme (default, controls scheme-level; phase-level is always active)
+- Let the "Embed Watch Content" phase's `BUILT_PRODUCTS_DIR` file reference be the sole scheduler
 
 ## Watch target config specifics
 - Target type: `watch2_app` → `com.apple.product-type.application.watchapp2`
