@@ -237,13 +237,78 @@ function _withWatchXcodeTargetInner(config) {
 }
 
 /**
- * Removes any PBXTargetDependency (and its PBXContainerItemProxy) wired from
- * the main iOS app target to the Watch target. Idempotent.
+ * Adds PBXContainerItemProxy + PBXTargetDependency from the main iOS app
+ * target to the Watch app target. Idempotent — skips if already present.
  *
- * Reason: addTarget("watch2_app") auto-creates this dependency, but Xcode 26
- * ignores cross-platform explicit deps and does NOT schedule the Watch build.
- * Having the dep while also listing the Watch in BuildActionEntries would
- * cause it to be scheduled twice → "Multiple commands produce" error.
+ * Must be called unconditionally (even when the Watch target already exists)
+ * because addTarget() is skipped on subsequent prebuild runs.
+ */
+function ensureWatchTargetDependency(project, watchTargetUuid) {
+  const nts = project.pbxNativeTargetSection();
+  const objects = project.hash.project.objects;
+
+  const mainTargetUuid = Object.keys(nts).find((key) => {
+    if (key.endsWith("_comment")) return false;
+    const t = nts[key];
+    return (
+      t &&
+      typeof t === "object" &&
+      (t.productType === '"com.apple.product-type.application"' ||
+        t.productType === "com.apple.product-type.application")
+    );
+  });
+  if (!mainTargetUuid) {
+    console.warn("[Watch] ensureWatchTargetDependency: main app target not found");
+    return;
+  }
+
+  const mainTarget = nts[mainTargetUuid];
+  if (!mainTarget.dependencies) mainTarget.dependencies = [];
+
+  // Idempotency: check if dep already exists
+  const depSection = objects["PBXTargetDependency"] || {};
+  for (const dep of mainTarget.dependencies) {
+    const depUuid = typeof dep === "object" ? dep.value : dep;
+    const depObj = depSection[depUuid];
+    if (!depObj) continue;
+    const remote = typeof depObj.target === "object" ? depObj.target.value : depObj.target;
+    if (remote === watchTargetUuid) {
+      console.log("[Watch] PBXTargetDependency already present — skipping");
+      return;
+    }
+  }
+
+  const projectSection = objects["PBXProject"] || {};
+  const projectRootUuid = Object.keys(projectSection).find(k => !k.endsWith("_comment"));
+
+  const proxyUuid = project.generateUuid();
+  const depUuid = project.generateUuid();
+
+  if (!objects["PBXContainerItemProxy"]) objects["PBXContainerItemProxy"] = {};
+  objects["PBXContainerItemProxy"][proxyUuid] = {
+    isa: "PBXContainerItemProxy",
+    containerPortal: projectRootUuid,
+    proxyType: 1,
+    remoteGlobalIDString: watchTargetUuid,
+    remoteInfo: WATCH_TARGET_NAME,
+  };
+  objects["PBXContainerItemProxy"][`${proxyUuid}_comment`] = "PBXContainerItemProxy";
+
+  if (!objects["PBXTargetDependency"]) objects["PBXTargetDependency"] = {};
+  objects["PBXTargetDependency"][depUuid] = {
+    isa: "PBXTargetDependency",
+    target: watchTargetUuid,
+    targetProxy: proxyUuid,
+  };
+  objects["PBXTargetDependency"][`${depUuid}_comment`] = "PBXTargetDependency";
+
+  mainTarget.dependencies.push({ value: depUuid, comment: "PBXTargetDependency" });
+  console.log(`[Watch] Added PBXTargetDependency (${depUuid}): ${mainTargetUuid} → ${watchTargetUuid}`);
+}
+
+/**
+ * Removes any PBXTargetDependency (and its PBXContainerItemProxy) wired from
+ * the main iOS app target to the Watch target. Kept for reference; not called.
  */
 function removeWatchTargetDependency(project, watchTargetUuid) {
   const nts = project.pbxNativeTargetSection();
@@ -529,9 +594,13 @@ function withWatchScheme(config) {
 
 // ─── Export ───────────────────────────────────────────────────────────────────
 
+// Export order matters: Expo processes withXcodeProject mods LIFO (last applied
+// runs first). withWatchXcodeTarget must run BEFORE withWatchScheme because the
+// scheme step needs the Watch target UUID that withWatchXcodeTarget creates.
+// Therefore withWatchXcodeTarget is applied LAST so it executes FIRST.
 module.exports = (config) => {
   config = withWatchFiles(config);
-  config = withWatchXcodeTarget(config);
-  config = withWatchScheme(config);
+  config = withWatchScheme(config);     // applied second → executes second (LIFO)
+  config = withWatchXcodeTarget(config); // applied last  → executes first  (LIFO)
   return config;
 };

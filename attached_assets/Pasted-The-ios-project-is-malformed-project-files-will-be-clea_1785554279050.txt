@@ -1,0 +1,68 @@
+The ios project is malformed, project files will be cleared and reinitialized.
+- Clearing ios
+✔ Cleared ios code
+- Creating native directory (./ios)
+✔ Created native directory
+- Updating package.json
+✔ Updated package.json
+- Running prebuild
+[Watch] copied PregnancyWatchApp.swift
+- Running prebuild
+[Watch] copied ContentView.swift
+- Running prebuild
+[Watch] copied KickCounterView.swift
+- Running prebuild
+[Watch] copied ContractionTimerView.swift
+- Running prebuild
+[Watch] copied TipsView.swift
+- Running prebuild
+[Watch] copied WatchSessionManager.swift
+- Running prebuild
+[Watch] copied Models.swift
+- Running prebuild
+[Watch] copied Info.plist
+- Running prebuild
+[Watch] copied PregnancyWatchApp.entitlements
+- Running prebuild
+[Watch] copied PhoneWatchBridge.swift → main
+- Running prebuild
+[Watch] copied WatchConnectivityModule.swift → main
+- Running prebuild
+[Watch/Scheme] Watch target not found in project — skipping scheme update
+- Running prebuild
+[Watch] projectName: PregnancyAIAssistant
+- Running prebuild
+[Watch] existing target names: ["PregnancyAIAssistant"]
+- Running prebuild
+[Watch] Adding watch2_app target…
+- Running prebuild
+[Watch] uuid: F6CBBFA273EF4FE39B9EDBAB
+- Running prebuild
+[Watch] fixed comment key → PregnancyWatchApp
+- Running prebuild
+[Watch] fixed product ref comment → PregnancyWatchApp.app
+- Running prebuild
+[Watch] patched buildSettings for config FF34955C776F4260B250FFAC
+- Running prebuild
+[Watch] patched buildSettings for config C2C8440093F846AE928DD442
+- Running prebuild
+- Running prebuild
+- Running prebuild
+✖ Prebuild failed
+[Watch] FATAL ERROR in withWatchXcodeTarget: ensureWatchTargetDependency is not defined
+[Watch] Stack: ReferenceError: ensureWatchTargetDependency is not defined
+    at _withWatchXcodeTargetInner (/Users/expo/workingdir/build/artifacts/pregnancy-calculator-mobile/plugins/withWatchExtension.js:222:5)
+    at /Users/expo/workingdir/build/artifacts/pregnancy-calculator-mobile/plugins/withWatchExtension.js:95:14
+    at action (/Users/expo/workingdir/build/node_modules/.pnpm/@expo+config-plugins@54.0.4/node_modules/@expo/config-plugins/build/plugins/withMod.js:199:29)
+    at interceptingMod (/Users/expo/workingdir/build/node_modules/.pnpm/@expo+config-plugins@54.0.4/node_modules/@expo/config-plugins/build/plugins/withMod.js:104:27)
+    at action (/Users/expo/workingdir/build/node_modules/.pnpm/@expo+config-plugins@54.0.4/node_modules/@expo/config-plugins/build/plugins/withMod.js:204:14)
+    at async interceptingMod (/Users/expo/workingdir/build/node_modules/.pnpm/@expo+config-plugins@54.0.4/node_modules/@expo/config-plugins/build/plugins/withMod.js:104:21)
+ReferenceError: [ios.xcodeproj]: withIosXcodeprojBaseMod: ensureWatchTargetDependency is not defined
+ReferenceError: ensureWatchTargetDependency is not defined
+    at _withWatchXcodeTargetInner (/Users/expo/workingdir/build/artifacts/pregnancy-calculator-mobile/plugins/withWatchExtension.js:222:5)
+    at /Users/expo/workingdir/build/artifacts/pregnancy-calculator-mobile/plugins/withWatchExtension.js:95:14
+    at action (/Users/expo/workingdir/build/node_modules/.pnpm/@expo+config-plugins@54.0.4/node_modules/@expo/config-plugins/build/plugins/withMod.js:199:29)
+    at interceptingMod (/Users/expo/workingdir/build/node_modules/.pnpm/@expo+config-plugins@54.0.4/node_modules/@expo/config-plugins/build/plugins/withMod.js:104:27)
+    at action (/Users/expo/workingdir/build/node_modules/.pnpm/@expo+config-plugins@54.0.4/node_modules/@expo/config-plugins/build/plugins/withMod.js:204:14)
+    at async interceptingMod (/Users/expo/workingdir/build/node_modules/.pnpm/@expo+config-plugins@54.0.4/node_modules/@expo/config-plugins/build/plugins/withMod.js:104:21)
+pnpm expo prebuild --no-install --platform ios exited with non-zero code: 1
