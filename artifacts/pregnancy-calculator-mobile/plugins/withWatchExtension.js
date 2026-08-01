@@ -192,6 +192,17 @@ function _withWatchXcodeTargetInner(config) {
 
     // ── Override build settings ────────────────────────────────────────────
     applyWatchBuildSettings(project, watchUuid);
+
+    // CRITICAL: addTarget("watch2_app") auto-creates a PBXTargetDependency
+    // from the iOS app → Watch target. Combined with the scheme entry
+    // (buildForArchiving=YES) this causes the Watch to be scheduled TWICE
+    // → "Multiple commands produce ...watchos/PregnancyWatchApp.app/...".
+    // Remove the auto-created dep immediately so only the scheme entry triggers
+    // the build. ATPS=YES on the iOS app target ensures the Watch's own
+    // SDKROOT=watchos is respected even when archiving with
+    // -destination 'generic/platform=iOS'.
+    removeWatchTargetDependency(project, watchUuid);
+    console.log("[Watch] Removed auto-created PBXTargetDependency (scheme-only scheduling)");
   }
 
   if (watchUuid) {
