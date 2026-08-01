@@ -188,7 +188,98 @@ function _withWatchXcodeTargetInner(config) {
     // target in the pbxproj. Wire them in via a separate config plugin or
     // manually once the Watch bundle is confirmed working.
 
+    // ── Explicit PBXTargetDependency: main → Watch ────────────────────────
+    // Xcode 16+'s build system (Swift Build) requires an explicit
+    // PBXTargetDependency from the iOS main app to the watchOS Watch app for
+    // the Watch target to appear in the dependency graph and be compiled during
+    // `xcodebuild archive`. A scheme BuildActionEntry alone is NOT enough for
+    // cross-platform (iOS → watchOS) targets in the new build system.
+    ensureWatchTargetDependency(project, watchUuid);
+
     return config;
+}
+
+/**
+ * Adds PBXContainerItemProxy + PBXTargetDependency from the main app target
+ * to the Watch app target. Idempotent — skips if already present.
+ */
+function ensureWatchTargetDependency(project, watchTargetUuid) {
+  const nts = project.pbxNativeTargetSection();
+  const objects = project.hash.project.objects;
+
+  // Find the main iOS app target
+  const mainTargetUuid = Object.keys(nts).find((key) => {
+    if (key.endsWith("_comment")) return false;
+    const t = nts[key];
+    return (
+      t &&
+      typeof t === "object" &&
+      (t.productType === '"com.apple.product-type.application"' ||
+        t.productType === "com.apple.product-type.application")
+    );
+  });
+  if (!mainTargetUuid) {
+    console.warn("[Watch] Could not find main app target for dependency wiring");
+    return;
+  }
+
+  const mainTarget = nts[mainTargetUuid];
+  if (!mainTarget.dependencies) mainTarget.dependencies = [];
+
+  // Check idempotency: scan existing target dependencies
+  const depSection = objects["PBXTargetDependency"] || {};
+  for (const dep of mainTarget.dependencies) {
+    const depUuid = typeof dep === "object" ? dep.value : dep;
+    const depObj = depSection[depUuid];
+    if (!depObj) continue;
+    const remoteUuid =
+      typeof depObj.target === "object" ? depObj.target.value : depObj.target;
+    if (remoteUuid === watchTargetUuid) {
+      console.log("[Watch] PBXTargetDependency already present — skipping");
+      return;
+    }
+  }
+
+  // Find the project root UUID (containerPortal)
+  const projectSection = objects["PBXProject"] || {};
+  const projectRootUuid = Object.keys(projectSection).find(
+    (k) => !k.endsWith("_comment"),
+  );
+
+  // Generate UUIDs for proxy and dependency
+  const proxyUuid = project.generateUuid();
+  const depUuid = project.generateUuid();
+
+  // Add PBXContainerItemProxy
+  if (!objects["PBXContainerItemProxy"]) objects["PBXContainerItemProxy"] = {};
+  objects["PBXContainerItemProxy"][proxyUuid] = {
+    isa: "PBXContainerItemProxy",
+    containerPortal: projectRootUuid,
+    proxyType: 1,
+    remoteGlobalIDString: watchTargetUuid,
+    remoteInfo: WATCH_TARGET_NAME,
+  };
+  objects["PBXContainerItemProxy"][`${proxyUuid}_comment`] =
+    "PBXContainerItemProxy";
+
+  // Add PBXTargetDependency
+  if (!objects["PBXTargetDependency"]) objects["PBXTargetDependency"] = {};
+  objects["PBXTargetDependency"][depUuid] = {
+    isa: "PBXTargetDependency",
+    target: watchTargetUuid,
+    targetProxy: proxyUuid,
+  };
+  objects["PBXTargetDependency"][`${depUuid}_comment`] = "PBXTargetDependency";
+
+  // Wire into the main app's dependencies array
+  mainTarget.dependencies.push({
+    value: depUuid,
+    comment: "PBXTargetDependency",
+  });
+
+  console.log(
+    `[Watch] Added PBXTargetDependency (${depUuid}): ${mainTargetUuid} → ${watchTargetUuid}`,
+  );
 }
 
 /**
