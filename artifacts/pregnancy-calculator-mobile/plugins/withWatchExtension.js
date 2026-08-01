@@ -703,7 +703,7 @@ function withWatchScheme(config) {
         `            buildForTesting = "NO"\n` +
         `            buildForRunning = "NO"\n` +
         `            buildForProfiling = "NO"\n` +
-        `            buildForArchiving = "YES"\n` +
+        `            buildForArchiving = "NO"\n` +
         `            buildForAnalyzing = "NO">\n` +
         `            <BuildableReference\n` +
         `               BuildableIdentifier = "primary"\n` +
@@ -726,7 +726,7 @@ function withWatchScheme(config) {
 
       fs.writeFileSync(schemePath, schemeXml, "utf8");
       console.log(
-        `[Watch/Scheme] Added Watch BuildActionEntry (UUID: ${watchTargetUuid}, buildForArchiving=YES)`,
+        `[Watch/Scheme] Added Watch BuildActionEntry (UUID: ${watchTargetUuid}, buildForArchiving=NO)`,
       );
     } catch (e) {
       console.error("[Watch/Scheme] ERROR:", e && e.message);
