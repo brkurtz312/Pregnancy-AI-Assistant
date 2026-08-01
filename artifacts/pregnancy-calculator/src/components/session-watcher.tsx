@@ -77,7 +77,17 @@ export function SessionWatcher() {
       // Instead, signingOutRef is cleared only when a new sign-in is detected
       // (see the session-transition effect above), ensuring the guard holds for
       // the entire duration of the sign-out sequence.
-      signOut().catch(() => {});
+      //
+      // Exception: if signOut() itself rejects (network error, Clerk SDK bug)
+      // the session never transitions to null and the sign-in effect never
+      // fires, so the guard would stay true forever and silently swallow every
+      // subsequent 401. We reset it after a short delay on rejection so the
+      // component self-heals — the next genuine 401 will re-trigger signOut().
+      signOut().catch(() => {
+        setTimeout(() => {
+          signingOutRef.current = false;
+        }, 5_000);
+      });
     });
     return unsubscribe;
   }, [queryClient, signOut]);

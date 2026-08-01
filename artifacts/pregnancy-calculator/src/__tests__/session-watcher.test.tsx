@@ -357,6 +357,70 @@ describe("SessionWatcher — stale-tenant 401 guard", () => {
     expect(mockSignOut).not.toHaveBeenCalled();
   });
 
+  it("retries signOut when the first attempt rejects and a new 401 arrives after the reset delay", async () => {
+    vi.useFakeTimers();
+    try {
+      // signOut() rejects on the first call (network error / Clerk SDK bug),
+      // then succeeds on the second call so the test can cleanly verify the
+      // retry path without leaving side-effects.
+      const mockSignOut = vi
+        .fn()
+        .mockRejectedValueOnce(new Error("network error"))
+        .mockResolvedValue(undefined);
+
+      mockUseSession.mockReturnValue(signedInState());
+      renderWatcher(queryClient, mockSignOut);
+
+      // First 401 — the guard sets signingOutRef = true and calls signOut(),
+      // which rejects.  The .catch handler schedules a 5 s reset.
+      await act(async () => {
+        await queryClient
+          .fetchQuery({
+            queryKey: ["stale-tenant-reject-first"],
+            queryFn: () => Promise.reject(makeApiError(401)),
+            retry: false,
+          })
+          .catch(() => {});
+      });
+
+      expect(mockSignOut).toHaveBeenCalledTimes(1);
+
+      // A second 401 arrives BEFORE the reset fires.  signingOutRef is still
+      // true → the guard must NOT call signOut() a second time yet.
+      await act(async () => {
+        await queryClient
+          .fetchQuery({
+            queryKey: ["stale-tenant-reject-second-too-soon"],
+            queryFn: () => Promise.reject(makeApiError(401)),
+            retry: false,
+          })
+          .catch(() => {});
+      });
+
+      expect(mockSignOut).toHaveBeenCalledTimes(1);
+
+      // Advance past the 5 s reset delay — signingOutRef becomes false again.
+      await act(async () => {
+        vi.advanceTimersByTime(5_001);
+      });
+
+      // A third 401 arrives AFTER the reset — the guard must fire signOut() again.
+      await act(async () => {
+        await queryClient
+          .fetchQuery({
+            queryKey: ["stale-tenant-reject-after-reset"],
+            queryFn: () => Promise.reject(makeApiError(401)),
+            retry: false,
+          })
+          .catch(() => {});
+      });
+
+      expect(mockSignOut).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("only calls signOut once even when multiple queries fail with 401 simultaneously", async () => {
     const mockSignOut = vi.fn(async () => {});
     mockUseSession.mockReturnValue(signedInState());
