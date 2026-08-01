@@ -195,35 +195,27 @@ function _withWatchXcodeTargetInner(config) {
   }
 
   if (watchUuid) {
-    // Keep the PBXTargetDependency that addTarget() auto-creates.
-    // Xcode 26 alone ignores cross-platform deps, BUT the combination of:
-    //   (a) Watch in scheme BuildActionEntries (added by withWatchScheme), AND
-    //   (b) PBXTargetDependency from iOS app → Watch target
-    // compiles the Watch correctly for watchOS. The scheme entry alone
-    // (without the dep) causes Xcode 26 to compile the Watch for iphoneos
-    // (wrong platform) because -destination 'generic/platform=iOS' overrides
-    // SDKROOT. The dep provides the watchOS platform signal.
+    // Scheme-only approach (NO PBXTargetDependency).
     //
-    // Risk: double-scheduling → "Multiple commands produce". That error
-    // appeared in earlier builds WITHOUT ALLOW_TARGET_PLATFORM_SPECIALIZATION
-    // on the iOS app target. With that flag set (below), the build system
-    // should recognise the dep as the authoritative watchOS trigger and not
-    // re-schedule the Watch independently from the scheme entry.
+    // History of attempts:
+    //   Scheme + dep (buildForArchiving=YES)  → double-schedule → "Multiple commands produce"
+    //   Scheme + dep (buildForArchiving=NO)   → still double-schedule (dep fires regardless)
+    //   Dep only (no scheme entry)            → Watch NOT compiled (Xcode 26 ignores cross-platform deps)
+    //   Scheme only — UNTESTED with ATPS=YES on iOS app target.
     //
-    // NOTE: if "Multiple commands produce" reappears, the next step is to
-    // set buildForArchiving = "NO" on the scheme entry (dep-only scheduling)
-    // while keeping the Watch listed so the build system can resolve its
-    // platform.
-
-    // Ensure PBXTargetDependency exists from iOS app → Watch target.
-    // addTarget() creates it on first run, but if the target already exists
-    // (alreadyPresent=true) addTarget() is skipped so the dep may be absent.
-    // This call is idempotent — skips if dep is already wired. Always run.
-    ensureWatchTargetDependency(project, watchUuid);
+    // Hypothesis: ALLOW_TARGET_PLATFORM_SPECIALIZATION=YES on the iOS *app*
+    // target tells Xcode 26 that scheme entries may build for a different SDK
+    // than the archive destination. With that flag, the Watch target's own
+    // SDKROOT=watchos should be respected even when the archive destination
+    // is 'generic/platform=iOS', eliminating the wrong-platform issue that
+    // was seen in earlier scheme-only builds (which did not have ATPS on the
+    // main app target).
+    //
+    // Do NOT call ensureWatchTargetDependency — adding a PBXTargetDependency
+    // alongside the scheme entry causes the Watch to be scheduled twice.
 
     // Add ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES to the iOS app target's
-    // build configurations. This tells Xcode 26 it may build dependencies for
-    // a different platform (watchOS) when archiving. Always run — idempotent.
+    // build configurations. Always run — idempotent.
     applyAllowPlatformSpecializationToMainApp(project);
   }
 
@@ -703,7 +695,7 @@ function withWatchScheme(config) {
         `            buildForTesting = "NO"\n` +
         `            buildForRunning = "NO"\n` +
         `            buildForProfiling = "NO"\n` +
-        `            buildForArchiving = "NO"\n` +
+        `            buildForArchiving = "YES"\n` +
         `            buildForAnalyzing = "NO">\n` +
         `            <BuildableReference\n` +
         `               BuildableIdentifier = "primary"\n` +
@@ -726,7 +718,7 @@ function withWatchScheme(config) {
 
       fs.writeFileSync(schemePath, schemeXml, "utf8");
       console.log(
-        `[Watch/Scheme] Added Watch BuildActionEntry (UUID: ${watchTargetUuid}, buildForArchiving=NO)`,
+        `[Watch/Scheme] Added Watch BuildActionEntry (UUID: ${watchTargetUuid}, buildForArchiving=YES)`,
       );
     } catch (e) {
       console.error("[Watch/Scheme] ERROR:", e && e.message);
