@@ -201,6 +201,22 @@ function _withWatchXcodeTargetInner(config) {
     );
     project.addBuildPhase([], "PBXResourcesBuildPhase", "Resources", watchUuid);
 
+    // ── Fix productType ────────────────────────────────────────────────────
+    // addTarget("watch2_app") sets productType = "com.apple.product-type.application.watchapp2"
+    // (the legacy WatchKit 2 container). Modern standalone watchOS apps (watchOS 7+,
+    // @main App with WKApplication=true) must use "com.apple.product-type.application".
+    // Without this fix iOS won't recognise the embedded app as a Watch companion.
+    const nts3 = project.pbxNativeTargetSection();
+    const watchTargetObj = nts3[watchUuid];
+    if (watchTargetObj) {
+      const wrongType = '"com.apple.product-type.application.watchapp2"';
+      if (watchTargetObj.productType === wrongType ||
+          watchTargetObj.productType === "com.apple.product-type.application.watchapp2") {
+        watchTargetObj.productType = '"com.apple.product-type.application"';
+        console.log("[Watch] Fixed productType: watchapp2 → application (standalone watchOS 7+ app)");
+      }
+    }
+
     // ── Override build settings ────────────────────────────────────────────
     applyWatchBuildSettings(project, watchUuid);
 
@@ -213,6 +229,21 @@ function _withWatchXcodeTargetInner(config) {
   }
 
   if (watchUuid) {
+    // Fix productType unconditionally (idempotent) — covers both the fresh-add
+    // path (where it was already fixed above) and re-run paths (alreadyPresent=true)
+    // where the pbxproj may still carry the stale watchapp2 type from a previous
+    // build that didn't include this fix.
+    const ntsCheck = project.pbxNativeTargetSection();
+    const wtObj = ntsCheck[watchUuid];
+    if (wtObj) {
+      const wt2 = '"com.apple.product-type.application.watchapp2"';
+      if (wtObj.productType === wt2 ||
+          wtObj.productType === "com.apple.product-type.application.watchapp2") {
+        wtObj.productType = '"com.apple.product-type.application"';
+        console.log("[Watch] Fixed productType (re-run): watchapp2 → application");
+      }
+    }
+
     // Scheme-only scheduling (NO PBXTargetDependency).
     // removeWatchTargetDependency is idempotent — call unconditionally so that
     // on re-runs (alreadyPresent=true) any leftover dep from a previous run is
@@ -242,6 +273,28 @@ function _withWatchXcodeTargetInner(config) {
 }
 
 /**
+ * Returns the UUID of the main iOS app (iphoneos) target.
+ *
+ * After we fix the Watch target's productType to "com.apple.product-type.application"
+ * (required for modern standalone watchOS apps), BOTH targets share the same
+ * productType string. This helper disambiguates by excluding any target whose
+ * name matches WATCH_TARGET_NAME.
+ */
+function findMainAppTargetUuid(nts) {
+  return Object.keys(nts).find((key) => {
+    if (key.endsWith("_comment")) return false;
+    const t = nts[key];
+    if (!t || typeof t !== "object") return false;
+    const isApp =
+      t.productType === '"com.apple.product-type.application"' ||
+      t.productType === "com.apple.product-type.application";
+    if (!isApp) return false;
+    const name = t.name === `"${WATCH_TARGET_NAME}"` || t.name === WATCH_TARGET_NAME;
+    return !name; // exclude the Watch target itself
+  });
+}
+
+/**
  * Removes all PBXTargetDependency + PBXContainerItemProxy entries that point
  * from the main iOS app target to the Watch target. Idempotent.
  *
@@ -253,16 +306,7 @@ function removeWatchTargetDependency(project, watchTargetUuid) {
   const nts = project.pbxNativeTargetSection();
   const objects = project.hash.project.objects;
 
-  const mainTargetUuid = Object.keys(nts).find((key) => {
-    if (key.endsWith("_comment")) return false;
-    const t = nts[key];
-    return (
-      t &&
-      typeof t === "object" &&
-      (t.productType === '"com.apple.product-type.application"' ||
-        t.productType === "com.apple.product-type.application")
-    );
-  });
+  const mainTargetUuid = findMainAppTargetUuid(nts);
   if (!mainTargetUuid) return;
 
   const mainTarget = nts[mainTargetUuid];
@@ -387,16 +431,7 @@ function removeEmbedWatchPhase(project) {
   const nts = project.pbxNativeTargetSection();
   const objects = project.hash.project.objects;
 
-  const mainTargetUuid = Object.keys(nts).find((key) => {
-    if (key.endsWith("_comment")) return false;
-    const t = nts[key];
-    return (
-      t &&
-      typeof t === "object" &&
-      (t.productType === '"com.apple.product-type.application"' ||
-        t.productType === "com.apple.product-type.application")
-    );
-  });
+  const mainTargetUuid = findMainAppTargetUuid(nts);
   if (!mainTargetUuid) return;
 
   const mainTarget = nts[mainTargetUuid];
@@ -452,16 +487,7 @@ function addEmbedWatchShellScript(project) {
   const nts = project.pbxNativeTargetSection();
   const objects = project.hash.project.objects;
 
-  const mainTargetUuid = Object.keys(nts).find((key) => {
-    if (key.endsWith("_comment")) return false;
-    const t = nts[key];
-    return (
-      t &&
-      typeof t === "object" &&
-      (t.productType === '"com.apple.product-type.application"' ||
-        t.productType === "com.apple.product-type.application")
-    );
-  });
+  const mainTargetUuid = findMainAppTargetUuid(nts);
   if (!mainTargetUuid) return;
 
   const mainTarget = nts[mainTargetUuid];
@@ -565,17 +591,7 @@ function addPhoneBridgeToMainTarget(project, appName) {
   const nts = project.pbxNativeTargetSection();
   const objects = project.hash.project.objects;
 
-  // Find the main iOS app target UUID
-  const mainTargetUuid = Object.keys(nts).find((key) => {
-    if (key.endsWith("_comment")) return false;
-    const t = nts[key];
-    return (
-      t &&
-      typeof t === "object" &&
-      (t.productType === '"com.apple.product-type.application"' ||
-        t.productType === "com.apple.product-type.application")
-    );
-  });
+  const mainTargetUuid = findMainAppTargetUuid(nts);
   if (!mainTargetUuid) {
     console.warn("[Watch] addPhoneBridgeToMainTarget: main app target not found");
     return;
@@ -776,16 +792,7 @@ function applyAllowPlatformSpecializationToMainApp(project) {
   const nts = project.pbxNativeTargetSection();
   const objects = project.hash.project.objects;
 
-  const mainTargetUuid = Object.keys(nts).find((key) => {
-    if (key.endsWith("_comment")) return false;
-    const t = nts[key];
-    return (
-      t &&
-      typeof t === "object" &&
-      (t.productType === '"com.apple.product-type.application"' ||
-        t.productType === "com.apple.product-type.application")
-    );
-  });
+  const mainTargetUuid = findMainAppTargetUuid(nts);
   if (!mainTargetUuid) return;
 
   const mainTarget = nts[mainTargetUuid];
