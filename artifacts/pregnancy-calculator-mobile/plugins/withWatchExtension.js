@@ -782,6 +782,22 @@ function addEmbedWatchShellScript(project) {
     "echo note: Embedding ${WATCH_APP_NAME}.app from ${WATCH_SRC}",
     "mkdir -p ${WATCH_DEST}",
     "cp -R ${WATCH_SRC} ${WATCH_DEST}/",
+    // Inject icon PNGs directly into the embedded Watch bundle.
+    // Apple ITMS-90391 validator checks for actual PNG files listed in
+    // CFBundleIconFiles — it does NOT inspect Assets.car for icons.
+    // The Xcode CopyBundleResources phase may not run for the Watch target
+    // (watchOS + SKIP_INSTALL interaction), so we inject here instead.
+    // $SRCROOT/PregnancyWatchApp/ is where withWatchFiles copies them at prebuild.
+    "ICON_SRC=${SRCROOT}/PregnancyWatchApp",
+    "ICON_DEST=${WATCH_DEST}/${WATCH_APP_NAME}.app",
+    "for ICON in AppIcon-58.png AppIcon-80.png AppIcon-87.png AppIcon-88.png AppIcon-100.png AppIcon-102.png AppIcon-108.png AppIcon-172.png AppIcon-196.png AppIcon-216.png AppIcon-234.png AppIcon-1024.png; do",
+    "  if [ -f ${ICON_SRC}/${ICON} ]; then",
+    "    cp ${ICON_SRC}/${ICON} ${ICON_DEST}/",
+    "    echo note: Injected ${ICON} into Watch bundle",
+    "  else",
+    "    echo warning: Watch icon not found: ${ICON_SRC}/${ICON} >&2",
+    "  fi",
+    "done",
   ];
   // Join with \n (2-char sequence) — the pbxproj string format uses \n for newlines.
   const shellScriptContent = scriptLines.join("\\n");
