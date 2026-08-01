@@ -23,10 +23,23 @@ Without it on the host target, Xcode 26's new build system refuses to schedule t
 
 The Watch was in the scheme's `BuildActionEntries` *and* wired via `PBXTargetDependency`. Both triggers fired simultaneously in the watchOS context, hitting the same output path. Fix: remove Watch from scheme entries; keep only the `PBXTargetDependency`.
 
-## Why lstat error came back in build #77
+## Why lstat error came back in builds #77-79 (the real root cause)
 
-`ALLOW_TARGET_PLATFORM_SPECIALIZATION` was only on the Watch target. Xcode 26 requires it on the *host* (iOS app) target to permit cross-platform dependency resolution.
+The Expo config plugin (`withWatchExtension.js`) runs during EAS prebuild and its `withWatchScheme` function was **removing** the Watch `BuildActionEntry` from the scheme on every build. All manual edits to the scheme file were wiped before xcodebuild ran. The plugin also set `buildImplicitDependencies = "NO"` and added a `PBXTargetDependency` — exactly the failing combination.
 
-**Why:** Xcode 26's new build system gates platform-specialization of dependencies at the host target level. The Watch target setting alone is not sufficient.
+**Why `PBXTargetDependency` kept being re-added:** `addTarget("watch2_app")` in the xcode JS library auto-creates a `PBXTargetDependency`. The plugin never stripped it.
 
-**How to apply:** When adding any watchOS (or tvOS/macOS) companion target to an iOS app, add `ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES` to the iOS app's own XCBuildConfiguration entries, not just the companion's.
+## Correct plugin design for Xcode 26
+
+`withWatchScheme` must:
+1. Use `withXcodeProject` (not `withDangerousMod`) to look up the Watch UUID from the project object
+2. **Add** the Watch `BuildActionEntry` with `buildForArchiving = "YES"` (not remove it)
+3. Restore `buildImplicitDependencies = "YES"` (not flip it to NO)
+
+`withWatchXcodeTarget` must also always (idempotent):
+- Strip the auto-created `PBXTargetDependency` via `removeWatchTargetDependency()`
+- Add `ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES` to the iOS app target's build configs via `applyAllowPlatformSpecializationToMainApp()`
+
+**Why:** Xcode 26's build system gates cross-platform dependency scheduling at the host target. PBXTargetDependency alone never schedules the Watch. Scheme entry is the only reliable trigger.
+
+**How to apply:** Any future Watch plugin changes must verify both the scheme file and pbxproj state AFTER prebuild, not before.

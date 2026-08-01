@@ -3,14 +3,17 @@
  *
  * Expo config plugin – adds the Pregnancy AI Watch App target.
  *
- * v4 – correct architecture:
- *  • Uses "watch2_app" → com.apple.product-type.application.watchapp2
- *    (xcode lib automatically creates "Embed Watch Content" phase on main target)
- *  • Does NOT manually add an embed phase – that duplicated/corrupted it
- *  • Overrides INFOPLIST_FILE (lib defaults to "<Name>-Info.plist", ours is "Info.plist")
- *  • Sets SKIP_INSTALL YES (correct for an embedded Watch app, lib default)
- *  • Adds Sources / Frameworks / Resources build phases with actual Swift files
- *  • Adds WatchConnectivity to the main app
+ * v5 – Xcode 26 / EAS fix:
+ *  • Xcode 26 does NOT honor cross-platform PBXTargetDependency (iOS→watchOS).
+ *    The Watch target MUST appear in the scheme's BuildActionEntries to be
+ *    compiled during an archive build.
+ *  • addTarget("watch2_app") auto-creates a PBXTargetDependency we don't want
+ *    (Xcode 26 ignores it anyway). Strip it immediately after addTarget().
+ *  • ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES must be set on the iOS app
+ *    target (not only on the Watch target) to allow Xcode 26 to specialize
+ *    the build system for cross-platform dependencies.
+ *  • withWatchScheme now ADDS the Watch entry (buildForArchiving=YES) instead
+ *    of removing it, and restores buildImplicitDependencies = "YES".
  */
 
 const { withXcodeProject, withDangerousMod } = require("@expo/config-plugins");
@@ -93,58 +96,68 @@ function withWatchXcodeTarget(config) {
     } catch (e) {
       console.error("[Watch] FATAL ERROR in withWatchXcodeTarget:", e && e.message);
       console.error("[Watch] Stack:", e && e.stack);
-      throw e; // re-throw so EAS knows the plugin failed
+      throw e;
     }
   });
 }
 
 function _withWatchXcodeTargetInner(config) {
-    const project = config.modResults;
-    const appName = config.modRequest.projectName;
+  const project = config.modResults;
+  const appName = config.modRequest.projectName;
 
-    console.log("[Watch] projectName:", appName);
+  console.log("[Watch] projectName:", appName);
 
-    // Idempotency
-    const nativeTargets = project.pbxNativeTargetSection();
-    const targetNames = Object.values(nativeTargets)
-      .filter(t => t && typeof t === "object" && t.name)
-      .map(t => t.name);
-    console.log("[Watch] existing target names:", JSON.stringify(targetNames));
+  const nativeTargets = project.pbxNativeTargetSection();
+  const targetNames = Object.values(nativeTargets)
+    .filter(t => t && typeof t === "object" && t.name)
+    .map(t => t.name);
+  console.log("[Watch] existing target names:", JSON.stringify(targetNames));
 
-    if (
-      targetNames.some((n) => n === `"${WATCH_TARGET_NAME}"` || n === WATCH_TARGET_NAME)
-    ) {
-      console.log("[Watch] target already present, skipping");
-      return config;
-    }
+  let watchUuid;
+  const alreadyPresent = targetNames.some(
+    (n) => n === `"${WATCH_TARGET_NAME}"` || n === WATCH_TARGET_NAME
+  );
 
+  if (alreadyPresent) {
+    console.log("[Watch] target already present — skipping addTarget()");
+    // Locate existing UUID so we can still run idempotent fixups below
+    watchUuid = Object.keys(nativeTargets).find((key) => {
+      if (key.endsWith("_comment")) return false;
+      const t = nativeTargets[key];
+      return (
+        t &&
+        typeof t === "object" &&
+        (t.name === `"${WATCH_TARGET_NAME}"` || t.name === WATCH_TARGET_NAME)
+      );
+    });
+  } else {
     console.log("[Watch] Adding watch2_app target…");
 
     // addTarget("watch2_app") automatically:
     //   • Creates the PBXNativeTarget
     //   • Adds "Embed Watch Content" PBXCopyFilesBuildPhase to the FIRST target
-    //   • Adds a target dependency from first target → this target
+    //   • Adds a PBXTargetDependency from the first target → Watch target
+    //     (we strip this below — Xcode 26 ignores cross-platform explicit deps)
     const watchTarget = project.addTarget(
       WATCH_TARGET_NAME,
       "watch2_app",
       WATCH_TARGET_NAME,
       WATCH_BUNDLE_ID,
     );
-    const watchUuid = watchTarget.uuid;
+    watchUuid = watchTarget.uuid;
     console.log(`[Watch] uuid: ${watchUuid}`);
 
     // Fix: addToPbxNativeTargetSection stores comment as '"PregnancyWatchApp"'
-    // (JS string includes the surrounding double-quote chars). EAS searches by
-    // comment without quotes → "Could not find target". Strip them here.
-    const nts = project.pbxNativeTargetSection();
+    // (JS string includes the surrounding double-quote chars). Strip them.
+    const nts2 = project.pbxNativeTargetSection();
     const commentKey = `${watchUuid}_comment`;
-    if (typeof nts[commentKey] === "string") {
-      nts[commentKey] = nts[commentKey].replace(/^"|"$/g, "");
-      console.log(`[Watch] fixed comment key → ${nts[commentKey]}`);
+    if (typeof nts2[commentKey] === "string") {
+      nts2[commentKey] = nts2[commentKey].replace(/^"|"$/g, "");
+      console.log(`[Watch] fixed comment key → ${nts2[commentKey]}`);
     }
 
     // Same fix for the product file reference comment
-    const nativeObj = nts[watchUuid];
+    const nativeObj = nts2[watchUuid];
     if (nativeObj) {
       const prodRefUuid =
         typeof nativeObj.productReference === "object"
@@ -178,34 +191,43 @@ function _withWatchXcodeTargetInner(config) {
     );
     project.addBuildPhase([], "PBXResourcesBuildPhase", "Resources", watchUuid);
 
-    // ── Override build settings (addTarget sets some defaults we need to fix) ─
+    // ── Override build settings ────────────────────────────────────────────
     applyWatchBuildSettings(project, watchUuid);
+  }
 
-    // NOTE: Phone bridge Swift files (PhoneWatchBridge, WatchConnectivityModule)
-    // are copied to the main app directory by withWatchFiles but are NOT added
-    // to the Xcode project here — project.addFile() with null group crashes the
-    // xcode library and silently unwinds the whole modifier, leaving no Watch
-    // target in the pbxproj. Wire them in via a separate config plugin or
-    // manually once the Watch bundle is confirmed working.
+  if (watchUuid) {
+    // Strip PBXTargetDependency (+ PBXContainerItemProxy) that addTarget()
+    // automatically creates. Xcode 26's new build system does not schedule
+    // cross-platform (iOS→watchOS) explicit target dependencies. The Watch
+    // target is scheduled instead via its BuildActionEntry in the scheme
+    // (added by withWatchScheme). Always run — idempotent.
+    removeWatchTargetDependency(project, watchUuid);
 
-    // NOTE: Do NOT add an explicit PBXTargetDependency from the iOS main app
-    // to the watchOS Watch app. The "Embed Watch Content" build phase already
-    // references BUILT_PRODUCTS_DIR/PregnancyWatchApp.app, which the Xcode
-    // build system treats as a build-phase-level implicit dependency — it
-    // automatically schedules the Watch target to build before the embed phase
-    // runs. Adding an explicit PBXTargetDependency on top of this causes Xcode
-    // to schedule the Watch build TWICE (once via dep, once via embed phase),
-    // producing "Multiple commands produce" / CreateUniversalBinary
-    // duplicate-output errors.
+    // Add ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES to the iOS app target's
+    // build configurations. This tells Xcode 26 it may build dependencies for
+    // a different platform (watchOS) when archiving. Always run — idempotent.
+    applyAllowPlatformSpecializationToMainApp(project);
+  }
 
-    return config;
+  // NOTE: Phone bridge Swift files (PhoneWatchBridge, WatchConnectivityModule)
+  // are copied to the main app directory by withWatchFiles but are NOT added
+  // to the Xcode project here — project.addFile() with null group crashes the
+  // xcode library and silently unwinds the whole modifier. Wire them manually
+  // once the Watch bundle is confirmed working.
+
+  return config;
 }
 
 /**
- * Adds PBXContainerItemProxy + PBXTargetDependency from the main app target
- * to the Watch app target. Idempotent — skips if already present.
+ * Removes any PBXTargetDependency (and its PBXContainerItemProxy) wired from
+ * the main iOS app target to the Watch target. Idempotent.
+ *
+ * Reason: addTarget("watch2_app") auto-creates this dependency, but Xcode 26
+ * ignores cross-platform explicit deps and does NOT schedule the Watch build.
+ * Having the dep while also listing the Watch in BuildActionEntries would
+ * cause it to be scheduled twice → "Multiple commands produce" error.
  */
-function ensureWatchTargetDependency(project, watchTargetUuid) {
+function removeWatchTargetDependency(project, watchTargetUuid) {
   const nts = project.pbxNativeTargetSection();
   const objects = project.hash.project.objects;
 
@@ -221,15 +243,20 @@ function ensureWatchTargetDependency(project, watchTargetUuid) {
     );
   });
   if (!mainTargetUuid) {
-    console.warn("[Watch] Could not find main app target for dependency wiring");
+    console.warn("[Watch] removeWatchTargetDependency: main app target not found");
     return;
   }
 
   const mainTarget = nts[mainTargetUuid];
-  if (!mainTarget.dependencies) mainTarget.dependencies = [];
+  if (!mainTarget.dependencies || !mainTarget.dependencies.length) {
+    console.log("[Watch] No dependencies on main target — nothing to remove");
+    return;
+  }
 
-  // Check idempotency: scan existing target dependencies
   const depSection = objects["PBXTargetDependency"] || {};
+  const proxySection = objects["PBXContainerItemProxy"] || {};
+  const toRemove = [];
+
   for (const dep of mainTarget.dependencies) {
     const depUuid = typeof dep === "object" ? dep.value : dep;
     const depObj = depSection[depUuid];
@@ -237,51 +264,81 @@ function ensureWatchTargetDependency(project, watchTargetUuid) {
     const remoteUuid =
       typeof depObj.target === "object" ? depObj.target.value : depObj.target;
     if (remoteUuid === watchTargetUuid) {
-      console.log("[Watch] PBXTargetDependency already present — skipping");
-      return;
+      toRemove.push(depUuid);
+      // Also remove the proxy object
+      const proxyUuid =
+        typeof depObj.targetProxy === "object"
+          ? depObj.targetProxy.value
+          : depObj.targetProxy;
+      if (proxyUuid) {
+        delete proxySection[proxyUuid];
+        delete proxySection[`${proxyUuid}_comment`];
+        console.log(`[Watch] Removed PBXContainerItemProxy ${proxyUuid}`);
+      }
+      delete depSection[depUuid];
+      delete depSection[`${depUuid}_comment`];
     }
   }
 
-  // Find the project root UUID (containerPortal)
-  const projectSection = objects["PBXProject"] || {};
-  const projectRootUuid = Object.keys(projectSection).find(
-    (k) => !k.endsWith("_comment"),
-  );
+  if (toRemove.length > 0) {
+    mainTarget.dependencies = mainTarget.dependencies.filter((dep) => {
+      const depUuid = typeof dep === "object" ? dep.value : dep;
+      return !toRemove.includes(depUuid);
+    });
+    console.log(
+      `[Watch] Removed ${toRemove.length} PBXTargetDependency entry(ies) → main app is clean`,
+    );
+  } else {
+    console.log("[Watch] PBXTargetDependency already absent — nothing to strip");
+  }
+}
 
-  // Generate UUIDs for proxy and dependency
-  const proxyUuid = project.generateUuid();
-  const depUuid = project.generateUuid();
+/**
+ * Sets ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES on the main iOS app target's
+ * build configurations (Debug + Release). Idempotent.
+ *
+ * Reason: Xcode 26 requires this on the HOST target to permit the build system
+ * to specialize platform for dependencies. Without it, cross-platform deps
+ * (watchOS companion) are silently skipped even when listed in the scheme.
+ */
+function applyAllowPlatformSpecializationToMainApp(project) {
+  const nts = project.pbxNativeTargetSection();
+  const objects = project.hash.project.objects;
 
-  // Add PBXContainerItemProxy
-  if (!objects["PBXContainerItemProxy"]) objects["PBXContainerItemProxy"] = {};
-  objects["PBXContainerItemProxy"][proxyUuid] = {
-    isa: "PBXContainerItemProxy",
-    containerPortal: projectRootUuid,
-    proxyType: 1,
-    remoteGlobalIDString: watchTargetUuid,
-    remoteInfo: WATCH_TARGET_NAME,
-  };
-  objects["PBXContainerItemProxy"][`${proxyUuid}_comment`] =
-    "PBXContainerItemProxy";
-
-  // Add PBXTargetDependency
-  if (!objects["PBXTargetDependency"]) objects["PBXTargetDependency"] = {};
-  objects["PBXTargetDependency"][depUuid] = {
-    isa: "PBXTargetDependency",
-    target: watchTargetUuid,
-    targetProxy: proxyUuid,
-  };
-  objects["PBXTargetDependency"][`${depUuid}_comment`] = "PBXTargetDependency";
-
-  // Wire into the main app's dependencies array
-  mainTarget.dependencies.push({
-    value: depUuid,
-    comment: "PBXTargetDependency",
+  const mainTargetUuid = Object.keys(nts).find((key) => {
+    if (key.endsWith("_comment")) return false;
+    const t = nts[key];
+    return (
+      t &&
+      typeof t === "object" &&
+      (t.productType === '"com.apple.product-type.application"' ||
+        t.productType === "com.apple.product-type.application")
+    );
   });
+  if (!mainTargetUuid) return;
 
-  console.log(
-    `[Watch] Added PBXTargetDependency (${depUuid}): ${mainTargetUuid} → ${watchTargetUuid}`,
-  );
+  const mainTarget = nts[mainTargetUuid];
+  const configListUuidRaw = mainTarget.buildConfigurationList;
+  const configListUuid =
+    typeof configListUuidRaw === "object"
+      ? configListUuidRaw.value
+      : configListUuidRaw;
+
+  const configList = (objects.XCConfigurationList || {})[configListUuid];
+  if (!configList) return;
+
+  const buildConfigs = objects.XCBuildConfiguration || {};
+  (configList.buildConfigurations || []).forEach((ref) => {
+    const cfgUuid = typeof ref === "object" ? ref.value : ref;
+    const cfg = buildConfigs[cfgUuid];
+    if (!cfg || !cfg.buildSettings) return;
+    if (cfg.buildSettings.ALLOW_TARGET_PLATFORM_SPECIALIZATION !== "YES") {
+      cfg.buildSettings.ALLOW_TARGET_PLATFORM_SPECIALIZATION = "YES";
+      console.log(
+        `[Watch] Set ALLOW_TARGET_PLATFORM_SPECIALIZATION=YES on main app config ${cfgUuid} (${cfg.name})`,
+      );
+    }
+  });
 }
 
 /**
@@ -308,7 +365,6 @@ function applyWatchBuildSettings(project, targetUuid) {
 
   const objects = project.hash.project.objects;
 
-  // XCConfigurationList lives under objects.XCConfigurationList
   const configList = (objects.XCConfigurationList || {})[configListUuid];
   if (!configList) {
     console.warn(`[Watch] no XCConfigurationList for ${configListUuid}`);
@@ -322,98 +378,135 @@ function applyWatchBuildSettings(project, targetUuid) {
     const cfg = buildConfigs[cfgUuid];
     if (!cfg || !cfg.buildSettings) return;
 
-    // Merge – existing keys set by addTarget() are left unless we override
     Object.assign(cfg.buildSettings, {
-      // Fix the plist path (lib generated "<Name>-Info.plist", ours is "Info.plist")
       INFOPLIST_FILE: `"${WATCH_TARGET_NAME}/Info.plist"`,
       CODE_SIGN_ENTITLEMENTS: `"${WATCH_TARGET_NAME}/PregnancyWatchApp.entitlements"`,
-      // watchOS target identity
       SDKROOT: "watchos",
       WATCHOS_DEPLOYMENT_TARGET: WATCHOS_DEPLOYMENT_TARGET,
       TARGETED_DEVICE_FAMILY: '"4"',
       SUPPORTED_PLATFORMS: '"watchos watchsimulator"',
-      // Signing
       CODE_SIGN_STYLE: "Automatic",
       DEVELOPMENT_TEAM: DEVELOPMENT_TEAM,
-      // Swift
       SWIFT_VERSION: "5.0",
-      // Runtime paths
       LD_RUNPATH_SEARCH_PATHS:
         '"$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"',
-      // Keep SKIP_INSTALL YES (embedded via "Embed Watch Content" phase)
       SKIP_INSTALL: "YES",
       ALWAYS_SEARCH_USER_PATHS: "NO",
       CLANG_ENABLE_MODULES: "YES",
+      // Belt-and-suspenders: also set on Watch target itself
+      ALLOW_TARGET_PLATFORM_SPECIALIZATION: "YES",
     });
     console.log(`[Watch] patched buildSettings for config ${cfgUuid}`);
   });
 }
 
-// ─── Step 3: Xcode scheme — ensure Watch target is NOT in BuildActionEntries ──
+// ─── Step 3: Xcode scheme — ensure Watch target IS in BuildActionEntries ──────
 //
-// The PBXTargetDependency (added in Step 2 via ensureWatchTargetDependency) is
-// sufficient for Xcode 16+'s build system to schedule the Watch target. Adding
-// the Watch target ALSO to BuildActionEntries in the scheme causes Xcode to
-// schedule it TWICE — once as a direct buildable and once as a dependency —
-// which produces "Multiple commands produce" duplicate-output errors during
-// CreateUniversalBinary. This step removes any Watch BuildActionEntry if present.
+// Xcode 26's new build system does NOT honor cross-platform PBXTargetDependency
+// (iOS→watchOS). The only reliable way to schedule the Watch target during an
+// archive build is to list it in the scheme's BuildActionEntries with
+// buildForArchiving = "YES".
+//
+// This modifier uses withXcodeProject (not withDangerousMod) so it can read the
+// Watch target UUID from the project object, then writes the scheme file directly.
 
 function withWatchScheme(config) {
-  return withDangerousMod(config, [
-    "ios",
-    async (config) => {
-      try {
-        const iosRoot = config.modRequest.platformProjectRoot;
-        const projectName = config.modRequest.projectName;
+  return withXcodeProject(config, (config) => {
+    try {
+      const project = config.modResults;
+      const iosRoot = config.modRequest.platformProjectRoot;
+      const projectName = config.modRequest.projectName;
 
-        const schemePath = path.join(
-          iosRoot,
-          `${projectName}.xcodeproj`,
-          "xcshareddata",
-          "xcschemes",
-          `${projectName}.xcscheme`,
+      // Find Watch target UUID
+      const nts = project.pbxNativeTargetSection();
+      const watchTargetUuid = Object.keys(nts).find((key) => {
+        if (key.endsWith("_comment")) return false;
+        const t = nts[key];
+        return (
+          t &&
+          typeof t === "object" &&
+          (t.name === WATCH_TARGET_NAME || t.name === `"${WATCH_TARGET_NAME}"`)
         );
+      });
 
-        if (!fs.existsSync(schemePath)) {
-          console.warn(`[Watch/Scheme] Scheme not found at ${schemePath}`);
-          return config;
-        }
-
-        let schemeXml = fs.readFileSync(schemePath, "utf8");
-
-        // Disable implicit dependencies so xcodebuild doesn't schedule the
-        // Watch target a second time via the "Embed Watch Content" phase's
-        // BUILT_PRODUCTS_DIR file reference. The explicit PBXTargetDependency
-        // (added in withWatchXcodeTarget) is the single authoritative trigger.
-        schemeXml = schemeXml.replace(
-          /buildImplicitDependencies\s*=\s*"YES"/g,
-          'buildImplicitDependencies = "NO"',
-        );
-
-        // Remove any Watch BuildActionEntry from the scheme.
-        // PBXTargetDependency in the pbxproj is sufficient for Xcode 16+'s
-        // build system. Having the Watch target in BOTH the scheme's
-        // BuildActionEntries AND as a PBXTargetDependency causes Xcode to
-        // schedule it twice → "Multiple commands produce" duplicate-output
-        // error during CreateUniversalBinary.
-        const watchEntryRegex =
-          /\s*<BuildActionEntry[^>]*>[\s\S]*?<BuildableReference[^>]*>[\s\S]*?BlueprintName\s*=\s*"PregnancyWatchApp"[\s\S]*?<\/BuildableReference>\s*<\/BuildActionEntry>/g;
-
-        if (watchEntryRegex.test(schemeXml)) {
-          schemeXml = schemeXml.replace(watchEntryRegex, "");
-          fs.writeFileSync(schemePath, schemeXml, "utf8");
-          console.log("[Watch/Scheme] Removed Watch BuildActionEntry from scheme");
-        } else {
-          console.log("[Watch/Scheme] Watch entry not in scheme — nothing to remove");
-        }
-      } catch (e) {
-        console.error("[Watch/Scheme] ERROR:", e && e.message);
-        console.error("[Watch/Scheme] Stack:", e && e.stack);
-        throw e;
+      if (!watchTargetUuid) {
+        console.warn("[Watch/Scheme] Watch target not found in project — skipping scheme update");
+        return config;
       }
-      return config;
-    },
-  ]);
+      console.log(`[Watch/Scheme] Watch target UUID: ${watchTargetUuid}`);
+
+      const schemePath = path.join(
+        iosRoot,
+        `${projectName}.xcodeproj`,
+        "xcshareddata",
+        "xcschemes",
+        `${projectName}.xcscheme`,
+      );
+
+      if (!fs.existsSync(schemePath)) {
+        console.warn(`[Watch/Scheme] Scheme not found at ${schemePath}`);
+        return config;
+      }
+
+      let schemeXml = fs.readFileSync(schemePath, "utf8");
+
+      // 1. Restore buildImplicitDependencies = "YES" if a previous plugin run
+      //    set it to "NO".
+      schemeXml = schemeXml.replace(
+        /buildImplicitDependencies\s*=\s*"NO"/g,
+        'buildImplicitDependencies = "YES"',
+      );
+
+      // 2. Strip any existing Watch BuildActionEntry (idempotency — prevents
+      //    duplicates on repeated prebuild runs).
+      const watchEntryRegex =
+        /[ \t]*<BuildActionEntry[^>]*>[\s\S]*?<BuildableReference[^>]*>[\s\S]*?BlueprintName\s*=\s*"PregnancyWatchApp"[\s\S]*?<\/BuildableReference>[\s\S]*?<\/BuildActionEntry>\n?/g;
+      const before = schemeXml;
+      schemeXml = schemeXml.replace(watchEntryRegex, "");
+      if (schemeXml !== before) {
+        console.log("[Watch/Scheme] Removed stale Watch BuildActionEntry");
+      }
+
+      // 3. Inject a fresh Watch entry immediately before </BuildActionEntries>.
+      //    buildForArchiving = YES ensures it compiles during `xcodebuild archive`.
+      //    All other flags are NO — no simulator runs, no tests, no profiling.
+      const watchEntry =
+        `         <BuildActionEntry\n` +
+        `            buildForTesting = "NO"\n` +
+        `            buildForRunning = "NO"\n` +
+        `            buildForProfiling = "NO"\n` +
+        `            buildForArchiving = "YES"\n` +
+        `            buildForAnalyzing = "NO">\n` +
+        `            <BuildableReference\n` +
+        `               BuildableIdentifier = "primary"\n` +
+        `               BlueprintIdentifier = "${watchTargetUuid}"\n` +
+        `               BuildableName = "${WATCH_TARGET_NAME}.app"\n` +
+        `               BlueprintName = "${WATCH_TARGET_NAME}"\n` +
+        `               ReferencedContainer = "container:${projectName}.xcodeproj">\n` +
+        `            </BuildableReference>\n` +
+        `         </BuildActionEntry>\n`;
+
+      if (!schemeXml.includes("</BuildActionEntries>")) {
+        console.warn("[Watch/Scheme] </BuildActionEntries> marker not found — scheme may be malformed");
+        return config;
+      }
+
+      schemeXml = schemeXml.replace(
+        "</BuildActionEntries>",
+        `${watchEntry}      </BuildActionEntries>`,
+      );
+
+      fs.writeFileSync(schemePath, schemeXml, "utf8");
+      console.log(
+        `[Watch/Scheme] Added Watch BuildActionEntry (UUID: ${watchTargetUuid}, buildForArchiving=YES)`,
+      );
+    } catch (e) {
+      console.error("[Watch/Scheme] ERROR:", e && e.message);
+      console.error("[Watch/Scheme] Stack:", e && e.stack);
+      throw e;
+    }
+    return config;
+  });
 }
 
 // ─── Export ───────────────────────────────────────────────────────────────────
