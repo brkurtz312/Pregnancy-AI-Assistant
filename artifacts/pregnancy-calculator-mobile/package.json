@@ -11,7 +11,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "validate:provisioning": "node scripts/validate-eas-provisioning.js"
+    "validate:provisioning": "node scripts/validate-eas-provisioning.js",
+    "cancel-stale-builds": "node scripts/cancel-stale-eas-builds.js",
+    "cancel-stale-builds:dry-run": "node scripts/cancel-stale-eas-builds.js --dry-run"
   },
   "jest": {
     "preset": "jest-expo",

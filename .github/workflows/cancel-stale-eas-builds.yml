@@ -1,0 +1,68 @@
+name: Cancel Stale EAS Builds
+
+# Runs on every push to any branch. Cancels any queued or in-progress EAS
+# builds whose git commit hash does not match the commit that just landed.
+# This prevents ghost builds from earlier commits clogging the build queue
+# when the EAS GitHub integration auto-triggers on every push.
+
+on:
+  push:
+    paths:
+      # Only trigger when mobile app code actually changes — skip doc-only pushes.
+      - "artifacts/pregnancy-calculator-mobile/**"
+      - ".github/workflows/cancel-stale-eas-builds.yml"
+
+# Minimal permissions — this job only checks out code and calls EAS CLI.
+permissions:
+  contents: read
+
+# Serialize per branch: if an older push workflow is still running when a newer
+# push arrives, GitHub cancels the in-progress run before starting the new one.
+# This prevents a delayed run from A cancelling the EAS build that B just kicked
+# off — only the latest workflow for each branch is ever active.
+concurrency:
+  group: cancel-stale-eas-builds-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cancel-stale:
+    name: Cancel stale EAS builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup Expo / EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Cancel stale EAS builds
+        working-directory: artifacts/pregnancy-calculator-mobile
+        # Branch and SHA are passed via env — never interpolated directly into
+        # the shell script — to prevent shell injection from crafted branch names.
+        run: node scripts/cancel-stale-eas-builds.js --branch "$BRANCH" --head "$HEAD_SHA"
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          BRANCH: ${{ github.ref_name }}
+          HEAD_SHA: ${{ github.sha }}
+          # Use the eas binary installed globally by expo/expo-github-action above,
+          # not npx eas (which would resolve an unauthenticated registry version).
+          EAS_CLI: eas

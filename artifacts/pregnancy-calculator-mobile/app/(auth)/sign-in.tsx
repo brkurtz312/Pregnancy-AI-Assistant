@@ -59,7 +59,9 @@ export default function SignInScreen() {
   const onSubmit = async () => {
     if (fetching) return;
     if (!signIn) {
-      setNotice("Sign-in is not ready yet — please wait a moment and try again.");
+      setNotice(
+        "Sign-in is not ready yet — please wait a moment and try again.",
+      );
       return;
     }
     setNotice(null);
