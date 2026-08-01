@@ -56,7 +56,7 @@ Fix requires ALL of:
 2. `CFBundleIconName = AppIcon` AND `CFBundleIconFiles` array in `watchapp/Info.plist`
 3. `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon` in `applyWatchBuildSettings`
 4. Register `Assets.xcassets` in the Watch Resources phase (`addWatchAssetCatalogToResources`)
-5. **Standalone icon PNGs at all required watchOS sizes (58–1024px) copied into the Watch bundle root** — Apple's ITMS-90391 validator does NOT inspect `Assets.car`; it only looks for PNG files listed in `CFBundleIconFiles`. `Assets.car` can be present but is irrelevant to the validator. See `addWatchIconFilesToResources` and `WATCH_ICON_FILES` constant in the plugin.
+5. **Standalone icon PNGs must land in the Watch bundle root** — Apple's ITMS-90391 validator only checks for PNG files listed in `CFBundleIconFiles`; `Assets.car` is ignored. **Critical:** `CopyBundleResources` does NOT reliably run for Watch targets with `SKIP_INSTALL=YES` on EAS, so registering PNGs in the Xcode Resources phase is not enough. The fix is to inject them in the embed shell script (`addEmbedWatchShellScript`) — after `cp -R ${WATCH_SRC} ${WATCH_DEST}/`, loop over each `AppIcon-N.png` and copy from `${SRCROOT}/PregnancyWatchApp/` into the embedded bundle. Runs before Xcode re-signs during export.
 6. Generate PNGs with `magick <src> -resize NxN AppIcon-N.png` for sizes: 58 80 87 88 100 102 108 172 196 216 234 1024
 
 ## Critical productType rule
