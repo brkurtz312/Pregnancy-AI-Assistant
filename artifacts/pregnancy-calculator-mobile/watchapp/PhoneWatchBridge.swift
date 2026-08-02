@@ -195,6 +195,13 @@ extension PhoneWatchBridge: WCSessionDelegate {
         handleMessage(context)
     }
 
+    /// Receives queued payloads sent via `transferUserInfo` (e.g. offline contraction
+    /// and kick-session-end records).  Unlike `applicationContext`, every transferred
+    /// userInfo dictionary is delivered in order, so no records are silently dropped.
+    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+        handleMessage(userInfo)
+    }
+
     private func handleMessage(_ payload: [String: Any]) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }

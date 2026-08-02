@@ -76,10 +76,10 @@ final class WatchSessionManager: NSObject, ObservableObject {
                 errorHandler: nil
             )
         } else {
-            // Queue for transfer when phone is reachable
-            try? WCSession.default.updateApplicationContext(
-                [WatchMessage.kickSessionEnd: data]
-            )
+            // Queue for ordered delivery when phone is reachable.
+            // transferUserInfo guarantees every payload is delivered;
+            // updateApplicationContext would silently discard all but the last.
+            WCSession.default.transferUserInfo([WatchMessage.kickSessionEnd: data])
         }
     }
 
@@ -92,9 +92,8 @@ final class WatchSessionManager: NSObject, ObservableObject {
                 errorHandler: nil
             )
         } else {
-            try? WCSession.default.updateApplicationContext(
-                [WatchMessage.contractionUpdate: data]
-            )
+            // Queue for ordered delivery when phone is reachable.
+            WCSession.default.transferUserInfo([WatchMessage.contractionUpdate: data])
         }
     }
 }
