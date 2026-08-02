@@ -10,7 +10,7 @@ description: WatchMessage enum defined in Watch target is not visible to the pho
 Xcode compiles the phone app target (`PregnancyAIAssistant`) and the Watch app target (`PregnancyWatchApp`) as completely separate modules. Types defined only in `ios/PregnancyWatchApp/Models.swift` are invisible to files in `ios/PregnancyAIAssistant/`. Build fails with "cannot find 'WatchMessage' in scope".
 
 ## How to apply
-- `WatchMessage` is declared in both `ios/PregnancyWatchApp/Models.swift` (Watch target) and `ios/PregnancyAIAssistant/PhoneWatchBridge.swift` (phone target).
-- If new message keys are added to `WatchMessage`, update **both files**.
-- Comment in `PhoneWatchBridge.swift` says "Keep in sync with PregnancyWatchApp/Models.swift" as a reminder.
-- Any future shared type used by both targets needs the same treatment (duplicate declaration or a proper shared framework, which Expo managed workflow doesn't support easily).
+- `WatchMessage` is declared in `watchapp/Models.swift` (Watch target source) AND `watchapp/PhoneWatchBridge.swift` (phone target source).
+- **CRITICAL:** The config plugin (`plugins/withWatchExtension.js`) copies both files from `watchapp/` during `expo prebuild`. Edits to `ios/PregnancyAIAssistant/PhoneWatchBridge.swift` are overwritten every build — always edit `watchapp/PhoneWatchBridge.swift` instead.
+- If new message keys are added to `WatchMessage`, update **both** `watchapp/Models.swift` and `watchapp/PhoneWatchBridge.swift`.
+- Any future shared type used by both targets needs the same treatment (duplicate declaration in the `watchapp/` source files).
