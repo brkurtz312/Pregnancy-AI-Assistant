@@ -101,7 +101,22 @@ final class WatchSessionManager: NSObject, ObservableObject {
 // MARK: - WCSessionDelegate
 
 extension WatchSessionManager: WCSessionDelegate {
-    func session(_ session: WCSession, activationDidCompleteWith state: WCSessionActivationState, error: Error?) {}
+    func session(_ session: WCSession, activationDidCompleteWith state: WCSessionActivationState, error: Error?) {
+        if let error = error {
+            print("[WatchSession] Activation failed — state: \(state.rawValue), error: \(error.localizedDescription)")
+        } else {
+            switch state {
+            case .activated:
+                print("[WatchSession] Activated successfully.")
+            case .inactive:
+                print("[WatchSession] Activation completed in inactive state.")
+            case .notActivated:
+                print("[WatchSession] Activation completed in notActivated state.")
+            @unknown default:
+                print("[WatchSession] Activation completed with unknown state: \(state.rawValue).")
+            }
+        }
+    }
 
     /// Receives real-time messages from the iPhone
     func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
