@@ -115,14 +115,27 @@ export function useWatchConnectivity({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!mod]);
 
-  // Push gestational week + tips atomically whenever either changes.
-  // Using a single sendWeekAndTips call ensures the Watch always receives
-  // a coherent snapshot — never a state where the week is from the new
-  // due date but the tips are still from the old one (or vice versa).
+  // Push gestational week + tips atomically whenever either changes, and also
+  // whenever the Watch session becomes ready (either because isWatchAppInstalled
+  // transitions false→true after an App Store update, or because activationState
+  // transitions "notActivated"→"activated" on first launch).
+  //
+  // Both fields are included in the dep array so the effect re-runs on either
+  // transition independently.  The native sendWeekAndTips already guards against
+  // an uninstalled companion or an inactive session; we add a JS guard here too
+  // to avoid unnecessary bridge calls.
+  //
+  // Using a single sendWeekAndTips call ensures the Watch always receives a
+  // coherent snapshot — never a state where week and tips belong to different
+  // due dates.
+  const isSessionReady =
+    watchStatus.isWatchAppInstalled &&
+    watchStatus.activationState === "activated";
   useEffect(() => {
     if (!mod || gestationalWeek == null || !tips?.length) return;
+    if (!isSessionReady) return;
     mod.sendWeekAndTips(gestationalWeek, tips).catch(() => {});
-  }, [mod, gestationalWeek, tips]);
+  }, [mod, gestationalWeek, tips, isSessionReady]);
 
   // Subscribe to watch events
   useEffect(() => {

@@ -72,10 +72,55 @@ specific hardware even when the build passes Apple's validator.
 
 ---
 
+---
+
+## 5 — App Store update from 1.0.11 (no Watch) to 1.0.12
+
+Run this section on a device that has **1.0.11 installed from the App Store** (not a fresh
+install) before updating to 1.0.12. It covers the automatic Watch-app delivery path that a
+fresh install never exercises.
+
+**Why this matters:** `useWatchConnectivity` pushes gestational-week data when it first mounts.
+On a fresh install the Watch app exists from day one, so the push succeeds. On an update the
+Watch app is absent at launch and arrives a few seconds later via watchOS automatic delivery.
+The hook must detect the `isWatchAppInstalled: false → true` transition and re-send immediately
+rather than waiting for the next due-date change.
+
+### Prerequisites
+
+- iPhone running **1.0.11** (the version without a Watch companion)
+- Apple Watch **already paired** to that iPhone
+- TestFlight build for 1.0.12 ready to install
+- Note the current gestational week shown in the app before updating
+
+---
+
+| Step | Action                                                                                 | Expected result                                                                                                                      |
+| ---- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 5.1  | Update the phone app from 1.0.11 → 1.0.12 via TestFlight                               | Update completes; app launches normally                                                                                              |
+| 5.2  | Open the updated app and navigate to the Tools tab                                     | App loads without crashes; gestational week is unchanged                                                                             |
+| 5.3  | Wait up to 60 seconds without any further action                                       | The **Pregnancy AI** Watch app icon appears on the paired Apple Watch automatically — no manual re-pair or Watch app search required |
+| 5.4  | Open the Watch app → Tips tab                                                          | Tips for the **current gestational week** are visible immediately — not blank, not "no data"                                         |
+| 5.5  | Open the Watch app → Kicks tab                                                         | Count shows **0** (no stale session from old install); "Start Counting" button is present                                            |
+| 5.6  | Open the Watch app → Contractions tab                                                  | Timer shows idle state; no phantom contraction interval or warning from a previous session                                           |
+| 5.7  | Record 3 kicks on the Watch                                                            | Counter increments; after ending the session the kick count appears in the phone's Tools tab                                         |
+| 5.8  | Start and stop a contraction on the Watch                                              | Contraction record appears on the phone when the Watch is reachable                                                                  |
+| 5.9  | Put the phone in airplane mode, record 2 more kicks on the Watch, restore connectivity | Both kick records sync to the phone within a few seconds of reconnect                                                                |
+
+**Pass criteria:**
+
+- Watch app installs automatically (step 5.3) with no manual steps
+- Tips reflect the current gestational week on first open (step 5.4) — confirmed by the unit test `watchAppStoreUpdate.test.tsx`
+- Timers start from clean state (steps 5.5–5.6)
+- Data flows phone → Watch (tips/week) and Watch → phone (kicks/contractions) correctly
+
+---
+
 ## Sign-off
 
-| Build | Tester | Device | watchOS | Date | Icon ✓ | Kicks ✓ | Contractions ✓ | Tips ✓ | Notes |
-| ----- | ------ | ------ | ------- | ---- | ------ | ------- | -------------- | ------ | ----- |
-| #124  |        |        |         |      |        |         |                |        |       |
+| Build | Tester | Device | watchOS | Date | Icon ✓ | Kicks ✓ | Contractions ✓ | Tips ✓ | Update ✓ | Notes              |
+| ----- | ------ | ------ | ------- | ---- | ------ | ------- | -------------- | ------ | -------- | ------------------ |
+| #124  |        |        |         |      |        |         |                |        | N/A      | Fresh-install only |
+|       |        |        |         |      |        |         |                |        |          |                    |
 
 Record any failures as issues against the relevant task before approving the build for wider TestFlight distribution.
