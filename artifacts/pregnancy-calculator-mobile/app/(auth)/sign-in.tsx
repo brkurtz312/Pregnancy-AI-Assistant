@@ -55,6 +55,24 @@ export default function SignInScreen() {
   const [notice, setNotice] = useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
+  // Hidden until confirmed available — hides the button on old binaries that
+  // don't have expo-apple-authentication linked as a native module.
+  const [isAppleAvailable, setIsAppleAvailable] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    (async () => {
+      try {
+        // Safe-require: throws if the native module isn't in this binary.
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const AppleAuth = require("expo-apple-authentication");
+        const available = await AppleAuth.isAvailableAsync();
+        setIsAppleAvailable(available);
+      } catch {
+        setIsAppleAvailable(false);
+      }
+    })();
+  }, []);
 
   const fetching = fetchStatus === "fetching";
   const errorText =
@@ -248,8 +266,8 @@ export default function SignInScreen() {
             )}
           </TouchableOpacity>
 
-          {/* Apple SSO — shown on iOS only */}
-          {Platform.OS === "ios" && (
+          {/* Apple SSO — shown on iOS only when native module is linked */}
+          {isAppleAvailable && (
             <TouchableOpacity
               style={[styles.appleBtn, { opacity: appleLoading ? 0.7 : 1 }]}
               onPress={onApplePress}
