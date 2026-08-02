@@ -74,7 +74,33 @@ specific hardware even when the build passes Apple's validator.
 
 ---
 
-## 5 — App Store update from 1.0.11 (no Watch) to 1.0.12
+## 5 — Tips survive force-quit and relaunch (no phone required)
+
+**Why:** `WatchSessionManager` persists both the tips array (`watchTips`) and the current
+gestational week (`watchGestationalWeek`) to `UserDefaults` whenever the phone sends an update.
+On relaunch both values are restored in `init()` before any WCSession activation, so the Tips
+tab should show the correct week's content immediately — not the "Open the app on your iPhone to
+sync" fallback.
+
+### Prerequisites
+
+- Apple Watch with the Pregnancy AI app installed and at least one prior sync from the iPhone
+  (Tips tab was showing Week N content)
+
+| Step | Action                                                                             | Expected result                                                                              |
+| ---- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| 5.1  | Confirm Tips tab shows Week N content                                              | Tips cards for Week N visible; "Open the app on your iPhone" message is **not** shown        |
+| 5.2  | Force-quit the Watch app (swipe up from bottom to open app switcher, swipe up on the Pregnancy AI card) | Watch app is closed |
+| 5.3  | Put the iPhone out of reach or into Airplane Mode                                  | Phone is unreachable — no background push can arrive                                         |
+| 5.4  | Relaunch the Pregnancy AI Watch app from the app grid                              | Tips tab shows the **same Week N content** immediately — no blank screen, no sync prompt     |
+| 5.5  | Swipe through the tips cards                                                       | All cards render correctly; no blank or malformed entries                                    |
+| 5.6  | Restore iPhone connectivity                                                        | No crash or freeze after the WCSession reconnects                                            |
+
+**Pass criteria:** Week N tips are visible immediately after relaunch without any iPhone interaction.
+
+---
+
+## 6 — App Store update from 1.0.11 (no Watch) to 1.0.12
 
 Run this section on a device that has **1.0.11 installed from the App Store** (not a fresh
 install) before updating to 1.0.12. It covers the automatic Watch-app delivery path that a
