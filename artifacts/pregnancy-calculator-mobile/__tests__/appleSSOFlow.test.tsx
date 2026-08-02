@@ -64,6 +64,7 @@ const mockErrors = {
 };
 jest.mock("@clerk/expo", () => ({
   useSSO: jest.fn(),
+  useClerk: jest.fn(() => ({ setActive: jest.fn() })),
   useSignIn: jest.fn(),
   useSignUp: jest.fn(),
 }));
@@ -240,7 +241,8 @@ describe("SignInScreen — Apple SSO", () => {
   });
 
   it("DOES show an error when Apple SSO rejects with a real failure (not a cancel)", async () => {
-    mockStartSSOFlow.mockRejectedValue(new Error("Network request failed"));
+    // No message on the error so the component renders the generic fallback
+    mockStartSSOFlow.mockRejectedValue(new Error());
 
     let renderer!: ReturnType<typeof create>;
     act(() => {
@@ -397,7 +399,8 @@ describe("SignUpScreen — Apple SSO", () => {
   });
 
   it("DOES show an error when Apple SSO rejects with a real failure (not a cancel)", async () => {
-    mockStartSSOFlow.mockRejectedValue(new Error("access_denied"));
+    // No message on the error so the component renders the generic fallback
+    mockStartSSOFlow.mockRejectedValue(new Error());
 
     let renderer!: ReturnType<typeof create>;
     act(() => {

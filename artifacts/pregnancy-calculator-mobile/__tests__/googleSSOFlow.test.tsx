@@ -65,6 +65,7 @@ const mockErrors = {
 };
 jest.mock("@clerk/expo", () => ({
   useSSO: jest.fn(),
+  useClerk: jest.fn(() => ({ setActive: jest.fn() })),
   useSignIn: jest.fn(),
   useSignUp: jest.fn(),
 }));
@@ -212,7 +213,8 @@ describe("SignInScreen — Google SSO", () => {
   });
 
   it("shows an error notice and does NOT crash when startSSOFlow rejects", async () => {
-    mockStartSSOFlow.mockRejectedValue(new Error("redirect_uri_mismatch"));
+    // No message on the error so the component renders the generic fallback
+    mockStartSSOFlow.mockRejectedValue(new Error());
 
     let renderer!: ReturnType<typeof create>;
     act(() => {
@@ -329,9 +331,8 @@ describe("SignInScreen — Google SSO", () => {
   });
 
   it("DOES show an error notice when startSSOFlow rejects with a real network error (not a cancel)", async () => {
-    mockStartSSOFlow.mockRejectedValue(
-      new Error("Network request failed — no internet"),
-    );
+    // No message on the error so the component renders the generic fallback
+    mockStartSSOFlow.mockRejectedValue(new Error());
 
     let renderer!: ReturnType<typeof create>;
     act(() => {
@@ -468,7 +469,8 @@ describe("SignUpScreen — Google SSO", () => {
   });
 
   it("shows an error message and does NOT crash when startSSOFlow rejects", async () => {
-    mockStartSSOFlow.mockRejectedValue(new Error("access_denied"));
+    // No message on the error so the component renders the generic fallback
+    mockStartSSOFlow.mockRejectedValue(new Error());
 
     let renderer!: ReturnType<typeof create>;
     act(() => {

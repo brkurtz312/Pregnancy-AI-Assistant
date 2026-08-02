@@ -51,6 +51,7 @@ jest.mock("expo-haptics", () => ({
 
 jest.mock("@/lib/haptics", () => ({
   impact: jest.fn(),
+  notification: jest.fn(),
 }));
 
 // ── Design ────────────────────────────────────────────────────────────────────
@@ -174,25 +175,34 @@ jest.mock("@/hooks/useWatchConnectivity", () => ({
 }));
 
 // ── Imports (after all mocks) ──────────────────────────────────────────────────
+import { Text } from "react-native";
 import { useAuth } from "@clerk/expo";
 import { WatchBackgroundListener } from "../components/WatchBackgroundListener";
-import { KickCounterSection } from "../app/(tabs)/tools";
+import {
+  KickCounterSection,
+  ContractionTimerSection,
+} from "../app/(tabs)/tools";
 
 const mockUseAuth = useAuth as jest.Mock;
-
-function renderWatchListener() {
-  mockUseAuth.mockReturnValue({ isSignedIn: true });
-  let renderer!: ReturnType<typeof create>;
-  act(() => {
-    renderer = create(React.createElement(WatchBackgroundListener));
-  });
-  return renderer;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("WatchBackgroundListener — Watch → Tools sync (no manual refresh)", () => {
+  // Track each WatchBackgroundListener renderer so afterEach can drain its
+  // 3-second toast timer (while still mounted) and then unmount cleanly.
+  let listenerRenderer: ReturnType<typeof create> | null = null;
+
+  function renderWatchListener() {
+    mockUseAuth.mockReturnValue({ isSignedIn: true });
+    act(() => {
+      listenerRenderer = create(React.createElement(WatchBackgroundListener));
+    });
+    return listenerRenderer!;
+  }
+
   beforeEach(() => {
+    jest.useFakeTimers();
+    listenerRenderer = null;
     capturedOnKickSessionEnd = undefined;
     capturedOnContractionUpdate = undefined;
     jest.clearAllMocks();
@@ -213,6 +223,17 @@ describe("WatchBackgroundListener — Watch → Tools sync (no manual refresh)",
   });
 
   afterEach(() => {
+    // Drain the WatchToast hide-timer while the tree is still mounted
+    act(() => {
+      jest.runAllTimers();
+    });
+    if (listenerRenderer) {
+      act(() => {
+        listenerRenderer!.unmount();
+      });
+      listenerRenderer = null;
+    }
+    jest.useRealTimers();
     jest.clearAllMocks();
   });
 
@@ -578,5 +599,286 @@ describe("Watch + phone concurrent kick session ends", () => {
     expect(mockInvalidateQueries).toHaveBeenCalledTimes(1);
     // Phone triggered its own refetch — neither refresh suppresses the other
     expect(mockRefetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Cold-start durability
+//
+// After the Watch fires onKickSessionEnd (or onContractionUpdate) the
+// mutation persists the row and invalidates the query cache.  When the user
+// closes and reopens the app the cache starts empty — the data must come back
+// from the server via useListKickSessions / useListContractions.
+//
+// These tests verify that:
+//   1. The saved row is visible after a cold-start (fresh cache mount)
+//   2. onKickSessionEnd is NOT re-fired on the fresh mount — the component
+//      reads from the query, not from the Watch callback.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("Cold-start durability — Watch data survives app close and reopen", () => {
+  // ── Shared server-state doubles ──────────────────────────────────────────
+  //
+  // Rather than injecting phase-2 data manually, the mutation mocks write
+  // to these arrays and the list-hook mocks read from them.  This creates a
+  // real data-flow link: if the create mutation never fires, nothing appears
+  // in the list — exactly what the cold-start guarantee requires.
+  //
+  // kickServerRows / contractionServerRows start empty each test, so a fresh
+  // mount with no prior mutation produces an empty list.  Once a mutation
+  // writes a row, every subsequent mount of KickCounterSection or
+  // ContractionTimerSection will render it (simulating the server returning
+  // the persisted record after an app reopen).
+
+  type KickRow = {
+    id: number;
+    kickCount: number;
+    startedAt: string;
+    endedAt: string;
+  };
+  type ContractionRow = {
+    id: number;
+    startedAt: string;
+    endedAt: string;
+    durationSeconds?: number;
+    intervalSeconds?: number;
+    sessionDate?: string;
+  };
+
+  let kickServerRows: KickRow[] = [];
+  let contractionServerRows: ContractionRow[] = [];
+  let nextKickId: number;
+  let nextContractionId: number;
+
+  // All renderers are tracked here so afterEach drains timers while mounted,
+  // then unmounts cleanly.
+  let activeRenderers: ReturnType<typeof create>[] = [];
+
+  function mount(element: React.ReactElement): ReturnType<typeof create> {
+    let renderer!: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(element);
+    });
+    activeRenderers.push(renderer);
+    return renderer;
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    kickServerRows = [];
+    contractionServerRows = [];
+    nextKickId = 100;
+    nextContractionId = 200;
+    activeRenderers = [];
+    capturedOnKickSessionEnd = undefined;
+    capturedOnContractionUpdate = undefined;
+    jest.clearAllMocks();
+
+    mockUseAuth.mockReturnValue({ isSignedIn: true });
+    mockInvalidateQueries.mockResolvedValue(undefined);
+
+    // Mutations write to the server double and return the new ID
+    mockKickMutateAsync.mockImplementation(
+      async ({ data }: { data: Omit<KickRow, "id"> }) => {
+        const id = nextKickId++;
+        kickServerRows.push({ id, ...data });
+        return { id };
+      },
+    );
+    mockContractionMutateAsync.mockImplementation(
+      async ({ data }: { data: Omit<ContractionRow, "id"> }) => {
+        const id = nextContractionId++;
+        contractionServerRows.push({ id, ...data });
+        return { id };
+      },
+    );
+
+    const apiMock = require("@workspace/api-client-react");
+    apiMock.useCreateKickSession.mockReturnValue({
+      mutateAsync: mockKickMutateAsync,
+      isPending: false,
+    });
+    apiMock.useCreateContraction.mockReturnValue({
+      mutateAsync: mockContractionMutateAsync,
+      isPending: false,
+    });
+
+    // List hooks read from the server double; a fresh mount after mutation
+    // sees the persisted row without any manual injection
+    apiMock.useListKickSessions.mockImplementation(() => ({
+      data: { items: [...kickServerRows] },
+      isLoading: false,
+      refetch: mockRefetch,
+    }));
+    apiMock.useListContractions.mockImplementation(() => ({
+      data: { items: [...contractionServerRows] },
+      isLoading: false,
+      refetch: jest.fn(),
+    }));
+    apiMock.useDeleteKickSession.mockReturnValue({
+      mutateAsync: jest.fn().mockResolvedValue(undefined),
+      isPending: false,
+    });
+    apiMock.useDeleteContraction.mockReturnValue({
+      mutateAsync: jest.fn().mockResolvedValue(undefined),
+      isPending: false,
+    });
+  });
+
+  afterEach(() => {
+    // Drain the WatchToast hide-timer while trees are still mounted
+    act(() => {
+      jest.runAllTimers();
+    });
+    while (activeRenderers.length) {
+      const r = activeRenderers.pop()!;
+      act(() => {
+        r.unmount();
+      });
+    }
+    jest.useRealTimers();
+    jest.clearAllMocks();
+  });
+
+  it("kick session saved by the Watch appears in the list after a cold-start (fresh query cache)", async () => {
+    // ── Phase 1: Watch fires onKickSessionEnd, mutation writes to server ──
+    const phase1Listener = mount(React.createElement(WatchBackgroundListener));
+    await act(async () => {});
+
+    expect(capturedOnKickSessionEnd).toBeDefined();
+
+    const savedSession = {
+      kickCount: 6,
+      startedAt: "2026-08-01T08:00:00.000Z",
+      endedAt: "2026-08-01T08:15:00.000Z",
+    };
+
+    await act(async () => {
+      await capturedOnKickSessionEnd!(savedSession);
+    });
+
+    // Mutation called once — server double now contains the row
+    expect(mockKickMutateAsync).toHaveBeenCalledTimes(1);
+    expect(kickServerRows).toHaveLength(1);
+    expect(kickServerRows[0].kickCount).toBe(6);
+    // Cache invalidated so next mount fetches fresh data
+    expect(mockInvalidateQueries).toHaveBeenCalledTimes(1);
+
+    // Simulate app close: unmount phase-1 components
+    act(() => {
+      phase1Listener.unmount();
+    });
+    activeRenderers.splice(activeRenderers.indexOf(phase1Listener), 1);
+    capturedOnKickSessionEnd = undefined;
+
+    // ── Phase 2: Cold-start — fresh components, list reads from server ────
+    // No manual mock override here: useListKickSessions.mockImplementation
+    // already reads from kickServerRows, which now contains the saved row.
+    // This proves the data flows through the mutation → server → query path.
+    const createCallsBefore = mockKickMutateAsync.mock.calls.length;
+
+    mount(React.createElement(WatchBackgroundListener));
+    const coldList = mount(React.createElement(KickCounterSection));
+    await act(async () => {});
+
+    // The saved row must appear in the rendered output
+    const textNodes = coldList.root.findAllByType(Text);
+    const renderedTexts = textNodes
+      .map((n) => String(n.props.children ?? ""))
+      .filter(Boolean);
+    expect(renderedTexts.some((t) => t.includes("6"))).toBe(true);
+
+    // The server double must still have exactly 1 row — no duplicate created
+    expect(kickServerRows).toHaveLength(1);
+    // The create mutation must not have been called again on fresh mount
+    expect(mockKickMutateAsync.mock.calls.length).toBe(createCallsBefore);
+  });
+
+  it("contraction saved by the Watch appears in the list after a cold-start (fresh query cache)", async () => {
+    // ── Phase 1: Watch fires onContractionUpdate, mutation writes to server
+    const phase1Listener = mount(React.createElement(WatchBackgroundListener));
+    await act(async () => {});
+
+    expect(capturedOnContractionUpdate).toBeDefined();
+
+    const savedContraction = {
+      startedAt: "2026-08-01T12:00:00.000Z",
+      endedAt: "2026-08-01T12:01:00.000Z",
+      interval: 420,
+    };
+
+    await act(async () => {
+      await capturedOnContractionUpdate!(savedContraction);
+    });
+
+    expect(mockContractionMutateAsync).toHaveBeenCalledTimes(1);
+    // Server double holds the persisted contraction (duration = 60 s)
+    expect(contractionServerRows).toHaveLength(1);
+    expect(contractionServerRows[0].durationSeconds).toBe(60);
+    expect(mockInvalidateQueries).toHaveBeenCalledTimes(1);
+
+    // Simulate app close
+    act(() => {
+      phase1Listener.unmount();
+    });
+    activeRenderers.splice(activeRenderers.indexOf(phase1Listener), 1);
+    capturedOnContractionUpdate = undefined;
+
+    // ── Phase 2: Cold-start — fresh ContractionTimerSection reads from server
+    const createCallsBefore = mockContractionMutateAsync.mock.calls.length;
+
+    mount(React.createElement(WatchBackgroundListener));
+    const coldList = mount(React.createElement(ContractionTimerSection));
+    await act(async () => {});
+
+    // The saved contraction row must appear — durationSeconds:60 → "1:00"
+    const textNodes = coldList.root.findAllByType(Text);
+    const renderedTexts = textNodes
+      .map((n) => String(n.props.children ?? ""))
+      .filter(Boolean);
+    expect(renderedTexts.some((t) => t.includes("1:00"))).toBe(true);
+
+    // No new row must have been written to the server double
+    expect(contractionServerRows).toHaveLength(1);
+    expect(mockContractionMutateAsync.mock.calls.length).toBe(
+      createCallsBefore,
+    );
+  });
+
+  it("does not call onKickSessionEnd a second time when the list re-renders with cached data", async () => {
+    // Pre-populate the server double with an existing kick session, as if it
+    // was saved in a previous app session.
+    kickServerRows.push({
+      id: 55,
+      kickCount: 3,
+      startedAt: "2026-08-01T07:00:00.000Z",
+      endedAt: "2026-08-01T07:10:00.000Z",
+    });
+
+    // Mount both components — no Watch callback is fired
+    mount(React.createElement(WatchBackgroundListener));
+    const kickRenderer = mount(React.createElement(KickCounterSection));
+    await act(async () => {});
+
+    // The pre-populated row appears in the list without any mutation
+    expect(mockKickMutateAsync).not.toHaveBeenCalled();
+    expect(kickServerRows).toHaveLength(1);
+
+    // Simulate tab-focus / foreground transitions: renderer.update() forces
+    // React to re-run the component function, matching the real runtime path
+    act(() => {
+      kickRenderer.update(React.createElement(KickCounterSection));
+    });
+    await act(async () => {});
+    act(() => {
+      kickRenderer.update(React.createElement(KickCounterSection));
+    });
+    await act(async () => {});
+
+    // Re-renders must not have triggered the Watch create mutation
+    expect(mockKickMutateAsync).not.toHaveBeenCalled();
+    // Server double still holds only the one pre-populated row
+    expect(kickServerRows).toHaveLength(1);
   });
 });

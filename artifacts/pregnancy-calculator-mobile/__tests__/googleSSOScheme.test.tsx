@@ -57,6 +57,7 @@ const mockStartSSOFlow = jest.fn();
 
 jest.mock("@clerk/expo", () => ({
   useSSO: jest.fn(() => ({ startSSOFlow: mockStartSSOFlow })),
+  useClerk: jest.fn(() => ({ setActive: jest.fn() })),
   useSignIn: jest.fn(() => ({
     signIn: { password: jest.fn(), finalize: jest.fn() },
     errors: { fields: {} },

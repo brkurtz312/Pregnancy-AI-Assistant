@@ -686,7 +686,7 @@ export function KickCounterSection() {
 
 // ─── Contraction Timer Section ───────────────────────────────────────────────
 
-function ContractionTimerSection() {
+export function ContractionTimerSection() {
   const colors = useColors();
   const today = todayDate();
   const { data, isLoading, refetch } = useListContractions({

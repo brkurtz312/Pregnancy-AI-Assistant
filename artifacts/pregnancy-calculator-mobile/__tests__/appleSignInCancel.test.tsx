@@ -25,6 +25,7 @@ const mockReplace = jest.fn();
 
 jest.mock("@clerk/expo", () => ({
   useSSO: () => ({ startSSOFlow: mockStartSSOFlow }),
+  useClerk: jest.fn(() => ({ setActive: jest.fn() })),
   useSignIn: () => ({
     signIn: { password: jest.fn().mockResolvedValue({ error: null }) },
     errors: { fields: {} },
@@ -182,7 +183,8 @@ describe("SignIn — Apple Sign-In cancellation", () => {
   });
 
   it("shows an error when a genuine Apple auth failure occurs", async () => {
-    mockStartSSOFlow.mockRejectedValue(new Error("Session creation failed"));
+    // No message so the component renders the generic fallback text
+    mockStartSSOFlow.mockRejectedValue(new Error());
 
     let renderer!: ReactTestRenderer;
     act(() => {
