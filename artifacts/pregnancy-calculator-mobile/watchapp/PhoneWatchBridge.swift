@@ -6,6 +6,19 @@
 import Foundation
 import WatchConnectivity
 
+/// Message key constants used by the phone app to communicate with the Watch.
+/// Keep in sync with Models.swift (WatchMessage is also declared there for the Watch target).
+enum WatchMessage {
+    static let kickUpdate = "kickUpdate"
+    static let kickCount = "kickCount"
+    static let kickSessionEnd = "kickSessionEnd"
+    static let kickSession = "kickSession"
+    static let contractionUpdate = "contractionUpdate"
+    static let contraction = "contraction"
+    static let tips = "tips"
+    static let gestationalWeek = "gestationalWeek"
+}
+
 @objc final class PhoneWatchBridge: NSObject {
     @objc static let shared = PhoneWatchBridge()
     private let encoder = JSONEncoder()
