@@ -53,6 +53,14 @@ jest.mock("expo-auth-session", () => ({
     mockMakeRedirectUri(...args),
 }));
 
+// sign-in.tsx imports useSignInWithApple from @clerk/expo/apple; mock it so
+// tests that render SignInScreen don't hit the real ClerkProvider guard.
+jest.mock("@clerk/expo/apple", () => ({
+  useSignInWithApple: jest.fn(() => ({
+    startAppleAuthenticationFlow: jest.fn(),
+  })),
+}));
+
 const mockStartSSOFlow = jest.fn();
 
 jest.mock("@clerk/expo", () => ({

@@ -64,7 +64,6 @@ export default function SignInScreen() {
     (async () => {
       try {
         // Safe-require: throws if the native module isn't in this binary.
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const AppleAuth = require("expo-apple-authentication");
         const available = await AppleAuth.isAvailableAsync();
         setIsAppleAvailable(available);

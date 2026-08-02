@@ -19,9 +19,23 @@ jest.mock("react-native-reanimated", () =>
   require("react-native-reanimated/mock"),
 );
 
+const mockStartAppleAuthFlow = jest.fn();
 const mockStartSSOFlow = jest.fn();
 const mockDismissAll = jest.fn();
 const mockReplace = jest.fn();
+
+// sign-in.tsx gates the Apple button behind isAvailableAsync(); resolve true
+// so the button renders in every test that exercises the sign-in screen.
+jest.mock("expo-apple-authentication", () => ({
+  isAvailableAsync: jest.fn().mockResolvedValue(true),
+}));
+
+// sign-in.tsx uses the native Apple auth sheet via @clerk/expo/apple
+jest.mock("@clerk/expo/apple", () => ({
+  useSignInWithApple: jest.fn(() => ({
+    startAppleAuthenticationFlow: mockStartAppleAuthFlow,
+  })),
+}));
 
 jest.mock("@clerk/expo", () => ({
   useSSO: () => ({ startSSOFlow: mockStartSSOFlow }),
@@ -162,7 +176,8 @@ describe("SignIn — Apple Sign-In cancellation", () => {
   afterEach(() => jest.clearAllMocks());
 
   it("shows no error when the user dismisses the Apple sheet (ERR_CANCELED)", async () => {
-    mockStartSSOFlow.mockRejectedValue({ code: "ERR_CANCELED" });
+    // sign-in.tsx uses startAppleAuthenticationFlow (native sheet), not startSSOFlow
+    mockStartAppleAuthFlow.mockRejectedValue({ code: "ERR_CANCELED" });
 
     let renderer!: ReactTestRenderer;
     act(() => {
@@ -184,7 +199,7 @@ describe("SignIn — Apple Sign-In cancellation", () => {
 
   it("shows an error when a genuine Apple auth failure occurs", async () => {
     // No message so the component renders the generic fallback text
-    mockStartSSOFlow.mockRejectedValue(new Error());
+    mockStartAppleAuthFlow.mockRejectedValue(new Error());
 
     let renderer!: ReactTestRenderer;
     act(() => {
@@ -204,7 +219,7 @@ describe("SignIn — Apple Sign-In cancellation", () => {
   });
 
   it("shows no error when the user dismisses via a 'cancel' message", async () => {
-    mockStartSSOFlow.mockRejectedValue(new Error("user cancel"));
+    mockStartAppleAuthFlow.mockRejectedValue(new Error("user cancel"));
 
     let renderer!: ReactTestRenderer;
     act(() => {
