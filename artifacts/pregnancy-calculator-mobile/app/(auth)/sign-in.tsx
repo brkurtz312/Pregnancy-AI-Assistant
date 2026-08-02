@@ -1,10 +1,11 @@
 import { useClerk, useSSO, useSignIn } from "@clerk/expo";
+import { useSignInWithApple } from "@clerk/expo/apple";
 import { Ionicons } from "@expo/vector-icons";
 import * as AuthSession from "expo-auth-session";
 import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -44,6 +45,10 @@ export default function SignInScreen() {
   const { signIn, errors, fetchStatus } = useSignIn();
   const { setActive } = useClerk();
   const { startSSOFlow } = useSSO();
+  const { startAppleAuthenticationFlow } = useSignInWithApple();
+  // Tracks whether setActive already succeeded so the catch block knows
+  // not to show an error if Clerk's background cleanup fires a 400 afterwards.
+  const sessionActivated = useRef(false);
 
   const [emailAddress, setEmailAddress] = useState("");
   const [password, setPassword] = useState("");
@@ -65,6 +70,7 @@ export default function SignInScreen() {
       );
       return;
     }
+    sessionActivated.current = false;
     setNotice(null);
     try {
       const { error } = await signIn.password({
@@ -73,17 +79,23 @@ export default function SignInScreen() {
       });
       if (error) return;
 
-      // finalize() is not a Clerk method — activate the session explicitly.
+      // Activate the session. Mark the flag BEFORE dismissAll so the catch
+      // block knows not to surface an error if Clerk's background cleanup
+      // fires a 400 after we've already navigated away.
       if (setActive && signIn.createdSessionId) {
         await setActive({ session: signIn.createdSessionId });
       }
-      // dismissAll closes the fullScreenModal and returns to the root,
-      // where Clerk's now-active session renders the main app.
+      sessionActivated.current = true;
       router.dismissAll();
     } catch (err: unknown) {
+      // Clerk's background state management sometimes fires a second sign-in
+      // request after setActive succeeds, returning 400. If we already
+      // activated the session, navigate away and ignore the stale error.
+      if (sessionActivated.current) {
+        router.dismissAll();
+        return;
+      }
       console.error("Sign-in error:", JSON.stringify(err, null, 2));
-      // Surface the actual Clerk error message so the user (and developer)
-      // can see exactly what went wrong, not a generic fallback.
       const clerkErr = err as {
         errors?: Array<{ longMessage?: string; message?: string }>;
       };
@@ -144,9 +156,11 @@ export default function SignInScreen() {
     if (appleLoading) return;
     setAppleLoading(true);
     try {
-      const { createdSessionId, setActive } = await startSSOFlow({
-        strategy: "oauth_apple",
-      });
+      // Use the native Apple auth sheet (expo-apple-authentication) via
+      // useSignInWithApple. This avoids web OAuth which Apple blocks for
+      // custom-scheme redirect URLs.
+      const { createdSessionId, setActive } =
+        await startAppleAuthenticationFlow();
 
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
@@ -171,7 +185,7 @@ export default function SignInScreen() {
     } finally {
       setAppleLoading(false);
     }
-  }, [appleLoading, startSSOFlow, router]);
+  }, [appleLoading, startAppleAuthenticationFlow, router]);
 
   const containerPad = {
     paddingTop: insets.top + 12,
