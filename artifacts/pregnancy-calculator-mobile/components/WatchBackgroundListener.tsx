@@ -8,7 +8,7 @@
  * the Tools tab sees fresh data next time it mounts.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@clerk/expo";
@@ -18,12 +18,17 @@ import {
   useCreateContraction,
   getListKickSessionsQueryKey,
   getListContractionsQueryKey,
+  useGetProfile,
+  getGetProfileQueryKey,
 } from "@workspace/api-client-react";
 import {
   useWatchConnectivity,
   type KickSessionSummary,
   type ContractionRecord,
+  type WatchTip,
 } from "@/hooks/useWatchConnectivity";
+import { getWeeklyDevelopment } from "@/lib/fetal-development";
+import { calculateByDueDate } from "@/lib/pregnancy-math";
 
 function todayDate() {
   return new Date().toISOString().slice(0, 10);
@@ -74,6 +79,52 @@ export function WatchBackgroundListener() {
   const queryClient = useQueryClient();
   const kickMutation = useCreateKickSession();
   const contractionMutation = useCreateContraction();
+
+  // ── Tips sync ─────────────────────────────────────────────────────────────
+  // Compute tips here (globally mounted) so they sync on every app open,
+  // not only when the Home or Tools tab happens to be active.
+  const { data: profile } = useGetProfile({
+    query: { enabled: !!isSignedIn, queryKey: getGetProfileQueryKey() },
+  });
+
+  const gestationalWeek = useMemo(() => {
+    if (!profile?.dueDate) return undefined;
+    try {
+      return calculateByDueDate(new Date(profile.dueDate))
+        .currentGestationalAgeWeeks;
+    } catch {
+      return undefined;
+    }
+  }, [profile?.dueDate]);
+
+  const watchTips = useMemo((): WatchTip[] => {
+    if (gestationalWeek == null) return [];
+    const weekData = getWeeklyDevelopment(gestationalWeek);
+    return [
+      {
+        week: gestationalWeek,
+        emoji: "👶",
+        text:
+          weekData.development[0] ??
+          `Week ${gestationalWeek}: Baby is growing every day.`,
+      },
+      {
+        week: gestationalWeek,
+        emoji: "🤰",
+        text: weekData.motherChanges[0] ?? "Take care of yourself this week.",
+      },
+      {
+        week: gestationalWeek,
+        emoji: "📅",
+        text: weekData.comingUp,
+      },
+      {
+        week: gestationalWeek,
+        emoji: "💧",
+        text: "Stay hydrated — aim for 8–10 glasses of water daily.",
+      },
+    ];
+  }, [gestationalWeek]);
 
   const [toast, setToast] = useState<WatchToastState>({
     message: "",
@@ -161,6 +212,8 @@ export function WatchBackgroundListener() {
   );
 
   useWatchConnectivity({
+    gestationalWeek,
+    tips: watchTips,
     onKickSessionEnd: isSignedIn ? handleKickSessionEnd : undefined,
     onContractionUpdate: isSignedIn ? handleContractionUpdate : undefined,
   });
