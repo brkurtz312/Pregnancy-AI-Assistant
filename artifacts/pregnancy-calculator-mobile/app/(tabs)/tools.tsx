@@ -419,7 +419,7 @@ function SymptomLogSection() {
 
 // ─── Kick Counter Section ────────────────────────────────────────────────────
 
-function KickCounterSection() {
+export function KickCounterSection() {
   const colors = useColors();
   const { data, isLoading, refetch } = useListKickSessions({
     limit: 10,
