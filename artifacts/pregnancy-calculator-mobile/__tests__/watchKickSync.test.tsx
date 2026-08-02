@@ -604,6 +604,166 @@ describe("Watch + phone concurrent kick session ends", () => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 //
+// Save-failure toasts
+//
+// When mutateAsync rejects (network error, auth expiry, server 5xx) the
+// WatchBackgroundListener must show an error toast so the user knows their
+// Watch data was not recorded, instead of silently discarding it.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("WatchBackgroundListener — save-failure error toasts", () => {
+  let listenerRenderer: ReturnType<typeof create> | null = null;
+
+  function renderWatchListener() {
+    mockUseAuth.mockReturnValue({ isSignedIn: true });
+    act(() => {
+      listenerRenderer = create(React.createElement(WatchBackgroundListener));
+    });
+    return listenerRenderer!;
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    listenerRenderer = null;
+    capturedOnKickSessionEnd = undefined;
+    capturedOnContractionUpdate = undefined;
+    jest.clearAllMocks();
+    mockUseAuth.mockReturnValue({ isSignedIn: true });
+    mockInvalidateQueries.mockResolvedValue(undefined);
+
+    const apiMock = require("@workspace/api-client-react");
+    apiMock.useCreateKickSession.mockReturnValue({
+      mutateAsync: mockKickMutateAsync,
+      isPending: false,
+    });
+    apiMock.useCreateContraction.mockReturnValue({
+      mutateAsync: mockContractionMutateAsync,
+      isPending: false,
+    });
+  });
+
+  afterEach(() => {
+    act(() => {
+      jest.runAllTimers();
+    });
+    if (listenerRenderer) {
+      act(() => {
+        listenerRenderer!.unmount();
+      });
+      listenerRenderer = null;
+    }
+    jest.useRealTimers();
+    jest.clearAllMocks();
+  });
+
+  it("shows an error toast when the kick-session save fails", async () => {
+    mockKickMutateAsync.mockRejectedValueOnce(new Error("Network error"));
+    const renderer = renderWatchListener();
+    await act(async () => {});
+
+    expect(capturedOnKickSessionEnd).toBeDefined();
+
+    await act(async () => {
+      await capturedOnKickSessionEnd!({
+        kickCount: 5,
+        startedAt: "2026-08-01T10:00:00.000Z",
+        endedAt: "2026-08-01T10:20:00.000Z",
+      });
+    });
+
+    // Cache must NOT be invalidated — save failed
+    expect(mockInvalidateQueries).not.toHaveBeenCalled();
+
+    // Error toast must be visible with an appropriate message
+    const textNodes = renderer.root.findAllByType(Text);
+    const renderedTexts = textNodes
+      .map((n) => String(n.props.children ?? ""))
+      .filter(Boolean);
+    expect(
+      renderedTexts.some((t) => t.toLowerCase().includes("couldn't be saved")),
+    ).toBe(true);
+  });
+
+  it("shows an error toast when the contraction save fails", async () => {
+    mockContractionMutateAsync.mockRejectedValueOnce(
+      new Error("401 Unauthorized"),
+    );
+    const renderer = renderWatchListener();
+    await act(async () => {});
+
+    expect(capturedOnContractionUpdate).toBeDefined();
+
+    await act(async () => {
+      await capturedOnContractionUpdate!({
+        startedAt: "2026-08-01T14:00:00.000Z",
+        endedAt: "2026-08-01T14:01:00.000Z",
+        interval: 300,
+      });
+    });
+
+    // Cache must NOT be invalidated — save failed
+    expect(mockInvalidateQueries).not.toHaveBeenCalled();
+
+    // Error toast must be visible with an appropriate message
+    const textNodes = renderer.root.findAllByType(Text);
+    const renderedTexts = textNodes
+      .map((n) => String(n.props.children ?? ""))
+      .filter(Boolean);
+    expect(
+      renderedTexts.some((t) => t.toLowerCase().includes("couldn't be saved")),
+    ).toBe(true);
+  });
+
+  it("shows a success toast (not error) when kick-session save succeeds", async () => {
+    mockKickMutateAsync.mockResolvedValueOnce({ id: 42 });
+    const renderer = renderWatchListener();
+    await act(async () => {});
+
+    await act(async () => {
+      await capturedOnKickSessionEnd!({
+        kickCount: 3,
+        startedAt: "2026-08-01T09:00:00.000Z",
+        endedAt: "2026-08-01T09:10:00.000Z",
+      });
+    });
+
+    const textNodes = renderer.root.findAllByType(Text);
+    const renderedTexts = textNodes
+      .map((n) => String(n.props.children ?? ""))
+      .filter(Boolean);
+    expect(renderedTexts.some((t) => t.includes("Kick session saved"))).toBe(
+      true,
+    );
+    // Success path must still invalidate the cache
+    expect(mockInvalidateQueries).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a success toast (not error) when contraction save succeeds", async () => {
+    mockContractionMutateAsync.mockResolvedValueOnce({ id: 77 });
+    const renderer = renderWatchListener();
+    await act(async () => {});
+
+    await act(async () => {
+      await capturedOnContractionUpdate!({
+        startedAt: "2026-08-01T15:00:00.000Z",
+        endedAt: "2026-08-01T15:01:00.000Z",
+        interval: 180,
+      });
+    });
+
+    const textNodes = renderer.root.findAllByType(Text);
+    const renderedTexts = textNodes
+      .map((n) => String(n.props.children ?? ""))
+      .filter(Boolean);
+    expect(renderedTexts.some((t) => t.includes("Contraction recorded"))).toBe(
+      true,
+    );
+    expect(mockInvalidateQueries).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//
 // Cold-start durability
 //
 // After the Watch fires onKickSessionEnd (or onContractionUpdate) the

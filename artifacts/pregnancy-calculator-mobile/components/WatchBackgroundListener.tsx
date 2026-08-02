@@ -34,9 +34,10 @@ function todayDate() {
 interface WatchToastState {
   message: string;
   visible: boolean;
+  isError?: boolean;
 }
 
-function WatchToast({ message, visible }: WatchToastState) {
+function WatchToast({ message, visible, isError }: WatchToastState) {
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -49,8 +50,17 @@ function WatchToast({ message, visible }: WatchToastState) {
 
   return (
     <Animated.View style={[styles.toast, { opacity }]} pointerEvents="none">
-      <View style={styles.inner}>
-        <Ionicons name="checkmark-circle-outline" size={15} color="#fff" />
+      <View
+        style={[
+          styles.inner,
+          isError ? styles.innerError : styles.innerSuccess,
+        ]}
+      >
+        <Ionicons
+          name={isError ? "alert-circle-outline" : "checkmark-circle-outline"}
+          size={15}
+          color="#fff"
+        />
         <Text style={styles.text}>{message}</Text>
       </View>
     </Animated.View>
@@ -71,8 +81,8 @@ export function WatchBackgroundListener() {
   });
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const showToast = useCallback((message: string) => {
-    setToast({ message, visible: true });
+  const showToast = useCallback((message: string, isError = false) => {
+    setToast({ message, visible: true, isError });
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       setToast((prev) => ({ ...prev, visible: false }));
@@ -103,8 +113,10 @@ export function WatchBackgroundListener() {
         });
         showToast("Kick session saved");
       } catch {
-        // No offline queue for Watch events; the Watch already confirmed to the
-        // user — a silent failure here is the least-bad option.
+        showToast(
+          "Kick session couldn't be saved. Please log it manually.",
+          true,
+        );
       }
     },
     [isSignedIn, kickMutation, queryClient, showToast],
@@ -139,7 +151,10 @@ export function WatchBackgroundListener() {
         });
         showToast("Contraction recorded");
       } catch {
-        // silent – same reasoning as kick sessions above
+        showToast(
+          "Contraction couldn't be saved. Please log it manually.",
+          true,
+        );
       }
     },
     [isSignedIn, contractionMutation, queryClient, showToast],
@@ -150,7 +165,13 @@ export function WatchBackgroundListener() {
     onContractionUpdate: isSignedIn ? handleContractionUpdate : undefined,
   });
 
-  return <WatchToast message={toast.message} visible={toast.visible} />;
+  return (
+    <WatchToast
+      message={toast.message}
+      visible={toast.visible}
+      isError={toast.isError}
+    />
+  );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -171,7 +192,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
+  },
+  innerSuccess: {
     backgroundColor: "rgba(34,139,82,0.92)",
+  },
+  innerError: {
+    backgroundColor: "rgba(185,28,28,0.92)",
   },
   text: {
     color: "#fff",
