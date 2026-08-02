@@ -1230,3 +1230,184 @@ describe("Cold-start durability — Watch data survives app close and reopen", (
     expect(kickServerRows).toHaveLength(1);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Query-key alignment
+//
+// WatchBackgroundListener calls queryClient.invalidateQueries after saving.
+// For the Tools tab to automatically see fresh data the key passed to
+// invalidateQueries must be identical to the key that KickCounterSection and
+// ContractionTimerSection derive when they call their list hooks.
+//
+// These tests discover the params each Tools section actually passes to its
+// list hook by rendering the section and spying on the mock, then assert that
+// the listener's invalidateQueries call uses a key derived from those same
+// captured params.  If either component changes its hook params the test
+// breaks immediately — no duplicated literals to drift out of sync.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("WatchBackgroundListener — invalidateQueries key must match Tools tab hooks", () => {
+  // Pin the system clock to noon UTC on a fixed date so todayDate() in both
+  // the component and test always returns the same ISO date string regardless
+  // of when the suite runs or which timezone the CI host is in.
+  const FIXED_NOW = new Date("2026-08-02T12:00:00.000Z");
+
+  let listenerRenderer: ReturnType<typeof create> | null = null;
+  let toolsRenderer: ReturnType<typeof create> | null = null;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(FIXED_NOW);
+    listenerRenderer = null;
+    toolsRenderer = null;
+    capturedOnKickSessionEnd = undefined;
+    capturedOnContractionUpdate = undefined;
+    jest.clearAllMocks();
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      userId: "user-123",
+      getToken: jest.fn().mockResolvedValue("token-user-123"),
+    });
+    mockInvalidateQueries.mockResolvedValue(undefined);
+    mockApiDirectSaveKickSession.mockResolvedValue(undefined);
+    mockApiDirectSaveContraction.mockResolvedValue(undefined);
+
+    const apiMock = require("@workspace/api-client-react");
+    // Restore list-hook mocks cleared by clearAllMocks so Tools sections render
+    apiMock.useListKickSessions.mockReturnValue({
+      data: { items: [] },
+      isLoading: false,
+      refetch: jest.fn(),
+    });
+    apiMock.useListContractions.mockReturnValue({
+      data: { items: [] },
+      isLoading: false,
+      refetch: jest.fn(),
+    });
+    apiMock.useDeleteKickSession.mockReturnValue({
+      mutateAsync: jest.fn().mockResolvedValue(undefined),
+      isPending: false,
+    });
+    apiMock.useDeleteContraction.mockReturnValue({
+      mutateAsync: jest.fn().mockResolvedValue(undefined),
+      isPending: false,
+    });
+    apiMock.useCreateKickSession.mockReturnValue({
+      mutateAsync: jest.fn().mockResolvedValue({ id: 1 }),
+      isPending: false,
+    });
+    apiMock.useCreateContraction.mockReturnValue({
+      mutateAsync: jest.fn().mockResolvedValue({ id: 1 }),
+      isPending: false,
+    });
+  });
+
+  afterEach(() => {
+    act(() => {
+      jest.runAllTimers();
+    });
+    [listenerRenderer, toolsRenderer].forEach((r) => {
+      if (r) {
+        act(() => {
+          r!.unmount();
+        });
+      }
+    });
+    listenerRenderer = null;
+    toolsRenderer = null;
+    jest.useRealTimers();
+    jest.clearAllMocks();
+  });
+
+  it("invalidates the exact key KickCounterSection passes to useListKickSessions", async () => {
+    // Step 1 — render KickCounterSection and capture the params it passes to
+    // useListKickSessions.  The mock spies on every call so we can extract the
+    // argument without duplicating the literal in this test.
+    const apiMock = require("@workspace/api-client-react");
+    let capturedKickListParams: unknown;
+    apiMock.useListKickSessions.mockImplementation((params: unknown) => {
+      capturedKickListParams = params;
+      return { data: { items: [] }, isLoading: false, refetch: jest.fn() };
+    });
+
+    act(() => {
+      toolsRenderer = create(React.createElement(KickCounterSection));
+    });
+    await act(async () => {});
+
+    // The section must have called the hook with some params
+    expect(capturedKickListParams).toBeDefined();
+
+    // Step 2 — derive the expected invalidation key from those exact params.
+    // If KickCounterSection ever changes its hook params the next line also
+    // changes, and the assertion below will catch any listener mismatch.
+    const expectedKey = apiMock.getListKickSessionsQueryKey(
+      capturedKickListParams,
+    );
+
+    // Step 3 — render the listener and fire a Watch kick event
+    act(() => {
+      listenerRenderer = create(React.createElement(WatchBackgroundListener));
+    });
+    await act(async () => {});
+
+    await act(async () => {
+      await capturedOnKickSessionEnd!({
+        kickCount: 5,
+        startedAt: "2026-08-02T10:00:00.000Z",
+        endedAt: "2026-08-02T10:30:00.000Z",
+      });
+    });
+
+    // Step 4 — the invalidation key must equal the key KickCounterSection uses
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      queryKey: expectedKey,
+    });
+  });
+
+  it("invalidates the exact key ContractionTimerSection passes to useListContractions", async () => {
+    // Step 1 — render ContractionTimerSection with a fixed system clock so
+    // todayDate() returns a deterministic value, and capture the hook params.
+    const apiMock = require("@workspace/api-client-react");
+    let capturedContractionListParams: unknown;
+    apiMock.useListContractions.mockImplementation((params: unknown) => {
+      capturedContractionListParams = params;
+      return { data: { items: [] }, isLoading: false, refetch: jest.fn() };
+    });
+
+    act(() => {
+      toolsRenderer = create(React.createElement(ContractionTimerSection));
+    });
+    await act(async () => {});
+
+    expect(capturedContractionListParams).toBeDefined();
+
+    // Step 2 — derive expected key from the captured params
+    const expectedKey = apiMock.getListContractionsQueryKey(
+      capturedContractionListParams,
+    );
+
+    // Step 3 — render the listener and fire a Watch contraction event.
+    // The same fixed system clock ensures todayDate() in the listener and in
+    // the section produce the same ISO date string.
+    act(() => {
+      listenerRenderer = create(React.createElement(WatchBackgroundListener));
+    });
+    await act(async () => {});
+
+    await act(async () => {
+      await capturedOnContractionUpdate!({
+        startedAt: "2026-08-02T14:00:00.000Z",
+        endedAt: "2026-08-02T14:01:00.000Z",
+        interval: 300,
+      });
+    });
+
+    // Step 4 — the invalidation key must equal the key ContractionTimerSection uses
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      queryKey: expectedKey,
+    });
+  });
+});
