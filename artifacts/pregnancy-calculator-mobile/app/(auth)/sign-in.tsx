@@ -1,4 +1,4 @@
-import { useSSO, useSignIn } from "@clerk/expo";
+import { useClerk, useSSO, useSignIn } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import * as AuthSession from "expo-auth-session";
 import Constants from "expo-constants";
@@ -42,6 +42,7 @@ export default function SignInScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { signIn, errors, fetchStatus } = useSignIn();
+  const { setActive } = useClerk();
   const { startSSOFlow } = useSSO();
 
   const [emailAddress, setEmailAddress] = useState("");
@@ -72,7 +73,10 @@ export default function SignInScreen() {
       });
       if (error) return;
 
-      await signIn.finalize();
+      // finalize() is not a Clerk method — activate the session explicitly.
+      if (setActive && signIn.createdSessionId) {
+        await setActive({ session: signIn.createdSessionId });
+      }
       // dismissAll closes the fullScreenModal and returns to the root,
       // where Clerk's now-active session renders the main app.
       router.dismissAll();
