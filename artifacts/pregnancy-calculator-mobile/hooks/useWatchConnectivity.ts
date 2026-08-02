@@ -9,7 +9,7 @@
  * On Android / when the native module is absent it is a no-op.
  */
 
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, useRef } from "react";
 import { Platform } from "react-native";
 import type { WatchSessionState } from "../modules/WatchConnectivity";
 
@@ -159,6 +159,26 @@ export function useWatchConnectivity({
 
     return () => subs.forEach((s) => s.remove());
   }, [mod, onKickSessionEnd, onContractionUpdate, onKickUpdate]);
+
+  // When the Watch requests a sync (e.g. fresh install with empty tips),
+  // push the current week and tips without waiting for a data change.
+  // We capture gestationalWeek and tips in a ref so the listener callback
+  // always sees the latest values without re-subscribing on every render.
+  const syncDataRef = useRef({ gestationalWeek, tips });
+  useEffect(() => {
+    syncDataRef.current = { gestationalWeek, tips };
+  });
+
+  useEffect(() => {
+    if (!mod) return;
+    const sub = mod.addListener("onSyncRequest", () => {
+      const { gestationalWeek: week, tips: currentTips } = syncDataRef.current;
+      if (week == null || !currentTips?.length) return;
+      mod.sendWeekAndTips(week, currentTips).catch(() => {});
+    });
+    return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!mod]);
 
   /** Manually push tips (call this after a week change is confirmed) */
   const pushTips = useCallback(

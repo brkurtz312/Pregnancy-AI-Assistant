@@ -87,14 +87,14 @@ sync" fallback.
 - Apple Watch with the Pregnancy AI app installed and at least one prior sync from the iPhone
   (Tips tab was showing Week N content)
 
-| Step | Action                                                                             | Expected result                                                                              |
-| ---- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| 5.1  | Confirm Tips tab shows Week N content                                              | Tips cards for Week N visible; "Open the app on your iPhone" message is **not** shown        |
-| 5.2  | Force-quit the Watch app (swipe up from bottom to open app switcher, swipe up on the Pregnancy AI card) | Watch app is closed |
-| 5.3  | Put the iPhone out of reach or into Airplane Mode                                  | Phone is unreachable — no background push can arrive                                         |
-| 5.4  | Relaunch the Pregnancy AI Watch app from the app grid                              | Tips tab shows the **same Week N content** immediately — no blank screen, no sync prompt     |
-| 5.5  | Swipe through the tips cards                                                       | All cards render correctly; no blank or malformed entries                                    |
-| 5.6  | Restore iPhone connectivity                                                        | No crash or freeze after the WCSession reconnects                                            |
+| Step | Action                                                                                                  | Expected result                                                                          |
+| ---- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| 5.1  | Confirm Tips tab shows Week N content                                                                   | Tips cards for Week N visible; "Open the app on your iPhone" message is **not** shown    |
+| 5.2  | Force-quit the Watch app (swipe up from bottom to open app switcher, swipe up on the Pregnancy AI card) | Watch app is closed                                                                      |
+| 5.3  | Put the iPhone out of reach or into Airplane Mode                                                       | Phone is unreachable — no background push can arrive                                     |
+| 5.4  | Relaunch the Pregnancy AI Watch app from the app grid                                                   | Tips tab shows the **same Week N content** immediately — no blank screen, no sync prompt |
+| 5.5  | Swipe through the tips cards                                                                            | All cards render correctly; no blank or malformed entries                                |
+| 5.6  | Restore iPhone connectivity                                                                             | No crash or freeze after the WCSession reconnects                                        |
 
 **Pass criteria:** Week N tips are visible immediately after relaunch without any iPhone interaction.
 

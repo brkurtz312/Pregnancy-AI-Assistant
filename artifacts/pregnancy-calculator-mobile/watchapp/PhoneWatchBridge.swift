@@ -17,6 +17,8 @@ enum WatchMessage {
     static let contraction = "contraction"
     static let tips = "tips"
     static let gestationalWeek = "gestationalWeek"
+    /// Sent by the Watch to the iPhone when it activates with no cached tips.
+    static let requestSync = "requestSync"
 }
 
 @objc final class PhoneWatchBridge: NSObject {
@@ -132,6 +134,9 @@ enum WatchMessage {
     var onKickUpdate: ((Int) -> Void)?
     /// Called whenever Watch connectivity state changes (reachability, activation, install)
     var onSessionStateChange: (([String: Any]) -> Void)?
+    /// Called when the Watch requests a tip sync (no cached tips on Watch side).
+    /// The receiver should respond by calling sendWeekAndTips with current data.
+    var onSyncRequest: (() -> Void)?
 
     // MARK: - Private helpers
 
@@ -187,6 +192,21 @@ extension PhoneWatchBridge: WCSessionDelegate {
     }
 
     func session(_ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
+        // requestSync: reply immediately with the latest cached week + tips so
+        // the Watch gets data without a JS round-trip, then also fire the JS
+        // callback so React Native can push a fresh snapshot if the cache is stale.
+        if message[WatchMessage.requestSync] != nil {
+            var reply: [String: Any] = [:]
+            if let week = lastKnownWeek {
+                reply[WatchMessage.gestationalWeek] = week
+            }
+            if let data = lastKnownTipsData {
+                reply[WatchMessage.tips] = data
+            }
+            replyHandler(reply)
+            DispatchQueue.main.async { [weak self] in self?.onSyncRequest?() }
+            return
+        }
         handleMessage(message)
         replyHandler([:])
     }
@@ -205,6 +225,14 @@ extension PhoneWatchBridge: WCSessionDelegate {
     private func handleMessage(_ payload: [String: Any]) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
+
+            // Watch is asking for a sync (delivered via transferUserInfo when the
+            // Watch was not reachable at activation time).  Notify JS so it can
+            // call sendWeekAndTips with the current state.
+            if payload[WatchMessage.requestSync] != nil {
+                self.onSyncRequest?()
+                return
+            }
 
             if let count = payload["kickUpdate"] as? Int {
                 self.onKickUpdate?(count)

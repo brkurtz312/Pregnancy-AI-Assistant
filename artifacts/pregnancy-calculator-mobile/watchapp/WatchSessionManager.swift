@@ -108,6 +108,11 @@ extension WatchSessionManager: WCSessionDelegate {
             switch state {
             case .activated:
                 print("[WatchSession] Activated successfully.")
+                // If we woke up with no cached tips (fresh install or cleared
+                // UserDefaults), ask the phone for a sync.  The phone replies
+                // with the current gestationalWeek + tips so the Tips tab fills
+                // in within seconds, without requiring the user to open the app.
+                requestSyncIfNeeded()
             case .inactive:
                 print("[WatchSession] Activation completed in inactive state.")
             case .notActivated:
@@ -115,6 +120,34 @@ extension WatchSessionManager: WCSessionDelegate {
             @unknown default:
                 print("[WatchSession] Activation completed with unknown state: \(state.rawValue).")
             }
+        }
+    }
+
+    /// Sends a requestSync message to the phone when the Watch has no cached tips.
+    ///
+    /// - If the phone is reachable the message is delivered immediately and the
+    ///   phone can reply inline with the current week + tips payload.
+    /// - If the phone is not reachable the payload is queued via `transferUserInfo`
+    ///   so it is delivered as soon as connectivity is restored.
+    private func requestSyncIfNeeded() {
+        // tips is already populated from UserDefaults inside init(), so this
+        // check runs after the persisted state has been restored.
+        guard tips.isEmpty else { return }
+
+        let payload: [String: Any] = [WatchMessage.requestSync: true]
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(
+                payload,
+                replyHandler: { [weak self] reply in
+                    self?.handleIncoming(reply)
+                },
+                errorHandler: { error in
+                    print("[WatchSession] requestSync sendMessage failed: \(error.localizedDescription)")
+                }
+            )
+        } else {
+            // transferUserInfo guarantees delivery even if the phone is backgrounded.
+            WCSession.default.transferUserInfo(payload)
         }
     }
 

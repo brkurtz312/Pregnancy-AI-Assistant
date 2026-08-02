@@ -47,4 +47,7 @@ enum WatchMessage {
     static let contraction = "contraction"
     static let tips = "tips"
     static let gestationalWeek = "gestationalWeek"
+    /// Sent by the Watch to the iPhone when it activates with no cached tips.
+    /// The iPhone replies with the current gestationalWeek and tips payload.
+    static let requestSync = "requestSync"
 }
