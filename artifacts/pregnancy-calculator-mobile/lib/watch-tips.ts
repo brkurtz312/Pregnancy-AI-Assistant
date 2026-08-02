@@ -75,8 +75,14 @@ export function getWeeklyTips(week: number): WatchTip[] {
     });
   }
 
-  // Tip 5 – coming-up preview
-  if (data.comingUp) {
+  // Tip 5 – second mother change (if available), otherwise coming-up preview
+  if (data.motherChanges.length > 1) {
+    tips.push({
+      week,
+      emoji: "💕",
+      text: data.motherChanges[1],
+    });
+  } else if (data.comingUp) {
     tips.push({
       week,
       emoji: "🔮",

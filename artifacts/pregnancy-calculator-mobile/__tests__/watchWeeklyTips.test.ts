@@ -122,8 +122,12 @@ describe("getWeeklyTips — week 20 (anatomy-scan week)", () => {
     expect(tips[2].text).toBe(data.motherChanges[0]);
   });
 
-  it("includes comingUp text when available", () => {
-    if (data.comingUp) {
+  it("tip 5 is second mother-change when available, otherwise comingUp", () => {
+    if (data.motherChanges.length > 1) {
+      // Second maternal change takes the last slot
+      expect(tips[4].text).toBe(data.motherChanges[1]);
+    } else if (data.comingUp) {
+      // Fall back to comingUp only when there is no second maternal change
       const comingUpTip = tips.find((t) => t.text === data.comingUp);
       expect(comingUpTip).toBeDefined();
     }
