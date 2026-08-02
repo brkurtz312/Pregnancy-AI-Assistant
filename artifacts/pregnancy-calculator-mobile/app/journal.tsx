@@ -4,11 +4,11 @@ import { router } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Dimensions,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { useAuth, useUser } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 import {
   cacheEntries,
   clearJournalCache,
@@ -48,10 +49,10 @@ import { usePass } from "@/hooks/usePass";
 import { PassGate } from "@/components/PassGate";
 import { FREE_JOURNAL_ENTRY_LIMIT } from "@/constants/free-limits";
 
-const SCREEN_WIDTH = Dimensions.get("window").width;
 const GRID_GAP = 4;
 const GRID_PADDING = 16;
-const GRID_CELL = (SCREEN_WIDTH - GRID_PADDING * 2 - GRID_GAP) / 2;
+/** Maximum content width — must match ResponsiveContainer's default maxWidth. */
+const MAX_CONTENT_WIDTH = 680;
 
 type Tab = "journal" | "bump" | "ultrasound";
 
@@ -166,12 +167,14 @@ function PhotoGrid({
   emptyIcon,
   emptyText,
   colors,
+  cellSize,
 }: {
   items: { media: JournalMedia; entry: JournalEntry }[];
   onPress: (entry: JournalEntry) => void;
   emptyIcon: keyof typeof Ionicons.glyphMap;
   emptyText: string;
   colors: ReturnType<typeof useColors>;
+  cellSize: number;
 }) {
   if (!items.length) {
     return (
@@ -200,7 +203,11 @@ function PhotoGrid({
                 key={media.id}
                 style={[
                   styles.gridCell,
-                  { backgroundColor: colors.muted, borderColor: colors.border },
+                  {
+                    backgroundColor: colors.muted,
+                    borderColor: colors.border,
+                    width: cellSize,
+                  },
                 ]}
                 onPress={() => onPress(entry)}
                 activeOpacity={0.85}
@@ -208,7 +215,10 @@ function PhotoGrid({
                 {media.type === "photo" ? (
                   <Image
                     source={{ uri: media.uri }}
-                    style={styles.gridImage}
+                    style={[
+                      styles.gridImage,
+                      { width: cellSize, height: cellSize },
+                    ]}
                     contentFit="cover"
                   />
                 ) : (
@@ -216,6 +226,8 @@ function PhotoGrid({
                     style={[
                       styles.gridImage,
                       {
+                        width: cellSize,
+                        height: cellSize,
                         backgroundColor: colors.muted,
                         alignItems: "center",
                         justifyContent: "center",
@@ -245,7 +257,7 @@ function PhotoGrid({
               </TouchableOpacity>
             );
           })}
-          {row.length === 1 && <View style={{ width: GRID_CELL }} />}
+          {row.length === 1 && <View style={{ width: cellSize }} />}
         </View>
       ))}
     </View>
@@ -255,6 +267,12 @@ function PhotoGrid({
 export default function JournalScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  // Constrain grid cells to the same max-width as ResponsiveContainer (680pt)
+  // so they scale correctly whether the device is an iPhone or an iPad.
+  const effectiveContentWidth = Math.min(windowWidth, MAX_CONTENT_WIDTH);
+  const gridCellSize =
+    (effectiveContentWidth - GRID_PADDING * 2 - GRID_GAP) / 2;
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("journal");
   const [showGate, setShowGate] = useState(false);
@@ -606,187 +624,191 @@ export default function JournalScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={[
-          styles.scroll,
-          { paddingBottom: insets.bottom + 32 },
-        ]}
-        showsVerticalScrollIndicator={false}
-      >
-        <Animated.View entering={FadeInDown.duration(350)}>
-          <Text style={[styles.pageTitle, { color: colors.foreground }]}>
-            My Pregnancy Journal
-          </Text>
-          <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
-            Your personal record of this journey — from first heartbeat to first
-            steps.
-          </Text>
-          {entries.length > 0 && (
-            <TouchableOpacity
-              style={[
-                styles.exportBtn,
-                {
-                  backgroundColor: (ACCENT ?? "#e86cad") + "14",
-                  borderColor: (ACCENT ?? "#e86cad") + "40",
-                },
-              ]}
-              onPress={handleExportPdf}
-              disabled={exporting}
-              activeOpacity={0.75}
-            >
-              {exporting ? (
-                <ActivityIndicator size="small" color={ACCENT} />
-              ) : (
-                <Ionicons
-                  name="document-text-outline"
-                  size={16}
-                  color={ACCENT}
-                />
-              )}
-              <Text style={[styles.exportBtnText, { color: ACCENT }]}>
-                {exporting ? "Building PDF…" : "Export Journal as PDF"}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(60).duration(350)}
-          style={styles.tabRow}
+      <ResponsiveContainer>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={[
+            styles.scroll,
+            { paddingBottom: insets.bottom + 32 },
+          ]}
+          showsVerticalScrollIndicator={false}
         >
-          {TABS.map((tab) => {
-            const active = activeTab === tab.key;
-            return (
+          <Animated.View entering={FadeInDown.duration(350)}>
+            <Text style={[styles.pageTitle, { color: colors.foreground }]}>
+              My Pregnancy Journal
+            </Text>
+            <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
+              Your personal record of this journey — from first heartbeat to
+              first steps.
+            </Text>
+            {entries.length > 0 && (
               <TouchableOpacity
-                key={tab.key}
                 style={[
-                  styles.tabPill,
+                  styles.exportBtn,
                   {
-                    backgroundColor: active
-                      ? ACCENT
-                      : (colors.muted ?? "#f5f5f5"),
-                    borderColor: active ? ACCENT : colors.border,
+                    backgroundColor: (ACCENT ?? "#e86cad") + "14",
+                    borderColor: (ACCENT ?? "#e86cad") + "40",
                   },
                 ]}
-                onPress={() => setActiveTab(tab.key)}
-                activeOpacity={0.8}
+                onPress={handleExportPdf}
+                disabled={exporting}
+                activeOpacity={0.75}
               >
-                <Ionicons
-                  name={tab.icon}
-                  size={13}
-                  color={active ? "#fff" : colors.mutedForeground}
-                />
-                <Text
-                  style={[
-                    styles.tabPillText,
-                    { color: active ? "#fff" : colors.mutedForeground },
-                  ]}
-                >
-                  {tab.label}
+                {exporting ? (
+                  <ActivityIndicator size="small" color={ACCENT} />
+                ) : (
+                  <Ionicons
+                    name="document-text-outline"
+                    size={16}
+                    color={ACCENT}
+                  />
+                )}
+                <Text style={[styles.exportBtnText, { color: ACCENT }]}>
+                  {exporting ? "Building PDF…" : "Export Journal as PDF"}
                 </Text>
               </TouchableOpacity>
-            );
-          })}
-        </Animated.View>
+            )}
+          </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(120).duration(350)}>
-          {activeTab === "journal" && (
-            <>
-              {entries.length === 0 ? (
-                <View style={styles.emptyState}>
+          <Animated.View
+            entering={FadeInDown.delay(60).duration(350)}
+            style={styles.tabRow}
+          >
+            {TABS.map((tab) => {
+              const active = activeTab === tab.key;
+              return (
+                <TouchableOpacity
+                  key={tab.key}
+                  style={[
+                    styles.tabPill,
+                    {
+                      backgroundColor: active
+                        ? ACCENT
+                        : (colors.muted ?? "#f5f5f5"),
+                      borderColor: active ? ACCENT : colors.border,
+                    },
+                  ]}
+                  onPress={() => setActiveTab(tab.key)}
+                  activeOpacity={0.8}
+                >
                   <Ionicons
-                    name="book-outline"
-                    size={48}
-                    color={colors.mutedForeground}
+                    name={tab.icon}
+                    size={13}
+                    color={active ? "#fff" : colors.mutedForeground}
                   />
-                  <Text
-                    style={[styles.emptyTitle, { color: colors.foreground }]}
-                  >
-                    Your journal is empty
-                  </Text>
                   <Text
                     style={[
-                      styles.emptyText,
-                      { color: colors.mutedForeground },
+                      styles.tabPillText,
+                      { color: active ? "#fff" : colors.mutedForeground },
                     ]}
                   >
-                    Tap "New Entry" to capture your first moment.
+                    {tab.label}
                   </Text>
-                </View>
-              ) : (
-                entries.map((entry) => (
-                  <EntryCard
-                    key={entry.id}
-                    entry={entry}
-                    colors={colors}
-                    onPress={() =>
-                      router.push({
-                        pathname: "/journal-entry",
-                        params: { entryId: entry.id },
-                      })
-                    }
-                  />
-                ))
-              )}
-            </>
-          )}
+                </TouchableOpacity>
+              );
+            })}
+          </Animated.View>
 
-          {activeTab === "bump" && (
-            <>
-              <Text
-                style={[
-                  styles.gridSectionHint,
-                  { color: colors.mutedForeground },
-                ]}
-              >
-                Watch your bump grow — add bump photos to any journal entry.
-              </Text>
-              <PhotoGrid
-                items={bumpMedia}
-                onPress={(entry) =>
-                  router.push({
-                    pathname: "/journal-entry",
-                    params: { entryId: entry.id },
-                  })
-                }
-                emptyIcon="camera-outline"
-                emptyText={
-                  "No bump photos yet.\nAdd them when creating a journal entry."
-                }
-                colors={colors}
-              />
-            </>
-          )}
+          <Animated.View entering={FadeInDown.delay(120).duration(350)}>
+            {activeTab === "journal" && (
+              <>
+                {entries.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Ionicons
+                      name="book-outline"
+                      size={48}
+                      color={colors.mutedForeground}
+                    />
+                    <Text
+                      style={[styles.emptyTitle, { color: colors.foreground }]}
+                    >
+                      Your journal is empty
+                    </Text>
+                    <Text
+                      style={[
+                        styles.emptyText,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      Tap "New Entry" to capture your first moment.
+                    </Text>
+                  </View>
+                ) : (
+                  entries.map((entry) => (
+                    <EntryCard
+                      key={entry.id}
+                      entry={entry}
+                      colors={colors}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/journal-entry",
+                          params: { entryId: entry.id },
+                        })
+                      }
+                    />
+                  ))
+                )}
+              </>
+            )}
 
-          {activeTab === "ultrasound" && (
-            <>
-              <Text
-                style={[
-                  styles.gridSectionHint,
-                  { color: colors.mutedForeground },
-                ]}
-              >
-                Save your ultrasound images here for safekeeping.
-              </Text>
-              <PhotoGrid
-                items={ultrasoundMedia}
-                onPress={(entry) =>
-                  router.push({
-                    pathname: "/journal-entry",
-                    params: { entryId: entry.id },
-                  })
-                }
-                emptyIcon="scan-outline"
-                emptyText={
-                  "No ultrasound images yet.\nAdd them when creating a journal entry."
-                }
-                colors={colors}
-              />
-            </>
-          )}
-        </Animated.View>
-      </ScrollView>
+            {activeTab === "bump" && (
+              <>
+                <Text
+                  style={[
+                    styles.gridSectionHint,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  Watch your bump grow — add bump photos to any journal entry.
+                </Text>
+                <PhotoGrid
+                  items={bumpMedia}
+                  onPress={(entry) =>
+                    router.push({
+                      pathname: "/journal-entry",
+                      params: { entryId: entry.id },
+                    })
+                  }
+                  emptyIcon="camera-outline"
+                  emptyText={
+                    "No bump photos yet.\nAdd them when creating a journal entry."
+                  }
+                  colors={colors}
+                  cellSize={gridCellSize}
+                />
+              </>
+            )}
+
+            {activeTab === "ultrasound" && (
+              <>
+                <Text
+                  style={[
+                    styles.gridSectionHint,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  Save your ultrasound images here for safekeeping.
+                </Text>
+                <PhotoGrid
+                  items={ultrasoundMedia}
+                  onPress={(entry) =>
+                    router.push({
+                      pathname: "/journal-entry",
+                      params: { entryId: entry.id },
+                    })
+                  }
+                  emptyIcon="scan-outline"
+                  emptyText={
+                    "No ultrasound images yet.\nAdd them when creating a journal entry."
+                  }
+                  colors={colors}
+                  cellSize={gridCellSize}
+                />
+              </>
+            )}
+          </Animated.View>
+        </ScrollView>
+      </ResponsiveContainer>
 
       <PassGate
         visible={showGate}
@@ -932,14 +954,12 @@ const styles = StyleSheet.create({
     gap: GRID_GAP,
   },
   gridCell: {
-    width: GRID_CELL,
     borderRadius: 12,
     overflow: "hidden",
     borderWidth: 1,
   },
   gridImage: {
-    width: GRID_CELL,
-    height: GRID_CELL,
+    // width and height are set dynamically via inline styles (cellSize prop)
   },
   gridLabel: {
     paddingHorizontal: 8,

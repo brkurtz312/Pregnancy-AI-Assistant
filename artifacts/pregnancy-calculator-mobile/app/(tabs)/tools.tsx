@@ -40,6 +40,7 @@ import {
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { ResponsiveContainer } from "@/components/ResponsiveContainer";
+import { useIsTablet } from "@/hooks/useIsTablet";
 import {
   useWatchConnectivity,
   type WatchTip,
@@ -1106,6 +1107,7 @@ export default function ToolsScreen() {
     gestationalWeek,
     tips: watchTips,
   });
+  const isTablet = useIsTablet();
   // ── End watch connectivity ───────────────────────────────────────────────
 
   if (!isSignedIn) {
@@ -1158,95 +1160,106 @@ export default function ToolsScreen() {
             </Text>
           </Animated.View>
 
-          <Animated.View
-            entering={FadeInDown.delay(40).duration(400)}
-            style={[
-              styles.card,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <TouchableOpacity
-              style={styles.navCard}
-              onPress={() => router.push("/journal")}
-              activeOpacity={0.8}
+          {/* Journal + Fetal HR — side by side on iPad, stacked on phone */}
+          <View style={isTablet ? styles.navCardRow : undefined}>
+            <Animated.View
+              entering={FadeInDown.delay(40).duration(400)}
+              style={[
+                styles.card,
+                { backgroundColor: colors.card, borderColor: colors.border },
+                isTablet && styles.navCardRowItem,
+              ]}
             >
-              <View
-                style={[
-                  styles.navCardIcon,
-                  { backgroundColor: (colors.primary ?? "#e86cad") + "18" },
-                ]}
+              <TouchableOpacity
+                style={styles.navCard}
+                onPress={() => router.push("/journal")}
+                activeOpacity={0.8}
               >
+                <View
+                  style={[
+                    styles.navCardIcon,
+                    { backgroundColor: (colors.primary ?? "#e86cad") + "18" },
+                  ]}
+                >
+                  <Ionicons
+                    name="book"
+                    size={22}
+                    color={colors.primary ?? "#e86cad"}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[styles.navCardTitle, { color: colors.foreground }]}
+                  >
+                    My Pregnancy Journal
+                  </Text>
+                  <Text
+                    style={[
+                      styles.navCardSub,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    Write entries, attach bump photos, and save ultrasound
+                    images — all stored privately on your phone.
+                  </Text>
+                </View>
                 <Ionicons
-                  name="book"
-                  size={22}
-                  color={colors.primary ?? "#e86cad"}
+                  name="chevron-forward"
+                  size={18}
+                  color={colors.mutedForeground}
                 />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text
-                  style={[styles.navCardTitle, { color: colors.foreground }]}
-                >
-                  My Pregnancy Journal
-                </Text>
-                <Text
-                  style={[styles.navCardSub, { color: colors.mutedForeground }]}
-                >
-                  Write entries, attach bump photos, and save ultrasound images
-                  — all stored privately on your phone.
-                </Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={18}
-                color={colors.mutedForeground}
-              />
-            </TouchableOpacity>
-          </Animated.View>
+              </TouchableOpacity>
+            </Animated.View>
 
-          <Animated.View
-            entering={FadeInDown.delay(60).duration(400)}
-            style={[
-              styles.card,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <TouchableOpacity
-              style={styles.navCard}
-              onPress={() => router.push("/fetal-heart-rate")}
-              activeOpacity={0.8}
+            <Animated.View
+              entering={FadeInDown.delay(60).duration(400)}
+              style={[
+                styles.card,
+                { backgroundColor: colors.card, borderColor: colors.border },
+                isTablet && styles.navCardRowItem,
+              ]}
             >
-              <View
-                style={[
-                  styles.navCardIcon,
-                  { backgroundColor: (colors.primary ?? "#e86cad") + "18" },
-                ]}
+              <TouchableOpacity
+                style={styles.navCard}
+                onPress={() => router.push("/fetal-heart-rate")}
+                activeOpacity={0.8}
               >
+                <View
+                  style={[
+                    styles.navCardIcon,
+                    { backgroundColor: (colors.primary ?? "#e86cad") + "18" },
+                  ]}
+                >
+                  <Ionicons
+                    name="pulse"
+                    size={22}
+                    color={colors.primary ?? "#e86cad"}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[styles.navCardTitle, { color: colors.foreground }]}
+                  >
+                    Fetal Heart Rate
+                  </Text>
+                  <Text
+                    style={[
+                      styles.navCardSub,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    Record the heartbeat heard on Doppler during an office visit
+                    — saved privately on your phone.
+                  </Text>
+                </View>
                 <Ionicons
-                  name="pulse"
-                  size={22}
-                  color={colors.primary ?? "#e86cad"}
+                  name="chevron-forward"
+                  size={18}
+                  color={colors.mutedForeground}
                 />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text
-                  style={[styles.navCardTitle, { color: colors.foreground }]}
-                >
-                  Fetal Heart Rate
-                </Text>
-                <Text
-                  style={[styles.navCardSub, { color: colors.mutedForeground }]}
-                >
-                  Record the heartbeat heard on Doppler during an office visit —
-                  saved privately on your phone.
-                </Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={18}
-                color={colors.mutedForeground}
-              />
-            </TouchableOpacity>
-          </Animated.View>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
 
           <Animated.View
             entering={FadeInDown.delay(80).duration(400)}
@@ -1399,6 +1412,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+  },
+  navCardRow: {
+    flexDirection: "row",
+    gap: 16,
+    marginBottom: 0,
+  },
+  navCardRowItem: {
+    flex: 1,
+    marginBottom: 16,
   },
   navCardIcon: {
     width: 44,

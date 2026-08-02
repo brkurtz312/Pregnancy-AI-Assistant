@@ -32,6 +32,7 @@ import {
   useUpdateProfile,
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
+import { useIsTablet } from "@/hooks/useIsTablet";
 import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 import { getWeeklyDevelopment } from "@/lib/fetal-development";
 import {
@@ -319,6 +320,7 @@ function FetalImageViewer({
 
 function ResultsView({ results }: { results: PregnancyResults }) {
   const colors = useColors();
+  const isTablet = useIsTablet();
   const [imageFullscreen, setImageFullscreen] = useState(false);
   const weekData = getWeeklyDevelopment(results.currentGestationalAgeWeeks);
   const milestones = getMilestones(results);
@@ -356,82 +358,98 @@ function ResultsView({ results }: { results: PregnancyResults }) {
         </View>
       </View>
 
-      {/* Progress */}
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-      >
-        <View style={styles.cardRow}>
-          <Ionicons name="time-outline" size={18} color={colors.primary} />
-          <Text style={[styles.cardTitle, { color: colors.foreground }]}>
-            Gestational Age
-          </Text>
-        </View>
-        <Text style={[styles.gestAge, { color: colors.foreground }]}>
-          {formatGestationalAge(
-            results.currentGestationalAgeWeeks,
-            results.currentGestationalAgeRemainderDays,
-          )}
-        </Text>
-        <View style={[styles.progressTrack, { backgroundColor: colors.muted }]}>
-          <View
-            style={[
-              styles.progressFill,
-              {
-                backgroundColor: colors.primary,
-                width:
-                  `${Math.min(100, results.progressPercentage)}%` as DimensionValue,
-              },
-            ]}
-          />
-        </View>
-        <Text style={[styles.progressLabel, { color: colors.mutedForeground }]}>
-          {results.progressPercentage.toFixed(0)}% complete
-        </Text>
-      </View>
-
-      {/* Key Dates */}
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-      >
-        <View style={styles.cardRow}>
-          <Ionicons name="calendar-outline" size={18} color={colors.primary} />
-          <Text style={[styles.cardTitle, { color: colors.foreground }]}>
-            Key Dates
-          </Text>
-        </View>
-        {[
-          { label: "Last Menstrual Period", date: results.lmp },
-          { label: "Estimated Conception", date: results.conception },
-          { label: "End of 1st Trimester", date: milestones.endFirstTrimester },
-          {
-            label: "End of 2nd Trimester",
-            date: milestones.endSecondTrimester,
-          },
-          { label: "Due Date (EDD)", date: results.edd },
-        ].map(({ label, date }, i) => (
-          <View
-            key={label}
-            style={[
-              styles.dateRow,
-              i > 0 && { borderTopWidth: 1, borderTopColor: colors.border },
-            ]}
-          >
-            <Text
-              style={[styles.dateRowLabel, { color: colors.mutedForeground }]}
-            >
-              {label}
-            </Text>
-            <Text style={[styles.dateRowValue, { color: colors.foreground }]}>
-              {formatDate(date)}
+      {/* Progress + Key Dates — side by side on iPad, stacked on phone */}
+      <View style={isTablet ? styles.resultsRow : undefined}>
+        {/* Progress */}
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.border },
+            isTablet && styles.resultsRowItem,
+          ]}
+        >
+          <View style={styles.cardRow}>
+            <Ionicons name="time-outline" size={18} color={colors.primary} />
+            <Text style={[styles.cardTitle, { color: colors.foreground }]}>
+              Gestational Age
             </Text>
           </View>
-        ))}
+          <Text style={[styles.gestAge, { color: colors.foreground }]}>
+            {formatGestationalAge(
+              results.currentGestationalAgeWeeks,
+              results.currentGestationalAgeRemainderDays,
+            )}
+          </Text>
+          <View
+            style={[styles.progressTrack, { backgroundColor: colors.muted }]}
+          >
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  backgroundColor: colors.primary,
+                  width:
+                    `${Math.min(100, results.progressPercentage)}%` as DimensionValue,
+                },
+              ]}
+            />
+          </View>
+          <Text
+            style={[styles.progressLabel, { color: colors.mutedForeground }]}
+          >
+            {results.progressPercentage.toFixed(0)}% complete
+          </Text>
+        </View>
+
+        {/* Key Dates */}
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.border },
+            isTablet && styles.resultsRowItem,
+          ]}
+        >
+          <View style={styles.cardRow}>
+            <Ionicons
+              name="calendar-outline"
+              size={18}
+              color={colors.primary}
+            />
+            <Text style={[styles.cardTitle, { color: colors.foreground }]}>
+              Key Dates
+            </Text>
+          </View>
+          {[
+            { label: "Last Menstrual Period", date: results.lmp },
+            { label: "Estimated Conception", date: results.conception },
+            {
+              label: "End of 1st Trimester",
+              date: milestones.endFirstTrimester,
+            },
+            {
+              label: "End of 2nd Trimester",
+              date: milestones.endSecondTrimester,
+            },
+            { label: "Due Date (EDD)", date: results.edd },
+          ].map(({ label, date }, i) => (
+            <View
+              key={label}
+              style={[
+                styles.dateRow,
+                i > 0 && { borderTopWidth: 1, borderTopColor: colors.border },
+              ]}
+            >
+              <Text
+                style={[styles.dateRowLabel, { color: colors.mutedForeground }]}
+              >
+                {label}
+              </Text>
+              <Text style={[styles.dateRowValue, { color: colors.foreground }]}>
+                {formatDate(date)}
+              </Text>
+            </View>
+          ))}
+        </View>
       </View>
 
       {/* Fetal Development */}
@@ -1356,6 +1374,14 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontFamily: "Inter_600SemiBold",
+  },
+  resultsRow: {
+    flexDirection: "row",
+    gap: 12,
+    alignItems: "flex-start",
+  },
+  resultsRowItem: {
+    flex: 1,
   },
   warnCard: {
     flexDirection: "row",

@@ -15,6 +15,7 @@ import {
 import Animated, { FadeInDown } from "react-native-reanimated";
 
 import { useColors } from "@/hooks/useColors";
+import { useIsTablet } from "@/hooks/useIsTablet";
 import { usePass } from "@/hooks/usePass";
 
 interface AiAssistantProps {
@@ -38,6 +39,7 @@ const DEFAULT_DISCLAIMER =
 
 export function AiAssistant({ currentWeek }: AiAssistantProps) {
   const colors = useColors();
+  const isTablet = useIsTablet();
   const week = currentWeek > 0 ? Math.min(42, currentWeek) : null;
 
   const router = useRouter();
@@ -169,12 +171,18 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
               Answers reflect evidence-based guidance from organizations like
               ACOG and the AAP.
             </Text>
-            <View style={styles.suggestionWrap}>
+            <View
+              style={[
+                styles.suggestionWrap,
+                isTablet && styles.suggestionWrapTablet,
+              ]}
+            >
               {SUGGESTED_QUESTIONS.map((q) => (
                 <TouchableOpacity
                   key={q}
                   style={[
                     styles.suggestionPill,
+                    isTablet && styles.suggestionPillTablet,
                     {
                       borderColor: colors.border,
                       backgroundColor: colors.muted,
@@ -409,11 +417,21 @@ const styles = StyleSheet.create({
   loadingText: { fontSize: 13, fontFamily: "Inter_400Regular" },
   introText: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
   suggestionWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  suggestionWrapTablet: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
   suggestionPill: {
     borderWidth: 1,
     borderRadius: 18,
     paddingHorizontal: 12,
     paddingVertical: 8,
+  },
+  suggestionPillTablet: {
+    // On iPad each pill grows to fill roughly half the row width
+    flexGrow: 1,
+    flexBasis: "45%",
   },
   suggestionText: { fontSize: 13, fontFamily: "Inter_500Medium" },
   messagesWrap: { gap: 8 },
