@@ -21,7 +21,7 @@
  *   native event → onWatchStateChange listener → setWatchStatus → badge re-render
  */
 
-import React, { useState } from "react";
+import React from "react";
 import { Text, View, Platform } from "react-native";
 import { act, create } from "react-test-renderer";
 import { flushAsync } from "../test-helpers/testUtils";
@@ -38,7 +38,6 @@ type WatchState = {
 };
 
 let capturedStateListener: ((state: WatchState) => void) | null = null;
-let mockRemoveCalled = false;
 
 const mockGetSessionState = jest.fn(
   async (): Promise<WatchState> => ({
@@ -57,7 +56,6 @@ const mockAddListener = jest.fn(
       remove: () => {
         if (event === "onWatchStateChange") {
           capturedStateListener = null;
-          mockRemoveCalled = true;
         }
       },
     };
@@ -102,11 +100,17 @@ function TestBadge() {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function allTexts(root: any): string[] {
   const out: string[] = [];
-  function walk(node: { type: unknown; props: Record<string, unknown>; children?: unknown[] }) {
+  function walk(node: {
+    type: unknown;
+    props: Record<string, unknown>;
+    children?: unknown[];
+  }) {
     if (node.type === "Text" && typeof node.props.children === "string") {
       out.push(node.props.children);
     }
-    (node.children ?? []).forEach((c) => c && typeof c === "object" && walk(c as typeof node));
+    (node.children ?? []).forEach(
+      (c) => c && typeof c === "object" && walk(c as typeof node),
+    );
   }
   walk(root);
   return out;
@@ -117,7 +121,6 @@ function allTexts(root: any): string[] {
 describe("WatchStatusBadge — live state transitions via onWatchStateChange", () => {
   beforeEach(() => {
     capturedStateListener = null;
-    mockRemoveCalled = false;
     // Default: Watch installed but not yet reachable
     mockGetSessionState.mockResolvedValue({
       activationState: "activated",

@@ -13,6 +13,7 @@ import React, {
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Modal,
   Platform,
   ScrollView,
@@ -1026,11 +1027,15 @@ export function ContractionTimerSection() {
 function WatchStatusBadge({
   isReachable,
   isWatchAppInstalled,
+  activationState,
 }: {
   isReachable: boolean;
   isWatchAppInstalled: boolean;
+  activationState: string;
 }) {
   const colors = useColors();
+  const [sheetVisible, setSheetVisible] = useState(false);
+
   if (Platform.OS !== "ios") return null;
 
   const connected = isReachable;
@@ -1041,7 +1046,12 @@ function WatchStatusBadge({
       ? "Watch not reachable"
       : "Watch app not installed";
 
-  return (
+  // Show the Watch app deep-link when the companion app is installed but the
+  // session is not active (out of range, Bluetooth off, etc.)
+  const showWatchAppLink =
+    isWatchAppInstalled && activationState !== "activated";
+
+  const badge = (
     <View
       style={{
         flexDirection: "row",
@@ -1068,9 +1078,287 @@ function WatchStatusBadge({
       >
         {label}
       </Text>
+      {!connected && (
+        <Ionicons
+          name="chevron-forward"
+          size={12}
+          color={colors.mutedForeground}
+        />
+      )}
     </View>
   );
+
+  if (connected) {
+    return badge;
+  }
+
+  return (
+    <>
+      <TouchableOpacity
+        onPress={() => setSheetVisible(true)}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel="Apple Watch connection help"
+      >
+        {badge}
+      </TouchableOpacity>
+
+      <Modal
+        visible={sheetVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setSheetVisible(false)}
+      >
+        <TouchableOpacity
+          style={watchSheetStyles.overlay}
+          activeOpacity={1}
+          onPress={() => setSheetVisible(false)}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            style={[
+              watchSheetStyles.sheet,
+              { backgroundColor: colors.background },
+            ]}
+            onPress={() => {}}
+          >
+            {/* Drag handle */}
+            <View
+              style={[
+                watchSheetStyles.handle,
+                { backgroundColor: colors.border },
+              ]}
+            />
+
+            <View style={watchSheetStyles.header}>
+              <Text
+                style={[watchSheetStyles.title, { color: colors.foreground }]}
+              >
+                Apple Watch Not Connected
+              </Text>
+              <TouchableOpacity onPress={() => setSheetVisible(false)}>
+                <Ionicons
+                  name="close"
+                  size={22}
+                  color={colors.mutedForeground}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <Text
+              style={[
+                watchSheetStyles.subtitle,
+                { color: colors.mutedForeground },
+              ]}
+            >
+              Here are the most common reasons your Watch isn't connecting:
+            </Text>
+
+            {[
+              {
+                icon: "bluetooth" as const,
+                heading: "Bluetooth is off",
+                detail:
+                  "Make sure Bluetooth is enabled on your iPhone. The Watch communicates over Bluetooth when you're nearby.",
+              },
+              {
+                icon: "radio-outline" as const,
+                heading: "Watch is out of range",
+                detail:
+                  "Keep your iPhone and Apple Watch within about 30 feet of each other.",
+              },
+              {
+                icon: "watch-outline" as const,
+                heading: "Companion app not open",
+                detail:
+                  "The Pregnancy Assistant app must be installed on your Watch. Open the Watch app on your iPhone to check.",
+              },
+              {
+                icon: "refresh-outline" as const,
+                heading: "Session not activated",
+                detail:
+                  "Try locking and unlocking your Apple Watch, or restart the app on the Watch.",
+              },
+            ].map(({ icon, heading, detail }) => (
+              <View key={heading} style={watchSheetStyles.row}>
+                <View
+                  style={[
+                    watchSheetStyles.iconWrap,
+                    { backgroundColor: colors.muted },
+                  ]}
+                >
+                  <Ionicons name={icon} size={18} color={colors.primary} />
+                </View>
+                <View style={watchSheetStyles.rowText}>
+                  <Text
+                    style={[
+                      watchSheetStyles.rowHeading,
+                      { color: colors.foreground },
+                    ]}
+                  >
+                    {heading}
+                  </Text>
+                  <Text
+                    style={[
+                      watchSheetStyles.rowDetail,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    {detail}
+                  </Text>
+                </View>
+              </View>
+            ))}
+
+            {showWatchAppLink && (
+              <TouchableOpacity
+                style={[
+                  watchSheetStyles.openBtn,
+                  { backgroundColor: colors.primary },
+                ]}
+                onPress={() => {
+                  setSheetVisible(false);
+                  Linking.openURL("itms-watchs://").catch(() => {});
+                }}
+              >
+                <Ionicons
+                  name="watch-outline"
+                  size={16}
+                  color={colors.primaryForeground}
+                  style={{ marginRight: 6 }}
+                />
+                <Text
+                  style={[
+                    watchSheetStyles.openBtnText,
+                    { color: colors.primaryForeground },
+                  ]}
+                >
+                  Open Apple Watch App
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {!isWatchAppInstalled && (
+              <View
+                style={[
+                  watchSheetStyles.infoBox,
+                  { backgroundColor: colors.muted, borderColor: colors.border },
+                ]}
+              >
+                <Ionicons
+                  name="information-circle-outline"
+                  size={16}
+                  color={colors.mutedForeground}
+                  style={{ marginRight: 6, flexShrink: 0 }}
+                />
+                <Text
+                  style={[
+                    watchSheetStyles.infoText,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  Install the Pregnancy Assistant app on your Apple Watch from
+                  the Watch app on your iPhone.
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+    </>
+  );
 }
+
+const watchSheetStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 20,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  title: {
+    fontSize: 17,
+    fontFamily: "Inter_600SemiBold",
+  },
+  subtitle: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    marginBottom: 20,
+    lineHeight: 18,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 16,
+    gap: 12,
+  },
+  iconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  rowText: {
+    flex: 1,
+  },
+  rowHeading: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    marginBottom: 2,
+  },
+  rowDetail: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 18,
+  },
+  openBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    paddingVertical: 14,
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  openBtnText: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+  },
+  infoBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 12,
+    marginTop: 4,
+  },
+  infoText: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 18,
+    flex: 1,
+  },
+});
 
 // ─── Main Tools Screen ───────────────────────────────────────────────────────
 
@@ -1276,6 +1564,7 @@ export default function ToolsScreen() {
               <WatchStatusBadge
                 isReachable={watchStatus.isReachable}
                 isWatchAppInstalled={watchStatus.isWatchAppInstalled}
+                activationState={watchStatus.activationState}
               />
             </Animated.View>
           )}
