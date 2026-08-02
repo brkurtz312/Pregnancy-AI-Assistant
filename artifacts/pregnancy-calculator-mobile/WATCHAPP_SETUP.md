@@ -150,6 +150,47 @@ Two scripts catch common Watch configuration issues before an EAS build is submi
 | `validate-eas-provisioning.js`  | `pnpm run validate:provisioning` | Missing Watch bundle ID, App Group, or EAS credentials source |
 | `validate-watch-icon-format.js` | `pnpm run validate:watch-icons`  | Legacy per-size AppIcon format that triggers ITMS-90391       |
 
+### Automatic gate — runs before every EAS build
+
+Both scripts are wired into `eas.json` via `prebuildCommand` on every build profile
+(`development`, `preview`, `production`):
+
+```json
+"prebuildCommand": "bash scripts/eas-prebuild.sh"
+```
+
+`prebuildCommand` tells EAS to run `scripts/eas-prebuild.sh` **instead of** the
+default `expo prebuild` step. EAS appends `--platform <ios|android> --non-interactive`
+as arguments, which the script passes through to `expo prebuild` with `"$@"`.
+
+The wrapper script (`scripts/eas-prebuild.sh`):
+
+1. Runs `validate-eas-provisioning.js` — exits 1 if the Watch bundle ID, App Group,
+   or EAS credentials source are misconfigured.
+2. Runs `validate-watch-icon-format.js` — exits 1 if any watchOS AppIcon catalog
+   uses the legacy per-size format that causes ITMS-90391.
+3. Delegates to `npx expo prebuild "$@"` only when both checks pass.
+
+If either validation exits with a non-zero code the build is aborted immediately and
+the error output is printed to the EAS build log — no binary is produced and no
+credits are consumed for the compilation phase.
+
+You do **not** need to remember to run these manually before submitting. They are
+impossible to skip via the normal `eas build` workflow.
+
+To verify the configuration locally before building:
+
+```bash
+# Confirm eas.json is valid for all profiles
+pnpm exec eas config --platform ios --profile development
+pnpm exec eas config --platform ios --profile preview
+pnpm exec eas config --platform ios --profile production
+
+# Run the checks manually at any time
+pnpm run validate:provisioning
+pnpm run validate:watch-icons
+```
+
 ### Why the icon format check matters (ITMS-90391)
 
 Build #116 passed EAS compilation and produced a valid `Assets.car`, but Apple's App Store Connect validator rejected it with **ITMS-90391** because the `AppIcon.appiconset/Contents.json` used the **legacy per-size format** — multiple image entries (one per watch face slot) each reusing the same 1024×1024 PNG. Xcode's asset catalog compiler accepts this format silently. The rejection only appears after uploading to App Store Connect.

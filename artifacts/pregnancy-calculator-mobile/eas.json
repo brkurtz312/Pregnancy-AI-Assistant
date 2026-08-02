@@ -6,20 +6,23 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "prebuildCommand": "bash scripts/eas-prebuild.sh"
     },
     "preview": {
       "distribution": "internal",
       "ios": {
         "simulator": false
-      }
+      },
+      "prebuildCommand": "bash scripts/eas-prebuild.sh"
     },
     "production": {
       "channel": "production",
       "autoIncrement": true,
       "ios": {
         "credentialsSource": "remote"
-      }
+      },
+      "prebuildCommand": "bash scripts/eas-prebuild.sh"
     }
   },
   "submit": {
