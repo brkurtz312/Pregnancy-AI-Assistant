@@ -76,9 +76,16 @@ export default function SignInScreen() {
       // dismissAll closes the fullScreenModal and returns to the root,
       // where Clerk's now-active session renders the main app.
       router.dismissAll();
-    } catch (err) {
-      console.error("Sign-in error:", err);
-      setNotice("Sign-in failed. Please check your credentials and try again.");
+    } catch (err: unknown) {
+      console.error("Sign-in error:", JSON.stringify(err, null, 2));
+      // Surface the actual Clerk error message so the user (and developer)
+      // can see exactly what went wrong, not a generic fallback.
+      const clerkErr = err as { errors?: Array<{ longMessage?: string; message?: string }> };
+      const msg =
+        clerkErr?.errors?.[0]?.longMessage ??
+        clerkErr?.errors?.[0]?.message ??
+        (err instanceof Error ? err.message : String(err));
+      setNotice(msg || "Sign-in failed. Please check your credentials and try again.");
     }
   };
 
@@ -111,7 +118,9 @@ export default function SignInScreen() {
       // consent screen — no message needed in that case.
       if (!isCancelError(err)) {
         console.error("Google sign-in error:", JSON.stringify(err, null, 2));
-        setNotice("Google sign-in failed. Please try again.");
+        const clerkErr = err as { errors?: Array<{ longMessage?: string; message?: string }> };
+        const msg = clerkErr?.errors?.[0]?.longMessage ?? clerkErr?.errors?.[0]?.message ?? (err instanceof Error ? err.message : String(err));
+        setNotice(msg || "Google sign-in failed. Please try again.");
       }
     } finally {
       setGoogleLoading(false);
@@ -137,7 +146,9 @@ export default function SignInScreen() {
       // Apple Sign-In sheet — no message needed in that case.
       if (!isCancelError(err)) {
         console.error("Apple sign-in error:", JSON.stringify(err, null, 2));
-        setNotice("Apple sign-in failed. Please try again.");
+        const clerkErr = err as { errors?: Array<{ longMessage?: string; message?: string }> };
+        const msg = clerkErr?.errors?.[0]?.longMessage ?? clerkErr?.errors?.[0]?.message ?? (err instanceof Error ? err.message : String(err));
+        setNotice(msg || "Apple sign-in failed. Please try again.");
       }
     } finally {
       setAppleLoading(false);
