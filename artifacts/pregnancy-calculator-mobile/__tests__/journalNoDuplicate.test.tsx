@@ -166,6 +166,7 @@ describe("Global sync → journal screen: no duplicate upsert", () => {
 
     mockUseAuth.mockReturnValue({
       isSignedIn: true,
+      userId: "user-test",
       getToken: jest.fn(async () => "tok"),
     });
   });

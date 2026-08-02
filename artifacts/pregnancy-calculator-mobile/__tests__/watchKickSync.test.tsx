@@ -148,6 +148,46 @@ jest.mock("@workspace/api-client-react", () => ({
   getListContractionsQueryKey: jest.fn((p) => ["contractions", p]),
 }));
 
+// ── Sync API (direct Watch saves) ─────────────────────────────────────────────
+const mockApiDirectSaveKickSession = jest.fn().mockResolvedValue(undefined);
+const mockApiDirectSaveContraction = jest.fn().mockResolvedValue(undefined);
+
+jest.mock("@/lib/sync-api", () => ({
+  apiDirectSaveKickSession: (...args: unknown[]) =>
+    mockApiDirectSaveKickSession(...args),
+  apiDirectSaveContraction: (...args: unknown[]) =>
+    mockApiDirectSaveContraction(...args),
+  // The queue-flush helpers used by useGlobalBackgroundSync
+  apiSaveWatchKickSession: jest.fn().mockResolvedValue(undefined),
+  apiSaveWatchContraction: jest.fn().mockResolvedValue(undefined),
+  apiUpsertJournalEntry: jest.fn().mockResolvedValue({ id: "srv-1" }),
+  apiSaveHospitalBag: jest.fn().mockResolvedValue(undefined),
+  apiSaveBirthPlanAnswers: jest.fn().mockResolvedValue(undefined),
+  isServerUuid: jest.fn().mockReturnValue(true),
+}));
+
+// ── Sync queue ────────────────────────────────────────────────────────────────
+const mockEnqueueWatchKickSession = jest.fn().mockResolvedValue(undefined);
+const mockEnqueueWatchContraction = jest.fn().mockResolvedValue(undefined);
+
+jest.mock("@/lib/sync-queue", () => ({
+  enqueueWatchKickSession: (...args: unknown[]) =>
+    mockEnqueueWatchKickSession(...args),
+  enqueueWatchContraction: (...args: unknown[]) =>
+    mockEnqueueWatchContraction(...args),
+  getWatchQueueGeneration: jest.fn().mockReturnValue(0),
+  markPendingSync: jest.fn().mockResolvedValue(undefined),
+  clearPendingSync: jest.fn().mockResolvedValue(undefined),
+  hasPendingSync: jest.fn().mockResolvedValue(false),
+  tryAcquireSyncLock: jest.fn().mockReturnValue(true),
+  releaseSyncLock: jest.fn(),
+  readWatchKickSessions: jest.fn().mockResolvedValue([]),
+  removeWatchKickSessionById: jest.fn().mockResolvedValue(undefined),
+  readWatchContractions: jest.fn().mockResolvedValue([]),
+  removeWatchContractionById: jest.fn().mockResolvedValue(undefined),
+  invalidateWatchQueueSession: jest.fn().mockResolvedValue(undefined),
+}));
+
 // ── Watch connectivity ────────────────────────────────────────────────────────
 // Capture the callbacks so we can fire them manually in tests.
 let capturedOnKickSessionEnd: ((s: unknown) => Promise<void>) | undefined;
@@ -193,7 +233,11 @@ describe("WatchBackgroundListener — Watch → Tools sync (no manual refresh)",
   let listenerRenderer: ReturnType<typeof create> | null = null;
 
   function renderWatchListener() {
-    mockUseAuth.mockReturnValue({ isSignedIn: true });
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      userId: "user-123",
+      getToken: jest.fn().mockResolvedValue("token-user-123"),
+    });
     act(() => {
       listenerRenderer = create(React.createElement(WatchBackgroundListener));
     });
@@ -206,20 +250,17 @@ describe("WatchBackgroundListener — Watch → Tools sync (no manual refresh)",
     capturedOnKickSessionEnd = undefined;
     capturedOnContractionUpdate = undefined;
     jest.clearAllMocks();
-    // Re-apply the mock return values cleared by clearAllMocks
-    mockUseAuth.mockReturnValue({ isSignedIn: true });
+    // Re-apply mock values cleared by clearAllMocks.
+    // WatchBackgroundListener now calls apiDirectSave* directly (not via
+    // mutation hooks) so only those mocks need to be set up here.
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      userId: "user-123",
+      getToken: jest.fn().mockResolvedValue("token-user-123"),
+    });
     mockInvalidateQueries.mockResolvedValue(undefined);
-    mockKickMutateAsync.mockResolvedValue({ id: 99 });
-    mockContractionMutateAsync.mockResolvedValue({ id: 77 });
-    const apiMock = require("@workspace/api-client-react");
-    apiMock.useCreateKickSession.mockReturnValue({
-      mutateAsync: mockKickMutateAsync,
-      isPending: false,
-    });
-    apiMock.useCreateContraction.mockReturnValue({
-      mutateAsync: mockContractionMutateAsync,
-      isPending: false,
-    });
+    mockApiDirectSaveKickSession.mockResolvedValue(undefined);
+    mockApiDirectSaveContraction.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -247,7 +288,7 @@ describe("WatchBackgroundListener — Watch → Tools sync (no manual refresh)",
     expect(typeof capturedOnKickSessionEnd).toBe("function");
   });
 
-  it("calls createKickSession when the watch fires onKickSessionEnd", async () => {
+  it("calls apiDirectSaveKickSession when the watch fires onKickSessionEnd", async () => {
     renderWatchListener();
     await act(async () => {});
 
@@ -263,14 +304,18 @@ describe("WatchBackgroundListener — Watch → Tools sync (no manual refresh)",
       await capturedOnKickSessionEnd!(session);
     });
 
-    expect(mockKickMutateAsync).toHaveBeenCalledTimes(1);
-    expect(mockKickMutateAsync).toHaveBeenCalledWith({
-      data: {
+    // WatchBackgroundListener uses a frozen-token direct API call — not the
+    // mutation hook — so that the request always carries the originating
+    // user's token, even if another account signs in mid-flight.
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(1);
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledWith(
+      {
         startedAt: session.startedAt,
         endedAt: session.endedAt,
         kickCount: session.kickCount,
       },
-    });
+      expect.any(Function), // frozen token getter
+    );
   });
 
   it("invalidates kick-session cache after persisting the watch kick session", async () => {
@@ -303,7 +348,7 @@ describe("WatchBackgroundListener — Watch → Tools sync (no manual refresh)",
       });
     });
 
-    expect(mockKickMutateAsync).toHaveBeenCalledTimes(1);
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(1);
     expect(mockInvalidateQueries).toHaveBeenCalledTimes(1);
   });
 
@@ -317,7 +362,7 @@ describe("WatchBackgroundListener — Watch → Tools sync (no manual refresh)",
     expect(typeof capturedOnContractionUpdate).toBe("function");
   });
 
-  it("calls createContraction when the watch fires onContractionUpdate", async () => {
+  it("calls apiDirectSaveContraction when the watch fires onContractionUpdate", async () => {
     renderWatchListener();
     await act(async () => {});
 
@@ -331,12 +376,12 @@ describe("WatchBackgroundListener — Watch → Tools sync (no manual refresh)",
       await capturedOnContractionUpdate!(record);
     });
 
-    expect(mockContractionMutateAsync).toHaveBeenCalledTimes(1);
-    const call = mockContractionMutateAsync.mock.calls[0][0];
-    expect(call.data.startedAt).toBe(record.startedAt);
-    expect(call.data.endedAt).toBe(record.endedAt);
-    expect(call.data.durationSeconds).toBe(70);
-    expect(call.data.intervalSeconds).toBe(300);
+    expect(mockApiDirectSaveContraction).toHaveBeenCalledTimes(1);
+    const [payload] = mockApiDirectSaveContraction.mock.calls[0];
+    expect(payload.startedAt).toBe(record.startedAt);
+    expect(payload.endedAt).toBe(record.endedAt);
+    expect(payload.durationSeconds).toBe(70);
+    expect(payload.intervalSeconds).toBe(300);
   });
 
   it("invalidates contraction cache after persisting the watch contraction", async () => {
@@ -367,10 +412,10 @@ describe("WatchBackgroundListener — Watch → Tools sync (no manual refresh)",
       });
     });
 
-    expect(mockContractionMutateAsync).toHaveBeenCalledTimes(1);
-    const call = mockContractionMutateAsync.mock.calls[0][0];
-    expect(call.data.intervalSeconds).toBeUndefined();
-    expect(call.data.durationSeconds).toBe(90);
+    expect(mockApiDirectSaveContraction).toHaveBeenCalledTimes(1);
+    const [payload] = mockApiDirectSaveContraction.mock.calls[0];
+    expect(payload.intervalSeconds).toBeUndefined();
+    expect(payload.durationSeconds).toBe(90);
   });
 });
 
@@ -423,8 +468,16 @@ describe("Watch + phone concurrent kick session ends", () => {
     jest.useFakeTimers();
     jest.clearAllMocks();
 
-    mockUseAuth.mockReturnValue({ isSignedIn: true });
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      userId: "user-123",
+      getToken: jest.fn().mockResolvedValue("token-user-123"),
+    });
     mockInvalidateQueries.mockResolvedValue(undefined);
+    // Watch path: direct API saves
+    mockApiDirectSaveKickSession.mockResolvedValue(undefined);
+    mockApiDirectSaveContraction.mockResolvedValue(undefined);
+    // Phone path: mutation hooks (used by KickCounterSection)
     mockKickMutateAsync.mockResolvedValue({ id: 99 });
     mockUpdateMutateAsync.mockResolvedValue({ id: 42 });
     mockRefetch.mockResolvedValue(undefined);
@@ -508,19 +561,14 @@ describe("Watch + phone concurrent kick session ends", () => {
     return { endBtn };
   }
 
-  it("Watch createKickSession and phone updateKickSession both complete when fired with deferred overlap", async () => {
+  it("Watch apiDirectSaveKickSession and phone updateKickSession both complete when fired concurrently", async () => {
     const { endBtn } = await setupBothComponents();
 
-    // Arm deferred mutations so both operations are in-flight simultaneously
-    let resolveWatchCreate!: (v: unknown) => void;
+    // Arm a deferred phone-update so the two async paths overlap.
+    // The Watch path (getToken + apiDirectSaveKickSession) is independent of
+    // the phone path (updateKickSession mutation), so we verify they don't
+    // suppress each other rather than requiring identical tick-level interleaving.
     let resolvePhoneUpdate!: (v: unknown) => void;
-
-    mockKickMutateAsync.mockImplementationOnce(
-      () =>
-        new Promise((r) => {
-          resolveWatchCreate = r;
-        }),
-    );
     mockUpdateMutateAsync.mockImplementationOnce(
       () =>
         new Promise((r) => {
@@ -534,35 +582,37 @@ describe("Watch + phone concurrent kick session ends", () => {
       endedAt: "2026-08-01T10:25:00.000Z",
     };
 
-    // Start both operations — neither has resolved yet (deferred promises)
+    // Start both operations.
+    // Watch: getToken() resolves asynchronously, then apiDirectSaveKickSession fires.
     const watchDone = capturedOnKickSessionEnd!(watchSession);
     act(() => {
-      // onPress kicks off async handleEndSession; the mutation is deferred
+      // onPress kicks off async handleEndSession; the mutation is deferred.
       endBtn.props.onPress();
     });
 
-    // Resolve both mutations concurrently, as real timing would
-    act(() => {
-      resolveWatchCreate({ id: 100 });
-      resolvePhoneUpdate({ id: 42 });
-    });
-
+    // Let the Watch path's getToken() microtask resolve and the Watch save
+    // complete before releasing the phone-update promise.
     await act(async () => {
       await watchDone;
     });
 
-    // Watch path: createKickSession persisted the Watch-recorded session
-    // (second call — the first was for "Start Counting")
-    expect(mockKickMutateAsync).toHaveBeenCalledTimes(2);
-    expect(mockKickMutateAsync).toHaveBeenLastCalledWith({
-      data: {
+    act(() => {
+      resolvePhoneUpdate({ id: 42 });
+    });
+    await act(async () => {});
+
+    // Watch path: frozen-token direct API call persisted the Watch-recorded session.
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledWith(
+      {
         startedAt: watchSession.startedAt,
         endedAt: watchSession.endedAt,
         kickCount: watchSession.kickCount,
       },
-    });
+      expect.any(Function), // frozen token getter
+    );
 
-    // Phone path: updateKickSession finalised the active phone session
+    // Phone path: mutation hook used only for Start Counting (setup) + End Session.
+    expect(mockKickMutateAsync).toHaveBeenCalledTimes(1); // only Start Counting
     expect(mockUpdateMutateAsync).toHaveBeenCalledTimes(1);
     expect(mockUpdateMutateAsync).toHaveBeenCalledWith({
       id: 99, // the ID returned by the Start Counting create
@@ -614,8 +664,16 @@ describe("Watch + phone concurrent kick session ends", () => {
 describe("WatchBackgroundListener — save-failure error toasts", () => {
   let listenerRenderer: ReturnType<typeof create> | null = null;
 
-  function renderWatchListener() {
-    mockUseAuth.mockReturnValue({ isSignedIn: true });
+  function renderWatchListener(
+    getToken: () => Promise<string | null> = jest
+      .fn()
+      .mockResolvedValue("token-user-123"),
+  ) {
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      userId: "user-123",
+      getToken,
+    });
     act(() => {
       listenerRenderer = create(React.createElement(WatchBackgroundListener));
     });
@@ -628,18 +686,18 @@ describe("WatchBackgroundListener — save-failure error toasts", () => {
     capturedOnKickSessionEnd = undefined;
     capturedOnContractionUpdate = undefined;
     jest.clearAllMocks();
-    mockUseAuth.mockReturnValue({ isSignedIn: true });
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      userId: "user-123",
+      getToken: jest.fn().mockResolvedValue("token-user-123"),
+    });
     mockInvalidateQueries.mockResolvedValue(undefined);
-
-    const apiMock = require("@workspace/api-client-react");
-    apiMock.useCreateKickSession.mockReturnValue({
-      mutateAsync: mockKickMutateAsync,
-      isPending: false,
-    });
-    apiMock.useCreateContraction.mockReturnValue({
-      mutateAsync: mockContractionMutateAsync,
-      isPending: false,
-    });
+    // Watch direct API saves succeed by default; individual tests override for
+    // failure scenarios.
+    mockApiDirectSaveKickSession.mockResolvedValue(undefined);
+    mockApiDirectSaveContraction.mockResolvedValue(undefined);
+    mockEnqueueWatchKickSession.mockResolvedValue(undefined);
+    mockEnqueueWatchContraction.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -656,8 +714,10 @@ describe("WatchBackgroundListener — save-failure error toasts", () => {
     jest.clearAllMocks();
   });
 
-  it("shows an error toast when the kick-session save fails", async () => {
-    mockKickMutateAsync.mockRejectedValueOnce(new Error("Network error"));
+  it("shows an error toast and enqueues the session locally when the kick-session save fails", async () => {
+    mockApiDirectSaveKickSession.mockRejectedValueOnce(
+      new Error("Network error"),
+    );
     const renderer = renderWatchListener();
     await act(async () => {});
 
@@ -674,18 +734,32 @@ describe("WatchBackgroundListener — save-failure error toasts", () => {
     // Cache must NOT be invalidated — save failed
     expect(mockInvalidateQueries).not.toHaveBeenCalled();
 
-    // Error toast must be visible with an appropriate message
+    // Data must be queued locally so it can be retried on reconnect.
+    // The call must include the userId and the captured session generation so
+    // events are scoped to the right account and post-sign-out enqueues are
+    // rejected.
+    expect(mockEnqueueWatchKickSession).toHaveBeenCalledWith(
+      {
+        startedAt: "2026-08-01T10:00:00.000Z",
+        endedAt: "2026-08-01T10:20:00.000Z",
+        kickCount: 5,
+      },
+      "user-123",
+      0, // capturedGen from the mocked getWatchQueueGeneration
+    );
+
+    // Error toast must be visible with a "saved locally" message
     const textNodes = renderer.root.findAllByType(Text);
     const renderedTexts = textNodes
       .map((n) => String(n.props.children ?? ""))
       .filter(Boolean);
     expect(
-      renderedTexts.some((t) => t.toLowerCase().includes("couldn't be saved")),
+      renderedTexts.some((t) => t.toLowerCase().includes("saved locally")),
     ).toBe(true);
   });
 
-  it("shows an error toast when the contraction save fails", async () => {
-    mockContractionMutateAsync.mockRejectedValueOnce(
+  it("shows an error toast and enqueues the contraction locally when the contraction save fails", async () => {
+    mockApiDirectSaveContraction.mockRejectedValueOnce(
       new Error("401 Unauthorized"),
     );
     const renderer = renderWatchListener();
@@ -704,18 +778,30 @@ describe("WatchBackgroundListener — save-failure error toasts", () => {
     // Cache must NOT be invalidated — save failed
     expect(mockInvalidateQueries).not.toHaveBeenCalled();
 
-    // Error toast must be visible with an appropriate message
+    // Data must be queued locally so it can be retried on reconnect.
+    // The call must include the userId and the captured session generation.
+    expect(mockEnqueueWatchContraction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        startedAt: "2026-08-01T14:00:00.000Z",
+        endedAt: "2026-08-01T14:01:00.000Z",
+        intervalSeconds: 300,
+      }),
+      "user-123",
+      0, // capturedGen from the mocked getWatchQueueGeneration
+    );
+
+    // Error toast must be visible with a "saved locally" message
     const textNodes = renderer.root.findAllByType(Text);
     const renderedTexts = textNodes
       .map((n) => String(n.props.children ?? ""))
       .filter(Boolean);
     expect(
-      renderedTexts.some((t) => t.toLowerCase().includes("couldn't be saved")),
+      renderedTexts.some((t) => t.toLowerCase().includes("saved locally")),
     ).toBe(true);
   });
 
   it("shows a success toast (not error) when kick-session save succeeds", async () => {
-    mockKickMutateAsync.mockResolvedValueOnce({ id: 42 });
+    // Default mock already resolves — no override needed
     const renderer = renderWatchListener();
     await act(async () => {});
 
@@ -739,7 +825,6 @@ describe("WatchBackgroundListener — save-failure error toasts", () => {
   });
 
   it("shows a success toast (not error) when contraction save succeeds", async () => {
-    mockContractionMutateAsync.mockResolvedValueOnce({ id: 77 });
     const renderer = renderWatchListener();
     await act(async () => {});
 
@@ -759,6 +844,89 @@ describe("WatchBackgroundListener — save-failure error toasts", () => {
       true,
     );
     expect(mockInvalidateQueries).toHaveBeenCalledTimes(1);
+  });
+
+  // ── Account-switch race tests ─────────────────────────────────────────────
+  //
+  // If sign-out occurs between Watch event receipt and the API request, the
+  // generation counter will have advanced (via invalidateWatchQueueSession).
+  // WatchBackgroundListener checks the generation after calling getToken(); if
+  // it advanced, the handler must bail out immediately — it must NOT call the
+  // API, update the cache, or enqueue the data.
+  //
+  // This tests the "post-token-fetch generation check" path introduced so that
+  // the frozen token (captured for user A) is never used after A signs out.
+
+  it("does not save or enqueue a kick session when sign-out occurs before the token is used", async () => {
+    const syncQueueMock = require("@/lib/sync-queue");
+    // Simulate sign-out bumping the generation while getToken() is resolving.
+    syncQueueMock.getWatchQueueGeneration
+      .mockReturnValueOnce(0) // captured at callback start
+      .mockReturnValueOnce(1); // re-checked after getToken (sign-out bumped it)
+
+    renderWatchListener();
+    await act(async () => {});
+
+    await act(async () => {
+      await capturedOnKickSessionEnd!({
+        kickCount: 3,
+        startedAt: "2026-08-01T09:00:00.000Z",
+        endedAt: "2026-08-01T09:10:00.000Z",
+      });
+    });
+
+    // Generation changed before the request was sent → must bail out
+    expect(mockApiDirectSaveKickSession).not.toHaveBeenCalled();
+    expect(mockInvalidateQueries).not.toHaveBeenCalled();
+    expect(mockEnqueueWatchKickSession).not.toHaveBeenCalled();
+  });
+
+  it("does not save or enqueue a contraction when sign-out occurs before the token is used", async () => {
+    const syncQueueMock = require("@/lib/sync-queue");
+    syncQueueMock.getWatchQueueGeneration
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(1);
+
+    renderWatchListener();
+    await act(async () => {});
+
+    await act(async () => {
+      await capturedOnContractionUpdate!({
+        startedAt: "2026-08-01T14:00:00.000Z",
+        endedAt: "2026-08-01T14:01:00.000Z",
+        interval: 300,
+      });
+    });
+
+    expect(mockApiDirectSaveContraction).not.toHaveBeenCalled();
+    expect(mockInvalidateQueries).not.toHaveBeenCalled();
+    expect(mockEnqueueWatchContraction).not.toHaveBeenCalled();
+  });
+
+  it("does not invalidate cache when sign-out occurs after the API request completes", async () => {
+    // Generation at start: 0, after-token check: 0 (save proceeds), after-save
+    // check: 1 (sign-out happened during the HTTP request).
+    const syncQueueMock = require("@/lib/sync-queue");
+    syncQueueMock.getWatchQueueGeneration
+      .mockReturnValueOnce(0) // capturedGen at callback start
+      .mockReturnValueOnce(0) // check after getToken → save proceeds
+      .mockReturnValueOnce(1); // check after apiDirectSave → sign-out mid-flight
+
+    renderWatchListener();
+    await act(async () => {});
+
+    await act(async () => {
+      await capturedOnKickSessionEnd!({
+        kickCount: 3,
+        startedAt: "2026-08-01T09:00:00.000Z",
+        endedAt: "2026-08-01T09:10:00.000Z",
+      });
+    });
+
+    // API call was made (with the frozen token for user A — correct behaviour)
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(1);
+    // Cache invalidation must be skipped — we are now in a different session
+    expect(mockInvalidateQueries).not.toHaveBeenCalled();
   });
 });
 
@@ -835,10 +1003,28 @@ describe("Cold-start durability — Watch data survives app close and reopen", (
     capturedOnContractionUpdate = undefined;
     jest.clearAllMocks();
 
-    mockUseAuth.mockReturnValue({ isSignedIn: true });
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      userId: "user-123",
+      getToken: jest.fn().mockResolvedValue("token-user-123"),
+    });
     mockInvalidateQueries.mockResolvedValue(undefined);
 
-    // Mutations write to the server double and return the new ID
+    // Watch path: direct API calls write to the server double
+    mockApiDirectSaveKickSession.mockImplementation(
+      async (session: Omit<KickRow, "id">) => {
+        const id = nextKickId++;
+        kickServerRows.push({ id, ...session } as KickRow);
+      },
+    );
+    mockApiDirectSaveContraction.mockImplementation(
+      async (contraction: Omit<ContractionRow, "id">) => {
+        const id = nextContractionId++;
+        contractionServerRows.push({ id, ...contraction } as ContractionRow);
+      },
+    );
+
+    // Phone path: mutation hooks used by KickCounterSection (Start Counting)
     mockKickMutateAsync.mockImplementation(
       async ({ data }: { data: Omit<KickRow, "id"> }) => {
         const id = nextKickId++;
@@ -918,8 +1104,8 @@ describe("Cold-start durability — Watch data survives app close and reopen", (
       await capturedOnKickSessionEnd!(savedSession);
     });
 
-    // Mutation called once — server double now contains the row
-    expect(mockKickMutateAsync).toHaveBeenCalledTimes(1);
+    // Direct API call persisted the row — server double now contains it
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(1);
     expect(kickServerRows).toHaveLength(1);
     expect(kickServerRows[0].kickCount).toBe(6);
     // Cache invalidated so next mount fetches fresh data
@@ -935,8 +1121,8 @@ describe("Cold-start durability — Watch data survives app close and reopen", (
     // ── Phase 2: Cold-start — fresh components, list reads from server ────
     // No manual mock override here: useListKickSessions.mockImplementation
     // already reads from kickServerRows, which now contains the saved row.
-    // This proves the data flows through the mutation → server → query path.
-    const createCallsBefore = mockKickMutateAsync.mock.calls.length;
+    // This proves the data flows through the direct-API-save → server → query path.
+    const createCallsBefore = mockApiDirectSaveKickSession.mock.calls.length;
 
     mount(React.createElement(WatchBackgroundListener));
     const coldList = mount(React.createElement(KickCounterSection));
@@ -951,8 +1137,10 @@ describe("Cold-start durability — Watch data survives app close and reopen", (
 
     // The server double must still have exactly 1 row — no duplicate created
     expect(kickServerRows).toHaveLength(1);
-    // The create mutation must not have been called again on fresh mount
-    expect(mockKickMutateAsync.mock.calls.length).toBe(createCallsBefore);
+    // The direct API save must not have been called again on fresh mount
+    expect(mockApiDirectSaveKickSession.mock.calls.length).toBe(
+      createCallsBefore,
+    );
   });
 
   it("contraction saved by the Watch appears in the list after a cold-start (fresh query cache)", async () => {
@@ -972,7 +1160,7 @@ describe("Cold-start durability — Watch data survives app close and reopen", (
       await capturedOnContractionUpdate!(savedContraction);
     });
 
-    expect(mockContractionMutateAsync).toHaveBeenCalledTimes(1);
+    expect(mockApiDirectSaveContraction).toHaveBeenCalledTimes(1);
     // Server double holds the persisted contraction (duration = 60 s)
     expect(contractionServerRows).toHaveLength(1);
     expect(contractionServerRows[0].durationSeconds).toBe(60);
@@ -986,7 +1174,7 @@ describe("Cold-start durability — Watch data survives app close and reopen", (
     capturedOnContractionUpdate = undefined;
 
     // ── Phase 2: Cold-start — fresh ContractionTimerSection reads from server
-    const createCallsBefore = mockContractionMutateAsync.mock.calls.length;
+    const createCallsBefore = mockApiDirectSaveContraction.mock.calls.length;
 
     mount(React.createElement(WatchBackgroundListener));
     const coldList = mount(React.createElement(ContractionTimerSection));
@@ -1001,7 +1189,7 @@ describe("Cold-start durability — Watch data survives app close and reopen", (
 
     // No new row must have been written to the server double
     expect(contractionServerRows).toHaveLength(1);
-    expect(mockContractionMutateAsync.mock.calls.length).toBe(
+    expect(mockApiDirectSaveContraction.mock.calls.length).toBe(
       createCallsBefore,
     );
   });

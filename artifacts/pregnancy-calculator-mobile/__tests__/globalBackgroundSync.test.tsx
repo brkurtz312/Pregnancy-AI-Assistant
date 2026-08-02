@@ -46,6 +46,12 @@ jest.mock("@/lib/sync-queue", () => ({
   markPendingSync: jest.fn(async () => {}),
   tryAcquireSyncLock: jest.fn(() => true),
   releaseSyncLock: jest.fn(),
+  getWatchQueueGeneration: jest.fn(() => 0),
+  readWatchKickSessions: jest.fn(async () => []),
+  removeWatchKickSessionById: jest.fn(async () => {}),
+  readWatchContractions: jest.fn(async () => []),
+  removeWatchContractionById: jest.fn(async () => {}),
+  invalidateWatchQueueSession: jest.fn(async () => {}),
 }));
 
 // ─── Journal lib ──────────────────────────────────────────────────────────────
@@ -73,6 +79,11 @@ jest.mock("@/lib/sync-api", () => ({
   apiUpsertJournalEntry: jest.fn(async () => ({})),
   apiSaveHospitalBag: jest.fn(async () => {}),
   apiSaveBirthPlanAnswers: jest.fn(async () => {}),
+  apiSaveWatchKickSession: jest.fn(async () => {}),
+  apiSaveWatchContraction: jest.fn(async () => {}),
+  // WatchBackgroundListener direct-save helpers (not used by this hook)
+  apiDirectSaveKickSession: jest.fn(async () => {}),
+  apiDirectSaveContraction: jest.fn(async () => {}),
   isServerUuid: jest.fn((id: string) =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id),
   ),
@@ -85,6 +96,7 @@ import {
   hasPendingSync,
   clearPendingSync,
   tryAcquireSyncLock,
+  getWatchQueueGeneration,
 } from "@/lib/sync-queue";
 import { loadEntries, replaceEntryId } from "@/lib/journal";
 import { loadHospitalBagChecklist } from "@/lib/hospital-bag";
@@ -93,13 +105,19 @@ import {
   apiUpsertJournalEntry,
   apiSaveHospitalBag,
   apiSaveBirthPlanAnswers,
+  apiSaveWatchKickSession,
 } from "@/lib/sync-api";
+import {
+  readWatchKickSessions,
+  removeWatchKickSessionById,
+} from "@/lib/sync-queue";
 import { useGlobalBackgroundSync } from "@/hooks/useGlobalBackgroundSync";
 
 const mockUseAuth = useAuth as jest.Mock;
 const mockHasPendingSync = hasPendingSync as jest.Mock;
 const mockClearPendingSync = clearPendingSync as jest.Mock;
 const mockTryAcquireSyncLock = tryAcquireSyncLock as jest.Mock;
+const mockGetWatchQueueGeneration = getWatchQueueGeneration as jest.Mock;
 const mockLoadEntries = loadEntries as jest.Mock;
 const mockReplaceEntryId = replaceEntryId as jest.Mock;
 const mockLoadHospitalBag = loadHospitalBagChecklist as jest.Mock;
@@ -107,6 +125,9 @@ const mockLoadBirthPlan = loadBirthPlanAnswers as jest.Mock;
 const mockApiUpsertJournal = apiUpsertJournalEntry as jest.Mock;
 const mockApiSaveHospitalBag = apiSaveHospitalBag as jest.Mock;
 const mockApiSaveBirthPlan = apiSaveBirthPlanAnswers as jest.Mock;
+const mockApiSaveWatchKickSession = apiSaveWatchKickSession as jest.Mock;
+const mockReadWatchKickSessions = readWatchKickSessions as jest.Mock;
+const mockRemoveWatchKickSessionById = removeWatchKickSessionById as jest.Mock;
 
 // ─── Minimal host component ───────────────────────────────────────────────────
 
@@ -136,8 +157,13 @@ describe("useGlobalBackgroundSync — fires without tool screens mounted", () =>
   beforeEach(() => {
     jest.clearAllMocks();
     netInfoListener = null;
+    // Restore the default sync-lock behaviour after any test that overrides it
+    // (clearAllMocks does NOT clear mockReturnValue overrides — only mockReset
+    // does — so we must reset it explicitly).
+    mockTryAcquireSyncLock.mockReturnValue(true);
     mockUseAuth.mockReturnValue({
       isSignedIn: true,
+      userId: "user-test",
       getToken: jest.fn(async () => "tok"),
     });
   });
@@ -406,6 +432,86 @@ describe("useGlobalBackgroundSync — fires without tool screens mounted", () =>
     expect(mockApiUpsertJournal).not.toHaveBeenCalled();
     expect(mockReplaceEntryId).not.toHaveBeenCalled();
     expect(mockClearPendingSync).not.toHaveBeenCalledWith("journal");
+  });
+
+  it("does not flush a Watch kick session if the session generation advances while the token is being resolved (account-switch race)", async () => {
+    // Scenario: user A is signed in, queued kick session is about to be flushed.
+    // While getToken() is awaiting (Clerk resolving the session), user A signs
+    // out and user B signs in.  The generation counter advances.  The post-
+    // token-fetch guard must detect this and bail out — A's frozen token must
+    // NEVER reach the API call that would POST A's health data to B's account.
+    const pendingSession = {
+      _clientId: "token-race-guard",
+      kickCount: 4,
+      startedAt: "2026-08-01T11:00:00.000Z",
+      endedAt: "2026-08-01T11:15:00.000Z",
+    };
+    mockReadWatchKickSessions.mockResolvedValue([pendingSession]);
+
+    // Control the generation counter precisely:
+    //   call 1 → genAtStart = 0  (before lock)
+    //   call 2 → pre-request guard = 0  (passes: 0 === 0)
+    //   call 3 → post-token-fetch guard = 1  (FAILS: 1 !== 0 → return without POST)
+    //   subsequent calls (contraction genAtStart, etc.) → 0
+    mockGetWatchQueueGeneration
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(1)
+      .mockReturnValue(0);
+
+    // Mount and drain the initial-mount flush (same path as
+    // "flushes pending Watch kick sessions on app launch" test).
+    await act(async () => {
+      create(React.createElement(SyncHost));
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // Generation advanced before the HTTP request → API must not be called
+    expect(mockApiSaveWatchKickSession).not.toHaveBeenCalled();
+    // Item must remain in the queue so it can be retried on the next reconnect
+    expect(mockRemoveWatchKickSessionById).not.toHaveBeenCalled();
+  });
+
+  it("flushes pending Watch kick sessions on app launch when already online (no network reconnect required)", async () => {
+    // Simulates: Watch fires kick session while offline → app is killed →
+    // app relaunches while already online.  In this scenario no offline → online
+    // network transition occurs, so useNetReconnect never fires.
+    //
+    // useGlobalBackgroundSync has an initial-mount useEffect that calls
+    // NetInfo.fetch(); if the device is already online it runs the Watch flush.
+    // This test verifies that path by also simulating the NetInfo initial-state
+    // callback (which real NetInfo fires synchronously on addEventListener),
+    // triggering the reconnect handler as a belt-and-suspenders coverage for
+    // the relaunch scenario.  Both paths call syncPendingWatchKickSessions.
+    const pendingSession = {
+      _clientId: "local-kick-1",
+      kickCount: 5,
+      startedAt: "2026-08-01T10:00:00.000Z",
+      endedAt: "2026-08-01T10:20:00.000Z",
+    };
+    mockReadWatchKickSessions.mockResolvedValue([pendingSession]);
+
+    // Mount the component and drain effects + their async work in one async act.
+    // NetInfo.fetch() is called from the useEffect; its .then() chain includes
+    // syncPendingWatchKickSessions → apiSaveWatchKickSession → removeWatch...
+    await act(async () => {
+      create(React.createElement(SyncHost));
+      // Allow effects to fire (React 19 may schedule them asynchronously)
+      await new Promise((r) => setTimeout(r, 0));
+      // Drain any further chained microtasks from the Watch flush
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // The session must have been saved and removed from the queue
+    expect(mockApiSaveWatchKickSession).toHaveBeenCalledWith(
+      pendingSession,
+      expect.any(Function),
+    );
+    expect(mockRemoveWatchKickSessionById).toHaveBeenCalledWith(
+      "user-test",
+      "local-kick-1",
+    );
   });
 
   it("skips sync entirely when the user is not signed in", async () => {

@@ -6,6 +6,7 @@ import { clearJournalCache } from "@/lib/journal";
 import { clearHospitalBagCache } from "@/lib/hospital-bag";
 import { clearBirthPlanCache } from "@/lib/birth-plan";
 import { clearVisitQuestionsCache } from "@/lib/visit-questions";
+import { invalidateWatchQueueSession } from "@/lib/sync-queue";
 
 /**
  * Bridges the Clerk session token into the generated API client and keeps the
@@ -98,6 +99,9 @@ export function AuthTokenBridge() {
     const wasSignedOut = prevSessionRef.current == null;
     const isNowSignedIn = session != null;
     const isNowSignedOut = session == null;
+    // Capture the outgoing userId before overwriting the ref so we can clear
+    // per-user Watch queues during the sign-out branch below.
+    const outgoingUserId = prevSessionRef.current?.user?.id ?? null;
     prevSessionRef.current = session;
 
     // When the session transitions null → non-null (i.e. user just signed in),
@@ -124,6 +128,13 @@ export function AuthTokenBridge() {
       clearHospitalBagCache().catch(() => {});
       clearBirthPlanCache().catch(() => {});
       clearVisitQuestionsCache().catch(() => {});
+      // Invalidate the per-user Watch event queues: bumps the session generation
+      // so post-sign-out enqueue calls are rejected, then clears the stored data.
+      // Both steps are serialized through the queue chains so no stale Write can
+      // slip in after the clear.
+      if (outgoingUserId) {
+        invalidateWatchQueueSession(outgoingUserId).catch(() => {});
+      }
     }
   }, [session, queryClient]);
 

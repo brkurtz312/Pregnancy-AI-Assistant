@@ -118,20 +118,21 @@ rather than waiting for the next due-date change.
 
 ## Sign-off
 
-| Build | Tester | Device | watchOS | Date | Icon ✓ | Kicks ✓ | Contractions ✓ | Tips ✓ | Update ✓ | Notes              |
-| ----- | ------ | ------ | ------- | ---- | ------ | ------- | -------------- | ------ | -------- | ------------------ |
-| #124  |        |        |         |      |        |         |                |        | N/A      | Fresh-install only |
-| #124  |        | Ultra 49 mm |    |      |        |         |                |        | N/A      | Ultra icon — see note below |
-|       |        |        |         |      |        |         |                |        |          |                    |
+| Build | Tester | Device      | watchOS | Date | Icon ✓ | Kicks ✓ | Contractions ✓ | Tips ✓ | Update ✓ | Notes                       |
+| ----- | ------ | ----------- | ------- | ---- | ------ | ------- | -------------- | ------ | -------- | --------------------------- |
+| #124  |        |             |         |      |        |         |                |        | N/A      | Fresh-install only          |
+| #124  |        | Ultra 49 mm |         |      |        |         |                |        | N/A      | Ultra icon — see note below |
+|       |        |             |         |      |        |         |                |        |          |                             |
 
 ### Apple Watch Ultra (49 mm) — icon validation note
 
 The Watch app icon uses the modern single-image `"idiom": "universal"` / `"platform": "watchos"` asset-catalog format
-(verified by `pnpm run validate:watch-icons` — all 6 checks pass).  watchOS derives every display-size slot —
+(verified by `pnpm run validate:watch-icons` — all 6 checks pass). watchOS derives every display-size slot —
 including the 49 mm Ultra slot — from the single 1024 × 1024 px sRGB source at compositing time, so a correctly
 formatted source file renders correctly on Ultra hardware without any size-specific entry in `Contents.json`.
 
 **Source file properties confirmed:**
+
 - Dimensions: 1024 × 1024 px ✓
 - Color profile: 8-bit sRGB ✓
 - Alpha channel: none ✓

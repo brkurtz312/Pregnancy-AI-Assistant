@@ -1,6 +1,7 @@
 import type { JournalEntry, JournalMood } from "./journal";
 import type { HospitalBagCategory } from "./hospital-bag";
 import type { BirthPlanAnswers } from "./birth-plan";
+import type { PendingKickSession, PendingContraction } from "./sync-queue";
 
 type TokenGetter = () => Promise<string | null>;
 
@@ -161,5 +162,72 @@ export async function apiSaveBirthPlanAnswers(
   await authFetch("/api/tools/birth-plan", getToken, {
     method: "POST",
     body: JSON.stringify({ answers }),
+  });
+}
+
+// ─── Watch events ─────────────────────────────────────────────────────────────
+
+export async function apiSaveWatchKickSession(
+  session: PendingKickSession,
+  getToken: TokenGetter,
+): Promise<void> {
+  // Strip the local-only _clientId before sending to the API.
+  const { _clientId: _ignored, ...payload } = session;
+  await authFetch("/api/tools/kick-sessions", getToken, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function apiSaveWatchContraction(
+  contraction: PendingContraction,
+  getToken: TokenGetter,
+): Promise<void> {
+  // Strip the local-only _clientId before sending to the API.
+  const { _clientId: _ignored, ...payload } = contraction;
+  await authFetch("/api/tools/contractions", getToken, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+// ─── Direct (live) Watch event saves ─────────────────────────────────────────
+//
+// Used by WatchBackgroundListener for the primary (online) save path.  These
+// functions accept a token getter that the caller must snapshot and verify
+// against the session generation BEFORE calling, ensuring the request is
+// always sent with the token that belongs to the user who owns the data.
+
+export interface WatchKickSessionPayload {
+  startedAt?: string | null;
+  endedAt?: string | null;
+  kickCount?: number | null;
+}
+
+export interface WatchContractionPayload {
+  startedAt: string;
+  endedAt?: string | null;
+  durationSeconds?: number | null;
+  intervalSeconds?: number | null;
+  sessionDate: string;
+}
+
+export async function apiDirectSaveKickSession(
+  session: WatchKickSessionPayload,
+  getToken: TokenGetter,
+): Promise<void> {
+  await authFetch("/api/tools/kick-sessions", getToken, {
+    method: "POST",
+    body: JSON.stringify(session),
+  });
+}
+
+export async function apiDirectSaveContraction(
+  contraction: WatchContractionPayload,
+  getToken: TokenGetter,
+): Promise<void> {
+  await authFetch("/api/tools/contractions", getToken, {
+    method: "POST",
+    body: JSON.stringify(contraction),
   });
 }
