@@ -10,7 +10,17 @@ final class WatchSessionManager: NSObject, ObservableObject {
     // Published state
     @Published var tips: [WatchTip] = []
     @Published var gestationalWeek: Int = 0
-    @Published var lastKickCount: Int? = nil
+
+    /// Last completed kick-session count, persisted across force-quits.
+    @Published var lastKickCount: Int? = nil {
+        didSet {
+            if let count = lastKickCount {
+                UserDefaults.standard.set(count, forKey: "wk.lastKickCount")
+            } else {
+                UserDefaults.standard.removeObject(forKey: "wk.lastKickCount")
+            }
+        }
+    }
 
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
@@ -34,6 +44,13 @@ final class WatchSessionManager: NSObject, ObservableObject {
         if savedWeek > 0 {
             gestationalWeek = savedWeek
         }
+
+        // Restore last kick count
+        let savedKickCount = UserDefaults.standard.integer(forKey: "wk.lastKickCount")
+        if savedKickCount > 0 {
+            // Bypass didSet to avoid re-writing what is already stored
+            _lastKickCount = Published(initialValue: savedKickCount)
+        }
     }
 
     // MARK: - Outbound messages to iPhone
@@ -48,6 +65,9 @@ final class WatchSessionManager: NSObject, ObservableObject {
     }
 
     func sendKickSessionEnd(summary: KickSessionSummary) {
+        // Persist the completed session count for the idle screen
+        lastKickCount = summary.kickCount
+
         guard let data = try? encoder.encode(summary) else { return }
         if WCSession.default.isReachable {
             WCSession.default.sendMessage(

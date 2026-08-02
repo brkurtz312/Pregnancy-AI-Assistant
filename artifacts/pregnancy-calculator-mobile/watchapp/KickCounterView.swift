@@ -1,8 +1,18 @@
 import SwiftUI
 import WatchKit
 
+// MARK: - UserDefaults keys
+
+private enum KickDefaults {
+    static let count    = "wk.kickCount"
+    static let active   = "wk.kickSessionActive"
+    static let start    = "wk.kickSessionStart"   // TimeInterval since 1970
+}
+
 struct KickCounterView: View {
     @EnvironmentObject var session: WatchSessionManager
+    @Environment(\.scenePhase) private var scenePhase
+
     @State private var kickCount: Int = 0
     @State private var sessionActive: Bool = false
     @State private var sessionStart: Date? = nil
@@ -65,23 +75,31 @@ struct KickCounterView: View {
             }
             .padding()
         }
+        .onAppear {
+            restoreSession()
+        }
+        .onChange(of: scenePhase) { phase in
+            if phase == .inactive || phase == .background {
+                saveSession()
+            }
+        }
     }
+
+    // MARK: - Session actions
 
     private func startSession() {
         kickCount = 0
         sessionStart = Date()
         sessionActive = true
         elapsed = 0
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            if let start = sessionStart {
-                elapsed = Date().timeIntervalSince(start)
-            }
-        }
+        startTimer()
+        saveSession()
         WKInterfaceDevice.current().play(.start)
     }
 
     private func recordKick() {
         kickCount += 1
+        saveSession()
         WKInterfaceDevice.current().play(.click)
         session.sendKickUpdate(count: kickCount)
     }
@@ -95,7 +113,62 @@ struct KickCounterView: View {
             startedAt: sessionStart ?? Date(),
             endedAt: Date()
         )
+        clearSession()
         session.sendKickSessionEnd(summary: summary)
         WKInterfaceDevice.current().play(.success)
+    }
+
+    // MARK: - Timer
+
+    private func startTimer() {
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+            if let start = sessionStart {
+                elapsed = Date().timeIntervalSince(start)
+            }
+        }
+    }
+
+    // MARK: - Persistence
+
+    private func saveSession() {
+        let ud = UserDefaults.standard
+        ud.set(kickCount, forKey: KickDefaults.count)
+        ud.set(sessionActive, forKey: KickDefaults.active)
+        if let start = sessionStart {
+            ud.set(start.timeIntervalSince1970, forKey: KickDefaults.start)
+        } else {
+            ud.removeObject(forKey: KickDefaults.start)
+        }
+    }
+
+    private func clearSession() {
+        let ud = UserDefaults.standard
+        ud.removeObject(forKey: KickDefaults.count)
+        ud.removeObject(forKey: KickDefaults.active)
+        ud.removeObject(forKey: KickDefaults.start)
+    }
+
+    private func restoreSession() {
+        let ud = UserDefaults.standard
+        guard ud.bool(forKey: KickDefaults.active) else { return }
+
+        let savedCount = ud.integer(forKey: KickDefaults.count)
+        let startRaw   = ud.double(forKey: KickDefaults.start)
+
+        // Guard against a zero/missing start date which would indicate
+        // stale or corrupt persisted data — treat as no active session.
+        guard startRaw > 0 else {
+            clearSession()
+            return
+        }
+
+        let savedStart = Date(timeIntervalSince1970: startRaw)
+
+        kickCount    = savedCount
+        sessionStart = savedStart
+        sessionActive = true
+        elapsed      = Date().timeIntervalSince(savedStart)
+        startTimer()
     }
 }
