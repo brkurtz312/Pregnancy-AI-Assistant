@@ -62,6 +62,8 @@ export function AccountSheet({
   const [confirmPurchase, setConfirmPurchase] = React.useState(false);
   const [purchaseError, setPurchaseError] = React.useState<string | null>(null);
   const [purchaseSuccess, setPurchaseSuccess] = React.useState(false);
+  const [isSigningOut, setIsSigningOut] = React.useState(false);
+  const [signOutError, setSignOutError] = React.useState<string | null>(null);
 
   // iOS/Android must use the in-app purchase (App Store/Play rules); web keeps
   // the existing Stripe checkout. Price is read from the live RevenueCat
@@ -565,27 +567,57 @@ export function AccountSheet({
                     </View>
                   )}
 
-                  <TouchableOpacity
-                    style={styles.signOutBtn}
-                    onPress={async () => {
-                      await signOut();
-                      pass.refresh();
-                      onClose();
-                    }}
-                  >
-                    <Ionicons
-                      name="log-out-outline"
-                      size={18}
-                      color={colors.destructive}
-                    />
+                  {signOutError ? (
                     <Text
                       style={[
-                        styles.signOutText,
-                        { color: colors.destructive },
+                        styles.redeemError,
+                        { color: colors.destructive, textAlign: "center" },
                       ]}
                     >
-                      Sign Out
+                      {signOutError}
                     </Text>
+                  ) : null}
+
+                  <TouchableOpacity
+                    style={styles.signOutBtn}
+                    disabled={isSigningOut}
+                    onPress={async () => {
+                      setIsSigningOut(true);
+                      setSignOutError(null);
+                      try {
+                        await signOut();
+                        pass.refresh();
+                        onClose();
+                      } catch {
+                        setIsSigningOut(false);
+                        setSignOutError(
+                          "Sign-out failed. Please check your connection and try again.",
+                        );
+                      }
+                    }}
+                  >
+                    {isSigningOut ? (
+                      <ActivityIndicator
+                        size="small"
+                        color={colors.destructive}
+                      />
+                    ) : (
+                      <>
+                        <Ionicons
+                          name="log-out-outline"
+                          size={18}
+                          color={colors.destructive}
+                        />
+                        <Text
+                          style={[
+                            styles.signOutText,
+                            { color: colors.destructive },
+                          ]}
+                        >
+                          Sign Out
+                        </Text>
+                      </>
+                    )}
                   </TouchableOpacity>
                 </View>
               )}
