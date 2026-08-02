@@ -211,23 +211,20 @@ Build #124 fixed this by switching to the **modern single-image format**:
 }
 ```
 
-The `validate:watch-icons` script enforces this before any build is triggered:
+The `validate:watch-icons` script enforces this before any build is triggered.
+It runs automatically via `eas-prebuild.sh` — no manual step is required.
+
+To verify the format locally at any time:
 
 ```bash
 pnpm run validate:watch-icons
-```
-
-Run it (along with `validate:provisioning`) before every EAS submission:
-
-```bash
-pnpm run validate:provisioning && pnpm run validate:watch-icons
 ```
 
 ---
 
 ## App Store submission
 
-1. Run pre-build validation: `pnpm run validate:provisioning && pnpm run validate:watch-icons`
+1. _(No manual validation step needed — both checks run automatically before every `eas build`.)_
 2. New binary build required (OTA cannot add a Watch App)
 3. Add **iPad screenshots** and **Apple Watch screenshots** to App Store Connect
 4. Watch screenshot sizes required: **40mm** and **44mm** (or 44mm and 49mm for Ultra)
