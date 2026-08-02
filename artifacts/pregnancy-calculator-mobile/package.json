@@ -43,6 +43,7 @@
     "@workspace/api-client-react": "workspace:*",
     "babel-plugin-react-compiler": "^19.0.0-beta-e993439-20250117",
     "babel-preset-expo": "~54.0.11",
+    "eas-cli": "21.4.0",
     "expo-auth-session": "~7.0.11",
     "expo-av": "~16.0.8",
     "expo-blur": "~15.0.8",
@@ -83,6 +84,7 @@
     "@react-native-community/datetimepicker": "^8.4.4",
     "@react-native-community/netinfo": "^12.0.1",
     "@workspace/learn-content-ids": "workspace:*",
+    "expo": "~54.0.35",
     "expo-asset": "^12.0.13",
     "expo-build-properties": "~1.0.10",
     "expo-clipboard": "~8.0.8",
@@ -91,10 +93,9 @@
     "expo-print": "~15.0.8",
     "expo-sharing": "~14.0.8",
     "expo-updates": "~29.0.19",
-    "react-native-purchases": "^10.4.0",
-    "react-native-webview": "^13.15.0",
-    "expo": "~54.0.35",
     "react": "19.1.0",
-    "react-native": "0.81.5"
+    "react-native": "0.81.5",
+    "react-native-purchases": "^10.4.0",
+    "react-native-webview": "^13.15.0"
   }
 }
