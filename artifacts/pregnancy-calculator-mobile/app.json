@@ -19,6 +19,7 @@
     },
     "ios": {
       "supportsTablet": true,
+      "buildNumber": "1.0.22",
       "bundleIdentifier": "app.replit.pregnancycalculator",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
