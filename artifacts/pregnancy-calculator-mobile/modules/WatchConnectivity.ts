@@ -73,7 +73,14 @@ function buildModule(): WatchConnectivityInterface {
       getSessionState: () => native.getSessionState(),
       addListener: (event: string, cb: Listener) =>
         emitter.addListener(event, cb),
-      signOut: () => native.signOut(),
+      // Older installed binaries (< 1.0.29) do not include the native
+      // signOut method — an OTA update can run on top of them, so guard the
+      // call and degrade to a no-op instead of throwing synchronously
+      // (a sync throw is NOT caught by callers' .catch()).
+      signOut: async () => {
+        if (typeof native.signOut !== "function") return;
+        await native.signOut();
+      },
     };
   } catch {
     return stub;
