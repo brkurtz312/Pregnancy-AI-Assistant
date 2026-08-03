@@ -265,4 +265,53 @@ describe("AccountSheet — sign-out error recovery", () => {
     expect(mockSignOut).toHaveBeenCalled();
     expect(mockWatchSignOut).toHaveBeenCalledTimes(1);
   });
+
+  it("clears the error and calls onClose when the user retries sign-out successfully after a prior failure", async () => {
+    // First call rejects; second call resolves.
+    const mockSignOut = jest
+      .fn()
+      .mockRejectedValueOnce(new Error("Network error"))
+      .mockResolvedValueOnce(undefined);
+    mockUseAuth.mockReturnValue({ isSignedIn: true, signOut: mockSignOut });
+
+    const renderer = renderSheet();
+    await act(async () => {});
+
+    // First tap → failure
+    await act(async () => {
+      await findBtn(renderer.root, "Sign Out")!.props.onPress();
+    });
+
+    // Error message should be visible
+    const textAfterFailure = renderer.root
+      .findAllByType(Text)
+      .map((t) => flatText(t.props.children))
+      .join(" ");
+    expect(textAfterFailure).toContain("Sign-out failed");
+
+    // Button must be re-enabled (not stuck in loading) so the retry is possible
+    const retryBtn = findBtn(renderer.root, "Sign Out");
+    expect(retryBtn).toBeDefined();
+    expect(retryBtn!.props.disabled).toBeFalsy();
+
+    // Second tap → success
+    await act(async () => {
+      await retryBtn!.props.onPress();
+    });
+
+    expect(mockSignOut).toHaveBeenCalledTimes(2);
+
+    // Error message must be gone
+    const textAfterRetry = renderer.root
+      .findAllByType(Text)
+      .map((t) => flatText(t.props.children))
+      .join(" ");
+    expect(textAfterRetry).not.toContain("Sign-out failed");
+
+    // Sheet should have closed
+    expect(mockOnClose).toHaveBeenCalledTimes(1);
+
+    // pass.refresh() must also have been called on successful retry
+    expect(mockRefresh).toHaveBeenCalledTimes(1);
+  });
 });

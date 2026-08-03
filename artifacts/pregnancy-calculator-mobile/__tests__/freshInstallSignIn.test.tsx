@@ -205,7 +205,9 @@ describe("Sign-in screen — fresh install, no cached session", () => {
       emailAddress: "user@example.com",
       password: "correctPass!",
     });
-    expect(mockSetActive).toHaveBeenCalledWith({ session: "sess_new_user_123" });
+    expect(mockSetActive).toHaveBeenCalledWith({
+      session: "sess_new_user_123",
+    });
     expect(dismissAll).toHaveBeenCalled();
   });
 
