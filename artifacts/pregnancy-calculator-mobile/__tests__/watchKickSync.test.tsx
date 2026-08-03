@@ -1411,3 +1411,218 @@ describe("WatchBackgroundListener — invalidateQueries key must match Tools tab
     });
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Watch reconnect backlog — N sessions replayed concurrently
+//
+// When the Watch comes back online after being out of range it may replay
+// several queued sessions all at once.  Each onKickSessionEnd call is
+// independent; they should all be persisted and each should trigger its own
+// cache invalidation — none should be silently dropped or deduplicated.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("WatchBackgroundListener — Watch reconnect backlog (N sessions replayed concurrently)", () => {
+  let listenerRenderer: ReturnType<typeof create> | null = null;
+
+  function renderWatchListener() {
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      userId: "user-123",
+      getToken: jest.fn().mockResolvedValue("token-user-123"),
+    });
+    act(() => {
+      listenerRenderer = create(React.createElement(WatchBackgroundListener));
+    });
+    return listenerRenderer!;
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    listenerRenderer = null;
+    capturedOnKickSessionEnd = undefined;
+    capturedOnContractionUpdate = undefined;
+    jest.clearAllMocks();
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      userId: "user-123",
+      getToken: jest.fn().mockResolvedValue("token-user-123"),
+    });
+    mockInvalidateQueries.mockResolvedValue(undefined);
+    mockApiDirectSaveKickSession.mockResolvedValue(undefined);
+    mockApiDirectSaveContraction.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    // Drain the WatchToast hide-timer while the tree is still mounted
+    act(() => {
+      jest.runAllTimers();
+    });
+    if (listenerRenderer) {
+      act(() => {
+        listenerRenderer!.unmount();
+      });
+      listenerRenderer = null;
+    }
+    jest.useRealTimers();
+    jest.clearAllMocks();
+  });
+
+  it("persists all N sessions and invalidates the cache N times when N=5 sessions are replayed concurrently", async () => {
+    renderWatchListener();
+    await act(async () => {});
+
+    expect(capturedOnKickSessionEnd).toBeDefined();
+
+    // A realistic Watch backlog: mix of zero-kick and non-zero-kick sessions,
+    // as would accumulate while the Watch was out of Bluetooth range.
+    const backlog = [
+      {
+        kickCount: 0, // zero-kick session — must still be persisted
+        startedAt: "2026-08-03T08:00:00.000Z",
+        endedAt: "2026-08-03T08:05:00.000Z",
+      },
+      {
+        kickCount: 4,
+        startedAt: "2026-08-03T09:00:00.000Z",
+        endedAt: "2026-08-03T09:20:00.000Z",
+      },
+      {
+        kickCount: 0, // second zero-kick session in the same batch
+        startedAt: "2026-08-03T10:00:00.000Z",
+        endedAt: "2026-08-03T10:03:00.000Z",
+      },
+      {
+        kickCount: 11,
+        startedAt: "2026-08-03T11:00:00.000Z",
+        endedAt: "2026-08-03T11:35:00.000Z",
+      },
+      {
+        kickCount: 7,
+        startedAt: "2026-08-03T12:00:00.000Z",
+        endedAt: "2026-08-03T12:25:00.000Z",
+      },
+    ];
+
+    // Fire all five callbacks concurrently — mirrors the Watch replaying its
+    // offline queue all at once on reconnect.
+    await act(async () => {
+      await Promise.all(backlog.map((s) => capturedOnKickSessionEnd!(s)));
+    });
+
+    // Every session must have been saved exactly once — no duplicates, no drops
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(backlog.length);
+
+    // Each save must produce its own cache invalidation so the Tools tab sees
+    // fresh data after every individual session — not just once for the batch.
+    expect(mockInvalidateQueries).toHaveBeenCalledTimes(backlog.length);
+  });
+
+  it("saves both zero-kick and non-zero-kick sessions in the concurrent batch", async () => {
+    renderWatchListener();
+    await act(async () => {});
+
+    expect(capturedOnKickSessionEnd).toBeDefined();
+
+    const zeroKickSession = {
+      kickCount: 0,
+      startedAt: "2026-08-03T13:00:00.000Z",
+      endedAt: "2026-08-03T13:05:00.000Z",
+    };
+    const nonZeroKickSession = {
+      kickCount: 9,
+      startedAt: "2026-08-03T14:00:00.000Z",
+      endedAt: "2026-08-03T14:30:00.000Z",
+    };
+    const anotherNonZeroKickSession = {
+      kickCount: 3,
+      startedAt: "2026-08-03T15:00:00.000Z",
+      endedAt: "2026-08-03T15:10:00.000Z",
+    };
+
+    await act(async () => {
+      await Promise.all([
+        capturedOnKickSessionEnd!(zeroKickSession),
+        capturedOnKickSessionEnd!(nonZeroKickSession),
+        capturedOnKickSessionEnd!(anotherNonZeroKickSession),
+      ]);
+    });
+
+    // All three sessions must be persisted, including the zero-kick one
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(3);
+
+    // Verify the zero-kick session was passed through correctly
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledWith(
+      {
+        startedAt: zeroKickSession.startedAt,
+        endedAt: zeroKickSession.endedAt,
+        kickCount: 0,
+      },
+      expect.any(Function), // frozen token getter
+    );
+
+    // Verify the non-zero-kick sessions were also saved
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledWith(
+      {
+        startedAt: nonZeroKickSession.startedAt,
+        endedAt: nonZeroKickSession.endedAt,
+        kickCount: 9,
+      },
+      expect.any(Function),
+    );
+
+    // Each session in the batch must have triggered its own cache invalidation
+    expect(mockInvalidateQueries).toHaveBeenCalledTimes(3);
+  });
+
+  it("invalidates the cache once per session even when sessions have varied kick counts in the batch", async () => {
+    renderWatchListener();
+    await act(async () => {});
+
+    expect(capturedOnKickSessionEnd).toBeDefined();
+
+    // Three sessions with deliberately varied kick counts (including a zero-kick
+    // one in the middle) fired concurrently — the listener must treat each as an
+    // independent unit and produce exactly one save + one invalidation per item,
+    // regardless of how the microtask queue happens to schedule them.
+    const sessions = [
+      {
+        kickCount: 5,
+        startedAt: "2026-08-03T16:00:00.000Z",
+        endedAt: "2026-08-03T16:20:00.000Z",
+      },
+      {
+        kickCount: 0, // zero-kick in the middle of the batch
+        startedAt: "2026-08-03T17:00:00.000Z",
+        endedAt: "2026-08-03T17:02:00.000Z",
+      },
+      {
+        kickCount: 8,
+        startedAt: "2026-08-03T18:00:00.000Z",
+        endedAt: "2026-08-03T18:25:00.000Z",
+      },
+    ];
+
+    await act(async () => {
+      await Promise.all(sessions.map((s) => capturedOnKickSessionEnd!(s)));
+    });
+
+    // All three saves completed
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(3);
+    // Each completion triggered its own independent cache invalidation
+    expect(mockInvalidateQueries).toHaveBeenCalledTimes(3);
+
+    // Verify payload integrity — every session's data arrived at the API intact
+    for (const session of sessions) {
+      expect(mockApiDirectSaveKickSession).toHaveBeenCalledWith(
+        {
+          startedAt: session.startedAt,
+          endedAt: session.endedAt,
+          kickCount: session.kickCount,
+        },
+        expect.any(Function),
+      );
+    }
+  });
+});
