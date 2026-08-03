@@ -16,6 +16,7 @@ import React, {
   useState,
 } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@clerk/expo";
 import { useQueryClient } from "@tanstack/react-query";
@@ -54,8 +55,14 @@ interface WatchToastState {
   isError?: boolean;
 }
 
+/** Height of the native bottom tab bar (pt). */
+const TAB_BAR_HEIGHT = 49;
+/** Extra breathing room above the tab bar (pt). */
+const TOAST_MARGIN = 8;
+
 function WatchToast({ message, visible, isError }: WatchToastState) {
   const opacity = useRef(new Animated.Value(0)).current;
+  const { bottom: safeBottom } = useSafeAreaInsets();
 
   useEffect(() => {
     Animated.timing(opacity, {
@@ -65,8 +72,16 @@ function WatchToast({ message, visible, isError }: WatchToastState) {
     }).start();
   }, [visible, opacity]);
 
+  // Sit above the tab bar on every device: tab bar height + safe-area inset +
+  // a small gap.  On devices with a home indicator (iPhone ≥ X) the inset is
+  // typically 34 pt; on iPad it is 0–20 pt; on older phones it is 0.
+  const toastBottom = TAB_BAR_HEIGHT + safeBottom + TOAST_MARGIN;
+
   return (
-    <Animated.View style={[styles.toast, { opacity }]} pointerEvents="none">
+    <Animated.View
+      style={[styles.toast, { opacity, bottom: toastBottom }]}
+      pointerEvents="none"
+    >
       <View
         style={[
           styles.inner,
@@ -346,8 +361,7 @@ export function WatchBackgroundListener() {
 const styles = StyleSheet.create({
   toast: {
     position: "absolute",
-    // Sit above the tab bar (≈49 pt) with some breathing room
-    bottom: 80,
+    // bottom is set dynamically from useSafeAreaInsets — see WatchToast
     left: 16,
     right: 16,
     zIndex: 200,
