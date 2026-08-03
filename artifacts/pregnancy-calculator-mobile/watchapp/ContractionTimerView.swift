@@ -97,6 +97,14 @@ struct ContractionTimerView: View {
         }
     }
 
+    // MARK: - Urgency check
+
+    /// Returns true when the last recorded interval is under the urgent threshold (< 5 min apart).
+    var isPatternUrgent: Bool {
+        guard let interval = lastInterval else { return false }
+        return interval < 300
+    }
+
     // MARK: - Contraction actions
 
     private func startContraction() {
@@ -110,7 +118,7 @@ struct ContractionTimerView: View {
         startDisplayTimer()
         saveState()
         WKInterfaceDevice.current().play(.start)
-        if (lastInterval ?? 999) < 300 {
+        if isPatternUrgent {
             WKInterfaceDevice.current().play(.notification)
         }
     }
@@ -180,6 +188,11 @@ struct ContractionTimerView: View {
 
         let intervalRaw = ud.double(forKey: ContractionDefaults.lastInterval)
         lastInterval = intervalRaw > 0 ? intervalRaw : nil
+
+        // Fire a one-time haptic on relaunch if the pattern was already urgent before the quit.
+        if let interval = lastInterval, interval < 300 {
+            WKInterfaceDevice.current().play(.notification)
+        }
 
         let lastEndRaw = ud.double(forKey: ContractionDefaults.lastEnd)
         if lastEndRaw > 0 {
