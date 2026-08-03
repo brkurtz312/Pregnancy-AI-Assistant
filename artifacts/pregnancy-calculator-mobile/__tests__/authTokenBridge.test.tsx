@@ -60,6 +60,22 @@ jest.mock("@/lib/visit-questions", () => ({
   clearVisitQuestionsCache: jest.fn(async () => {}),
 }));
 
+jest.mock("@/lib/sync-queue", () => ({
+  invalidateWatchQueueSession: jest.fn(async () => {}),
+}));
+
+jest.mock("@/modules/WatchConnectivity", () => ({
+  __esModule: true,
+  default: { signOut: jest.fn(async () => {}) },
+}));
+// Obtain the mock reference after the factory is registered so there is no
+// temporal-dead-zone issue with the factory closure.
+const mockWatchSignOut = (
+  jest.requireMock("@/modules/WatchConnectivity") as {
+    default: { signOut: jest.Mock };
+  }
+).default.signOut;
+
 import { useClerk, useSession } from "@clerk/expo";
 import { ApiError, setAuthTokenGetter } from "@workspace/api-client-react";
 
@@ -242,6 +258,46 @@ describe("AuthTokenBridge — session-switch isolation", () => {
 
     expect(invalidate).toHaveBeenCalledTimes(1);
     expect(clear).toHaveBeenCalledTimes(1); // still only once, from sign-out
+  });
+
+  it("calls WatchConnectivity.signOut when session transitions signed-in → null", async () => {
+    const qc = new QueryClient();
+
+    const renderer = renderBridge(qc, makeSession("userA"));
+    await act(async () => {});
+
+    mockUseSession.mockReturnValue({ session: null });
+    await act(async () => {
+      renderer.update(
+        React.createElement(
+          QueryClientProvider,
+          { client: qc },
+          React.createElement(AuthTokenBridge),
+        ),
+      );
+    });
+
+    expect(mockWatchSignOut).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT call WatchConnectivity.signOut on sign-in (only on sign-out)", async () => {
+    const qc = new QueryClient();
+
+    const renderer = renderBridge(qc, null);
+    await act(async () => {});
+
+    mockUseSession.mockReturnValue({ session: makeSession("userA") });
+    await act(async () => {
+      renderer.update(
+        React.createElement(
+          QueryClientProvider,
+          { client: qc },
+          React.createElement(AuthTokenBridge),
+        ),
+      );
+    });
+
+    expect(mockWatchSignOut).not.toHaveBeenCalled();
   });
 
   it("clears journal, hospital-bag, birth-plan, and visit-questions caches on sign-out", async () => {

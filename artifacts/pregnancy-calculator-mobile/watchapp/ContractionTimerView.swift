@@ -95,6 +95,9 @@ struct ContractionTimerView: View {
                 saveState()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .watchDidSignOut)) { _ in
+            resetState()
+        }
     }
 
     // MARK: - Urgency check
@@ -175,6 +178,19 @@ struct ContractionTimerView: View {
         if let data = try? encoder.encode(contractions) {
             ud.set(data, forKey: ContractionDefaults.records)
         }
+    }
+
+    /// Resets all in-memory state to idle after a sign-out.
+    /// UserDefaults keys are already cleared by `WatchSessionManager.clearPersistedSession()`.
+    private func resetState() {
+        displayTimer?.invalidate()
+        displayTimer = nil
+        isActive = false
+        contractionStart = nil
+        duration = 0
+        lastInterval = nil
+        lastContractionEnd = nil
+        contractions = []
     }
 
     private func restoreState() {

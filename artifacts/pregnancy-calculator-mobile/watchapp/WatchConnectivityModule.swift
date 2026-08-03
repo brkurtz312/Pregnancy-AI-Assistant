@@ -34,6 +34,11 @@ public class WatchConnectivityModule: Module {
             PhoneWatchBridge.shared.sessionState()
         }
 
+        // Called from JavaScript when the user signs out so the Watch can clear its session.
+        AsyncFunction("signOut") {
+            PhoneWatchBridge.shared.sendSignOut()
+        }
+
         Events("onKickSessionEnd", "onContractionUpdate", "onKickUpdate", "onWatchStateChange")
 
         OnStartObserving {

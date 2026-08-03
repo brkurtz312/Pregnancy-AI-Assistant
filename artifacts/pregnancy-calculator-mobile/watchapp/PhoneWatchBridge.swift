@@ -19,6 +19,8 @@ enum WatchMessage {
     static let gestationalWeek = "gestationalWeek"
     /// Sent by the Watch to the iPhone when it activates with no cached tips.
     static let requestSync = "requestSync"
+    /// Sent from the phone when the user signs out so the Watch can clear its persisted session.
+    static let signOut = "signOut"
 }
 
 @objc final class PhoneWatchBridge: NSObject {
@@ -106,6 +108,31 @@ enum WatchMessage {
         } else {
             try? WCSession.default.updateApplicationContext(payload)
         }
+    }
+
+    /// Sends a sign-out notification to the Watch so it can clear its persisted session data.
+    ///
+    /// Delivery strategy:
+    /// - `sendMessage` for immediate delivery when the Watch app is in the foreground.
+    /// - `transferUserInfo` for guaranteed background delivery.  Unlike `updateApplicationContext`,
+    ///   which is last-write-wins and would be silently overwritten if `sendWeekAndTips` runs
+    ///   before the Watch wakes up, `transferUserInfo` queues each payload independently so the
+    ///   sign-out message is always delivered even when subsequent context updates occur.
+    @objc func sendSignOut() {
+        guard WCSession.default.activationState == .activated,
+              WCSession.default.isWatchAppInstalled else { return }
+
+        let payload: [String: Any] = [WatchMessage.signOut: true]
+
+        // Best-effort real-time delivery when the Watch app is in the foreground.
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(payload, replyHandler: nil, errorHandler: nil)
+        }
+
+        // Durable background delivery: transferUserInfo queues each payload
+        // independently — a later sendWeekAndTips (via updateApplicationContext)
+        // cannot overwrite or discard this message before the Watch wakes up.
+        WCSession.default.transferUserInfo(payload)
     }
 
     // MARK: - Session state

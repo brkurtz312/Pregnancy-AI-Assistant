@@ -35,6 +35,13 @@ interface WatchConnectivityInterface {
   sendWeekAndTips: (week: number, tips: object[]) => Promise<void>;
   getSessionState: () => Promise<WatchSessionState>;
   addListener: (event: string, cb: Listener) => Subscription;
+  /**
+   * Sends a sign-out notification to the Watch so it clears its persisted
+   * session data (kick counter, contraction timer) for the signed-out user.
+   * Safe to call even when the Watch app is not installed or not reachable;
+   * the native module is a no-op in those cases.
+   */
+  signOut: () => Promise<void>;
 }
 
 const stub: WatchConnectivityInterface = {
@@ -47,6 +54,7 @@ const stub: WatchConnectivityInterface = {
     isReachable: false,
   }),
   addListener: () => ({ remove: () => {} }),
+  signOut: async () => {},
 };
 
 function buildModule(): WatchConnectivityInterface {
@@ -65,6 +73,7 @@ function buildModule(): WatchConnectivityInterface {
       getSessionState: () => native.getSessionState(),
       addListener: (event: string, cb: Listener) =>
         emitter.addListener(event, cb),
+      signOut: () => native.signOut(),
     };
   } catch {
     return stub;

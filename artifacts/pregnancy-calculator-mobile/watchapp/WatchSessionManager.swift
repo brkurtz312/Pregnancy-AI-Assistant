@@ -166,11 +166,25 @@ extension WatchSessionManager: WCSessionDelegate {
         handleIncoming(context)
     }
 
+    /// Receives payloads queued via `transferUserInfo` (guaranteed, ordered delivery).
+    /// The phone uses this channel for sign-out messages so they cannot be overwritten
+    /// by a subsequent `updateApplicationContext` call before the Watch wakes up.
+    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+        handleIncoming(userInfo)
+    }
+
     // MARK: - Private helpers
 
     private func handleIncoming(_ payload: [String: Any]) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
+
+            // A sign-out from the phone takes priority — clear all persisted session
+            // data before processing any other keys in the same payload.
+            if payload[WatchMessage.signOut] != nil {
+                self.clearPersistedSession()
+                return
+            }
 
             if let data = payload[WatchMessage.tips] as? Data,
                let decoded = try? self.decoder.decode([WatchTip].self, from: data) {
@@ -188,4 +202,42 @@ extension WatchSessionManager: WCSessionDelegate {
             }
         }
     }
+
+    /// Clears every `wk.*` UserDefaults key written by the Watch app and resets
+    /// the published state so views restore to their idle state on next launch.
+    /// Also posts `.watchDidSignOut` so `KickCounterView` and `ContractionTimerView`
+    /// can immediately reset their in-memory `@State` without waiting for a relaunch.
+    func clearPersistedSession() {
+        let ud = UserDefaults.standard
+
+        // WatchSessionManager keys
+        ud.removeObject(forKey: "watchTips")
+        ud.removeObject(forKey: "watchGestationalWeek")
+        // lastKickCount setter handles its own UserDefaults key
+        lastKickCount = nil
+
+        // KickCounterView keys
+        ud.removeObject(forKey: "wk.kickCount")
+        ud.removeObject(forKey: "wk.kickSessionActive")
+        ud.removeObject(forKey: "wk.kickSessionStart")
+
+        // ContractionTimerView keys
+        ud.removeObject(forKey: "wk.contractionActive")
+        ud.removeObject(forKey: "wk.contractionStart")
+        ud.removeObject(forKey: "wk.contractionLastEnd")
+        ud.removeObject(forKey: "wk.contractionLastInterval")
+        ud.removeObject(forKey: "wk.contractionRecords")
+
+        // Reset published state
+        tips = []
+        gestationalWeek = 0
+
+        // Notify views so they reset their @State immediately
+        NotificationCenter.default.post(name: .watchDidSignOut, object: nil)
+    }
+}
+
+extension Notification.Name {
+    /// Posted by `WatchSessionManager` after a sign-out message is received from the phone.
+    static let watchDidSignOut = Notification.Name("WatchSessionManagerDidSignOut")
 }

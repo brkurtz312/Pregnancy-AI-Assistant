@@ -59,6 +59,18 @@ jest.mock("@/lib/revenuecat", () => ({
   isUserCancelledError: jest.fn(() => false),
 }));
 
+jest.mock("@/modules/WatchConnectivity", () => ({
+  __esModule: true,
+  default: { signOut: jest.fn(async () => {}) },
+}));
+// Obtain the mock reference after the factory is registered so there is no
+// temporal-dead-zone issue with the factory closure.
+const mockWatchSignOut = (
+  jest.requireMock("@/modules/WatchConnectivity") as {
+    default: { signOut: jest.Mock };
+  }
+).default.signOut;
+
 import { useAuth, useUser } from "@clerk/expo";
 import { useRouter } from "expo-router";
 import { usePass } from "@/hooks/usePass";
@@ -222,5 +234,35 @@ describe("AccountSheet — sign-out error recovery", () => {
     expect(mockSignOut).toHaveBeenCalled();
     expect(mockRefresh).toHaveBeenCalled();
     expect(mockOnClose).toHaveBeenCalled();
+  });
+
+  it("does NOT call WatchConnectivity.signOut when Clerk signOut() rejects (no data loss on failed sign-out)", async () => {
+    const mockSignOut = jest.fn().mockRejectedValue(new Error("Network error"));
+    mockUseAuth.mockReturnValue({ isSignedIn: true, signOut: mockSignOut });
+
+    const renderer = renderSheet();
+    await act(async () => {});
+
+    await act(async () => {
+      await findBtn(renderer.root, "Sign Out")!.props.onPress();
+    });
+
+    expect(mockSignOut).toHaveBeenCalled();
+    expect(mockWatchSignOut).not.toHaveBeenCalled();
+  });
+
+  it("calls WatchConnectivity.signOut after Clerk signOut() succeeds", async () => {
+    const mockSignOut = jest.fn().mockResolvedValue(undefined);
+    mockUseAuth.mockReturnValue({ isSignedIn: true, signOut: mockSignOut });
+
+    const renderer = renderSheet();
+    await act(async () => {});
+
+    await act(async () => {
+      await findBtn(renderer.root, "Sign Out")!.props.onPress();
+    });
+
+    expect(mockSignOut).toHaveBeenCalled();
+    expect(mockWatchSignOut).toHaveBeenCalledTimes(1);
   });
 });

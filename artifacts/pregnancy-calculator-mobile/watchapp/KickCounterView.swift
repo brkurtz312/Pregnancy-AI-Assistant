@@ -83,6 +83,9 @@ struct KickCounterView: View {
                 saveSession()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .watchDidSignOut)) { _ in
+            resetSession()
+        }
     }
 
     // MARK: - Session actions
@@ -147,6 +150,17 @@ struct KickCounterView: View {
         ud.removeObject(forKey: KickDefaults.count)
         ud.removeObject(forKey: KickDefaults.active)
         ud.removeObject(forKey: KickDefaults.start)
+    }
+
+    /// Resets all in-memory state to idle after a sign-out.
+    /// UserDefaults keys are already cleared by `WatchSessionManager.clearPersistedSession()`.
+    private func resetSession() {
+        timer?.invalidate()
+        timer = nil
+        kickCount = 0
+        sessionActive = false
+        sessionStart = nil
+        elapsed = 0
     }
 
     private func restoreSession() {

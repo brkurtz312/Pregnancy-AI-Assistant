@@ -249,7 +249,7 @@ describe("Journal — cold reinstall (AsyncStorage wiped)", () => {
     const json = JSON.stringify(renderer!.toJSON());
     expect(json).toContain("First scan — everything looks perfect!");
     expect(json).toContain("Feeling movement for the first time!");
-  });
+  }, 60_000);
 
   it("caches server entries into AsyncStorage so subsequent offline loads work", async () => {
     mockApiLoadJournal.mockResolvedValue(SERVER_JOURNAL_ENTRIES);

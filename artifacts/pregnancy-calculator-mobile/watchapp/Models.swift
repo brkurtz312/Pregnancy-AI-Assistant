@@ -50,4 +50,6 @@ enum WatchMessage {
     /// Sent by the Watch to the iPhone when it activates with no cached tips.
     /// The iPhone replies with the current gestationalWeek and tips payload.
     static let requestSync = "requestSync"
+    /// Sent from the phone when the user signs out so the Watch can clear its persisted session.
+    static let signOut = "signOut"
 }

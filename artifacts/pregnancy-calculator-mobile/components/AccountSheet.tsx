@@ -26,6 +26,7 @@ import {
   isUserCancelledError,
   useSubscription,
 } from "@/lib/revenuecat";
+import WatchConnectivity from "@/modules/WatchConnectivity";
 
 const PASS_PRICE = "$14.99";
 
@@ -588,6 +589,11 @@ export function AccountSheet({
                         await signOut();
                         pass.refresh();
                         onClose();
+                        // Notify the Watch only after Clerk has successfully
+                        // signed out. AuthTokenBridge also handles this via the
+                        // session-transition effect, covering the 401 auto-sign-out
+                        // path; this call is harmless if that fires first.
+                        WatchConnectivity.signOut().catch(() => {});
                       } catch {
                         setIsSigningOut(false);
                         setSignOutError(

@@ -7,6 +7,7 @@ import { clearHospitalBagCache } from "@/lib/hospital-bag";
 import { clearBirthPlanCache } from "@/lib/birth-plan";
 import { clearVisitQuestionsCache } from "@/lib/visit-questions";
 import { invalidateWatchQueueSession } from "@/lib/sync-queue";
+import WatchConnectivity from "@/modules/WatchConnectivity";
 
 /**
  * Bridges the Clerk session token into the generated API client and keeps the
@@ -128,6 +129,10 @@ export function AuthTokenBridge() {
       clearHospitalBagCache().catch(() => {});
       clearBirthPlanCache().catch(() => {});
       clearVisitQuestionsCache().catch(() => {});
+      // Notify the Watch to clear its persisted session data (kick counter,
+      // contraction timer). Fire-and-forget: the native module is a no-op when
+      // the Watch app is not installed or WCSession is not activated.
+      WatchConnectivity.signOut().catch(() => {});
       // Invalidate the per-user Watch event queues: bumps the session generation
       // so post-sign-out enqueue calls are rejected, then clears the stored data.
       // Both steps are serialized through the queue chains so no stale Write can
