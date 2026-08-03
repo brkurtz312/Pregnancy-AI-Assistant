@@ -245,7 +245,8 @@ describe("SignUp — Apple Sign-In cancellation", () => {
   afterEach(() => jest.clearAllMocks());
 
   it("shows no error when the user dismisses the Apple sheet (ERR_CANCELED)", async () => {
-    mockStartSSOFlow.mockRejectedValue({ code: "ERR_CANCELED" });
+    // sign-up.tsx now uses startAppleAuthenticationFlow (native sheet), not startSSOFlow
+    mockStartAppleAuthFlow.mockRejectedValue({ code: "ERR_CANCELED" });
 
     let renderer!: ReactTestRenderer;
     act(() => {
@@ -266,7 +267,9 @@ describe("SignUp — Apple Sign-In cancellation", () => {
   });
 
   it("shows an error when a genuine Apple auth failure occurs", async () => {
-    mockStartSSOFlow.mockRejectedValue(new Error("Session creation failed"));
+    mockStartAppleAuthFlow.mockRejectedValue(
+      new Error("Session creation failed"),
+    );
 
     let renderer!: ReactTestRenderer;
     act(() => {
@@ -286,7 +289,7 @@ describe("SignUp — Apple Sign-In cancellation", () => {
   });
 
   it("shows no error when the user dismisses via a 'dismiss' message", async () => {
-    mockStartSSOFlow.mockRejectedValue(new Error("sheet dismissed"));
+    mockStartAppleAuthFlow.mockRejectedValue(new Error("sheet dismissed"));
 
     let renderer!: ReactTestRenderer;
     act(() => {

@@ -20,6 +20,9 @@
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,
+      "entitlements": {
+        "com.apple.developer.applesignin": ["Default"]
+      },
       "bundleIdentifier": "app.replit.pregnancycalculator",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -70,7 +73,8 @@
           }
         }
       ],
-      "./plugins/withWatchExtension"
+      "./plugins/withWatchExtension",
+      "./plugins/withAppleSignIn"
     ],
     "experiments": {
       "typedRoutes": true,

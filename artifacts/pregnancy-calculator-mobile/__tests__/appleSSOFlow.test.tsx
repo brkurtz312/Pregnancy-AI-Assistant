@@ -63,8 +63,6 @@ jest.mock("@clerk/expo/apple", () => ({
   })),
 }));
 
-// ─── sign-up: mock @clerk/expo (OAuth SSO) ───────────────────────────────────
-const mockStartSSOFlow = jest.fn();
 const mockSignIn = {
   password: jest.fn(),
   finalize: jest.fn(),
@@ -281,7 +279,10 @@ describe("SignInScreen — Apple SSO", () => {
     expect(dismissAll).not.toHaveBeenCalled();
   });
 
-  it("shows a notice when Apple SSO resolves with null session", async () => {
+  it("shows NO error when Apple SSO resolves with null session (native sheet dismissed)", async () => {
+    // Clerk resolves — not rejects — with { createdSessionId: null } when the
+    // user dismisses the native Apple sheet. This must be treated as a silent
+    // cancellation, not a failure.
     mockStartAppleAuthFlow.mockResolvedValue({
       createdSessionId: null,
       setActive: null,
@@ -299,13 +300,14 @@ describe("SignInScreen — Apple SSO", () => {
     });
 
     const json = JSON.stringify(renderer.toJSON());
-    expect(json).toContain("Apple sign-in could not be completed");
+    expect(json).not.toContain("Apple sign-in could not be completed");
+    expect(json).not.toContain("Apple sign-in failed");
     expect(dismissAll).not.toHaveBeenCalled();
     expect(btn.props.disabled).toBe(false);
   });
 });
 
-// ─── sign-up screen (uses useSSO / startSSOFlow with strategy:"oauth_apple") ──
+// ─── sign-up screen (uses useSignInWithApple / startAppleAuthenticationFlow) ──
 
 describe("SignUpScreen — Apple SSO", () => {
   let replace: jest.Mock;
@@ -328,13 +330,13 @@ describe("SignUpScreen — Apple SSO", () => {
     replace = jest.fn();
     back = jest.fn();
     mockUseRouter.mockReturnValue({ replace, back });
-    mockUseSSO.mockReturnValue({ startSSOFlow: mockStartSSOFlow });
+    mockUseSSO.mockReturnValue({ startSSOFlow: jest.fn() });
     mockUseSignUp.mockReturnValue({
       signUp: mockSignUp,
       errors: mockErrors,
       fetchStatus: "idle",
     });
-    mockStartSSOFlow.mockReset();
+    mockStartAppleAuthFlow.mockReset();
   });
 
   afterEach(() => {
@@ -342,7 +344,7 @@ describe("SignUpScreen — Apple SSO", () => {
   });
 
   it('renders the "Continue with Apple" button on iOS', async () => {
-    mockStartSSOFlow.mockResolvedValue({});
+    mockStartAppleAuthFlow.mockResolvedValue({});
 
     let renderer!: ReturnType<typeof create>;
     act(() => {
@@ -354,8 +356,8 @@ describe("SignUpScreen — Apple SSO", () => {
     expect(json).toContain("Continue with Apple");
   });
 
-  it("calls startSSOFlow with strategy:oauth_apple", async () => {
-    mockStartSSOFlow.mockResolvedValue({
+  it("calls startAppleAuthenticationFlow with no arguments", async () => {
+    mockStartAppleAuthFlow.mockResolvedValue({
       createdSessionId: null,
       setActive: null,
     });
@@ -371,14 +373,15 @@ describe("SignUpScreen — Apple SSO", () => {
       btn.props.onPress();
     });
 
-    expect(mockStartSSOFlow).toHaveBeenCalledTimes(1);
-    const call = mockStartSSOFlow.mock.calls[0][0];
-    expect(call.strategy).toBe("oauth_apple");
+    expect(mockStartAppleAuthFlow).toHaveBeenCalledTimes(1);
+    // Native Apple auth uses the system sheet — it must not receive any
+    // redirectUrl (Apple rejects custom-scheme redirect URIs for web OAuth).
+    expect(mockStartAppleAuthFlow).toHaveBeenCalledWith(/* no args */);
   });
 
   it("calls setActive and navigates to root when Apple SSO returns a session", async () => {
     const setActive = jest.fn().mockResolvedValue(undefined);
-    mockStartSSOFlow.mockResolvedValue({
+    mockStartAppleAuthFlow.mockResolvedValue({
       createdSessionId: "sess_apple_456",
       setActive,
     });
@@ -399,7 +402,7 @@ describe("SignUpScreen — Apple SSO", () => {
   });
 
   it("does NOT show an error when the Apple sheet is dismissed (ERR_CANCELED)", async () => {
-    mockStartSSOFlow.mockRejectedValue({ code: "ERR_CANCELED" });
+    mockStartAppleAuthFlow.mockRejectedValue({ code: "ERR_CANCELED" });
 
     let renderer!: ReturnType<typeof create>;
     act(() => {
@@ -421,7 +424,7 @@ describe("SignUpScreen — Apple SSO", () => {
 
   it("DOES show an error when Apple SSO rejects with a real failure (not a cancel)", async () => {
     // No message on the error so the component renders the generic fallback
-    mockStartSSOFlow.mockRejectedValue(new Error());
+    mockStartAppleAuthFlow.mockRejectedValue(new Error());
 
     let renderer!: ReturnType<typeof create>;
     act(() => {
@@ -439,8 +442,11 @@ describe("SignUpScreen — Apple SSO", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it("shows a notice when Apple SSO resolves with null session", async () => {
-    mockStartSSOFlow.mockResolvedValue({
+  it("shows NO error when Apple SSO resolves with null session (native sheet dismissed)", async () => {
+    // Clerk resolves — not rejects — with { createdSessionId: null } when the
+    // user dismisses the native Apple sheet. This must be treated as a silent
+    // cancellation, not a failure.
+    mockStartAppleAuthFlow.mockResolvedValue({
       createdSessionId: null,
       setActive: null,
     });
@@ -457,7 +463,8 @@ describe("SignUpScreen — Apple SSO", () => {
     });
 
     const json = JSON.stringify(renderer.toJSON());
-    expect(json).toContain("Apple sign-in could not be completed");
+    expect(json).not.toContain("Apple sign-in could not be completed");
+    expect(json).not.toContain("Apple sign-in failed");
     expect(replace).not.toHaveBeenCalled();
     expect(btn.props.disabled).toBe(false);
   });

@@ -182,9 +182,10 @@ export default function SignInScreen() {
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
         router.dismissAll();
-      } else {
-        setNotice("Apple sign-in could not be completed — please try again.");
       }
+      // null createdSessionId means the user cancelled the native Apple sheet
+      // (Clerk resolves rather than rejects on cancellation in the native flow).
+      // Silently close — no error message needed.
     } catch (err) {
       // Suppress errors that indicate the user deliberately dismissed the
       // Apple Sign-In sheet — no message needed in that case.

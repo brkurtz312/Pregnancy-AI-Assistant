@@ -15,8 +15,8 @@
  *     blocks custom-scheme redirect URIs for its web OAuth flow, so the native
  *     path must never receive a redirectUrl argument.
  *
- *   • sign-up  uses useSSO / startSSOFlow({ strategy: "oauth_apple" }) — also
- *     without a redirectUrl, relying on Clerk's default.
+ *   • sign-up  also uses useSignInWithApple / startAppleAuthenticationFlow() —
+ *     the same native Apple auth sheet, for the same reason.
  *
  * These tests are regression guards.  If a redirectUrl is ever added to the
  * Apple path it MUST come from Constants.expoConfig.scheme (app.json), not a
@@ -26,8 +26,8 @@
  * Cases covered:
  *   1. sign-in: startAppleAuthenticationFlow is called with no arguments
  *      (no redirectUrl, no scheme).
- *   2. sign-up: startSSOFlow is called without a redirectUrl property.
- *   3. sign-up: the call does contain strategy:"oauth_apple" (sanity check).
+ *   2. sign-up: startAppleAuthenticationFlow is called with no arguments.
+ *   3. sign-up: a second call also confirms no redirectUrl property.
  */
 
 import React from "react";
@@ -223,18 +223,19 @@ describe("Apple SSO — sign-in does not pass a redirectUrl or scheme", () => {
   });
 });
 
-// ─── 2. sign-up: startSSOFlow does not include a redirectUrl ─────────────────
+// ─── 2. sign-up: startAppleAuthenticationFlow receives no arguments ──────────
 
 describe("Apple SSO — sign-up does not pass a redirectUrl or scheme", () => {
   /**
-   * sign-up.tsx uses useSSO / startSSOFlow({ strategy: "oauth_apple" }).
-   * Currently no redirectUrl is passed, relying on Clerk's default.  If a
-   * redirectUrl is ever added it must come from Constants.expoConfig.scheme —
-   * mirror googleSSOScheme.test.tsx and never hardcode the scheme string.
+   * sign-up.tsx uses useSignInWithApple / startAppleAuthenticationFlow(), the
+   * same native Apple auth sheet as sign-in.  Apple blocks custom-scheme
+   * redirect URIs for its web OAuth flow, so the call must remain
+   * argument-free.  If a redirectUrl is ever added it must come from
+   * Constants.expoConfig.scheme — mirror googleSSOScheme.test.tsx.
    */
 
-  it("startSSOFlow is called without a redirectUrl property", async () => {
-    mockStartSSOFlow.mockResolvedValue({
+  it("startAppleAuthenticationFlow is called without a redirectUrl property", async () => {
+    mockStartAppleAuthFlow.mockResolvedValue({
       createdSessionId: null,
       setActive: null,
     });
@@ -250,14 +251,17 @@ describe("Apple SSO — sign-up does not pass a redirectUrl or scheme", () => {
       btn.props.onPress();
     });
 
-    expect(mockStartSSOFlow).toHaveBeenCalledTimes(1);
-    const call = mockStartSSOFlow.mock.calls[0][0] as Record<string, unknown>;
-    // Guard: no hardcoded redirectUrl passed to the Apple SSO call.
-    expect(call).not.toHaveProperty("redirectUrl");
+    expect(mockStartAppleAuthFlow).toHaveBeenCalledTimes(1);
+    // If the call ever gains an argument object, it must not contain a
+    // hardcoded redirectUrl.
+    const firstArg: unknown = mockStartAppleAuthFlow.mock.calls[0]?.[0];
+    if (firstArg !== undefined && firstArg !== null) {
+      expect(firstArg).not.toHaveProperty("redirectUrl");
+    }
   });
 
-  it("startSSOFlow is called with strategy:oauth_apple", async () => {
-    mockStartSSOFlow.mockResolvedValue({
+  it("startAppleAuthenticationFlow is called with no arguments", async () => {
+    mockStartAppleAuthFlow.mockResolvedValue({
       createdSessionId: null,
       setActive: null,
     });
@@ -273,8 +277,8 @@ describe("Apple SSO — sign-up does not pass a redirectUrl or scheme", () => {
       btn.props.onPress();
     });
 
-    expect(mockStartSSOFlow).toHaveBeenCalledTimes(1);
-    const call = mockStartSSOFlow.mock.calls[0][0] as Record<string, unknown>;
-    expect(call.strategy).toBe("oauth_apple");
+    expect(mockStartAppleAuthFlow).toHaveBeenCalledTimes(1);
+    // Must be called with zero arguments — no redirectUrl, no scheme.
+    expect(mockStartAppleAuthFlow).toHaveBeenCalledWith();
   });
 });

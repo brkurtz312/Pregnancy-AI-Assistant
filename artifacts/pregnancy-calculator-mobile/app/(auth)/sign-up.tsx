@@ -1,4 +1,5 @@
 import { useSSO, useSignUp } from "@clerk/expo";
+import { useSignInWithApple } from "@clerk/expo/apple";
 import { Ionicons } from "@expo/vector-icons";
 import * as AuthSession from "expo-auth-session";
 import Constants from "expo-constants";
@@ -43,6 +44,7 @@ export default function SignUpScreen() {
   const router = useRouter();
   const { signUp, errors, fetchStatus } = useSignUp();
   const { startSSOFlow } = useSSO();
+  const { startAppleAuthenticationFlow } = useSignInWithApple();
 
   const [emailAddress, setEmailAddress] = useState("");
   const [password, setPassword] = useState("");
@@ -51,6 +53,23 @@ export default function SignUpScreen() {
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [appleLoading, setAppleLoading] = useState(false);
   const [appleError, setAppleError] = useState<string | null>(null);
+  // Hidden until confirmed available — hides the button on old binaries that
+  // don't have expo-apple-authentication linked as a native module.
+  const [isAppleAvailable, setIsAppleAvailable] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    (async () => {
+      try {
+        // Safe-require: throws if the native module isn't in this binary.
+        const AppleAuth = require("expo-apple-authentication");
+        const available = await AppleAuth.isAvailableAsync();
+        setIsAppleAvailable(available);
+      } catch {
+        setIsAppleAvailable(false);
+      }
+    })();
+  }, []);
 
   const fetching = fetchStatus === "fetching";
   const showVerify =
@@ -125,18 +144,19 @@ export default function SignUpScreen() {
     setAppleLoading(true);
     setAppleError(null);
     try {
-      const { createdSessionId, setActive } = await startSSOFlow({
-        strategy: "oauth_apple",
-      });
+      // Use the native Apple auth sheet (expo-apple-authentication) via
+      // useSignInWithApple. This avoids web OAuth which Apple blocks for
+      // custom-scheme redirect URLs.
+      const { createdSessionId, setActive } =
+        await startAppleAuthenticationFlow();
 
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
         router.replace("/" as Href);
-      } else {
-        setAppleError(
-          "Apple sign-in could not be completed — please try again.",
-        );
       }
+      // null createdSessionId means the user cancelled the native Apple sheet
+      // (Clerk resolves rather than rejects on cancellation in the native flow).
+      // Silently close — no error message needed.
     } catch (err) {
       // Suppress errors that indicate the user deliberately dismissed the
       // Apple Sign-In sheet — no message needed in that case.
@@ -147,7 +167,7 @@ export default function SignUpScreen() {
     } finally {
       setAppleLoading(false);
     }
-  }, [appleLoading, startSSOFlow, router]);
+  }, [appleLoading, startAppleAuthenticationFlow, router]);
 
   return (
     <View style={[styles.fill, { backgroundColor: colors.background }]}>
@@ -222,8 +242,8 @@ export default function SignUpScreen() {
                 </Text>
               )}
 
-              {/* Apple SSO — shown on iOS only */}
-              {Platform.OS === "ios" && (
+              {/* Apple SSO — shown on iOS only when native module is linked */}
+              {isAppleAvailable && (
                 <TouchableOpacity
                   style={[styles.appleBtn, { opacity: appleLoading ? 0.7 : 1 }]}
                   onPress={onApplePress}
