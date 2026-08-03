@@ -39,7 +39,7 @@ public class WatchConnectivityModule: Module {
             PhoneWatchBridge.shared.sendSignOut()
         }
 
-        Events("onKickSessionEnd", "onContractionUpdate", "onKickUpdate", "onWatchStateChange")
+        Events("onKickSessionEnd", "onContractionUpdate", "onKickUpdate", "onWatchStateChange", "onSyncRequest")
 
         OnStartObserving {
             PhoneWatchBridge.shared.onKickSessionEnd = { [weak self] session in
@@ -54,6 +54,12 @@ public class WatchConnectivityModule: Module {
             PhoneWatchBridge.shared.onSessionStateChange = { [weak self] state in
                 self?.sendEvent("onWatchStateChange", state)
             }
+            // Fired when the Watch activates with no cached tips and asks the phone
+            // to push the current gestational week and tips payload.  The JS handler
+            // in useWatchConnectivity calls sendWeekAndTips in response.
+            PhoneWatchBridge.shared.onSyncRequest = { [weak self] in
+                self?.sendEvent("onSyncRequest", [:])
+            }
         }
 
         OnStopObserving {
@@ -61,6 +67,7 @@ public class WatchConnectivityModule: Module {
             PhoneWatchBridge.shared.onContractionUpdate = nil
             PhoneWatchBridge.shared.onKickUpdate = nil
             PhoneWatchBridge.shared.onSessionStateChange = nil
+            PhoneWatchBridge.shared.onSyncRequest = nil
         }
     }
 }
