@@ -90,6 +90,30 @@ export function WatchBackgroundListener() {
   const { isSignedIn, userId, getToken } = useAuth();
   const queryClient = useQueryClient();
 
+  // ── Kick-session deduplication ────────────────────────────────────────────
+  // The Watch may retry onKickSessionEnd for the same logical session (e.g.
+  // after a WCSession reconnect) even though the phone already recorded it via
+  // handleEndSession.  Two layers of protection prevent a duplicate write:
+  //
+  //  1. React Query cache check — if the session is already in the cached list
+  //     (e.g. because the phone saved it and the list has since been fetched)
+  //     the Watch retry is silently dropped.
+  //
+  //  2. In-process Set — added OPTIMISTICALLY before the async API call so
+  //     concurrent Watch callbacks for the same startedAt are blocked
+  //     immediately.  Removed from the Set if the save fails so that the
+  //     offline-queue retry path is not accidentally gated.
+  //
+  // The Set is cleared whenever the userId changes (sign-out / account switch)
+  // so one user's history never bleeds into another's on a shared device.
+  const savedKickStartsRef = useRef(new Set<string>());
+  // Clerk userId can be string | null | undefined depending on auth state.
+  const lastUserIdRef = useRef<string | null | undefined>(undefined);
+  if (userId !== lastUserIdRef.current) {
+    savedKickStartsRef.current.clear();
+    lastUserIdRef.current = userId;
+  }
+
   // ── Tips sync ─────────────────────────────────────────────────────────────
   // Compute tips here (globally mounted) so they sync on every app open,
   // not only when the Home or Tools tab happens to be active.
@@ -160,6 +184,26 @@ export function WatchBackgroundListener() {
   const handleKickSessionEnd = useCallback(
     async (session: KickSessionSummary) => {
       if (!isSignedIn || !userId) return;
+
+      // ── Deduplication guard ───────────────────────────────────────────────
+      // Layer 1: in-process Set — added optimistically so that a concurrent
+      // duplicate callback is blocked before either request is sent.
+      if (savedKickStartsRef.current.has(session.startedAt)) return;
+
+      // Layer 2: React Query cache — catches the primary scenario where the
+      // phone already saved this session (handleEndSession → refetch) before
+      // the Watch retry fires.
+      const cachedList = queryClient.getQueryData<{
+        items: Array<{ startedAt: string }>;
+      }>(getListKickSessionsQueryKey({ limit: 10, offset: 0 }));
+      if (cachedList?.items?.some((s) => s.startedAt === session.startedAt)) {
+        return;
+      }
+
+      // Optimistically claim this startedAt so any concurrent duplicate
+      // callback is blocked immediately (before any async gap).
+      savedKickStartsRef.current.add(session.startedAt);
+
       // Capture the session generation at Watch-event-receive time.
       const capturedGen = getWatchQueueGeneration(userId);
 
@@ -191,6 +235,9 @@ export function WatchBackgroundListener() {
         });
         showToast("Kick session saved");
       } catch {
+        // Save failed — remove from the dedup Set so the offline-queue retry
+        // path is not permanently blocked for this session.
+        savedKickStartsRef.current.delete(session.startedAt);
         // Save locally so the data isn't lost; retry when connectivity returns.
         try {
           await enqueueWatchKickSession(

@@ -84,9 +84,15 @@ jest.mock("@/lib/watch-tips", () => ({
 
 // ── React Query ───────────────────────────────────────────────────────────────
 const mockInvalidateQueries = jest.fn().mockResolvedValue(undefined);
+// Returns undefined by default (empty cache); individual tests override this
+// to simulate sessions already saved by the phone.
+const mockGetQueryData = jest.fn().mockReturnValue(undefined);
 
 jest.mock("@tanstack/react-query", () => ({
-  useQueryClient: jest.fn(() => ({ invalidateQueries: mockInvalidateQueries })),
+  useQueryClient: jest.fn(() => ({
+    invalidateQueries: mockInvalidateQueries,
+    getQueryData: mockGetQueryData,
+  })),
 }));
 
 // ── API hooks ─────────────────────────────────────────────────────────────────
@@ -1624,5 +1630,199 @@ describe("WatchBackgroundListener — Watch reconnect backlog (N sessions replay
         expect.any(Function),
       );
     }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Duplicate-session deduplication
+//
+// When the Watch retries onKickSessionEnd for a session the phone already
+// recorded (or that the Watch itself already delivered successfully),
+// WatchBackgroundListener must skip the second create so the user never sees
+// a duplicate entry in their kick-session list.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("WatchBackgroundListener — duplicate kick-session deduplication", () => {
+  let listenerRenderer: ReturnType<typeof create> | null = null;
+
+  function renderWatchListener() {
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      userId: "user-123",
+      getToken: jest.fn().mockResolvedValue("token-user-123"),
+    });
+    act(() => {
+      listenerRenderer = create(React.createElement(WatchBackgroundListener));
+    });
+    return listenerRenderer!;
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    listenerRenderer = null;
+    capturedOnKickSessionEnd = undefined;
+    capturedOnContractionUpdate = undefined;
+    jest.clearAllMocks();
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      userId: "user-123",
+      getToken: jest.fn().mockResolvedValue("token-user-123"),
+    });
+    mockInvalidateQueries.mockResolvedValue(undefined);
+    // Default: empty cache — no sessions in React Query store.
+    mockGetQueryData.mockReturnValue(undefined);
+    mockApiDirectSaveKickSession.mockResolvedValue(undefined);
+    mockApiDirectSaveContraction.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    act(() => {
+      jest.runAllTimers();
+    });
+    if (listenerRenderer) {
+      act(() => {
+        listenerRenderer!.unmount();
+      });
+      listenerRenderer = null;
+    }
+    jest.useRealTimers();
+    jest.clearAllMocks();
+  });
+
+  it("suppresses the second write when the Watch retries a session with the same startedAt", async () => {
+    renderWatchListener();
+    await act(async () => {});
+
+    expect(capturedOnKickSessionEnd).toBeDefined();
+
+    const session = {
+      kickCount: 6,
+      startedAt: "2026-08-03T10:00:00.000Z",
+      endedAt: "2026-08-03T10:30:00.000Z",
+    };
+
+    // First delivery — should be saved normally.
+    await act(async () => {
+      await capturedOnKickSessionEnd!(session);
+    });
+
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(1);
+    expect(mockInvalidateQueries).toHaveBeenCalledTimes(1);
+
+    // Second delivery with identical startedAt — Watch retry after a
+    // WCSession reconnect.  The handler must discard this silently.
+    await act(async () => {
+      await capturedOnKickSessionEnd!(session);
+    });
+
+    // Still only one createKickSession call — duplicate was suppressed.
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(1);
+    // Cache invalidation must not be re-triggered for the duplicate.
+    expect(mockInvalidateQueries).toHaveBeenCalledTimes(1);
+  });
+
+  it("still saves sessions with different startedAt values after a duplicate is suppressed", async () => {
+    renderWatchListener();
+    await act(async () => {});
+
+    expect(capturedOnKickSessionEnd).toBeDefined();
+
+    const first = {
+      kickCount: 5,
+      startedAt: "2026-08-03T11:00:00.000Z",
+      endedAt: "2026-08-03T11:20:00.000Z",
+    };
+    const duplicate = { ...first }; // exact same startedAt
+    const second = {
+      kickCount: 3,
+      startedAt: "2026-08-03T12:00:00.000Z", // different startedAt
+      endedAt: "2026-08-03T12:15:00.000Z",
+    };
+
+    await act(async () => {
+      await capturedOnKickSessionEnd!(first);
+    });
+    await act(async () => {
+      await capturedOnKickSessionEnd!(duplicate); // should be dropped
+    });
+    await act(async () => {
+      await capturedOnKickSessionEnd!(second); // different startedAt — must be saved
+    });
+
+    // Only the two distinct sessions should have been saved.
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(2);
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledWith(
+      { startedAt: first.startedAt, endedAt: first.endedAt, kickCount: 5 },
+      expect.any(Function),
+    );
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledWith(
+      { startedAt: second.startedAt, endedAt: second.endedAt, kickCount: 3 },
+      expect.any(Function),
+    );
+    expect(mockInvalidateQueries).toHaveBeenCalledTimes(2);
+  });
+
+  it("skips the save when the session startedAt is already in the React Query cache (phone saved it first)", async () => {
+    // Pre-populate the React Query cache to simulate the phone having already
+    // saved this session via handleEndSession + refetch.
+    const phoneSavedStartedAt = "2026-08-03T13:00:00.000Z";
+    mockGetQueryData.mockReturnValue({
+      items: [
+        {
+          id: 42,
+          kickCount: 7,
+          startedAt: phoneSavedStartedAt,
+          endedAt: "2026-08-03T13:30:00.000Z",
+        },
+      ],
+    });
+
+    renderWatchListener();
+    await act(async () => {});
+
+    expect(capturedOnKickSessionEnd).toBeDefined();
+
+    // Watch fires for the same session the phone already recorded.
+    await act(async () => {
+      await capturedOnKickSessionEnd!({
+        kickCount: 7,
+        startedAt: phoneSavedStartedAt,
+        endedAt: "2026-08-03T13:30:00.000Z",
+      });
+    });
+
+    // The cache check must have blocked the write — no API call, no
+    // cache invalidation.
+    expect(mockApiDirectSaveKickSession).not.toHaveBeenCalled();
+    expect(mockInvalidateQueries).not.toHaveBeenCalled();
+  });
+
+  it("suppresses both concurrent duplicate callbacks — only one createKickSession call", async () => {
+    renderWatchListener();
+    await act(async () => {});
+
+    expect(capturedOnKickSessionEnd).toBeDefined();
+
+    const session = {
+      kickCount: 4,
+      startedAt: "2026-08-03T14:00:00.000Z",
+      endedAt: "2026-08-03T14:20:00.000Z",
+    };
+
+    // Fire two callbacks for the same startedAt concurrently — the Watch
+    // replayed the same session twice before the first request completed.
+    await act(async () => {
+      await Promise.all([
+        capturedOnKickSessionEnd!(session),
+        capturedOnKickSessionEnd!(session),
+      ]);
+    });
+
+    // Optimistic Set add before the async gap means the second callback is
+    // blocked immediately — only one API call must be made.
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(1);
+    expect(mockInvalidateQueries).toHaveBeenCalledTimes(1);
   });
 });
