@@ -54,9 +54,9 @@ const RESOURCES = [
     url: "https://www.acog.org/womens-health/faqs/exercise-during-pregnancy",
   },
   {
-    name: "NIOSH: Safe Lifting Limits in Pregnancy",
+    name: "About Physical Job Demands and Reproductive Health",
     detail: "Federal guidance on recommended weight limits by trimester",
-    url: "https://www.cdc.gov/niosh/docs/2014-124/",
+    url: "https://www.cdc.gov/niosh/reproductive-health/prevention/physical-demands.html",
   },
   {
     name: "EEOC: Pregnant Workers Fairness Act (PWFA)",
