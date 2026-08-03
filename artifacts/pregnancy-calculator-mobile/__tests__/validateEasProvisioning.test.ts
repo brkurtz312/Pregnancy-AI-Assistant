@@ -257,6 +257,56 @@ describe("validate-eas-provisioning.js", () => {
     });
   });
 
+  describe("missing or wrong App Group entitlement", () => {
+    it("exits 1 when the entitlements block is absent entirely", () => {
+      const appJson = JSON.parse(JSON.stringify(VALID_APP_JSON));
+      delete appJson.expo.extra.eas.build.experimental.ios.appExtensions[0]
+        .entitlements;
+
+      const { exitCode, stderr } = runScript(appJson, VALID_EAS_JSON);
+      expect(exitCode).toBe(1);
+      expect(stderr).toMatch(/App Group/i);
+      expect(stderr).toMatch(/group\.com\.example\.testapp/);
+    });
+
+    it("exits 1 when com.apple.security.application-groups array is empty", () => {
+      const appJson = JSON.parse(JSON.stringify(VALID_APP_JSON));
+      appJson.expo.extra.eas.build.experimental.ios.appExtensions[0].entitlements[
+        "com.apple.security.application-groups"
+      ] = [];
+
+      const { exitCode, stderr } = runScript(appJson, VALID_EAS_JSON);
+      expect(exitCode).toBe(1);
+      expect(stderr).toMatch(/App Group/i);
+      expect(stderr).toMatch(/group\.com\.example\.testapp/);
+    });
+
+    it("exits 1 when application-groups contains a wrong group name", () => {
+      const appJson = JSON.parse(JSON.stringify(VALID_APP_JSON));
+      appJson.expo.extra.eas.build.experimental.ios.appExtensions[0].entitlements[
+        "com.apple.security.application-groups"
+      ] = ["group.com.example.otherapp"];
+
+      const { exitCode, stderr } = runScript(appJson, VALID_EAS_JSON);
+      expect(exitCode).toBe(1);
+      // Error mentions the expected group
+      expect(stderr).toMatch(/group\.com\.example\.testapp/);
+      // Error also lists what was actually found
+      expect(stderr).toMatch(/group\.com\.example\.otherapp/);
+    });
+
+    it("exits 0 when the correct App Group is among multiple groups", () => {
+      const appJson = JSON.parse(JSON.stringify(VALID_APP_JSON));
+      appJson.expo.extra.eas.build.experimental.ios.appExtensions[0].entitlements[
+        "com.apple.security.application-groups"
+      ] = ["group.com.example.other", "group.com.example.testapp"];
+
+      const { exitCode, stdout } = runScript(appJson, VALID_EAS_JSON);
+      expect(exitCode).toBe(0);
+      expect(stdout).toMatch(/App Group/i);
+    });
+  });
+
   describe("error messages are descriptive", () => {
     it("lists the found bundle identifiers when the Watch ID is wrong", () => {
       const appJson = JSON.parse(JSON.stringify(VALID_APP_JSON));
