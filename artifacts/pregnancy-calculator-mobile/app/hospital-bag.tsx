@@ -39,6 +39,7 @@ import { apiLoadHospitalBag, apiSaveHospitalBag } from "@/lib/sync-api";
 import { clearPendingSync, markPendingSync } from "@/lib/sync-queue";
 import { useNetReconnect } from "@/hooks/useNetReconnect";
 import { SyncBanner } from "@/components/SyncBanner";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 
 export default function HospitalBagScreen() {
   const colors = useColors();
@@ -296,184 +297,196 @@ export default function HospitalBagScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View entering={FadeInDown.duration(400)}>
-          <Text style={[styles.pageTitle, { color: colors.foreground }]}>
-            Hospital Bag Checklist
-          </Text>
-          <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
-            Pack around 36 weeks so you're ready whenever labor starts
-          </Text>
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(40).duration(400)}
-          style={[
-            styles.progressCard,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <View style={styles.progressHeaderRow}>
-            <Text style={[styles.progressLabel, { color: colors.foreground }]}>
-              {checked} of {total} packed
+        <ResponsiveContainer style={{ paddingHorizontal: 16 }}>
+          <Animated.View entering={FadeInDown.duration(400)}>
+            <Text style={[styles.pageTitle, { color: colors.foreground }]}>
+              Hospital Bag Checklist
             </Text>
-            <TouchableOpacity onPress={handleReset}>
-              <Text
-                style={[styles.resetText, { color: colors.mutedForeground }]}
-              >
-                Reset
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <View
-            style={[styles.progressTrack, { backgroundColor: colors.border }]}
+            <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
+              Pack around 36 weeks so you're ready whenever labor starts
+            </Text>
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.delay(40).duration(400)}
+            style={[
+              styles.progressCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
           >
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  backgroundColor: colors.primary,
-                  width: `${Math.round(progressPct * 100)}%`,
-                },
-              ]}
-            />
-          </View>
-        </Animated.View>
-
-        {!loaded && (
-          <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
-        )}
-
-        {loaded &&
-          categories.map((category, cIndex) => (
-            <Animated.View
-              key={category.id}
-              entering={FadeInDown.delay(80 + cIndex * 40).duration(400)}
-              style={[
-                styles.card,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-            >
-              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-                {category.title}
-              </Text>
-              {category.items.map((item) => (
-                <View key={item.id} style={styles.checkRow}>
-                  <TouchableOpacity
-                    style={styles.checkRowMain}
-                    onPress={() => toggleItem(category.id, item.id)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name={item.checked ? "checkbox" : "square-outline"}
-                      size={22}
-                      color={
-                        item.checked ? colors.primary : colors.mutedForeground
-                      }
-                    />
-                    <View style={{ flex: 1 }}>
-                      <Text
-                        style={[
-                          styles.checkLabel,
-                          { color: colors.foreground },
-                          item.checked && {
-                            color: colors.mutedForeground,
-                            textDecorationLine: "line-through",
-                          },
-                        ]}
-                      >
-                        {item.label}
-                      </Text>
-                      {item.note && (
-                        <Text
-                          style={[
-                            styles.checkNote,
-                            { color: colors.mutedForeground },
-                          ]}
-                        >
-                          {item.note}
-                        </Text>
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                  {item.custom && (
-                    <TouchableOpacity
-                      onPress={() => handleRemoveItem(category.id, item.id)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons
-                        name="trash-outline"
-                        size={18}
-                        color={colors.mutedForeground}
-                      />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ))}
-
-              <View style={styles.addRow}>
-                <TextInput
-                  style={[
-                    styles.addInput,
-                    {
-                      borderColor: colors.border,
-                      color: colors.foreground,
-                      backgroundColor: colors.muted,
-                    },
-                  ]}
-                  value={newItemText[category.id] ?? ""}
-                  onChangeText={(text) =>
-                    setNewItemText((prev) => ({ ...prev, [category.id]: text }))
-                  }
-                  placeholder="Add your own item..."
-                  placeholderTextColor={colors.mutedForeground}
-                  onSubmitEditing={() => handleAddItem(category.id)}
-                  returnKeyType="done"
-                />
-                <TouchableOpacity
-                  style={[styles.addBtn, { backgroundColor: colors.primary }]}
-                  onPress={() => handleAddItem(category.id)}
-                  disabled={!(newItemText[category.id] ?? "").trim()}
-                >
-                  <Ionicons
-                    name="add"
-                    size={20}
-                    color={colors.primaryForeground}
-                  />
-                </TouchableOpacity>
-              </View>
-            </Animated.View>
-          ))}
-
-        <TouchableOpacity
-          style={[styles.exportBtn, { backgroundColor: colors.primary }]}
-          onPress={handleExportPdf}
-          disabled={generating}
-        >
-          {generating ? (
-            <ActivityIndicator color={colors.primaryForeground} />
-          ) : (
-            <>
-              <Ionicons
-                name="document-text-outline"
-                size={18}
-                color={colors.primaryForeground}
-              />
+            <View style={styles.progressHeaderRow}>
               <Text
+                style={[styles.progressLabel, { color: colors.foreground }]}
+              >
+                {checked} of {total} packed
+              </Text>
+              <TouchableOpacity onPress={handleReset}>
+                <Text
+                  style={[styles.resetText, { color: colors.mutedForeground }]}
+                >
+                  Reset
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <View
+              style={[styles.progressTrack, { backgroundColor: colors.border }]}
+            >
+              <View
                 style={[
-                  styles.exportBtnText,
-                  { color: colors.primaryForeground },
+                  styles.progressFill,
+                  {
+                    backgroundColor: colors.primary,
+                    width: `${Math.round(progressPct * 100)}%`,
+                  },
+                ]}
+              />
+            </View>
+          </Animated.View>
+
+          {!loaded && (
+            <ActivityIndicator
+              color={colors.primary}
+              style={{ marginTop: 20 }}
+            />
+          )}
+
+          {loaded &&
+            categories.map((category, cIndex) => (
+              <Animated.View
+                key={category.id}
+                entering={FadeInDown.delay(80 + cIndex * 40).duration(400)}
+                style={[
+                  styles.card,
+                  { backgroundColor: colors.card, borderColor: colors.border },
                 ]}
               >
-                View Checklist PDF
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
-        <Text style={[styles.exportHint, { color: colors.mutedForeground }]}>
-          Your checked items are saved automatically, so you can keep coming
-          back to this list right up until you head to the hospital.
-        </Text>
-        <AskCard returnTo="/hospital-bag" />
+                <Text
+                  style={[styles.sectionTitle, { color: colors.foreground }]}
+                >
+                  {category.title}
+                </Text>
+                {category.items.map((item) => (
+                  <View key={item.id} style={styles.checkRow}>
+                    <TouchableOpacity
+                      style={styles.checkRowMain}
+                      onPress={() => toggleItem(category.id, item.id)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name={item.checked ? "checkbox" : "square-outline"}
+                        size={22}
+                        color={
+                          item.checked ? colors.primary : colors.mutedForeground
+                        }
+                      />
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={[
+                            styles.checkLabel,
+                            { color: colors.foreground },
+                            item.checked && {
+                              color: colors.mutedForeground,
+                              textDecorationLine: "line-through",
+                            },
+                          ]}
+                        >
+                          {item.label}
+                        </Text>
+                        {item.note && (
+                          <Text
+                            style={[
+                              styles.checkNote,
+                              { color: colors.mutedForeground },
+                            ]}
+                          >
+                            {item.note}
+                          </Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                    {item.custom && (
+                      <TouchableOpacity
+                        onPress={() => handleRemoveItem(category.id, item.id)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons
+                          name="trash-outline"
+                          size={18}
+                          color={colors.mutedForeground}
+                        />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ))}
+
+                <View style={styles.addRow}>
+                  <TextInput
+                    style={[
+                      styles.addInput,
+                      {
+                        borderColor: colors.border,
+                        color: colors.foreground,
+                        backgroundColor: colors.muted,
+                      },
+                    ]}
+                    value={newItemText[category.id] ?? ""}
+                    onChangeText={(text) =>
+                      setNewItemText((prev) => ({
+                        ...prev,
+                        [category.id]: text,
+                      }))
+                    }
+                    placeholder="Add your own item..."
+                    placeholderTextColor={colors.mutedForeground}
+                    onSubmitEditing={() => handleAddItem(category.id)}
+                    returnKeyType="done"
+                  />
+                  <TouchableOpacity
+                    style={[styles.addBtn, { backgroundColor: colors.primary }]}
+                    onPress={() => handleAddItem(category.id)}
+                    disabled={!(newItemText[category.id] ?? "").trim()}
+                  >
+                    <Ionicons
+                      name="add"
+                      size={20}
+                      color={colors.primaryForeground}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </Animated.View>
+            ))}
+
+          <TouchableOpacity
+            style={[styles.exportBtn, { backgroundColor: colors.primary }]}
+            onPress={handleExportPdf}
+            disabled={generating}
+          >
+            {generating ? (
+              <ActivityIndicator color={colors.primaryForeground} />
+            ) : (
+              <>
+                <Ionicons
+                  name="document-text-outline"
+                  size={18}
+                  color={colors.primaryForeground}
+                />
+                <Text
+                  style={[
+                    styles.exportBtnText,
+                    { color: colors.primaryForeground },
+                  ]}
+                >
+                  View Checklist PDF
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+          <Text style={[styles.exportHint, { color: colors.mutedForeground }]}>
+            Your checked items are saved automatically, so you can keep coming
+            back to this list right up until you head to the hospital.
+          </Text>
+          <AskCard returnTo="/hospital-bag" />
+        </ResponsiveContainer>
       </ScrollView>
     </View>
   );
@@ -497,7 +510,6 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   scroll: {
-    paddingHorizontal: 16,
     paddingTop: 16,
   },
   pageTitle: {

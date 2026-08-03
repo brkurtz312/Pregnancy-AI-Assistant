@@ -12,6 +12,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { HEALTHY_PREGNANCY_TOPICS } from "@/lib/healthy-pregnancy-topics";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 
 const TOPICS = HEALTHY_PREGNANCY_TOPICS.map((t) => ({
   ...t,
@@ -49,71 +50,80 @@ export default function HealthyPregnancyScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View entering={FadeInDown.duration(400)}>
-          <Text style={[styles.pageTitle, { color: colors.foreground }]}>
-            Healthy Pregnancy
-          </Text>
-          <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
-            Evidence-based ACOG guidance on staying well through your pregnancy.
-          </Text>
-        </Animated.View>
-
-        {TOPICS.map((topic, i) => (
-          <Animated.View
-            key={topic.route}
-            entering={FadeInDown.delay(60 + i * 60).duration(400)}
-          >
-            <TouchableOpacity
-              style={[
-                styles.card,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-              onPress={() =>
-                router.push(topic.route as Parameters<typeof router.push>[0])
-              }
-              activeOpacity={0.8}
-            >
-              <View
-                style={[
-                  styles.cardIcon,
-                  { backgroundColor: colors.primary + "18" },
-                ]}
-              >
-                <Ionicons name={topic.icon} size={20} color={colors.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.cardTitle, { color: colors.foreground }]}>
-                  {topic.title}
-                </Text>
-                <Text
-                  style={[styles.cardDesc, { color: colors.mutedForeground }]}
-                >
-                  {topic.description}
-                </Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={18}
-                color={colors.mutedForeground}
-              />
-            </TouchableOpacity>
+        <ResponsiveContainer style={{ paddingHorizontal: 16 }}>
+          <Animated.View entering={FadeInDown.duration(400)}>
+            <Text style={[styles.pageTitle, { color: colors.foreground }]}>
+              Healthy Pregnancy
+            </Text>
+            <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
+              Evidence-based ACOG guidance on staying well through your
+              pregnancy.
+            </Text>
           </Animated.View>
-        ))}
 
-        <Animated.View
-          entering={FadeInDown.delay(440).duration(400)}
-          style={[styles.noteBox, { backgroundColor: colors.primary + "10" }]}
-        >
-          <Ionicons
-            name="information-circle-outline"
-            size={16}
-            color={colors.primary}
-          />
-          <Text style={[styles.noteText, { color: colors.mutedForeground }]}>
-            All content is based on ACOG patient education materials. Always
-            discuss your individual situation with your care provider.
-          </Text>
-        </Animated.View>
+          {TOPICS.map((topic, i) => (
+            <Animated.View
+              key={topic.route}
+              entering={FadeInDown.delay(60 + i * 60).duration(400)}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.card,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+                onPress={() =>
+                  router.push(topic.route as Parameters<typeof router.push>[0])
+                }
+                activeOpacity={0.8}
+              >
+                <View
+                  style={[
+                    styles.cardIcon,
+                    { backgroundColor: colors.primary + "18" },
+                  ]}
+                >
+                  <Ionicons
+                    name={topic.icon}
+                    size={20}
+                    color={colors.primary}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[styles.cardTitle, { color: colors.foreground }]}
+                  >
+                    {topic.title}
+                  </Text>
+                  <Text
+                    style={[styles.cardDesc, { color: colors.mutedForeground }]}
+                  >
+                    {topic.description}
+                  </Text>
+                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={colors.mutedForeground}
+                />
+              </TouchableOpacity>
+            </Animated.View>
+          ))}
+
+          <Animated.View
+            entering={FadeInDown.delay(440).duration(400)}
+            style={[styles.noteBox, { backgroundColor: colors.primary + "10" }]}
+          >
+            <Ionicons
+              name="information-circle-outline"
+              size={16}
+              color={colors.primary}
+            />
+            <Text style={[styles.noteText, { color: colors.mutedForeground }]}>
+              All content is based on ACOG patient education materials. Always
+              discuss your individual situation with your care provider.
+            </Text>
+          </Animated.View>
+        </ResponsiveContainer>
       </ScrollView>
     </View>
   );
@@ -137,7 +147,6 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   scroll: {
-    paddingHorizontal: 16,
     paddingTop: 16,
   },
   pageTitle: {

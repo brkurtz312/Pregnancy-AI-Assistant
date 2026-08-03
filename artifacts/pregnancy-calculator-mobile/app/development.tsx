@@ -16,6 +16,7 @@ import { FETAL_STAGES } from "@/constants/fetalStages";
 import { MATERNAL_STAGES } from "@/constants/maternalStages";
 import { ClinicalDrawer } from "@/components/ClinicalDrawer";
 import { AskCard } from "@/components/AskCard";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 
 const ACCENT = "#4ecdc4";
 const BG = "#07090f";
@@ -108,210 +109,216 @@ export default function DevelopmentScreen() {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>
-            {view === "fetal" ? "The Beginning of Life" : "The Maternal Body"}
-          </Text>
-          <Text style={styles.headerSub}>
-            {view === "fetal"
-              ? "Human Fetal Development · Conception to Birth"
-              : "Anatomical Cross-Section · Conception to Birth"}
-          </Text>
+        <ResponsiveContainer style={{ paddingHorizontal: 16 }}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>
+              {view === "fetal" ? "The Beginning of Life" : "The Maternal Body"}
+            </Text>
+            <Text style={styles.headerSub}>
+              {view === "fetal"
+                ? "Human Fetal Development · Conception to Birth"
+                : "Anatomical Cross-Section · Conception to Birth"}
+            </Text>
 
-          {/* Fetal / Maternal toggle */}
-          <View style={styles.viewToggle}>
-            <TouchableOpacity
-              onPress={() => switchView("fetal")}
-              style={[
-                styles.viewToggleBtn,
-                view === "fetal" && styles.viewToggleBtnActive,
-              ]}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.viewToggleText,
-                  view === "fetal" && styles.viewToggleTextActive,
-                ]}
-              >
-                Fetal
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => switchView("maternal")}
-              style={[
-                styles.viewToggleBtn,
-                view === "maternal" && styles.viewToggleBtnActive,
-              ]}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.viewToggleText,
-                  view === "maternal" && styles.viewToggleTextActive,
-                ]}
-              >
-                Maternal
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Progress dots */}
-          <View style={styles.dots}>
-            {stages.map((_, i) => (
+            {/* Fetal / Maternal toggle */}
+            <View style={styles.viewToggle}>
               <TouchableOpacity
-                key={i}
-                onPress={() => goTo(i)}
-                activeOpacity={0.7}
+                onPress={() => switchView("fetal")}
+                style={[
+                  styles.viewToggleBtn,
+                  view === "fetal" && styles.viewToggleBtnActive,
+                ]}
+                activeOpacity={0.8}
               >
-                <View
+                <Text
                   style={[
-                    styles.dot,
-                    {
-                      width: i === current ? 36 : 20,
-                      backgroundColor:
-                        i === current
-                          ? ACCENT
-                          : i < current
-                            ? "rgba(78,205,196,0.50)"
-                            : "rgba(78,205,196,0.16)",
-                    },
+                    styles.viewToggleText,
+                    view === "fetal" && styles.viewToggleTextActive,
                   ]}
-                />
+                >
+                  Fetal
+                </Text>
               </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+              <TouchableOpacity
+                onPress={() => switchView("maternal")}
+                style={[
+                  styles.viewToggleBtn,
+                  view === "maternal" && styles.viewToggleBtnActive,
+                ]}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.viewToggleText,
+                    view === "maternal" && styles.viewToggleTextActive,
+                  ]}
+                >
+                  Maternal
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-        {/* Stage content */}
-        <Animated.View
-          style={[
-            styles.content,
-            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
-          ]}
-        >
-          {/* Circular image */}
-          <View
+            {/* Progress dots */}
+            <View style={styles.dots}>
+              {stages.map((_, i) => (
+                <TouchableOpacity
+                  key={i}
+                  onPress={() => goTo(i)}
+                  activeOpacity={0.7}
+                >
+                  <View
+                    style={[
+                      styles.dot,
+                      {
+                        width: i === current ? 36 : 20,
+                        backgroundColor:
+                          i === current
+                            ? ACCENT
+                            : i < current
+                              ? "rgba(78,205,196,0.50)"
+                              : "rgba(78,205,196,0.16)",
+                      },
+                    ]}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Stage content */}
+          <Animated.View
             style={[
-              styles.imageRing,
-              { width: IMG_SIZE, height: IMG_SIZE, borderRadius: IMG_SIZE / 2 },
+              styles.content,
+              { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
             ]}
           >
-            <Image
-              source={s.image}
-              style={{
-                width: IMG_SIZE,
-                height: IMG_SIZE,
-                borderRadius: IMG_SIZE / 2,
-              }}
-              resizeMode="cover"
-            />
-          </View>
-
-          {/* Week label */}
-          <Text style={styles.weekLabel}>{s.weekLabel}</Text>
-
-          {/* Title */}
-          <Text style={styles.stageTitle}>{s.title}</Text>
-
-          {/* Description */}
-          <Text style={styles.desc}>{s.desc}</Text>
-
-          {view === "fetal" ? (
-            <>
-              {/* Milestones */}
-              <View style={styles.milestones}>
-                {FETAL_STAGES[current].milestones.map((m, i) => (
-                  <View key={i} style={styles.milestone}>
-                    <View style={styles.bullet} />
-                    <Text style={styles.milestoneText}>{m}</Text>
-                  </View>
-                ))}
-              </View>
-
-              {/* Size */}
-              <Text style={styles.sizeLabel}>
-                Size:{" "}
-                <Text style={styles.sizeValue}>
-                  {FETAL_STAGES[current].size}
-                </Text>
-              </Text>
-
-              <ClinicalDrawer data={FETAL_STAGES[current].clinical} />
-            </>
-          ) : (
-            <>
-              {/* Maternal changes */}
-              <View style={styles.milestones}>
-                {MATERNAL_STAGES[current].maternal.map((m, i) => (
-                  <View key={i} style={styles.milestone}>
-                    <View style={styles.bullet} />
-                    <Text style={styles.milestoneText}>{m}</Text>
-                  </View>
-                ))}
-              </View>
-
-              <View style={styles.maternalFooter}>
-                <Text style={styles.maternalFooterLine}>
-                  Fundal height:{" "}
-                  <Text style={styles.maternalFooterValue}>
-                    {MATERNAL_STAGES[current].uterusFundus}
-                  </Text>
-                </Text>
-                <Text style={styles.maternalFooterLine}>
-                  Organ displacement:{" "}
-                  <Text style={styles.maternalFooterValue}>
-                    {MATERNAL_STAGES[current].organChanges}
-                  </Text>
-                </Text>
-              </View>
-            </>
-          )}
-        </Animated.View>
-
-        {/* Footer nav */}
-        <View style={styles.footer}>
-          <TouchableOpacity
-            onPress={() => goTo(current - 1)}
-            disabled={current === 0}
-            style={[styles.navBtn, { opacity: current === 0 ? 0.22 : 1 }]}
-          >
-            <Text style={styles.navBtnText}>← Previous</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => setPlaying((p) => !p)}
-            style={styles.autoplayBtn}
-          >
+            {/* Circular image */}
             <View
               style={[
-                styles.autoplayDot,
-                { backgroundColor: playing ? ACCENT : "#7a9e98" },
-              ]}
-            />
-            <Text
-              style={[
-                styles.autoplayText,
-                { color: playing ? ACCENT : "#7a9e98" },
+                styles.imageRing,
+                {
+                  width: IMG_SIZE,
+                  height: IMG_SIZE,
+                  borderRadius: IMG_SIZE / 2,
+                },
               ]}
             >
-              {playing ? "Pause" : "Autoplay"}
-            </Text>
-          </TouchableOpacity>
+              <Image
+                source={s.image}
+                style={{
+                  width: IMG_SIZE,
+                  height: IMG_SIZE,
+                  borderRadius: IMG_SIZE / 2,
+                }}
+                resizeMode="cover"
+              />
+            </View>
 
-          <TouchableOpacity
-            onPress={() => goTo(current + 1)}
-            disabled={current === stages.length - 1}
-            style={[
-              styles.navBtn,
-              { opacity: current === stages.length - 1 ? 0.22 : 1 },
-            ]}
-          >
-            <Text style={styles.navBtnText}>Next →</Text>
-          </TouchableOpacity>
-        </View>
-        <AskCard returnTo="/development" />
+            {/* Week label */}
+            <Text style={styles.weekLabel}>{s.weekLabel}</Text>
+
+            {/* Title */}
+            <Text style={styles.stageTitle}>{s.title}</Text>
+
+            {/* Description */}
+            <Text style={styles.desc}>{s.desc}</Text>
+
+            {view === "fetal" ? (
+              <>
+                {/* Milestones */}
+                <View style={styles.milestones}>
+                  {FETAL_STAGES[current].milestones.map((m, i) => (
+                    <View key={i} style={styles.milestone}>
+                      <View style={styles.bullet} />
+                      <Text style={styles.milestoneText}>{m}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Size */}
+                <Text style={styles.sizeLabel}>
+                  Size:{" "}
+                  <Text style={styles.sizeValue}>
+                    {FETAL_STAGES[current].size}
+                  </Text>
+                </Text>
+
+                <ClinicalDrawer data={FETAL_STAGES[current].clinical} />
+              </>
+            ) : (
+              <>
+                {/* Maternal changes */}
+                <View style={styles.milestones}>
+                  {MATERNAL_STAGES[current].maternal.map((m, i) => (
+                    <View key={i} style={styles.milestone}>
+                      <View style={styles.bullet} />
+                      <Text style={styles.milestoneText}>{m}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                <View style={styles.maternalFooter}>
+                  <Text style={styles.maternalFooterLine}>
+                    Fundal height:{" "}
+                    <Text style={styles.maternalFooterValue}>
+                      {MATERNAL_STAGES[current].uterusFundus}
+                    </Text>
+                  </Text>
+                  <Text style={styles.maternalFooterLine}>
+                    Organ displacement:{" "}
+                    <Text style={styles.maternalFooterValue}>
+                      {MATERNAL_STAGES[current].organChanges}
+                    </Text>
+                  </Text>
+                </View>
+              </>
+            )}
+          </Animated.View>
+
+          {/* Footer nav */}
+          <View style={styles.footer}>
+            <TouchableOpacity
+              onPress={() => goTo(current - 1)}
+              disabled={current === 0}
+              style={[styles.navBtn, { opacity: current === 0 ? 0.22 : 1 }]}
+            >
+              <Text style={styles.navBtnText}>← Previous</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setPlaying((p) => !p)}
+              style={styles.autoplayBtn}
+            >
+              <View
+                style={[
+                  styles.autoplayDot,
+                  { backgroundColor: playing ? ACCENT : "#7a9e98" },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.autoplayText,
+                  { color: playing ? ACCENT : "#7a9e98" },
+                ]}
+              >
+                {playing ? "Pause" : "Autoplay"}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => goTo(current + 1)}
+              disabled={current === stages.length - 1}
+              style={[
+                styles.navBtn,
+                { opacity: current === stages.length - 1 ? 0.22 : 1 },
+              ]}
+            >
+              <Text style={styles.navBtnText}>Next →</Text>
+            </TouchableOpacity>
+          </View>
+          <AskCard returnTo="/development" />
+        </ResponsiveContainer>
       </ScrollView>
     </SafeAreaView>
   );

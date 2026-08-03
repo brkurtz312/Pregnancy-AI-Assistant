@@ -11,6 +11,7 @@ import {
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 
 export default function PrenatalCareScreen() {
   const colors = useColors();
@@ -43,301 +44,307 @@ export default function PrenatalCareScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View entering={FadeInDown.duration(400)}>
-          <Text style={[styles.pageTitle, { color: colors.foreground }]}>
-            Prenatal Care
-          </Text>
-          <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
-            Stay on top of appointments and prenatal testing
-          </Text>
-        </Animated.View>
+        <ResponsiveContainer style={{ paddingHorizontal: 16 }}>
+          <Animated.View entering={FadeInDown.duration(400)}>
+            <Text style={[styles.pageTitle, { color: colors.foreground }]}>
+              Prenatal Care
+            </Text>
+            <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
+              Stay on top of appointments and prenatal testing
+            </Text>
+          </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(60).duration(400)}>
-          <TouchableOpacity
-            style={[
-              styles.learnCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-            onPress={() =>
-              router.push({
-                pathname: "/choose-ob-provider",
-                params: { from: "Prenatal Care" },
-              })
-            }
-          >
-            <View
+          <Animated.View entering={FadeInDown.delay(60).duration(400)}>
+            <TouchableOpacity
               style={[
-                styles.learnIcon,
-                { backgroundColor: colors.primary + "18" },
+                styles.learnCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
               ]}
+              onPress={() =>
+                router.push({
+                  pathname: "/choose-ob-provider",
+                  params: { from: "Prenatal Care" },
+                })
+              }
             >
+              <View
+                style={[
+                  styles.learnIcon,
+                  { backgroundColor: colors.primary + "18" },
+                ]}
+              >
+                <Ionicons
+                  name="people-outline"
+                  size={20}
+                  color={colors.primary}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.learnTitle, { color: colors.foreground }]}>
+                  Choose an OB Provider
+                </Text>
+                <Text
+                  style={[styles.learnSub, { color: colors.mutedForeground }]}
+                >
+                  Ob-gyns, midwives, and finding the right fit for you
+                </Text>
+              </View>
               <Ionicons
-                name="people-outline"
-                size={20}
-                color={colors.primary}
+                name="chevron-forward"
+                size={18}
+                color={colors.mutedForeground}
               />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.learnTitle, { color: colors.foreground }]}>
-                Choose an OB Provider
-              </Text>
-              <Text
-                style={[styles.learnSub, { color: colors.mutedForeground }]}
-              >
-                Ob-gyns, midwives, and finding the right fit for you
-              </Text>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={colors.mutedForeground}
-            />
-          </TouchableOpacity>
-        </Animated.View>
+            </TouchableOpacity>
+          </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(120).duration(400)}>
-          <TouchableOpacity
-            style={[
-              styles.learnCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-            onPress={() => router.push("/office-visit")}
-          >
-            <View
+          <Animated.View entering={FadeInDown.delay(120).duration(400)}>
+            <TouchableOpacity
               style={[
-                styles.learnIcon,
-                { backgroundColor: colors.primary + "18" },
+                styles.learnCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
               ]}
+              onPress={() => router.push("/office-visit")}
             >
+              <View
+                style={[
+                  styles.learnIcon,
+                  { backgroundColor: colors.primary + "18" },
+                ]}
+              >
+                <Ionicons
+                  name="clipboard-outline"
+                  size={20}
+                  color={colors.primary}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.learnTitle, { color: colors.foreground }]}>
+                  Office Visits
+                </Text>
+                <Text
+                  style={[styles.learnSub, { color: colors.mutedForeground }]}
+                >
+                  Appointments, questions to ask, and visit summaries
+                </Text>
+              </View>
               <Ionicons
-                name="clipboard-outline"
-                size={20}
-                color={colors.primary}
+                name="chevron-forward"
+                size={18}
+                color={colors.mutedForeground}
               />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.learnTitle, { color: colors.foreground }]}>
-                Office Visits
-              </Text>
-              <Text
-                style={[styles.learnSub, { color: colors.mutedForeground }]}
-              >
-                Appointments, questions to ask, and visit summaries
-              </Text>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={colors.mutedForeground}
-            />
-          </TouchableOpacity>
-        </Animated.View>
+            </TouchableOpacity>
+          </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(180).duration(400)}>
-          <TouchableOpacity
-            style={[
-              styles.learnCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-            onPress={() => router.push("/prenatal-testing")}
-          >
-            <View
+          <Animated.View entering={FadeInDown.delay(180).duration(400)}>
+            <TouchableOpacity
               style={[
-                styles.learnIcon,
-                { backgroundColor: colors.primary + "18" },
+                styles.learnCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
               ]}
+              onPress={() => router.push("/prenatal-testing")}
             >
+              <View
+                style={[
+                  styles.learnIcon,
+                  { backgroundColor: colors.primary + "18" },
+                ]}
+              >
+                <Ionicons
+                  name="document-text-outline"
+                  size={20}
+                  color={colors.primary}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.learnTitle, { color: colors.foreground }]}>
+                  Understanding Prenatal Testing
+                </Text>
+                <Text
+                  style={[styles.learnSub, { color: colors.mutedForeground }]}
+                >
+                  What to expect and why these tests matter
+                </Text>
+              </View>
               <Ionicons
-                name="document-text-outline"
-                size={20}
-                color={colors.primary}
+                name="chevron-forward"
+                size={18}
+                color={colors.mutedForeground}
               />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.learnTitle, { color: colors.foreground }]}>
-                Understanding Prenatal Testing
-              </Text>
-              <Text
-                style={[styles.learnSub, { color: colors.mutedForeground }]}
-              >
-                What to expect and why these tests matter
-              </Text>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={colors.mutedForeground}
-            />
-          </TouchableOpacity>
-        </Animated.View>
+            </TouchableOpacity>
+          </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(240).duration(400)}>
-          <TouchableOpacity
-            style={[
-              styles.learnCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-            onPress={() =>
-              router.push({
-                pathname: "/birth-plan",
-                params: { from: "Prenatal Care" },
-              })
-            }
-          >
-            <View
+          <Animated.View entering={FadeInDown.delay(240).duration(400)}>
+            <TouchableOpacity
               style={[
-                styles.learnIcon,
-                { backgroundColor: colors.primary + "18" },
+                styles.learnCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
               ]}
+              onPress={() =>
+                router.push({
+                  pathname: "/birth-plan",
+                  params: { from: "Prenatal Care" },
+                })
+              }
             >
+              <View
+                style={[
+                  styles.learnIcon,
+                  { backgroundColor: colors.primary + "18" },
+                ]}
+              >
+                <Ionicons
+                  name="clipboard-outline"
+                  size={20}
+                  color={colors.primary}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.learnTitle, { color: colors.foreground }]}>
+                  Prepare Your Birth Plan
+                </Text>
+                <Text
+                  style={[styles.learnSub, { color: colors.mutedForeground }]}
+                >
+                  Print a blank worksheet or answer questions to auto-fill one
+                </Text>
+              </View>
               <Ionicons
-                name="clipboard-outline"
-                size={20}
-                color={colors.primary}
+                name="chevron-forward"
+                size={18}
+                color={colors.mutedForeground}
               />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.learnTitle, { color: colors.foreground }]}>
-                Prepare Your Birth Plan
-              </Text>
-              <Text
-                style={[styles.learnSub, { color: colors.mutedForeground }]}
-              >
-                Print a blank worksheet or answer questions to auto-fill one
-              </Text>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={colors.mutedForeground}
-            />
-          </TouchableOpacity>
-        </Animated.View>
+            </TouchableOpacity>
+          </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(300).duration(400)}>
-          <TouchableOpacity
-            style={[
-              styles.learnCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-            onPress={() =>
-              router.push({
-                pathname: "/childbirth-preparation",
-                params: { from: "Prenatal Care" },
-              })
-            }
-          >
-            <View
+          <Animated.View entering={FadeInDown.delay(300).duration(400)}>
+            <TouchableOpacity
               style={[
-                styles.learnIcon,
-                { backgroundColor: colors.primary + "18" },
+                styles.learnCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
               ]}
+              onPress={() =>
+                router.push({
+                  pathname: "/childbirth-preparation",
+                  params: { from: "Prenatal Care" },
+                })
+              }
             >
-              <Ionicons name="heart-outline" size={20} color={colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.learnTitle, { color: colors.foreground }]}>
-                Childbirth Preparation
-              </Text>
-              <Text
-                style={[styles.learnSub, { color: colors.mutedForeground }]}
+              <View
+                style={[
+                  styles.learnIcon,
+                  { backgroundColor: colors.primary + "18" },
+                ]}
               >
-                Classes and skills to help you feel ready for labor
-              </Text>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={colors.mutedForeground}
-            />
-          </TouchableOpacity>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.delay(360).duration(400)}>
-          <TouchableOpacity
-            style={[
-              styles.learnCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-            onPress={() =>
-              router.push({
-                pathname: "/pregnancy-complications",
-                params: { from: "Prenatal Care" },
-              })
-            }
-          >
-            <View
-              style={[
-                styles.learnIcon,
-                { backgroundColor: colors.primary + "18" },
-              ]}
-            >
+                <Ionicons
+                  name="heart-outline"
+                  size={20}
+                  color={colors.primary}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.learnTitle, { color: colors.foreground }]}>
+                  Childbirth Preparation
+                </Text>
+                <Text
+                  style={[styles.learnSub, { color: colors.mutedForeground }]}
+                >
+                  Classes and skills to help you feel ready for labor
+                </Text>
+              </View>
               <Ionicons
-                name="alert-circle-outline"
-                size={20}
-                color={colors.primary}
+                name="chevron-forward"
+                size={18}
+                color={colors.mutedForeground}
               />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.learnTitle, { color: colors.foreground }]}>
-                Complications of Pregnancy
-              </Text>
-              <Text
-                style={[styles.learnSub, { color: colors.mutedForeground }]}
-              >
-                Warning signs and common conditions to know about
-              </Text>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={colors.mutedForeground}
-            />
-          </TouchableOpacity>
-        </Animated.View>
+            </TouchableOpacity>
+          </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(420).duration(400)}>
-          <TouchableOpacity
-            style={[
-              styles.learnCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-            onPress={() =>
-              router.push({
-                pathname: "/support-person-vol1",
-                params: { from: "Prenatal Care" },
-              })
-            }
-          >
-            <View
+          <Animated.View entering={FadeInDown.delay(360).duration(400)}>
+            <TouchableOpacity
               style={[
-                styles.learnIcon,
-                { backgroundColor: colors.primary + "18" },
+                styles.learnCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
               ]}
+              onPress={() =>
+                router.push({
+                  pathname: "/pregnancy-complications",
+                  params: { from: "Prenatal Care" },
+                })
+              }
             >
-              <Ionicons
-                name="hand-left-outline"
-                size={20}
-                color={colors.primary}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.learnTitle, { color: colors.foreground }]}>
-                Support Person Survival Series · Vol 1
-              </Text>
-              <Text
-                style={[styles.learnSub, { color: colors.mutedForeground }]}
+              <View
+                style={[
+                  styles.learnIcon,
+                  { backgroundColor: colors.primary + "18" },
+                ]}
               >
-                "We Can Do This." — a field guide for your support person
-              </Text>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={colors.mutedForeground}
-            />
-          </TouchableOpacity>
-        </Animated.View>
+                <Ionicons
+                  name="alert-circle-outline"
+                  size={20}
+                  color={colors.primary}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.learnTitle, { color: colors.foreground }]}>
+                  Complications of Pregnancy
+                </Text>
+                <Text
+                  style={[styles.learnSub, { color: colors.mutedForeground }]}
+                >
+                  Warning signs and common conditions to know about
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={colors.mutedForeground}
+              />
+            </TouchableOpacity>
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.delay(420).duration(400)}>
+            <TouchableOpacity
+              style={[
+                styles.learnCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+              onPress={() =>
+                router.push({
+                  pathname: "/support-person-vol1",
+                  params: { from: "Prenatal Care" },
+                })
+              }
+            >
+              <View
+                style={[
+                  styles.learnIcon,
+                  { backgroundColor: colors.primary + "18" },
+                ]}
+              >
+                <Ionicons
+                  name="hand-left-outline"
+                  size={20}
+                  color={colors.primary}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.learnTitle, { color: colors.foreground }]}>
+                  Support Person Survival Series · Vol 1
+                </Text>
+                <Text
+                  style={[styles.learnSub, { color: colors.mutedForeground }]}
+                >
+                  "We Can Do This." — a field guide for your support person
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={colors.mutedForeground}
+              />
+            </TouchableOpacity>
+          </Animated.View>
+        </ResponsiveContainer>
       </ScrollView>
     </View>
   );
@@ -361,7 +368,6 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   scroll: {
-    paddingHorizontal: 16,
     paddingTop: 16,
   },
   pageTitle: {

@@ -19,6 +19,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { AskCard } from "@/components/AskCard";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 
 const EMERGENCY_SIGNS = [
   "Heavy vaginal bleeding — soaking a pad in an hour or passing clots.",
@@ -133,145 +134,159 @@ export default function HpWarningSignsScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View entering={FadeInDown.duration(400)}>
-          <Text style={[styles.pageTitle, { color: colors.foreground }]}>
-            Warning Signs
-          </Text>
-          <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
-            Based on ACOG patient guidance
-          </Text>
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(40).duration(400)}
-          style={[
-            styles.reassureBox,
-            { backgroundColor: colors.primary + "12" },
-          ]}
-        >
-          <Ionicons name="shield-checkmark" size={18} color={colors.primary} />
-          <Text style={[styles.reassureText, { color: colors.foreground }]}>
-            Knowing which symptoms require immediate attention is one of the
-            most important things you can do during pregnancy. When in doubt,
-            always call — your care team is there for exactly this.
-          </Text>
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(70).duration(400)}
-          style={[
-            styles.calloutBox,
-            { borderColor: "#c0392b", backgroundColor: colors.card },
-          ]}
-        >
-          <View style={styles.calloutHeaderRow}>
-            <Ionicons name="alert-circle" size={20} color="#c0392b" />
-            <Text style={[styles.calloutTitle, { color: "#c0392b" }]}>
-              Call your provider or go to the ER immediately for
+        <ResponsiveContainer style={{ paddingHorizontal: 16 }}>
+          <Animated.View entering={FadeInDown.duration(400)}>
+            <Text style={[styles.pageTitle, { color: colors.foreground }]}>
+              Warning Signs
             </Text>
-          </View>
-          {EMERGENCY_SIGNS.map((sign) => (
-            <View key={sign} style={styles.calloutRow}>
-              <Text style={[styles.calloutBullet, { color: "#c0392b" }]}>
-                •
-              </Text>
-              <Text style={[styles.calloutText, { color: colors.foreground }]}>
-                {sign}
-              </Text>
-            </View>
-          ))}
-        </Animated.View>
+            <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
+              Based on ACOG patient guidance
+            </Text>
+          </Animated.View>
 
-        <Animated.View
-          entering={FadeInDown.delay(110).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            When in doubt
-          </Text>
-          {WHEN_IN_DOUBT.map((tip, i) => (
-            <View key={i} style={styles.highlightRow}>
-              <Text style={[styles.bullet, { color: colors.primary }]}>•</Text>
-              <Text
-                style={[
-                  styles.highlightText,
-                  { color: colors.mutedForeground },
-                ]}
-              >
-                {tip}
-              </Text>
-            </View>
-          ))}
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.delay(150).duration(400)}>
-          <TouchableOpacity
+          <Animated.View
+            entering={FadeInDown.delay(40).duration(400)}
             style={[
-              styles.pdfBtn,
-              { borderColor: colors.primary, backgroundColor: colors.card },
+              styles.reassureBox,
+              { backgroundColor: colors.primary + "12" },
             ]}
-            onPress={() => openHandoutPdf(setOpening)}
-            disabled={opening}
           >
-            {opening ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : (
-              <Ionicons
-                name="document-text-outline"
-                size={18}
-                color={colors.primary}
-              />
-            )}
-            <Text style={[styles.pdfBtnText, { color: colors.primary }]}>
-              View Full Handout (PDF)
+            <Ionicons
+              name="shield-checkmark"
+              size={18}
+              color={colors.primary}
+            />
+            <Text style={[styles.reassureText, { color: colors.foreground }]}>
+              Knowing which symptoms require immediate attention is one of the
+              most important things you can do during pregnancy. When in doubt,
+              always call — your care team is there for exactly this.
             </Text>
-          </TouchableOpacity>
-        </Animated.View>
+          </Animated.View>
 
-        <Animated.View
-          entering={FadeInDown.delay(190).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            Trusted resources
-          </Text>
-          {RESOURCES.map((r) => (
-            <TouchableOpacity
-              key={r.name}
-              style={styles.resourceItem}
-              onPress={() => WebBrowser.openBrowserAsync(r.url)}
-            >
-              <View style={{ flex: 1 }}>
+          <Animated.View
+            entering={FadeInDown.delay(70).duration(400)}
+            style={[
+              styles.calloutBox,
+              { borderColor: "#c0392b", backgroundColor: colors.card },
+            ]}
+          >
+            <View style={styles.calloutHeaderRow}>
+              <Ionicons name="alert-circle" size={20} color="#c0392b" />
+              <Text style={[styles.calloutTitle, { color: "#c0392b" }]}>
+                Call your provider or go to the ER immediately for
+              </Text>
+            </View>
+            {EMERGENCY_SIGNS.map((sign) => (
+              <View key={sign} style={styles.calloutRow}>
+                <Text style={[styles.calloutBullet, { color: "#c0392b" }]}>
+                  •
+                </Text>
                 <Text
-                  style={[
-                    styles.resourceName,
-                    styles.resourceLink,
-                    { color: colors.primary },
-                  ]}
+                  style={[styles.calloutText, { color: colors.foreground }]}
                 >
-                  {r.name}
+                  {sign}
+                </Text>
+              </View>
+            ))}
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.delay(110).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              When in doubt
+            </Text>
+            {WHEN_IN_DOUBT.map((tip, i) => (
+              <View key={i} style={styles.highlightRow}>
+                <Text style={[styles.bullet, { color: colors.primary }]}>
+                  •
                 </Text>
                 <Text
                   style={[
-                    styles.resourceDetail,
+                    styles.highlightText,
                     { color: colors.mutedForeground },
                   ]}
                 >
-                  {r.detail}
+                  {tip}
                 </Text>
               </View>
-              <Ionicons name="open-outline" size={16} color={colors.primary} />
-            </TouchableOpacity>
-          ))}
-        </Animated.View>
+            ))}
+          </Animated.View>
 
-        <AskCard returnTo="/hp-warning-signs" />
+          <Animated.View entering={FadeInDown.delay(150).duration(400)}>
+            <TouchableOpacity
+              style={[
+                styles.pdfBtn,
+                { borderColor: colors.primary, backgroundColor: colors.card },
+              ]}
+              onPress={() => openHandoutPdf(setOpening)}
+              disabled={opening}
+            >
+              {opening ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Ionicons
+                  name="document-text-outline"
+                  size={18}
+                  color={colors.primary}
+                />
+              )}
+              <Text style={[styles.pdfBtnText, { color: colors.primary }]}>
+                View Full Handout (PDF)
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.delay(190).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              Trusted resources
+            </Text>
+            {RESOURCES.map((r) => (
+              <TouchableOpacity
+                key={r.name}
+                style={styles.resourceItem}
+                onPress={() => WebBrowser.openBrowserAsync(r.url)}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.resourceName,
+                      styles.resourceLink,
+                      { color: colors.primary },
+                    ]}
+                  >
+                    {r.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.resourceDetail,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    {r.detail}
+                  </Text>
+                </View>
+                <Ionicons
+                  name="open-outline"
+                  size={16}
+                  color={colors.primary}
+                />
+              </TouchableOpacity>
+            ))}
+          </Animated.View>
+
+          <AskCard returnTo="/hp-warning-signs" />
+        </ResponsiveContainer>
       </ScrollView>
     </View>
   );
@@ -287,7 +302,7 @@ const styles = StyleSheet.create({
   },
   backBtn: { flexDirection: "row", alignItems: "center" },
   backText: { fontSize: 16, fontFamily: "Inter_500Medium", marginLeft: 2 },
-  scroll: { paddingHorizontal: 16, paddingTop: 16 },
+  scroll: { paddingTop: 16 },
   pageTitle: { fontSize: 26, fontFamily: "Inter_700Bold", marginBottom: 4 },
   pageSub: { fontSize: 14, fontFamily: "Inter_400Regular", marginBottom: 16 },
   reassureBox: {

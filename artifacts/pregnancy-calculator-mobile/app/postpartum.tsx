@@ -12,6 +12,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { AskCard } from "@/components/AskCard";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 
 export default function PostpartumScreen() {
   const colors = useColors();
@@ -44,280 +45,291 @@ export default function PostpartumScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View entering={FadeInDown.duration(400)}>
-          <Text style={[styles.pageTitle, { color: colors.foreground }]}>
-            Postpartum
-          </Text>
-          <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
-            Guidance on recovery and newborn care after birth
-          </Text>
-        </Animated.View>
+        <ResponsiveContainer style={{ paddingHorizontal: 16 }}>
+          <Animated.View entering={FadeInDown.duration(400)}>
+            <Text style={[styles.pageTitle, { color: colors.foreground }]}>
+              Postpartum
+            </Text>
+            <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
+              Guidance on recovery and newborn care after birth
+            </Text>
+          </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(60).duration(400)}>
-          <TouchableOpacity
-            style={[
-              styles.learnCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-            onPress={() =>
-              router.push({
-                pathname: "/postpartum-recovery",
-                params: { from: "Postpartum" },
-              })
-            }
-          >
-            <View
+          <Animated.View entering={FadeInDown.delay(60).duration(400)}>
+            <TouchableOpacity
               style={[
-                styles.learnIcon,
-                { backgroundColor: colors.primary + "18" },
+                styles.learnCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
               ]}
+              onPress={() =>
+                router.push({
+                  pathname: "/postpartum-recovery",
+                  params: { from: "Postpartum" },
+                })
+              }
             >
+              <View
+                style={[
+                  styles.learnIcon,
+                  { backgroundColor: colors.primary + "18" },
+                ]}
+              >
+                <Ionicons
+                  name="medkit-outline"
+                  size={20}
+                  color={colors.primary}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.learnTitle, { color: colors.foreground }]}>
+                  Postpartum Recovery
+                </Text>
+                <Text
+                  style={[styles.learnSub, { color: colors.mutedForeground }]}
+                >
+                  Week by week — what to expect and how to get through it
+                </Text>
+              </View>
               <Ionicons
-                name="medkit-outline"
-                size={20}
-                color={colors.primary}
+                name="chevron-forward"
+                size={18}
+                color={colors.mutedForeground}
               />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.learnTitle, { color: colors.foreground }]}>
-                Postpartum Recovery
-              </Text>
-              <Text
-                style={[styles.learnSub, { color: colors.mutedForeground }]}
-              >
-                Week by week — what to expect and how to get through it
-              </Text>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={colors.mutedForeground}
-            />
-          </TouchableOpacity>
-        </Animated.View>
+            </TouchableOpacity>
+          </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(90).duration(400)}>
-          <TouchableOpacity
-            style={[
-              styles.learnCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-            onPress={() =>
-              router.push({
-                pathname: "/breastfeeding",
-                params: { from: "Postpartum" },
-              })
-            }
-          >
-            <View
+          <Animated.View entering={FadeInDown.delay(90).duration(400)}>
+            <TouchableOpacity
               style={[
-                styles.learnIcon,
-                { backgroundColor: colors.primary + "18" },
+                styles.learnCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
               ]}
+              onPress={() =>
+                router.push({
+                  pathname: "/breastfeeding",
+                  params: { from: "Postpartum" },
+                })
+              }
             >
-              <Ionicons name="water-outline" size={20} color={colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.learnTitle, { color: colors.foreground }]}>
-                Breastfeeding
-              </Text>
-              <Text
-                style={[styles.learnSub, { color: colors.mutedForeground }]}
+              <View
+                style={[
+                  styles.learnIcon,
+                  { backgroundColor: colors.primary + "18" },
+                ]}
               >
-                Latch tips, common challenges, and support resources near you
-              </Text>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={colors.mutedForeground}
-            />
-          </TouchableOpacity>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.delay(120).duration(400)}>
-          <TouchableOpacity
-            style={[
-              styles.learnCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-            onPress={() =>
-              router.push({
-                pathname: "/postpartum-depression",
-                params: { from: "Postpartum" },
-              })
-            }
-          >
-            <View
-              style={[
-                styles.learnIcon,
-                { backgroundColor: colors.primary + "18" },
-              ]}
-            >
-              <Ionicons name="heart-outline" size={20} color={colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.learnTitle, { color: colors.foreground }]}>
-                Postpartum Depression
-              </Text>
-              <Text
-                style={[styles.learnSub, { color: colors.mutedForeground }]}
-              >
-                Learn the warning signs, get crisis resources, and find support
-                near you
-              </Text>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={colors.mutedForeground}
-            />
-          </TouchableOpacity>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.delay(150).duration(400)}>
-          <TouchableOpacity
-            style={[
-              styles.learnCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-            onPress={() =>
-              router.push({
-                pathname: "/postpartum-contraception",
-                params: { from: "Postpartum" },
-              })
-            }
-          >
-            <View
-              style={[
-                styles.learnIcon,
-                { backgroundColor: colors.primary + "18" },
-              ]}
-            >
+                <Ionicons
+                  name="water-outline"
+                  size={20}
+                  color={colors.primary}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.learnTitle, { color: colors.foreground }]}>
+                  Breastfeeding
+                </Text>
+                <Text
+                  style={[styles.learnSub, { color: colors.mutedForeground }]}
+                >
+                  Latch tips, common challenges, and support resources near you
+                </Text>
+              </View>
               <Ionicons
-                name="shield-checkmark-outline"
-                size={20}
-                color={colors.primary}
+                name="chevron-forward"
+                size={18}
+                color={colors.mutedForeground}
               />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.learnTitle, { color: colors.foreground }]}>
-                Postpartum Contraception
-              </Text>
-              <Text
-                style={[styles.learnSub, { color: colors.mutedForeground }]}
-              >
-                Compare birth control options and timing after delivery
-              </Text>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={colors.mutedForeground}
-            />
-          </TouchableOpacity>
-        </Animated.View>
+            </TouchableOpacity>
+          </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(210).duration(400)}>
-          <TouchableOpacity
-            style={[
-              styles.learnCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-            onPress={() =>
-              router.push({
-                pathname: "/intimacy-after-delivery",
-                params: { from: "Postpartum" },
-              })
-            }
-          >
-            <View
+          <Animated.View entering={FadeInDown.delay(120).duration(400)}>
+            <TouchableOpacity
               style={[
-                styles.learnIcon,
-                { backgroundColor: colors.primary + "18" },
+                styles.learnCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
               ]}
+              onPress={() =>
+                router.push({
+                  pathname: "/postpartum-depression",
+                  params: { from: "Postpartum" },
+                })
+              }
             >
-              <Ionicons
-                name="heart-half-outline"
-                size={20}
-                color={colors.primary}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.learnTitle, { color: colors.foreground }]}>
-                Intimacy After Delivery
-              </Text>
-              <Text
-                style={[styles.learnSub, { color: colors.mutedForeground }]}
+              <View
+                style={[
+                  styles.learnIcon,
+                  { backgroundColor: colors.primary + "18" },
+                ]}
               >
-                What to expect, comfort tips, and reconnecting with your partner
-              </Text>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={colors.mutedForeground}
-            />
-          </TouchableOpacity>
-        </Animated.View>
+                <Ionicons
+                  name="heart-outline"
+                  size={20}
+                  color={colors.primary}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.learnTitle, { color: colors.foreground }]}>
+                  Postpartum Depression
+                </Text>
+                <Text
+                  style={[styles.learnSub, { color: colors.mutedForeground }]}
+                >
+                  Learn the warning signs, get crisis resources, and find
+                  support near you
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={colors.mutedForeground}
+              />
+            </TouchableOpacity>
+          </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(270).duration(400)}>
-          <TouchableOpacity
-            style={[
-              styles.learnCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-            onPress={() =>
-              router.push({
-                pathname: "/support-person-vol3",
-                params: { from: "Postpartum" },
-              })
-            }
-          >
-            <View
+          <Animated.View entering={FadeInDown.delay(150).duration(400)}>
+            <TouchableOpacity
               style={[
-                styles.learnIcon,
-                { backgroundColor: colors.primary + "18" },
+                styles.learnCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
               ]}
+              onPress={() =>
+                router.push({
+                  pathname: "/postpartum-contraception",
+                  params: { from: "Postpartum" },
+                })
+              }
             >
-              <Ionicons
-                name="hand-left-outline"
-                size={20}
-                color={colors.primary}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.learnTitle, { color: colors.foreground }]}>
-                Support Person Survival Series · Vol 3
-              </Text>
-              <Text
-                style={[styles.learnSub, { color: colors.mutedForeground }]}
+              <View
+                style={[
+                  styles.learnIcon,
+                  { backgroundColor: colors.primary + "18" },
+                ]}
               >
-                "We Did It! Now What?" — the postpartum handbook for your
-                support person
-              </Text>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={colors.mutedForeground}
-            />
-          </TouchableOpacity>
-        </Animated.View>
+                <Ionicons
+                  name="shield-checkmark-outline"
+                  size={20}
+                  color={colors.primary}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.learnTitle, { color: colors.foreground }]}>
+                  Postpartum Contraception
+                </Text>
+                <Text
+                  style={[styles.learnSub, { color: colors.mutedForeground }]}
+                >
+                  Compare birth control options and timing after delivery
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={colors.mutedForeground}
+              />
+            </TouchableOpacity>
+          </Animated.View>
 
-        <Animated.View
-          entering={FadeInDown.delay(330).duration(400)}
-          style={[
-            styles.comingSoonCard,
-            { backgroundColor: colors.primary + "10" },
-          ]}
-        >
-          <Ionicons name="flower-outline" size={28} color={colors.primary} />
-          <Text style={[styles.comingSoonText, { color: colors.foreground }]}>
-            More guidance on recovery and newborn care is coming soon.
-          </Text>
-        </Animated.View>
-        <AskCard returnTo="/postpartum" />
+          <Animated.View entering={FadeInDown.delay(210).duration(400)}>
+            <TouchableOpacity
+              style={[
+                styles.learnCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+              onPress={() =>
+                router.push({
+                  pathname: "/intimacy-after-delivery",
+                  params: { from: "Postpartum" },
+                })
+              }
+            >
+              <View
+                style={[
+                  styles.learnIcon,
+                  { backgroundColor: colors.primary + "18" },
+                ]}
+              >
+                <Ionicons
+                  name="heart-half-outline"
+                  size={20}
+                  color={colors.primary}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.learnTitle, { color: colors.foreground }]}>
+                  Intimacy After Delivery
+                </Text>
+                <Text
+                  style={[styles.learnSub, { color: colors.mutedForeground }]}
+                >
+                  What to expect, comfort tips, and reconnecting with your
+                  partner
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={colors.mutedForeground}
+              />
+            </TouchableOpacity>
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.delay(270).duration(400)}>
+            <TouchableOpacity
+              style={[
+                styles.learnCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+              onPress={() =>
+                router.push({
+                  pathname: "/support-person-vol3",
+                  params: { from: "Postpartum" },
+                })
+              }
+            >
+              <View
+                style={[
+                  styles.learnIcon,
+                  { backgroundColor: colors.primary + "18" },
+                ]}
+              >
+                <Ionicons
+                  name="hand-left-outline"
+                  size={20}
+                  color={colors.primary}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.learnTitle, { color: colors.foreground }]}>
+                  Support Person Survival Series · Vol 3
+                </Text>
+                <Text
+                  style={[styles.learnSub, { color: colors.mutedForeground }]}
+                >
+                  "We Did It! Now What?" — the postpartum handbook for your
+                  support person
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={colors.mutedForeground}
+              />
+            </TouchableOpacity>
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.delay(330).duration(400)}
+            style={[
+              styles.comingSoonCard,
+              { backgroundColor: colors.primary + "10" },
+            ]}
+          >
+            <Ionicons name="flower-outline" size={28} color={colors.primary} />
+            <Text style={[styles.comingSoonText, { color: colors.foreground }]}>
+              More guidance on recovery and newborn care is coming soon.
+            </Text>
+          </Animated.View>
+          <AskCard returnTo="/postpartum" />
+        </ResponsiveContainer>
       </ScrollView>
     </View>
   );
@@ -341,7 +353,6 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   scroll: {
-    paddingHorizontal: 16,
     paddingTop: 16,
   },
   pageTitle: {

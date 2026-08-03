@@ -32,6 +32,7 @@ import {
   saveOfficeChecklist,
   type ChecklistItem,
 } from "@/lib/location-mode";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 
 function formatPhone(phone: string) {
   const digits = phone.replace(/\D/g, "");
@@ -197,313 +198,102 @@ export default function InOfficeScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Quick Actions */}
-        <Animated.View
-          entering={FadeInDown.delay(40).duration(350)}
-          style={styles.quickRow}
-        >
-          <TouchableOpacity
-            style={[
-              styles.quickBtn,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-            onPress={() => router.push("/birth-plan")}
+        <ResponsiveContainer style={{ paddingHorizontal: 16 }}>
+          {/* Quick Actions */}
+          <Animated.View
+            entering={FadeInDown.delay(40).duration(350)}
+            style={styles.quickRow}
           >
-            <Ionicons
-              name="document-text-outline"
-              size={20}
-              color={colors.primary}
-            />
-            <Text style={[styles.quickLabel, { color: colors.foreground }]}>
-              Birth Plan
-            </Text>
-            <Text style={[styles.quickSub, { color: colors.mutedForeground }]}>
-              Review with doctor
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.quickBtn,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-            onPress={() => router.push("/fetal-heart-rate")}
-          >
-            <Ionicons name="pulse-outline" size={20} color={colors.primary} />
-            <Text style={[styles.quickLabel, { color: colors.foreground }]}>
-              Heart Rate
-            </Text>
-            <Text style={[styles.quickSub, { color: colors.mutedForeground }]}>
-              Record Doppler
-            </Text>
-          </TouchableOpacity>
-        </Animated.View>
-
-        {/* Schedule Next Appointment */}
-        <Animated.View entering={FadeInDown.delay(60).duration(350)}>
-          <TouchableOpacity
-            style={[
-              styles.scheduleCard,
-              {
-                backgroundColor: colors.card,
-                borderColor: colors.border,
-              },
-            ]}
-            onPress={() => router.push("/office-visit")}
-          >
-            <View
+            <TouchableOpacity
               style={[
-                styles.scheduleIconWrap,
-                { backgroundColor: colors.primary + "18" },
+                styles.quickBtn,
+                { backgroundColor: colors.card, borderColor: colors.border },
               ]}
+              onPress={() => router.push("/birth-plan")}
             >
               <Ionicons
-                name="calendar-outline"
+                name="document-text-outline"
                 size={20}
                 color={colors.primary}
               />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text
-                style={[styles.scheduleTitle, { color: colors.foreground }]}
-              >
-                Schedule Next Appointment
+              <Text style={[styles.quickLabel, { color: colors.foreground }]}>
+                Birth Plan
               </Text>
               <Text
-                style={[styles.scheduleSub, { color: colors.mutedForeground }]}
+                style={[styles.quickSub, { color: colors.mutedForeground }]}
               >
-                Add a future visit and get a day-before reminder
+                Review with doctor
               </Text>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={colors.mutedForeground}
-            />
-          </TouchableOpacity>
-        </Animated.View>
+            </TouchableOpacity>
 
-        {/* Pre-Visit Checklist */}
-        <Animated.View entering={FadeInDown.delay(80).duration(350)}>
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <View style={styles.cardHeader}>
-              <View style={styles.cardTitleRow}>
+            <TouchableOpacity
+              style={[
+                styles.quickBtn,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+              onPress={() => router.push("/fetal-heart-rate")}
+            >
+              <Ionicons name="pulse-outline" size={20} color={colors.primary} />
+              <Text style={[styles.quickLabel, { color: colors.foreground }]}>
+                Heart Rate
+              </Text>
+              <Text
+                style={[styles.quickSub, { color: colors.mutedForeground }]}
+              >
+                Record Doppler
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+
+          {/* Schedule Next Appointment */}
+          <Animated.View entering={FadeInDown.delay(60).duration(350)}>
+            <TouchableOpacity
+              style={[
+                styles.scheduleCard,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                },
+              ]}
+              onPress={() => router.push("/office-visit")}
+            >
+              <View
+                style={[
+                  styles.scheduleIconWrap,
+                  { backgroundColor: colors.primary + "18" },
+                ]}
+              >
                 <Ionicons
-                  name="checkmark-circle-outline"
-                  size={18}
+                  name="calendar-outline"
+                  size={20}
                   color={colors.primary}
                 />
-                <Text style={[styles.cardTitle, { color: colors.foreground }]}>
-                  Before You Go In
-                </Text>
               </View>
-              <View style={styles.progressPill}>
-                <Text style={[styles.progressText, { color: colors.primary }]}>
-                  {checkedCount}/{checklist.length}
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[styles.scheduleTitle, { color: colors.foreground }]}
+                >
+                  Schedule Next Appointment
                 </Text>
-              </View>
-            </View>
-
-            {checklist.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.checkRow}
-                onPress={() => toggleChecklist(item.id)}
-              >
-                <Ionicons
-                  name={item.checked ? "checkbox" : "square-outline"}
-                  size={22}
-                  color={item.checked ? colors.primary : colors.mutedForeground}
-                />
                 <Text
                   style={[
-                    styles.checkText,
-                    {
-                      color: item.checked
-                        ? colors.mutedForeground
-                        : colors.foreground,
-                      textDecorationLine: item.checked
-                        ? "line-through"
-                        : "none",
-                    },
+                    styles.scheduleSub,
+                    { color: colors.mutedForeground },
                   ]}
                 >
-                  {item.text}
-                </Text>
-              </TouchableOpacity>
-            ))}
-
-            {checkedCount > 0 && (
-              <TouchableOpacity
-                style={[styles.resetBtn, { borderColor: colors.border }]}
-                onPress={resetChecklist}
-              >
-                <Text
-                  style={[styles.resetText, { color: colors.mutedForeground }]}
-                >
-                  Reset all
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </Animated.View>
-
-        {/* Questions for Doctor */}
-        <Animated.View entering={FadeInDown.delay(120).duration(350)}>
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <View style={styles.cardHeader}>
-              <View style={styles.cardTitleRow}>
-                <Ionicons
-                  name="help-circle-outline"
-                  size={18}
-                  color={colors.primary}
-                />
-                <Text style={[styles.cardTitle, { color: colors.foreground }]}>
-                  Questions for Your Doctor
+                  Add a future visit and get a day-before reminder
                 </Text>
               </View>
-              <TouchableOpacity
-                onPress={() => setAddingQuestion(true)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="add-circle" size={22} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={colors.mutedForeground}
+              />
+            </TouchableOpacity>
+          </Animated.View>
 
-            {selectedQuestions.length === 0 && !addingQuestion && (
-              <Text
-                style={[styles.questionHint, { color: colors.mutedForeground }]}
-              >
-                No questions selected. Go to Office Visits → prep your questions
-                before your appointment.
-              </Text>
-            )}
-
-            {selectedQuestions.map((q) => {
-              const isAsked = asked.has(q.id);
-              return (
-                <TouchableOpacity
-                  key={q.id}
-                  style={styles.checkRow}
-                  onPress={() => toggleAsked(q.id)}
-                  onLongPress={() => {
-                    if (q.custom) {
-                      Alert.alert("Remove Question", `"${q.text}"`, [
-                        { text: "Cancel", style: "cancel" },
-                        {
-                          text: "Remove",
-                          style: "destructive",
-                          onPress: () => removeQuestion(q.id),
-                        },
-                      ]);
-                    }
-                  }}
-                >
-                  <Ionicons
-                    name={isAsked ? "checkbox" : "square-outline"}
-                    size={22}
-                    color={isAsked ? colors.primary : colors.mutedForeground}
-                  />
-                  <Text
-                    style={[
-                      styles.checkText,
-                      {
-                        color: isAsked
-                          ? colors.mutedForeground
-                          : colors.foreground,
-                        textDecorationLine: isAsked ? "line-through" : "none",
-                        flex: 1,
-                      },
-                    ]}
-                  >
-                    {q.text}
-                    {q.custom ? (
-                      <Text
-                        style={{ color: colors.mutedForeground, fontSize: 11 }}
-                      >
-                        {" "}
-                        · hold to remove
-                      </Text>
-                    ) : null}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-
-            {addingQuestion && (
-              <View style={[styles.addRow, { borderTopColor: colors.border }]}>
-                <TextInput
-                  style={[
-                    styles.addInput,
-                    {
-                      color: colors.foreground,
-                      borderColor: colors.border,
-                      backgroundColor: colors.background,
-                    },
-                  ]}
-                  value={newQuestion}
-                  onChangeText={setNewQuestion}
-                  placeholder="Add your question…"
-                  placeholderTextColor={colors.mutedForeground}
-                  autoFocus
-                  onSubmitEditing={addQuestion}
-                  returnKeyType="done"
-                />
-                <TouchableOpacity
-                  style={[
-                    styles.addSaveBtn,
-                    { backgroundColor: colors.primary },
-                  ]}
-                  onPress={addQuestion}
-                >
-                  <Text
-                    style={{
-                      color: "#fff",
-                      fontFamily: "Inter_600SemiBold",
-                      fontSize: 13,
-                    }}
-                  >
-                    Add
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => {
-                    setAddingQuestion(false);
-                    setNewQuestion("");
-                  }}
-                >
-                  <Ionicons
-                    name="close-circle"
-                    size={22}
-                    color={colors.mutedForeground}
-                  />
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {!addingQuestion && selectedQuestions.length > 0 && (
-              <Text
-                style={[styles.questionHint, { color: colors.mutedForeground }]}
-              >
-                Tap to check off · Long-press custom questions to remove
-              </Text>
-            )}
-          </View>
-        </Animated.View>
-
-        {/* Recent Symptoms */}
-        {symptoms.length > 0 && (
-          <Animated.View entering={FadeInDown.delay(160).duration(350)}>
+          {/* Pre-Visit Checklist */}
+          <Animated.View entering={FadeInDown.delay(80).duration(350)}>
             <View
               style={[
                 styles.card,
@@ -513,94 +303,345 @@ export default function InOfficeScreen() {
               <View style={styles.cardHeader}>
                 <View style={styles.cardTitleRow}>
                   <Ionicons
-                    name="thermometer-outline"
+                    name="checkmark-circle-outline"
                     size={18}
                     color={colors.primary}
                   />
                   <Text
                     style={[styles.cardTitle, { color: colors.foreground }]}
                   >
-                    Recent Symptoms to Mention
+                    Before You Go In
+                  </Text>
+                </View>
+                <View style={styles.progressPill}>
+                  <Text
+                    style={[styles.progressText, { color: colors.primary }]}
+                  >
+                    {checkedCount}/{checklist.length}
                   </Text>
                 </View>
               </View>
 
-              {symptoms.map((s) => (
-                <View
-                  key={s.id}
-                  style={[
-                    styles.symptomRow,
-                    { borderBottomColor: colors.border },
-                  ]}
+              {checklist.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.checkRow}
+                  onPress={() => toggleChecklist(item.id)}
                 >
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={[styles.symptomName, { color: colors.foreground }]}
-                    >
-                      {s.symptom}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.symptomMeta,
-                        { color: colors.mutedForeground },
-                      ]}
-                    >
-                      {formatSymptomTime(s.loggedAt)}
-                      {s.severity ? ` · Severity ${s.severity}/5` : ""}
-                      {s.notes ? ` · ${s.notes}` : ""}
-                    </Text>
-                  </View>
-                  {s.severity ? (
-                    <View style={styles.severityDots}>
-                      {[1, 2, 3, 4, 5].map((n) => (
-                        <View
-                          key={n}
-                          style={[
-                            styles.dot,
-                            {
-                              backgroundColor:
-                                n <= (s.severity ?? 0)
-                                  ? colors.primary
-                                  : colors.border,
-                            },
-                          ]}
-                        />
-                      ))}
-                    </View>
-                  ) : null}
-                </View>
+                  <Ionicons
+                    name={item.checked ? "checkbox" : "square-outline"}
+                    size={22}
+                    color={
+                      item.checked ? colors.primary : colors.mutedForeground
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.checkText,
+                      {
+                        color: item.checked
+                          ? colors.mutedForeground
+                          : colors.foreground,
+                        textDecorationLine: item.checked
+                          ? "line-through"
+                          : "none",
+                      },
+                    ]}
+                  >
+                    {item.text}
+                  </Text>
+                </TouchableOpacity>
               ))}
 
-              <TouchableOpacity
-                style={[styles.viewMoreBtn, { borderColor: colors.border }]}
-                onPress={() => router.push("/(tabs)/tools")}
-              >
-                <Text style={[styles.viewMoreText, { color: colors.primary }]}>
-                  View full symptom log →
-                </Text>
-              </TouchableOpacity>
+              {checkedCount > 0 && (
+                <TouchableOpacity
+                  style={[styles.resetBtn, { borderColor: colors.border }]}
+                  onPress={resetChecklist}
+                >
+                  <Text
+                    style={[
+                      styles.resetText,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    Reset all
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </Animated.View>
-        )}
 
-        {/* Exit mode */}
-        <Animated.View entering={FadeInDown.delay(240).duration(350)}>
-          <TouchableOpacity
-            style={styles.exitBtn}
-            onPress={() => router.replace("/(tabs)")}
-          >
-            <Ionicons
-              name="exit-outline"
-              size={18}
-              color={colors.mutedForeground}
-            />
-            <Text
-              style={[styles.exitBtnText, { color: colors.mutedForeground }]}
+          {/* Questions for Doctor */}
+          <Animated.View entering={FadeInDown.delay(120).duration(350)}>
+            <View
+              style={[
+                styles.card,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
             >
-              Exit In-Office Mode
-            </Text>
-          </TouchableOpacity>
-        </Animated.View>
+              <View style={styles.cardHeader}>
+                <View style={styles.cardTitleRow}>
+                  <Ionicons
+                    name="help-circle-outline"
+                    size={18}
+                    color={colors.primary}
+                  />
+                  <Text
+                    style={[styles.cardTitle, { color: colors.foreground }]}
+                  >
+                    Questions for Your Doctor
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setAddingQuestion(true)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons
+                    name="add-circle"
+                    size={22}
+                    color={colors.primary}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {selectedQuestions.length === 0 && !addingQuestion && (
+                <Text
+                  style={[
+                    styles.questionHint,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  No questions selected. Go to Office Visits → prep your
+                  questions before your appointment.
+                </Text>
+              )}
+
+              {selectedQuestions.map((q) => {
+                const isAsked = asked.has(q.id);
+                return (
+                  <TouchableOpacity
+                    key={q.id}
+                    style={styles.checkRow}
+                    onPress={() => toggleAsked(q.id)}
+                    onLongPress={() => {
+                      if (q.custom) {
+                        Alert.alert("Remove Question", `"${q.text}"`, [
+                          { text: "Cancel", style: "cancel" },
+                          {
+                            text: "Remove",
+                            style: "destructive",
+                            onPress: () => removeQuestion(q.id),
+                          },
+                        ]);
+                      }
+                    }}
+                  >
+                    <Ionicons
+                      name={isAsked ? "checkbox" : "square-outline"}
+                      size={22}
+                      color={isAsked ? colors.primary : colors.mutedForeground}
+                    />
+                    <Text
+                      style={[
+                        styles.checkText,
+                        {
+                          color: isAsked
+                            ? colors.mutedForeground
+                            : colors.foreground,
+                          textDecorationLine: isAsked ? "line-through" : "none",
+                          flex: 1,
+                        },
+                      ]}
+                    >
+                      {q.text}
+                      {q.custom ? (
+                        <Text
+                          style={{
+                            color: colors.mutedForeground,
+                            fontSize: 11,
+                          }}
+                        >
+                          {" "}
+                          · hold to remove
+                        </Text>
+                      ) : null}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+
+              {addingQuestion && (
+                <View
+                  style={[styles.addRow, { borderTopColor: colors.border }]}
+                >
+                  <TextInput
+                    style={[
+                      styles.addInput,
+                      {
+                        color: colors.foreground,
+                        borderColor: colors.border,
+                        backgroundColor: colors.background,
+                      },
+                    ]}
+                    value={newQuestion}
+                    onChangeText={setNewQuestion}
+                    placeholder="Add your question…"
+                    placeholderTextColor={colors.mutedForeground}
+                    autoFocus
+                    onSubmitEditing={addQuestion}
+                    returnKeyType="done"
+                  />
+                  <TouchableOpacity
+                    style={[
+                      styles.addSaveBtn,
+                      { backgroundColor: colors.primary },
+                    ]}
+                    onPress={addQuestion}
+                  >
+                    <Text
+                      style={{
+                        color: "#fff",
+                        fontFamily: "Inter_600SemiBold",
+                        fontSize: 13,
+                      }}
+                    >
+                      Add
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setAddingQuestion(false);
+                      setNewQuestion("");
+                    }}
+                  >
+                    <Ionicons
+                      name="close-circle"
+                      size={22}
+                      color={colors.mutedForeground}
+                    />
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {!addingQuestion && selectedQuestions.length > 0 && (
+                <Text
+                  style={[
+                    styles.questionHint,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  Tap to check off · Long-press custom questions to remove
+                </Text>
+              )}
+            </View>
+          </Animated.View>
+
+          {/* Recent Symptoms */}
+          {symptoms.length > 0 && (
+            <Animated.View entering={FadeInDown.delay(160).duration(350)}>
+              <View
+                style={[
+                  styles.card,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardTitleRow}>
+                    <Ionicons
+                      name="thermometer-outline"
+                      size={18}
+                      color={colors.primary}
+                    />
+                    <Text
+                      style={[styles.cardTitle, { color: colors.foreground }]}
+                    >
+                      Recent Symptoms to Mention
+                    </Text>
+                  </View>
+                </View>
+
+                {symptoms.map((s) => (
+                  <View
+                    key={s.id}
+                    style={[
+                      styles.symptomRow,
+                      { borderBottomColor: colors.border },
+                    ]}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[
+                          styles.symptomName,
+                          { color: colors.foreground },
+                        ]}
+                      >
+                        {s.symptom}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.symptomMeta,
+                          { color: colors.mutedForeground },
+                        ]}
+                      >
+                        {formatSymptomTime(s.loggedAt)}
+                        {s.severity ? ` · Severity ${s.severity}/5` : ""}
+                        {s.notes ? ` · ${s.notes}` : ""}
+                      </Text>
+                    </View>
+                    {s.severity ? (
+                      <View style={styles.severityDots}>
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <View
+                            key={n}
+                            style={[
+                              styles.dot,
+                              {
+                                backgroundColor:
+                                  n <= (s.severity ?? 0)
+                                    ? colors.primary
+                                    : colors.border,
+                              },
+                            ]}
+                          />
+                        ))}
+                      </View>
+                    ) : null}
+                  </View>
+                ))}
+
+                <TouchableOpacity
+                  style={[styles.viewMoreBtn, { borderColor: colors.border }]}
+                  onPress={() => router.push("/(tabs)/tools")}
+                >
+                  <Text
+                    style={[styles.viewMoreText, { color: colors.primary }]}
+                  >
+                    View full symptom log →
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          )}
+
+          {/* Exit mode */}
+          <Animated.View entering={FadeInDown.delay(240).duration(350)}>
+            <TouchableOpacity
+              style={styles.exitBtn}
+              onPress={() => router.replace("/(tabs)")}
+            >
+              <Ionicons
+                name="exit-outline"
+                size={18}
+                color={colors.mutedForeground}
+              />
+              <Text
+                style={[styles.exitBtnText, { color: colors.mutedForeground }]}
+              >
+                Exit In-Office Mode
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </ResponsiveContainer>
       </ScrollView>
     </View>
   );
@@ -660,7 +701,6 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
   },
   scroll: {
-    paddingHorizontal: 16,
     paddingTop: 16,
     gap: 12,
   },

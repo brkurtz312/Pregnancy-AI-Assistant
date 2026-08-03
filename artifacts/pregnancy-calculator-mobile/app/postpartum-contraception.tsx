@@ -27,6 +27,7 @@ import {
   PC_NATIONAL_RESOURCES,
   buildContraceptionResourceHtml,
 } from "@/lib/postpartum-contraception";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 
 const PDF_ASSET = require("@/assets/docs/postpartum-contraception.pdf");
 
@@ -136,105 +137,132 @@ export default function PostpartumContraceptionScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View entering={FadeInDown.duration(400)}>
-          <Text style={[styles.pageTitle, { color: colors.foreground }]}>
-            Postpartum Contraception
-          </Text>
-          <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
-            Based on ACOG patient guidance
-          </Text>
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(40).duration(400)}
-          style={[
-            styles.calloutBox,
-            { borderColor: "#6a4fa0", backgroundColor: colors.card },
-          ]}
-        >
-          <View style={styles.calloutHeaderRow}>
-            <Ionicons name="alert-circle" size={20} color="#6a4fa0" />
-            <Text style={[styles.calloutTitle, { color: "#6a4fa0" }]}>
-              Call the office right away if you notice
+        <ResponsiveContainer style={{ paddingHorizontal: 16 }}>
+          <Animated.View entering={FadeInDown.duration(400)}>
+            <Text style={[styles.pageTitle, { color: colors.foreground }]}>
+              Postpartum Contraception
             </Text>
-          </View>
-          {PC_CALLOUT_REASONS.map((reason) => (
-            <View key={reason} style={styles.calloutRow}>
-              <Text style={[styles.calloutBullet, { color: "#6a4fa0" }]}>
-                •
-              </Text>
-              <Text style={[styles.calloutText, { color: colors.foreground }]}>
-                {reason}
-              </Text>
-            </View>
-          ))}
-        </Animated.View>
+            <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
+              Based on ACOG patient guidance
+            </Text>
+          </Animated.View>
 
-        <Animated.View
-          entering={FadeInDown.delay(80).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            What to know
-          </Text>
-          {PC_HIGHLIGHTS.map((h, i) => (
-            <View key={i} style={styles.highlightRow}>
-              <Text style={[styles.bullet, { color: colors.primary }]}>•</Text>
-              <Text
-                style={[
-                  styles.highlightText,
-                  { color: colors.mutedForeground },
-                ]}
-              >
-                {h}
-              </Text>
-            </View>
-          ))}
-          <TouchableOpacity
+          <Animated.View
+            entering={FadeInDown.delay(40).duration(400)}
             style={[
-              styles.pdfBtn,
-              { borderColor: colors.primary, backgroundColor: colors.card },
+              styles.calloutBox,
+              { borderColor: "#6a4fa0", backgroundColor: colors.card },
             ]}
-            onPress={openHandoutPdf}
           >
-            <Ionicons
-              name="document-text-outline"
-              size={18}
-              color={colors.primary}
-            />
-            <Text style={[styles.pdfBtnText, { color: colors.primary }]}>
-              View Full Handout (PDF)
-            </Text>
-          </TouchableOpacity>
-        </Animated.View>
+            <View style={styles.calloutHeaderRow}>
+              <Ionicons name="alert-circle" size={20} color="#6a4fa0" />
+              <Text style={[styles.calloutTitle, { color: "#6a4fa0" }]}>
+                Call the office right away if you notice
+              </Text>
+            </View>
+            {PC_CALLOUT_REASONS.map((reason) => (
+              <View key={reason} style={styles.calloutRow}>
+                <Text style={[styles.calloutBullet, { color: "#6a4fa0" }]}>
+                  •
+                </Text>
+                <Text
+                  style={[styles.calloutText, { color: colors.foreground }]}
+                >
+                  {reason}
+                </Text>
+              </View>
+            ))}
+          </Animated.View>
 
-        <Animated.View
-          entering={FadeInDown.delay(120).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            Trusted resources
-          </Text>
-          {PC_NATIONAL_RESOURCES.map((r) =>
-            r.url ? (
-              <TouchableOpacity
-                key={r.name}
-                style={styles.resourceItem}
-                onPress={() => WebBrowser.openBrowserAsync(r.url as string)}
-              >
-                <View style={{ flex: 1 }}>
+          <Animated.View
+            entering={FadeInDown.delay(80).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              What to know
+            </Text>
+            {PC_HIGHLIGHTS.map((h, i) => (
+              <View key={i} style={styles.highlightRow}>
+                <Text style={[styles.bullet, { color: colors.primary }]}>
+                  •
+                </Text>
+                <Text
+                  style={[
+                    styles.highlightText,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  {h}
+                </Text>
+              </View>
+            ))}
+            <TouchableOpacity
+              style={[
+                styles.pdfBtn,
+                { borderColor: colors.primary, backgroundColor: colors.card },
+              ]}
+              onPress={openHandoutPdf}
+            >
+              <Ionicons
+                name="document-text-outline"
+                size={18}
+                color={colors.primary}
+              />
+              <Text style={[styles.pdfBtnText, { color: colors.primary }]}>
+                View Full Handout (PDF)
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.delay(120).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              Trusted resources
+            </Text>
+            {PC_NATIONAL_RESOURCES.map((r) =>
+              r.url ? (
+                <TouchableOpacity
+                  key={r.name}
+                  style={styles.resourceItem}
+                  onPress={() => WebBrowser.openBrowserAsync(r.url as string)}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[
+                        styles.resourceName,
+                        styles.resourceLink,
+                        { color: colors.primary },
+                      ]}
+                    >
+                      {r.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.resourceDetail,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      {r.detail}
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name="open-outline"
+                    size={16}
+                    color={colors.primary}
+                  />
+                </TouchableOpacity>
+              ) : (
+                <View key={r.name} style={{ marginBottom: 8 }}>
                   <Text
-                    style={[
-                      styles.resourceName,
-                      styles.resourceLink,
-                      { color: colors.primary },
-                    ]}
+                    style={[styles.resourceName, { color: colors.foreground }]}
                   >
                     {r.name}
                   </Text>
@@ -247,58 +275,37 @@ export default function PostpartumContraceptionScreen() {
                     {r.detail}
                   </Text>
                 </View>
-                <Ionicons
-                  name="open-outline"
-                  size={16}
-                  color={colors.primary}
-                />
-              </TouchableOpacity>
+              ),
+            )}
+          </Animated.View>
+
+          <TouchableOpacity
+            style={[styles.shareBtn, { backgroundColor: colors.primary }]}
+            onPress={handleShare}
+            disabled={sharing}
+          >
+            {sharing ? (
+              <ActivityIndicator color={colors.primaryForeground} />
             ) : (
-              <View key={r.name} style={{ marginBottom: 8 }}>
-                <Text
-                  style={[styles.resourceName, { color: colors.foreground }]}
-                >
-                  {r.name}
-                </Text>
+              <>
+                <Ionicons
+                  name="document-text-outline"
+                  size={18}
+                  color={colors.primaryForeground}
+                />
                 <Text
                   style={[
-                    styles.resourceDetail,
-                    { color: colors.mutedForeground },
+                    styles.shareBtnText,
+                    { color: colors.primaryForeground },
                   ]}
                 >
-                  {r.detail}
+                  View Resource Summary PDF
                 </Text>
-              </View>
-            ),
-          )}
-        </Animated.View>
-
-        <TouchableOpacity
-          style={[styles.shareBtn, { backgroundColor: colors.primary }]}
-          onPress={handleShare}
-          disabled={sharing}
-        >
-          {sharing ? (
-            <ActivityIndicator color={colors.primaryForeground} />
-          ) : (
-            <>
-              <Ionicons
-                name="document-text-outline"
-                size={18}
-                color={colors.primaryForeground}
-              />
-              <Text
-                style={[
-                  styles.shareBtnText,
-                  { color: colors.primaryForeground },
-                ]}
-              >
-                View Resource Summary PDF
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
-        <AskCard returnTo="/postpartum-contraception" />
+              </>
+            )}
+          </TouchableOpacity>
+          <AskCard returnTo="/postpartum-contraception" />
+        </ResponsiveContainer>
       </ScrollView>
     </View>
   );
@@ -322,7 +329,6 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   scroll: {
-    paddingHorizontal: 16,
     paddingTop: 16,
   },
   pageTitle: {

@@ -27,6 +27,7 @@ import {
   OB_PROVIDER_RESOURCES,
   buildObProviderResourceHtml,
 } from "@/lib/choose-ob-provider";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 
 const PDF_ASSET = require("@/assets/docs/choose-ob-provider.pdf");
 const HANDOUT_TITLE = "Choosing a Pregnancy Provider";
@@ -133,119 +134,146 @@ export default function ChooseObProviderScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View entering={FadeInDown.duration(400)}>
-          <Text style={[styles.pageTitle, { color: colors.foreground }]}>
-            Choose an OB Provider
-          </Text>
-          <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
-            Ob-gyns, midwives, and finding the right fit for you
-          </Text>
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(40).duration(400)}
-          style={[
-            styles.reassureBox,
-            { backgroundColor: colors.primary + "12" },
-          ]}
-        >
-          <Ionicons name="people" size={18} color={colors.primary} />
-          <Text style={[styles.reassureText, { color: colors.foreground }]}>
-            There's no single "right" type of provider — the best choice is the
-            one whose approach and communication style fit your needs.
-          </Text>
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(70).duration(400)}
-          style={[
-            styles.calloutBox,
-            { borderColor: "#3f7ab5", backgroundColor: colors.card },
-          ]}
-        >
-          <View style={styles.calloutHeaderRow}>
-            <Ionicons name="help-circle" size={20} color="#3f7ab5" />
-            <Text style={[styles.calloutTitle, { color: "#3f7ab5" }]}>
-              Good questions to ask a potential provider
+        <ResponsiveContainer style={{ paddingHorizontal: 16 }}>
+          <Animated.View entering={FadeInDown.duration(400)}>
+            <Text style={[styles.pageTitle, { color: colors.foreground }]}>
+              Choose an OB Provider
             </Text>
-          </View>
-          {OB_PROVIDER_QUESTIONS.map((q) => (
-            <View key={q} style={styles.calloutRow}>
-              <Text style={[styles.calloutBullet, { color: "#3f7ab5" }]}>
-                •
-              </Text>
-              <Text style={[styles.calloutText, { color: colors.foreground }]}>
-                {q}
-              </Text>
-            </View>
-          ))}
-        </Animated.View>
+            <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
+              Ob-gyns, midwives, and finding the right fit for you
+            </Text>
+          </Animated.View>
 
-        <Animated.View
-          entering={FadeInDown.delay(110).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            What to know
-          </Text>
-          {OB_PROVIDER_HIGHLIGHTS.map((h, i) => (
-            <View key={i} style={styles.highlightRow}>
-              <Text style={[styles.bullet, { color: colors.primary }]}>•</Text>
-              <Text
-                style={[
-                  styles.highlightText,
-                  { color: colors.mutedForeground },
-                ]}
-              >
-                {h}
-              </Text>
-            </View>
-          ))}
-          <TouchableOpacity
+          <Animated.View
+            entering={FadeInDown.delay(40).duration(400)}
             style={[
-              styles.pdfBtn,
-              { borderColor: colors.primary, backgroundColor: colors.card },
+              styles.reassureBox,
+              { backgroundColor: colors.primary + "12" },
             ]}
-            onPress={openHandoutPdf}
           >
-            <Ionicons
-              name="document-text-outline"
-              size={18}
-              color={colors.primary}
-            />
-            <Text style={[styles.pdfBtnText, { color: colors.primary }]}>
-              View Full Handout (PDF)
+            <Ionicons name="people" size={18} color={colors.primary} />
+            <Text style={[styles.reassureText, { color: colors.foreground }]}>
+              There's no single "right" type of provider — the best choice is
+              the one whose approach and communication style fit your needs.
             </Text>
-          </TouchableOpacity>
-        </Animated.View>
+          </Animated.View>
 
-        <Animated.View
-          entering={FadeInDown.delay(150).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            Trusted resources
-          </Text>
-          {OB_PROVIDER_RESOURCES.map((r) =>
-            r.url ? (
-              <TouchableOpacity
-                key={r.name}
-                style={styles.resourceItem}
-                onPress={() => WebBrowser.openBrowserAsync(r.url as string)}
-              >
-                <View style={{ flex: 1 }}>
+          <Animated.View
+            entering={FadeInDown.delay(70).duration(400)}
+            style={[
+              styles.calloutBox,
+              { borderColor: "#3f7ab5", backgroundColor: colors.card },
+            ]}
+          >
+            <View style={styles.calloutHeaderRow}>
+              <Ionicons name="help-circle" size={20} color="#3f7ab5" />
+              <Text style={[styles.calloutTitle, { color: "#3f7ab5" }]}>
+                Good questions to ask a potential provider
+              </Text>
+            </View>
+            {OB_PROVIDER_QUESTIONS.map((q) => (
+              <View key={q} style={styles.calloutRow}>
+                <Text style={[styles.calloutBullet, { color: "#3f7ab5" }]}>
+                  •
+                </Text>
+                <Text
+                  style={[styles.calloutText, { color: colors.foreground }]}
+                >
+                  {q}
+                </Text>
+              </View>
+            ))}
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.delay(110).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              What to know
+            </Text>
+            {OB_PROVIDER_HIGHLIGHTS.map((h, i) => (
+              <View key={i} style={styles.highlightRow}>
+                <Text style={[styles.bullet, { color: colors.primary }]}>
+                  •
+                </Text>
+                <Text
+                  style={[
+                    styles.highlightText,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  {h}
+                </Text>
+              </View>
+            ))}
+            <TouchableOpacity
+              style={[
+                styles.pdfBtn,
+                { borderColor: colors.primary, backgroundColor: colors.card },
+              ]}
+              onPress={openHandoutPdf}
+            >
+              <Ionicons
+                name="document-text-outline"
+                size={18}
+                color={colors.primary}
+              />
+              <Text style={[styles.pdfBtnText, { color: colors.primary }]}>
+                View Full Handout (PDF)
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.delay(150).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              Trusted resources
+            </Text>
+            {OB_PROVIDER_RESOURCES.map((r) =>
+              r.url ? (
+                <TouchableOpacity
+                  key={r.name}
+                  style={styles.resourceItem}
+                  onPress={() => WebBrowser.openBrowserAsync(r.url as string)}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[
+                        styles.resourceName,
+                        styles.resourceLink,
+                        { color: colors.primary },
+                      ]}
+                    >
+                      {r.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.resourceDetail,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      {r.detail}
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name="open-outline"
+                    size={16}
+                    color={colors.primary}
+                  />
+                </TouchableOpacity>
+              ) : (
+                <View key={r.name} style={{ marginBottom: 8 }}>
                   <Text
-                    style={[
-                      styles.resourceName,
-                      styles.resourceLink,
-                      { color: colors.primary },
-                    ]}
+                    style={[styles.resourceName, { color: colors.foreground }]}
                   >
                     {r.name}
                   </Text>
@@ -258,58 +286,37 @@ export default function ChooseObProviderScreen() {
                     {r.detail}
                   </Text>
                 </View>
-                <Ionicons
-                  name="open-outline"
-                  size={16}
-                  color={colors.primary}
-                />
-              </TouchableOpacity>
+              ),
+            )}
+          </Animated.View>
+
+          <TouchableOpacity
+            style={[styles.shareBtn, { backgroundColor: colors.primary }]}
+            onPress={handleView}
+            disabled={viewing}
+          >
+            {viewing ? (
+              <ActivityIndicator color={colors.primaryForeground} />
             ) : (
-              <View key={r.name} style={{ marginBottom: 8 }}>
-                <Text
-                  style={[styles.resourceName, { color: colors.foreground }]}
-                >
-                  {r.name}
-                </Text>
+              <>
+                <Ionicons
+                  name="document-text-outline"
+                  size={18}
+                  color={colors.primaryForeground}
+                />
                 <Text
                   style={[
-                    styles.resourceDetail,
-                    { color: colors.mutedForeground },
+                    styles.shareBtnText,
+                    { color: colors.primaryForeground },
                   ]}
                 >
-                  {r.detail}
+                  View Resource Summary PDF
                 </Text>
-              </View>
-            ),
-          )}
-        </Animated.View>
-
-        <TouchableOpacity
-          style={[styles.shareBtn, { backgroundColor: colors.primary }]}
-          onPress={handleView}
-          disabled={viewing}
-        >
-          {viewing ? (
-            <ActivityIndicator color={colors.primaryForeground} />
-          ) : (
-            <>
-              <Ionicons
-                name="document-text-outline"
-                size={18}
-                color={colors.primaryForeground}
-              />
-              <Text
-                style={[
-                  styles.shareBtnText,
-                  { color: colors.primaryForeground },
-                ]}
-              >
-                View Resource Summary PDF
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
-        <AskCard returnTo="/choose-ob-provider" />
+              </>
+            )}
+          </TouchableOpacity>
+          <AskCard returnTo="/choose-ob-provider" />
+        </ResponsiveContainer>
       </ScrollView>
     </View>
   );
@@ -333,7 +340,6 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   scroll: {
-    paddingHorizontal: 16,
     paddingTop: 16,
   },
   pageTitle: {

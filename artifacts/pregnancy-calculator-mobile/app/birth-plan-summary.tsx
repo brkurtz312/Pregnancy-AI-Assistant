@@ -23,6 +23,7 @@ import {
   type BirthPlanField,
   type BirthPlanValue,
 } from "@/lib/birth-plan";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 
 function fieldAnswerText(field: BirthPlanField, value: BirthPlanValue) {
   if (value === undefined || value === null || value === "") return null;
@@ -109,104 +110,116 @@ export default function BirthPlanSummaryScreen() {
           ]}
           showsVerticalScrollIndicator={false}
         >
-          <Animated.View entering={FadeInDown.duration(400)}>
-            <Text style={[styles.pageTitle, { color: colors.foreground }]}>
-              My Birth Plan
-            </Text>
-            <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
-              Review this with your ob-gyn or bring it up for hospital staff
-            </Text>
-          </Animated.View>
+          <ResponsiveContainer style={{ paddingHorizontal: 16 }}>
+            <Animated.View entering={FadeInDown.duration(400)}>
+              <Text style={[styles.pageTitle, { color: colors.foreground }]}>
+                My Birth Plan
+              </Text>
+              <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
+                Review this with your ob-gyn or bring it up for hospital staff
+              </Text>
+            </Animated.View>
 
-          {BIRTH_PLAN_SECTIONS.map((section, sIndex) => {
-            const rows = section.fields
-              .map((field) => ({
-                field,
-                text: fieldAnswerText(field, answers[field.id]),
-              }))
-              .filter((r) => r.text !== null);
+            {BIRTH_PLAN_SECTIONS.map((section, sIndex) => {
+              const rows = section.fields
+                .map((field) => ({
+                  field,
+                  text: fieldAnswerText(field, answers[field.id]),
+                }))
+                .filter((r) => r.text !== null);
 
-            return (
-              <Animated.View
-                key={section.id}
-                entering={FadeInDown.delay(60 + sIndex * 40).duration(400)}
-                style={[
-                  styles.card,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
-              >
-                <Text
-                  style={[styles.sectionTitle, { color: colors.foreground }]}
-                >
-                  {section.title}
-                </Text>
-                {rows.length ? (
-                  rows.map(({ field, text }) => (
-                    <View key={field.id} style={styles.row}>
-                      <Text
-                        style={[
-                          styles.rowLabel,
-                          { color: colors.mutedForeground },
-                        ]}
-                      >
-                        {field.label}
-                      </Text>
-                      <Text
-                        style={[styles.rowValue, { color: colors.foreground }]}
-                      >
-                        {text}
-                      </Text>
-                    </View>
-                  ))
-                ) : (
-                  <Text
-                    style={[styles.empty, { color: colors.mutedForeground }]}
-                  >
-                    Not answered yet.
-                  </Text>
-                )}
-              </Animated.View>
-            );
-          })}
-
-          <TouchableOpacity
-            style={[styles.exportBtn, { backgroundColor: colors.primary }]}
-            onPress={handleExport}
-            disabled={exporting}
-          >
-            {exporting ? (
-              <ActivityIndicator color={colors.primaryForeground} />
-            ) : (
-              <>
-                <Ionicons
-                  name="document-text-outline"
-                  size={18}
-                  color={colors.primaryForeground}
-                />
-                <Text
+              return (
+                <Animated.View
+                  key={section.id}
+                  entering={FadeInDown.delay(60 + sIndex * 40).duration(400)}
                   style={[
-                    styles.exportBtnText,
-                    { color: colors.primaryForeground },
+                    styles.card,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                    },
                   ]}
                 >
-                  View PDF
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
+                  <Text
+                    style={[styles.sectionTitle, { color: colors.foreground }]}
+                  >
+                    {section.title}
+                  </Text>
+                  {rows.length ? (
+                    rows.map(({ field, text }) => (
+                      <View key={field.id} style={styles.row}>
+                        <Text
+                          style={[
+                            styles.rowLabel,
+                            { color: colors.mutedForeground },
+                          ]}
+                        >
+                          {field.label}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.rowValue,
+                            { color: colors.foreground },
+                          ]}
+                        >
+                          {text}
+                        </Text>
+                      </View>
+                    ))
+                  ) : (
+                    <Text
+                      style={[styles.empty, { color: colors.mutedForeground }]}
+                    >
+                      Not answered yet.
+                    </Text>
+                  )}
+                </Animated.View>
+              );
+            })}
 
-          <TouchableOpacity
-            style={[
-              styles.editBtn,
-              { borderColor: colors.primary, backgroundColor: colors.card },
-            ]}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="create-outline" size={18} color={colors.primary} />
-            <Text style={[styles.editBtnText, { color: colors.primary }]}>
-              Edit My Answers
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.exportBtn, { backgroundColor: colors.primary }]}
+              onPress={handleExport}
+              disabled={exporting}
+            >
+              {exporting ? (
+                <ActivityIndicator color={colors.primaryForeground} />
+              ) : (
+                <>
+                  <Ionicons
+                    name="document-text-outline"
+                    size={18}
+                    color={colors.primaryForeground}
+                  />
+                  <Text
+                    style={[
+                      styles.exportBtnText,
+                      { color: colors.primaryForeground },
+                    ]}
+                  >
+                    View PDF
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.editBtn,
+                { borderColor: colors.primary, backgroundColor: colors.card },
+              ]}
+              onPress={() => router.back()}
+            >
+              <Ionicons
+                name="create-outline"
+                size={18}
+                color={colors.primary}
+              />
+              <Text style={[styles.editBtnText, { color: colors.primary }]}>
+                Edit My Answers
+              </Text>
+            </TouchableOpacity>
+          </ResponsiveContainer>
         </ScrollView>
       )}
     </View>
@@ -231,7 +244,6 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   scroll: {
-    paddingHorizontal: 16,
     paddingTop: 16,
   },
   pageTitle: {

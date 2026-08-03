@@ -46,6 +46,7 @@ import {
   type YesNo,
   type Phq9Answers,
 } from "@/lib/postpartum-depression";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 
 const PDF_ASSET = require("@/assets/docs/postpartum-depression.pdf");
 
@@ -266,42 +267,61 @@ export default function PostpartumDepressionScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View entering={FadeInDown.duration(400)}>
-          <Text style={[styles.pageTitle, { color: colors.foreground }]}>
-            Postpartum Depression
-          </Text>
-          <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
-            Based on ACOG patient guidance
-          </Text>
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(40).duration(400)}
-          style={[
-            styles.crisisBox,
-            { borderColor: "#c0392b", backgroundColor: colors.card },
-          ]}
-        >
-          <View style={styles.crisisHeaderRow}>
-            <Ionicons name="warning" size={20} color="#c0392b" />
-            <Text style={[styles.crisisTitle, { color: "#c0392b" }]}>
-              If you are in crisis, get help right now
+        <ResponsiveContainer style={{ paddingHorizontal: 16 }}>
+          <Animated.View entering={FadeInDown.duration(400)}>
+            <Text style={[styles.pageTitle, { color: colors.foreground }]}>
+              Postpartum Depression
             </Text>
-          </View>
-          {PPD_CRISIS_RESOURCES.map((r) =>
-            r.url ? (
-              <TouchableOpacity
-                key={r.name}
-                style={styles.resourceItem}
-                onPress={() => WebBrowser.openBrowserAsync(r.url as string)}
-              >
-                <View style={{ flex: 1 }}>
+            <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
+              Based on ACOG patient guidance
+            </Text>
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.delay(40).duration(400)}
+            style={[
+              styles.crisisBox,
+              { borderColor: "#c0392b", backgroundColor: colors.card },
+            ]}
+          >
+            <View style={styles.crisisHeaderRow}>
+              <Ionicons name="warning" size={20} color="#c0392b" />
+              <Text style={[styles.crisisTitle, { color: "#c0392b" }]}>
+                If you are in crisis, get help right now
+              </Text>
+            </View>
+            {PPD_CRISIS_RESOURCES.map((r) =>
+              r.url ? (
+                <TouchableOpacity
+                  key={r.name}
+                  style={styles.resourceItem}
+                  onPress={() => WebBrowser.openBrowserAsync(r.url as string)}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[
+                        styles.crisisResourceName,
+                        styles.resourceLink,
+                        { color: "#c0392b" },
+                      ]}
+                    >
+                      {r.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.crisisResourceDetail,
+                        { color: colors.foreground },
+                      ]}
+                    >
+                      {r.detail}
+                    </Text>
+                  </View>
+                  <Ionicons name="open-outline" size={16} color="#c0392b" />
+                </TouchableOpacity>
+              ) : (
+                <View key={r.name} style={{ marginBottom: 6 }}>
                   <Text
-                    style={[
-                      styles.crisisResourceName,
-                      styles.resourceLink,
-                      { color: "#c0392b" },
-                    ]}
+                    style={[styles.crisisResourceName, { color: "#c0392b" }]}
                   >
                     {r.name}
                   </Text>
@@ -314,458 +334,414 @@ export default function PostpartumDepressionScreen() {
                     {r.detail}
                   </Text>
                 </View>
-                <Ionicons name="open-outline" size={16} color="#c0392b" />
-              </TouchableOpacity>
-            ) : (
-              <View key={r.name} style={{ marginBottom: 6 }}>
-                <Text style={[styles.crisisResourceName, { color: "#c0392b" }]}>
-                  {r.name}
-                </Text>
-                <Text
-                  style={[
-                    styles.crisisResourceDetail,
-                    { color: colors.foreground },
-                  ]}
-                >
-                  {r.detail}
-                </Text>
-              </View>
-            ),
-          )}
-          <Text style={[styles.crisisFooter, { color: colors.foreground }]}>
-            Please also let your ob-gyn know how you're feeling — do not wait
-            for your next appointment. If you are having any thoughts of harming
-            yourself or your baby, don't hesitate to go to the nearest hospital.
-          </Text>
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(80).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            What to know
-          </Text>
-          {PPD_HIGHLIGHTS.map((h, i) => (
-            <View key={i} style={styles.highlightRow}>
-              <Text style={[styles.bullet, { color: colors.primary }]}>•</Text>
-              <Text
-                style={[
-                  styles.highlightText,
-                  { color: colors.mutedForeground },
-                ]}
-              >
-                {h}
-              </Text>
-            </View>
-          ))}
-          <TouchableOpacity
-            style={[
-              styles.pdfBtn,
-              { borderColor: colors.primary, backgroundColor: colors.card },
-            ]}
-            onPress={openHandoutPdf}
-          >
-            <Ionicons
-              name="document-text-outline"
-              size={18}
-              color={colors.primary}
-            />
-            <Text style={[styles.pdfBtnText, { color: colors.primary }]}>
-              View Full Handout (PDF)
+              ),
+            )}
+            <Text style={[styles.crisisFooter, { color: colors.foreground }]}>
+              Please also let your ob-gyn know how you're feeling — do not wait
+              for your next appointment. If you are having any thoughts of
+              harming yourself or your baby, don't hesitate to go to the nearest
+              hospital.
             </Text>
-          </TouchableOpacity>
-        </Animated.View>
+          </Animated.View>
 
-        {!loaded && (
-          <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
-        )}
-
-        {loaded && (
-          <>
-            {/* ── PHQ-9 Screening ── */}
-            <Animated.View
-              entering={FadeInDown.delay(120).duration(400)}
-              style={[
-                styles.card,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-            >
-              <View style={styles.phq9HeaderRow}>
-                <Ionicons
-                  name="clipboard-outline"
-                  size={20}
-                  color={colors.primary}
-                />
+          <Animated.View
+            entering={FadeInDown.delay(80).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              What to know
+            </Text>
+            {PPD_HIGHLIGHTS.map((h, i) => (
+              <View key={i} style={styles.highlightRow}>
+                <Text style={[styles.bullet, { color: colors.primary }]}>
+                  •
+                </Text>
                 <Text
                   style={[
-                    styles.sectionTitle,
-                    { color: colors.foreground, flex: 1, marginBottom: 0 },
+                    styles.highlightText,
+                    { color: colors.mutedForeground },
                   ]}
                 >
-                  PHQ-9 Depression Screening
+                  {h}
                 </Text>
               </View>
-
-              <Text
-                style={[styles.phq9Intro, { color: colors.mutedForeground }]}
-              >
-                The PHQ-9 is a validated 9-question tool used by healthcare
-                providers to screen for depression. Answer each question based
-                on how often you have been bothered by each problem{" "}
-                <Text style={{ fontFamily: "Inter_600SemiBold" }}>
-                  over the last 2 weeks
-                </Text>
-                .
+            ))}
+            <TouchableOpacity
+              style={[
+                styles.pdfBtn,
+                { borderColor: colors.primary, backgroundColor: colors.card },
+              ]}
+              onPress={openHandoutPdf}
+            >
+              <Ionicons
+                name="document-text-outline"
+                size={18}
+                color={colors.primary}
+              />
+              <Text style={[styles.pdfBtnText, { color: colors.primary }]}>
+                View Full Handout (PDF)
               </Text>
-              <Text
+            </TouchableOpacity>
+          </Animated.View>
+
+          {!loaded && (
+            <ActivityIndicator
+              color={colors.primary}
+              style={{ marginTop: 20 }}
+            />
+          )}
+
+          {loaded && (
+            <>
+              {/* ── PHQ-9 Screening ── */}
+              <Animated.View
+                entering={FadeInDown.delay(120).duration(400)}
                 style={[
-                  styles.phq9Disclaimer,
-                  { color: colors.mutedForeground },
+                  styles.card,
+                  { backgroundColor: colors.card, borderColor: colors.border },
                 ]}
               >
-                This is a screening tool — not a diagnosis. Always share your
-                results with your ob-gyn.
-              </Text>
-
-              {!phq9Started ? (
-                <TouchableOpacity
-                  style={[
-                    styles.phq9StartBtn,
-                    { backgroundColor: colors.primary },
-                  ]}
-                  onPress={() => setPhq9Started(true)}
-                  activeOpacity={0.8}
-                >
+                <View style={styles.phq9HeaderRow}>
                   <Ionicons
-                    name="play-circle-outline"
-                    size={18}
-                    color={colors.primaryForeground}
-                  />
-                  <Text
-                    style={[
-                      styles.phq9StartBtnText,
-                      { color: colors.primaryForeground },
-                    ]}
-                  >
-                    Start Screening
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <>
-                  {/* Progress */}
-                  <View style={styles.phq9ProgressRow}>
-                    <Text
-                      style={[
-                        styles.phq9ProgressText,
-                        { color: colors.mutedForeground },
-                      ]}
-                    >
-                      {phq9Answers.filter((a) => a !== undefined).length} of 9
-                      answered
-                    </Text>
-                    <TouchableOpacity onPress={handlePhq9Reset}>
-                      <Text
-                        style={[
-                          styles.phq9ResetText,
-                          { color: colors.mutedForeground },
-                        ]}
-                      >
-                        Reset
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Questions */}
-                  {PHQ9_QUESTIONS.map((q, qi) => (
-                    <View
-                      key={qi}
-                      style={[
-                        styles.phq9QuestionCard,
-                        {
-                          backgroundColor: colors.background,
-                          borderColor:
-                            phq9Answers[qi] !== undefined
-                              ? colors.primary + "55"
-                              : colors.border,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.phq9QuestionNum,
-                          { color: colors.primary },
-                        ]}
-                      >
-                        {qi + 1}.
-                      </Text>
-                      <Text
-                        style={[
-                          styles.phq9QuestionText,
-                          { color: colors.foreground },
-                        ]}
-                      >
-                        {q}
-                      </Text>
-                      <View style={styles.phq9OptionsGrid}>
-                        {PHQ9_OPTIONS.map((opt) => {
-                          const selected = phq9Answers[qi] === opt.value;
-                          return (
-                            <TouchableOpacity
-                              key={opt.value}
-                              style={[
-                                styles.phq9OptionBtn,
-                                {
-                                  borderColor: selected
-                                    ? colors.primary
-                                    : colors.border,
-                                  backgroundColor: selected
-                                    ? colors.primary + "18"
-                                    : colors.card,
-                                },
-                              ]}
-                              onPress={() => handlePhq9Change(qi, opt.value)}
-                              activeOpacity={0.7}
-                            >
-                              <Text
-                                style={[
-                                  styles.phq9OptionScore,
-                                  {
-                                    color: selected
-                                      ? colors.primary
-                                      : colors.mutedForeground,
-                                  },
-                                ]}
-                              >
-                                {opt.value}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.phq9OptionLabel,
-                                  {
-                                    color: selected
-                                      ? colors.primary
-                                      : colors.foreground,
-                                    fontFamily: selected
-                                      ? "Inter_600SemiBold"
-                                      : "Inter_400Regular",
-                                  },
-                                ]}
-                              >
-                                {opt.label}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                      {/* Safety note for Q9 */}
-                      {qi === 8 &&
-                        phq9Answers[8] !== undefined &&
-                        phq9Answers[8]! > 0 && (
-                          <View
-                            style={[
-                              styles.phq9SafetyBox,
-                              {
-                                backgroundColor: "#fdf1f0",
-                                borderColor: "#c0392b",
-                              },
-                            ]}
-                          >
-                            <Ionicons
-                              name="warning-outline"
-                              size={16}
-                              color="#c0392b"
-                            />
-                            <Text
-                              style={[
-                                styles.phq9SafetyText,
-                                { color: "#c0392b" },
-                              ]}
-                            >
-                              If you are having thoughts of harming yourself or
-                              your baby, please call 988 or 911, or go to the
-                              nearest emergency room right now.
-                            </Text>
-                          </View>
-                        )}
-                    </View>
-                  ))}
-
-                  {/* Results */}
-                  {phq9Complete(phq9Answers) &&
-                    (() => {
-                      const score = scorePhq9(phq9Answers);
-                      const cat = getPhq9Category(score);
-                      return (
-                        <View
-                          style={[
-                            styles.phq9ResultCard,
-                            {
-                              borderColor: cat.color,
-                              backgroundColor: cat.color + "12",
-                            },
-                          ]}
-                        >
-                          <View style={styles.phq9ResultHeaderRow}>
-                            <Ionicons
-                              name="bar-chart-outline"
-                              size={20}
-                              color={cat.color}
-                            />
-                            <Text
-                              style={[
-                                styles.phq9ResultTitle,
-                                { color: cat.color },
-                              ]}
-                            >
-                              Your Score: {score} / 27
-                            </Text>
-                          </View>
-                          <Text
-                            style={[
-                              styles.phq9ResultLabel,
-                              { color: cat.color },
-                            ]}
-                          >
-                            {cat.label}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.phq9ResultRec,
-                              { color: colors.foreground },
-                            ]}
-                          >
-                            {cat.recommendation}
-                          </Text>
-                          <View
-                            style={[
-                              styles.phq9ActionRow,
-                              { backgroundColor: cat.color + "20" },
-                            ]}
-                          >
-                            <Ionicons
-                              name="arrow-forward-circle-outline"
-                              size={16}
-                              color={cat.color}
-                            />
-                            <Text
-                              style={[
-                                styles.phq9ActionText,
-                                { color: cat.color },
-                              ]}
-                            >
-                              {cat.action}
-                            </Text>
-                          </View>
-                          <View style={styles.phq9ScoreGuide}>
-                            <Text
-                              style={[
-                                styles.phq9ScoreGuideTitle,
-                                { color: colors.mutedForeground },
-                              ]}
-                            >
-                              Score guide
-                            </Text>
-                            {[
-                              {
-                                range: "0–4",
-                                label: "Minimal or none",
-                                color: "#27ae60",
-                              },
-                              { range: "5–9", label: "Mild", color: "#f39c12" },
-                              {
-                                range: "10–14",
-                                label: "Moderate",
-                                color: "#e67e22",
-                              },
-                              {
-                                range: "15–19",
-                                label: "Moderately severe",
-                                color: "#e74c3c",
-                              },
-                              {
-                                range: "20–27",
-                                label: "Severe",
-                                color: "#c0392b",
-                              },
-                            ].map((row) => (
-                              <View key={row.range} style={styles.phq9ScoreRow}>
-                                <View
-                                  style={[
-                                    styles.phq9ScoreDot,
-                                    { backgroundColor: row.color },
-                                  ]}
-                                />
-                                <Text
-                                  style={[
-                                    styles.phq9ScoreRangeText,
-                                    { color: colors.mutedForeground },
-                                  ]}
-                                >
-                                  <Text
-                                    style={{ fontFamily: "Inter_600SemiBold" }}
-                                  >
-                                    {row.range}
-                                  </Text>{" "}
-                                  — {row.label}
-                                </Text>
-                              </View>
-                            ))}
-                          </View>
-                        </View>
-                      );
-                    })()}
-                </>
-              )}
-            </Animated.View>
-
-            {/* ── Concerned check-in ── */}
-            <Animated.View
-              entering={FadeInDown.delay(160).duration(400)}
-              style={[
-                styles.card,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-            >
-              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-                Are you concerned you might be experiencing postpartum
-                depression?
-              </Text>
-              <YesNoRow
-                value={checkin.concerned}
-                onChange={(v) => updateCheckin({ concerned: v })}
-                colors={colors}
-              />
-
-              {checkin.concerned === "yes" && (
-                <View
-                  style={[
-                    styles.reminderBox,
-                    { backgroundColor: colors.primary + "18" },
-                  ]}
-                >
-                  <Ionicons
-                    name="heart-outline"
-                    size={18}
+                    name="clipboard-outline"
+                    size={20}
                     color={colors.primary}
                   />
                   <Text
-                    style={[styles.reminderText, { color: colors.foreground }]}
+                    style={[
+                      styles.sectionTitle,
+                      { color: colors.foreground, flex: 1, marginBottom: 0 },
+                    ]}
                   >
-                    Please let your ob-gyn know how you're feeling as soon as
-                    possible — you don't need to wait for your next appointment.
-                    And remember: if you're having thoughts of hurting yourself
-                    or your baby, call 988 or 911, or go to the nearest hospital
-                    right away.
+                    PHQ-9 Depression Screening
                   </Text>
                 </View>
-              )}
-            </Animated.View>
 
-            {checkin.concerned && (
+                <Text
+                  style={[styles.phq9Intro, { color: colors.mutedForeground }]}
+                >
+                  The PHQ-9 is a validated 9-question tool used by healthcare
+                  providers to screen for depression. Answer each question based
+                  on how often you have been bothered by each problem{" "}
+                  <Text style={{ fontFamily: "Inter_600SemiBold" }}>
+                    over the last 2 weeks
+                  </Text>
+                  .
+                </Text>
+                <Text
+                  style={[
+                    styles.phq9Disclaimer,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  This is a screening tool — not a diagnosis. Always share your
+                  results with your ob-gyn.
+                </Text>
+
+                {!phq9Started ? (
+                  <TouchableOpacity
+                    style={[
+                      styles.phq9StartBtn,
+                      { backgroundColor: colors.primary },
+                    ]}
+                    onPress={() => setPhq9Started(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name="play-circle-outline"
+                      size={18}
+                      color={colors.primaryForeground}
+                    />
+                    <Text
+                      style={[
+                        styles.phq9StartBtnText,
+                        { color: colors.primaryForeground },
+                      ]}
+                    >
+                      Start Screening
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <>
+                    {/* Progress */}
+                    <View style={styles.phq9ProgressRow}>
+                      <Text
+                        style={[
+                          styles.phq9ProgressText,
+                          { color: colors.mutedForeground },
+                        ]}
+                      >
+                        {phq9Answers.filter((a) => a !== undefined).length} of 9
+                        answered
+                      </Text>
+                      <TouchableOpacity onPress={handlePhq9Reset}>
+                        <Text
+                          style={[
+                            styles.phq9ResetText,
+                            { color: colors.mutedForeground },
+                          ]}
+                        >
+                          Reset
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Questions */}
+                    {PHQ9_QUESTIONS.map((q, qi) => (
+                      <View
+                        key={qi}
+                        style={[
+                          styles.phq9QuestionCard,
+                          {
+                            backgroundColor: colors.background,
+                            borderColor:
+                              phq9Answers[qi] !== undefined
+                                ? colors.primary + "55"
+                                : colors.border,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.phq9QuestionNum,
+                            { color: colors.primary },
+                          ]}
+                        >
+                          {qi + 1}.
+                        </Text>
+                        <Text
+                          style={[
+                            styles.phq9QuestionText,
+                            { color: colors.foreground },
+                          ]}
+                        >
+                          {q}
+                        </Text>
+                        <View style={styles.phq9OptionsGrid}>
+                          {PHQ9_OPTIONS.map((opt) => {
+                            const selected = phq9Answers[qi] === opt.value;
+                            return (
+                              <TouchableOpacity
+                                key={opt.value}
+                                style={[
+                                  styles.phq9OptionBtn,
+                                  {
+                                    borderColor: selected
+                                      ? colors.primary
+                                      : colors.border,
+                                    backgroundColor: selected
+                                      ? colors.primary + "18"
+                                      : colors.card,
+                                  },
+                                ]}
+                                onPress={() => handlePhq9Change(qi, opt.value)}
+                                activeOpacity={0.7}
+                              >
+                                <Text
+                                  style={[
+                                    styles.phq9OptionScore,
+                                    {
+                                      color: selected
+                                        ? colors.primary
+                                        : colors.mutedForeground,
+                                    },
+                                  ]}
+                                >
+                                  {opt.value}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.phq9OptionLabel,
+                                    {
+                                      color: selected
+                                        ? colors.primary
+                                        : colors.foreground,
+                                      fontFamily: selected
+                                        ? "Inter_600SemiBold"
+                                        : "Inter_400Regular",
+                                    },
+                                  ]}
+                                >
+                                  {opt.label}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                        {/* Safety note for Q9 */}
+                        {qi === 8 &&
+                          phq9Answers[8] !== undefined &&
+                          phq9Answers[8]! > 0 && (
+                            <View
+                              style={[
+                                styles.phq9SafetyBox,
+                                {
+                                  backgroundColor: "#fdf1f0",
+                                  borderColor: "#c0392b",
+                                },
+                              ]}
+                            >
+                              <Ionicons
+                                name="warning-outline"
+                                size={16}
+                                color="#c0392b"
+                              />
+                              <Text
+                                style={[
+                                  styles.phq9SafetyText,
+                                  { color: "#c0392b" },
+                                ]}
+                              >
+                                If you are having thoughts of harming yourself
+                                or your baby, please call 988 or 911, or go to
+                                the nearest emergency room right now.
+                              </Text>
+                            </View>
+                          )}
+                      </View>
+                    ))}
+
+                    {/* Results */}
+                    {phq9Complete(phq9Answers) &&
+                      (() => {
+                        const score = scorePhq9(phq9Answers);
+                        const cat = getPhq9Category(score);
+                        return (
+                          <View
+                            style={[
+                              styles.phq9ResultCard,
+                              {
+                                borderColor: cat.color,
+                                backgroundColor: cat.color + "12",
+                              },
+                            ]}
+                          >
+                            <View style={styles.phq9ResultHeaderRow}>
+                              <Ionicons
+                                name="bar-chart-outline"
+                                size={20}
+                                color={cat.color}
+                              />
+                              <Text
+                                style={[
+                                  styles.phq9ResultTitle,
+                                  { color: cat.color },
+                                ]}
+                              >
+                                Your Score: {score} / 27
+                              </Text>
+                            </View>
+                            <Text
+                              style={[
+                                styles.phq9ResultLabel,
+                                { color: cat.color },
+                              ]}
+                            >
+                              {cat.label}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.phq9ResultRec,
+                                { color: colors.foreground },
+                              ]}
+                            >
+                              {cat.recommendation}
+                            </Text>
+                            <View
+                              style={[
+                                styles.phq9ActionRow,
+                                { backgroundColor: cat.color + "20" },
+                              ]}
+                            >
+                              <Ionicons
+                                name="arrow-forward-circle-outline"
+                                size={16}
+                                color={cat.color}
+                              />
+                              <Text
+                                style={[
+                                  styles.phq9ActionText,
+                                  { color: cat.color },
+                                ]}
+                              >
+                                {cat.action}
+                              </Text>
+                            </View>
+                            <View style={styles.phq9ScoreGuide}>
+                              <Text
+                                style={[
+                                  styles.phq9ScoreGuideTitle,
+                                  { color: colors.mutedForeground },
+                                ]}
+                              >
+                                Score guide
+                              </Text>
+                              {[
+                                {
+                                  range: "0–4",
+                                  label: "Minimal or none",
+                                  color: "#27ae60",
+                                },
+                                {
+                                  range: "5–9",
+                                  label: "Mild",
+                                  color: "#f39c12",
+                                },
+                                {
+                                  range: "10–14",
+                                  label: "Moderate",
+                                  color: "#e67e22",
+                                },
+                                {
+                                  range: "15–19",
+                                  label: "Moderately severe",
+                                  color: "#e74c3c",
+                                },
+                                {
+                                  range: "20–27",
+                                  label: "Severe",
+                                  color: "#c0392b",
+                                },
+                              ].map((row) => (
+                                <View
+                                  key={row.range}
+                                  style={styles.phq9ScoreRow}
+                                >
+                                  <View
+                                    style={[
+                                      styles.phq9ScoreDot,
+                                      { backgroundColor: row.color },
+                                    ]}
+                                  />
+                                  <Text
+                                    style={[
+                                      styles.phq9ScoreRangeText,
+                                      { color: colors.mutedForeground },
+                                    ]}
+                                  >
+                                    <Text
+                                      style={{
+                                        fontFamily: "Inter_600SemiBold",
+                                      }}
+                                    >
+                                      {row.range}
+                                    </Text>{" "}
+                                    — {row.label}
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
+                          </View>
+                        );
+                      })()}
+                  </>
+                )}
+              </Animated.View>
+
+              {/* ── Concerned check-in ── */}
               <Animated.View
                 entering={FadeInDown.delay(160).duration(400)}
                 style={[
@@ -776,114 +752,168 @@ export default function PostpartumDepressionScreen() {
                 <Text
                   style={[styles.sectionTitle, { color: colors.foreground }]}
                 >
-                  Would you like help finding additional resources?
+                  Are you concerned you might be experiencing postpartum
+                  depression?
                 </Text>
                 <YesNoRow
-                  value={checkin.wantsResources}
-                  onChange={(v) => updateCheckin({ wantsResources: v })}
+                  value={checkin.concerned}
+                  onChange={(v) => updateCheckin({ concerned: v })}
                   colors={colors}
                 />
 
-                {checkin.wantsResources === "yes" && (
-                  <View style={{ marginTop: 14 }}>
-                    {profileZip ? (
-                      <Text
-                        style={[
-                          styles.fieldHelper,
-                          { color: colors.mutedForeground },
-                        ]}
-                      >
-                        We'll use the zip code from My Info ({profileZip}) to
-                        point you to local support groups, therapists, and
-                        low-cost clinics near you.
-                      </Text>
-                    ) : (
-                      <>
-                        <Text
-                          style={[
-                            styles.fieldLabel,
-                            { color: colors.foreground },
-                          ]}
-                        >
-                          Your zip code
-                        </Text>
+                {checkin.concerned === "yes" && (
+                  <View
+                    style={[
+                      styles.reminderBox,
+                      { backgroundColor: colors.primary + "18" },
+                    ]}
+                  >
+                    <Ionicons
+                      name="heart-outline"
+                      size={18}
+                      color={colors.primary}
+                    />
+                    <Text
+                      style={[
+                        styles.reminderText,
+                        { color: colors.foreground },
+                      ]}
+                    >
+                      Please let your ob-gyn know how you're feeling as soon as
+                      possible — you don't need to wait for your next
+                      appointment. And remember: if you're having thoughts of
+                      hurting yourself or your baby, call 988 or 911, or go to
+                      the nearest hospital right away.
+                    </Text>
+                  </View>
+                )}
+              </Animated.View>
+
+              {checkin.concerned && (
+                <Animated.View
+                  entering={FadeInDown.delay(160).duration(400)}
+                  style={[
+                    styles.card,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.sectionTitle, { color: colors.foreground }]}
+                  >
+                    Would you like help finding additional resources?
+                  </Text>
+                  <YesNoRow
+                    value={checkin.wantsResources}
+                    onChange={(v) => updateCheckin({ wantsResources: v })}
+                    colors={colors}
+                  />
+
+                  {checkin.wantsResources === "yes" && (
+                    <View style={{ marginTop: 14 }}>
+                      {profileZip ? (
                         <Text
                           style={[
                             styles.fieldHelper,
                             { color: colors.mutedForeground },
                           ]}
                         >
-                          We'll point you to directories that let you search for
-                          local support groups, therapists, and low-cost clinics
-                          near you. We'll also save this to My Info so we don't
-                          have to ask again.
+                          We'll use the zip code from My Info ({profileZip}) to
+                          point you to local support groups, therapists, and
+                          low-cost clinics near you.
                         </Text>
-                        <TextInput
-                          style={[
-                            styles.input,
-                            {
-                              borderColor: zipError ? "#c0392b" : colors.border,
-                              color: colors.foreground,
-                              backgroundColor: colors.background,
-                            },
-                          ]}
-                          value={checkin.zip}
-                          onChangeText={(v) => {
-                            setZipError(null);
-                            updateCheckin({ zip: v });
-                          }}
-                          placeholder="e.g. 94110"
-                          placeholderTextColor={colors.mutedForeground}
-                          keyboardType="number-pad"
-                          maxLength={5}
-                        />
-                        {zipError && (
+                      ) : (
+                        <>
                           <Text
-                            style={[styles.errorText, { color: "#c0392b" }]}
+                            style={[
+                              styles.fieldLabel,
+                              { color: colors.foreground },
+                            ]}
                           >
-                            {zipError}
+                            Your zip code
                           </Text>
-                        )}
-                      </>
-                    )}
-                  </View>
-                )}
-              </Animated.View>
-            )}
+                          <Text
+                            style={[
+                              styles.fieldHelper,
+                              { color: colors.mutedForeground },
+                            ]}
+                          >
+                            We'll point you to directories that let you search
+                            for local support groups, therapists, and low-cost
+                            clinics near you. We'll also save this to My Info so
+                            we don't have to ask again.
+                          </Text>
+                          <TextInput
+                            style={[
+                              styles.input,
+                              {
+                                borderColor: zipError
+                                  ? "#c0392b"
+                                  : colors.border,
+                                color: colors.foreground,
+                                backgroundColor: colors.background,
+                              },
+                            ]}
+                            value={checkin.zip}
+                            onChangeText={(v) => {
+                              setZipError(null);
+                              updateCheckin({ zip: v });
+                            }}
+                            placeholder="e.g. 94110"
+                            placeholderTextColor={colors.mutedForeground}
+                            keyboardType="number-pad"
+                            maxLength={5}
+                          />
+                          {zipError && (
+                            <Text
+                              style={[styles.errorText, { color: "#c0392b" }]}
+                            >
+                              {zipError}
+                            </Text>
+                          )}
+                        </>
+                      )}
+                    </View>
+                  )}
+                </Animated.View>
+              )}
 
-            {checkin.concerned && checkin.wantsResources && (
-              <TouchableOpacity
-                style={[
-                  styles.generateBtn,
-                  { backgroundColor: colors.primary },
-                ]}
-                onPress={handleGenerate}
-                disabled={generating}
-              >
-                {generating ? (
-                  <ActivityIndicator color={colors.primaryForeground} />
-                ) : (
-                  <>
-                    <Ionicons
-                      name="document-text-outline"
-                      size={18}
-                      color={colors.primaryForeground}
-                    />
-                    <Text
-                      style={[
-                        styles.generateBtnText,
-                        { color: colors.primaryForeground },
-                      ]}
-                    >
-                      View My Resource Summary
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            )}
-          </>
-        )}
-        <AskCard returnTo="/postpartum-depression" />
+              {checkin.concerned && checkin.wantsResources && (
+                <TouchableOpacity
+                  style={[
+                    styles.generateBtn,
+                    { backgroundColor: colors.primary },
+                  ]}
+                  onPress={handleGenerate}
+                  disabled={generating}
+                >
+                  {generating ? (
+                    <ActivityIndicator color={colors.primaryForeground} />
+                  ) : (
+                    <>
+                      <Ionicons
+                        name="document-text-outline"
+                        size={18}
+                        color={colors.primaryForeground}
+                      />
+                      <Text
+                        style={[
+                          styles.generateBtnText,
+                          { color: colors.primaryForeground },
+                        ]}
+                      >
+                        View My Resource Summary
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+          <AskCard returnTo="/postpartum-depression" />
+        </ResponsiveContainer>
       </ScrollView>
     </View>
   );
@@ -907,7 +937,6 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   scroll: {
-    paddingHorizontal: 16,
     paddingTop: 16,
   },
   pageTitle: {

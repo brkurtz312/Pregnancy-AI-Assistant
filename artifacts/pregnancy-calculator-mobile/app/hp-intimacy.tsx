@@ -19,6 +19,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { AskCard } from "@/components/AskCard";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 
 const PDF_ASSET = require("@/assets/docs/intimacy-during-pregnancy.pdf");
 const HANDOUT_TITLE = "Intimacy During Pregnancy";
@@ -124,142 +125,152 @@ export default function HpIntimacyScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View entering={FadeInDown.duration(400)}>
-          <Text style={[styles.pageTitle, { color: colors.foreground }]}>
-            Intimacy During Pregnancy
-          </Text>
-          <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
-            Based on ACOG patient guidance
-          </Text>
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(40).duration(400)}
-          style={[
-            styles.reassureBox,
-            { backgroundColor: colors.primary + "12" },
-          ]}
-        >
-          <Ionicons name="heart" size={18} color={colors.primary} />
-          <Text style={[styles.reassureText, { color: colors.foreground }]}>
-            For most pregnancies, sexual intimacy is safe throughout all three
-            trimesters. Changes in desire and comfort are normal — talk openly
-            with your partner and your care team.
-          </Text>
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(70).duration(400)}
-          style={[
-            styles.calloutBox,
-            { borderColor: "#e07b39", backgroundColor: colors.card },
-          ]}
-        >
-          <View style={styles.calloutHeaderRow}>
-            <Ionicons name="alert-circle" size={20} color="#e07b39" />
-            <Text style={[styles.calloutTitle, { color: "#e07b39" }]}>
-              Avoid penetrative sex if you have
+        <ResponsiveContainer style={{ paddingHorizontal: 16 }}>
+          <Animated.View entering={FadeInDown.duration(400)}>
+            <Text style={[styles.pageTitle, { color: colors.foreground }]}>
+              Intimacy During Pregnancy
             </Text>
-          </View>
-          {AVOID_SEX.map((reason) => (
-            <View key={reason} style={styles.calloutRow}>
-              <Text style={[styles.calloutBullet, { color: "#e07b39" }]}>
-                •
-              </Text>
-              <Text style={[styles.calloutText, { color: colors.foreground }]}>
-                {reason}
-              </Text>
-            </View>
-          ))}
-        </Animated.View>
+            <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
+              Based on ACOG patient guidance
+            </Text>
+          </Animated.View>
 
-        <Animated.View
-          entering={FadeInDown.delay(110).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            What to know
-          </Text>
-          {HIGHLIGHTS.map((h, i) => (
-            <View key={i} style={styles.highlightRow}>
-              <Text style={[styles.bullet, { color: colors.primary }]}>•</Text>
-              <Text
-                style={[
-                  styles.highlightText,
-                  { color: colors.mutedForeground },
-                ]}
-              >
-                {h}
-              </Text>
-            </View>
-          ))}
-          <TouchableOpacity
+          <Animated.View
+            entering={FadeInDown.delay(40).duration(400)}
             style={[
-              styles.pdfBtn,
-              { borderColor: colors.primary, backgroundColor: colors.card },
+              styles.reassureBox,
+              { backgroundColor: colors.primary + "12" },
             ]}
-            onPress={() => openHandoutPdf(setOpening)}
-            disabled={opening}
           >
-            {opening ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : (
-              <Ionicons
-                name="document-text-outline"
-                size={18}
-                color={colors.primary}
-              />
-            )}
-            <Text style={[styles.pdfBtnText, { color: colors.primary }]}>
-              View Full Handout (PDF)
+            <Ionicons name="heart" size={18} color={colors.primary} />
+            <Text style={[styles.reassureText, { color: colors.foreground }]}>
+              For most pregnancies, sexual intimacy is safe throughout all three
+              trimesters. Changes in desire and comfort are normal — talk openly
+              with your partner and your care team.
             </Text>
-          </TouchableOpacity>
-        </Animated.View>
+          </Animated.View>
 
-        <Animated.View
-          entering={FadeInDown.delay(150).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            Trusted resources
-          </Text>
-          {RESOURCES.map((r) => (
-            <TouchableOpacity
-              key={r.name}
-              style={styles.resourceItem}
-              onPress={() => WebBrowser.openBrowserAsync(r.url)}
-            >
-              <View style={{ flex: 1 }}>
+          <Animated.View
+            entering={FadeInDown.delay(70).duration(400)}
+            style={[
+              styles.calloutBox,
+              { borderColor: "#e07b39", backgroundColor: colors.card },
+            ]}
+          >
+            <View style={styles.calloutHeaderRow}>
+              <Ionicons name="alert-circle" size={20} color="#e07b39" />
+              <Text style={[styles.calloutTitle, { color: "#e07b39" }]}>
+                Avoid penetrative sex if you have
+              </Text>
+            </View>
+            {AVOID_SEX.map((reason) => (
+              <View key={reason} style={styles.calloutRow}>
+                <Text style={[styles.calloutBullet, { color: "#e07b39" }]}>
+                  •
+                </Text>
                 <Text
-                  style={[
-                    styles.resourceName,
-                    styles.resourceLink,
-                    { color: colors.primary },
-                  ]}
+                  style={[styles.calloutText, { color: colors.foreground }]}
                 >
-                  {r.name}
+                  {reason}
+                </Text>
+              </View>
+            ))}
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.delay(110).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              What to know
+            </Text>
+            {HIGHLIGHTS.map((h, i) => (
+              <View key={i} style={styles.highlightRow}>
+                <Text style={[styles.bullet, { color: colors.primary }]}>
+                  •
                 </Text>
                 <Text
                   style={[
-                    styles.resourceDetail,
+                    styles.highlightText,
                     { color: colors.mutedForeground },
                   ]}
                 >
-                  {r.detail}
+                  {h}
                 </Text>
               </View>
-              <Ionicons name="open-outline" size={16} color={colors.primary} />
+            ))}
+            <TouchableOpacity
+              style={[
+                styles.pdfBtn,
+                { borderColor: colors.primary, backgroundColor: colors.card },
+              ]}
+              onPress={() => openHandoutPdf(setOpening)}
+              disabled={opening}
+            >
+              {opening ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Ionicons
+                  name="document-text-outline"
+                  size={18}
+                  color={colors.primary}
+                />
+              )}
+              <Text style={[styles.pdfBtnText, { color: colors.primary }]}>
+                View Full Handout (PDF)
+              </Text>
             </TouchableOpacity>
-          ))}
-        </Animated.View>
+          </Animated.View>
 
-        <AskCard returnTo="/hp-intimacy" />
+          <Animated.View
+            entering={FadeInDown.delay(150).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              Trusted resources
+            </Text>
+            {RESOURCES.map((r) => (
+              <TouchableOpacity
+                key={r.name}
+                style={styles.resourceItem}
+                onPress={() => WebBrowser.openBrowserAsync(r.url)}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.resourceName,
+                      styles.resourceLink,
+                      { color: colors.primary },
+                    ]}
+                  >
+                    {r.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.resourceDetail,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    {r.detail}
+                  </Text>
+                </View>
+                <Ionicons
+                  name="open-outline"
+                  size={16}
+                  color={colors.primary}
+                />
+              </TouchableOpacity>
+            ))}
+          </Animated.View>
+
+          <AskCard returnTo="/hp-intimacy" />
+        </ResponsiveContainer>
       </ScrollView>
     </View>
   );
@@ -275,7 +286,7 @@ const styles = StyleSheet.create({
   },
   backBtn: { flexDirection: "row", alignItems: "center" },
   backText: { fontSize: 16, fontFamily: "Inter_500Medium", marginLeft: 2 },
-  scroll: { paddingHorizontal: 16, paddingTop: 16 },
+  scroll: { paddingTop: 16 },
   pageTitle: { fontSize: 26, fontFamily: "Inter_700Bold", marginBottom: 4 },
   pageSub: { fontSize: 14, fontFamily: "Inter_400Regular", marginBottom: 16 },
   reassureBox: {

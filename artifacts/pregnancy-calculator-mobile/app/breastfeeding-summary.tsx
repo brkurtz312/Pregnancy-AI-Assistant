@@ -25,6 +25,7 @@ import {
   loadBfCheckin,
   type BfCheckin,
 } from "@/lib/breastfeeding";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 
 export default function BreastfeedingSummaryScreen() {
   const colors = useColors();
@@ -101,127 +102,40 @@ export default function BreastfeedingSummaryScreen() {
           ]}
           showsVerticalScrollIndicator={false}
         >
-          <Text style={[styles.pageTitle, { color: colors.foreground }]}>
-            My Resource Summary
-          </Text>
-          <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
-            Breastfeeding — based on ACOG guidance
-          </Text>
+          <ResponsiveContainer style={{ paddingHorizontal: 16 }}>
+            <Text style={[styles.pageTitle, { color: colors.foreground }]}>
+              My Resource Summary
+            </Text>
+            <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
+              Breastfeeding — based on ACOG guidance
+            </Text>
 
-          <View
-            style={[
-              styles.calloutBox,
-              { borderColor: "#b5651d", backgroundColor: colors.card },
-            ]}
-          >
-            <View style={styles.calloutHeaderRow}>
-              <Ionicons name="alert-circle" size={20} color="#b5651d" />
-              <Text style={[styles.calloutTitle, { color: "#b5651d" }]}>
-                Call your ob-gyn the same day if you notice
-              </Text>
-            </View>
-            {BF_CALLOUT_REASONS.map((reason) => (
-              <View key={reason} style={styles.calloutRow}>
-                <Text style={[styles.calloutBullet, { color: "#b5651d" }]}>
-                  •
-                </Text>
-                <Text
-                  style={[styles.calloutText, { color: colors.foreground }]}
-                >
-                  {reason}
+            <View
+              style={[
+                styles.calloutBox,
+                { borderColor: "#b5651d", backgroundColor: colors.card },
+              ]}
+            >
+              <View style={styles.calloutHeaderRow}>
+                <Ionicons name="alert-circle" size={20} color="#b5651d" />
+                <Text style={[styles.calloutTitle, { color: "#b5651d" }]}>
+                  Call your ob-gyn the same day if you notice
                 </Text>
               </View>
-            ))}
-          </View>
-
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-              What to know
-            </Text>
-            {BF_HIGHLIGHTS.map((h, i) => (
-              <View key={i} style={styles.highlightRow}>
-                <Text style={[styles.bullet, { color: colors.primary }]}>
-                  •
-                </Text>
-                <Text
-                  style={[
-                    styles.highlightText,
-                    { color: colors.mutedForeground },
-                  ]}
-                >
-                  {h}
-                </Text>
-              </View>
-            ))}
-          </View>
-
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-              National support
-            </Text>
-            {BF_NATIONAL_RESOURCES.map((r) =>
-              r.url ? (
-                <TouchableOpacity
-                  key={r.name}
-                  style={styles.resourceItem}
-                  onPress={() => WebBrowser.openBrowserAsync(r.url as string)}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={[
-                        styles.resourceName,
-                        styles.resourceLink,
-                        { color: colors.primary },
-                      ]}
-                    >
-                      {r.name}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.resourceDetail,
-                        { color: colors.mutedForeground },
-                      ]}
-                    >
-                      {r.detail}
-                    </Text>
-                  </View>
-                  <Ionicons
-                    name="open-outline"
-                    size={16}
-                    color={colors.primary}
-                  />
-                </TouchableOpacity>
-              ) : (
-                <View key={r.name} style={{ marginBottom: 8 }}>
-                  <Text
-                    style={[styles.resourceName, { color: colors.foreground }]}
-                  >
-                    {r.name}
+              {BF_CALLOUT_REASONS.map((reason) => (
+                <View key={reason} style={styles.calloutRow}>
+                  <Text style={[styles.calloutBullet, { color: "#b5651d" }]}>
+                    •
                   </Text>
                   <Text
-                    style={[
-                      styles.resourceDetail,
-                      { color: colors.mutedForeground },
-                    ]}
+                    style={[styles.calloutText, { color: colors.foreground }]}
                   >
-                    {r.detail}
+                    {reason}
                   </Text>
                 </View>
-              ),
-            )}
-          </View>
+              ))}
+            </View>
 
-          {checkin.wantsResources === "yes" && (
             <View
               style={[
                 styles.card,
@@ -229,21 +143,35 @@ export default function BreastfeedingSummaryScreen() {
               ]}
             >
               <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-                Local resources
-                {checkin.zip ? ` near ${checkin.zip}` : ""}
+                What to know
               </Text>
-              <Text
-                style={[
-                  styles.body,
-                  { color: colors.mutedForeground, marginBottom: 10 },
-                ]}
-              >
-                These directories let you search by your zip code
-                {checkin.zip ? ` (${checkin.zip})` : ""} for lactation
-                consultants, peer-support groups, and free breastfeeding help
-                near you.
+              {BF_HIGHLIGHTS.map((h, i) => (
+                <View key={i} style={styles.highlightRow}>
+                  <Text style={[styles.bullet, { color: colors.primary }]}>
+                    •
+                  </Text>
+                  <Text
+                    style={[
+                      styles.highlightText,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    {h}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            <View
+              style={[
+                styles.card,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+                National support
               </Text>
-              {BF_LOCAL_DIRECTORIES.map((r) =>
+              {BF_NATIONAL_RESOURCES.map((r) =>
                 r.url ? (
                   <TouchableOpacity
                     key={r.name}
@@ -297,46 +225,132 @@ export default function BreastfeedingSummaryScreen() {
                 ),
               )}
             </View>
-          )}
 
-          <TouchableOpacity
-            style={[styles.shareBtn, { backgroundColor: colors.primary }]}
-            onPress={handleShare}
-            disabled={sharing}
-          >
-            {sharing ? (
-              <ActivityIndicator color={colors.primaryForeground} />
-            ) : (
-              <>
-                <Ionicons
-                  name="document-text-outline"
-                  size={18}
-                  color={colors.primaryForeground}
-                />
+            {checkin.wantsResources === "yes" && (
+              <View
+                style={[
+                  styles.card,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <Text
+                  style={[styles.sectionTitle, { color: colors.foreground }]}
+                >
+                  Local resources
+                  {checkin.zip ? ` near ${checkin.zip}` : ""}
+                </Text>
                 <Text
                   style={[
-                    styles.shareBtnText,
-                    { color: colors.primaryForeground },
+                    styles.body,
+                    { color: colors.mutedForeground, marginBottom: 10 },
                   ]}
                 >
-                  View PDF
+                  These directories let you search by your zip code
+                  {checkin.zip ? ` (${checkin.zip})` : ""} for lactation
+                  consultants, peer-support groups, and free breastfeeding help
+                  near you.
                 </Text>
-              </>
+                {BF_LOCAL_DIRECTORIES.map((r) =>
+                  r.url ? (
+                    <TouchableOpacity
+                      key={r.name}
+                      style={styles.resourceItem}
+                      onPress={() =>
+                        WebBrowser.openBrowserAsync(r.url as string)
+                      }
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={[
+                            styles.resourceName,
+                            styles.resourceLink,
+                            { color: colors.primary },
+                          ]}
+                        >
+                          {r.name}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.resourceDetail,
+                            { color: colors.mutedForeground },
+                          ]}
+                        >
+                          {r.detail}
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name="open-outline"
+                        size={16}
+                        color={colors.primary}
+                      />
+                    </TouchableOpacity>
+                  ) : (
+                    <View key={r.name} style={{ marginBottom: 8 }}>
+                      <Text
+                        style={[
+                          styles.resourceName,
+                          { color: colors.foreground },
+                        ]}
+                      >
+                        {r.name}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.resourceDetail,
+                          { color: colors.mutedForeground },
+                        ]}
+                      >
+                        {r.detail}
+                      </Text>
+                    </View>
+                  ),
+                )}
+              </View>
             )}
-          </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.editBtn,
-              { borderColor: colors.primary, backgroundColor: colors.card },
-            ]}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="create-outline" size={18} color={colors.primary} />
-            <Text style={[styles.editBtnText, { color: colors.primary }]}>
-              Edit My Answers
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.shareBtn, { backgroundColor: colors.primary }]}
+              onPress={handleShare}
+              disabled={sharing}
+            >
+              {sharing ? (
+                <ActivityIndicator color={colors.primaryForeground} />
+              ) : (
+                <>
+                  <Ionicons
+                    name="document-text-outline"
+                    size={18}
+                    color={colors.primaryForeground}
+                  />
+                  <Text
+                    style={[
+                      styles.shareBtnText,
+                      { color: colors.primaryForeground },
+                    ]}
+                  >
+                    View PDF
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.editBtn,
+                { borderColor: colors.primary, backgroundColor: colors.card },
+              ]}
+              onPress={() => router.back()}
+            >
+              <Ionicons
+                name="create-outline"
+                size={18}
+                color={colors.primary}
+              />
+              <Text style={[styles.editBtnText, { color: colors.primary }]}>
+                Edit My Answers
+              </Text>
+            </TouchableOpacity>
+          </ResponsiveContainer>
         </ScrollView>
       )}
     </View>
@@ -361,7 +375,6 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   scroll: {
-    paddingHorizontal: 16,
     paddingTop: 16,
   },
   pageTitle: {

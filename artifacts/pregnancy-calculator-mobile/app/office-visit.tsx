@@ -47,6 +47,7 @@ import {
 } from "@/lib/appointment-reminders";
 import { getGestationalAgeAtDate } from "@/lib/pregnancy-math";
 import { getVisitExpectation } from "@/constants/prenatal-visit-expectations";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 
 // DateTimePicker is disabled until a new native build confirms its TurboModule
 // is stable on iOS 26. All date entry falls back to TextInput.
@@ -1408,117 +1409,126 @@ export default function OfficeVisitScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View entering={FadeInDown.duration(400)}>
-          <Text style={[styles.pageTitle, { color: colors.foreground }]}>
-            Office Visits
-          </Text>
-          <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
-            Get ready for your prenatal appointments.
-          </Text>
-        </Animated.View>
+        <ResponsiveContainer style={{ paddingHorizontal: 16 }}>
+          <Animated.View entering={FadeInDown.duration(400)}>
+            <Text style={[styles.pageTitle, { color: colors.foreground }]}>
+              Office Visits
+            </Text>
+            <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
+              Get ready for your prenatal appointments.
+            </Text>
+          </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(20).duration(400)}>
-          <TouchableOpacity
-            style={[styles.modeBtn, { backgroundColor: colors.primary }]}
-            onPress={() => router.push("/in-office")}
-          >
-            <Ionicons name="business" size={20} color="#fff" />
-            <Text style={styles.modeBtnText}>Enter Office Mode</Text>
-            <Ionicons name="chevron-forward" size={18} color="#fff" />
-          </TouchableOpacity>
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(40).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <QuestionsToAskSection />
-        </Animated.View>
-
-        {isLoading && !data ? (
-          <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
-        ) : (
-          <>
-            <Animated.View
-              entering={FadeInDown.delay(120).duration(400)}
-              style={[
-                styles.card,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
+          <Animated.View entering={FadeInDown.delay(20).duration(400)}>
+            <TouchableOpacity
+              style={[styles.modeBtn, { backgroundColor: colors.primary }]}
+              onPress={() => router.push("/in-office")}
             >
-              <UpcomingAppointmentsSection
-                upcoming={upcoming}
-                onSchedule={openAddUpcoming}
-                onEdit={openEdit}
-                onDelete={handleDelete}
-                dueDate={dueDate}
-              />
-            </Animated.View>
+              <Ionicons name="business" size={20} color="#fff" />
+              <Text style={styles.modeBtnText}>Enter Office Mode</Text>
+              <Ionicons name="chevron-forward" size={18} color="#fff" />
+            </TouchableOpacity>
+          </Animated.View>
 
-            <Animated.View
-              entering={FadeInDown.delay(160).duration(400)}
-              style={[
-                styles.card,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-            >
-              <AppointmentLogSection
-                past={past}
-                onAdd={openAdd}
-                onEdit={openEdit}
-                onDelete={handleDelete}
-              />
-            </Animated.View>
-          </>
-        )}
-
-        <Animated.View
-          entering={FadeInDown.delay(320).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <TouchableOpacity
-            style={styles.reportCard}
-            onPress={() => router.push("/visit-summary")}
+          <Animated.View
+            entering={FadeInDown.delay(40).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
           >
-            <View style={styles.reportCardIcon}>
-              <Ionicons name="document-text" size={28} color={colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.title, { color: colors.foreground }]}>
-                View Full Visit Report
-              </Text>
-              <Text
-                style={[styles.scribeDesc, { color: colors.mutedForeground }]}
-              >
-                Appointment log, questions, and symptoms — all in one place.
-              </Text>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color={colors.mutedForeground}
+            <QuestionsToAskSection />
+          </Animated.View>
+
+          {isLoading && !data ? (
+            <ActivityIndicator
+              color={colors.primary}
+              style={{ marginTop: 20 }}
             />
-          </TouchableOpacity>
-        </Animated.View>
+          ) : (
+            <>
+              <Animated.View
+                entering={FadeInDown.delay(120).duration(400)}
+                style={[
+                  styles.card,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <UpcomingAppointmentsSection
+                  upcoming={upcoming}
+                  onSchedule={openAddUpcoming}
+                  onEdit={openEdit}
+                  onDelete={handleDelete}
+                  dueDate={dueDate}
+                />
+              </Animated.View>
 
-        <VisitModal
-          visible={modalVisible}
-          onClose={() => {
-            setModalVisible(false);
-            setEditing(null);
-          }}
-          onSave={handleSave}
-          initial={editing}
-          saving={createMutation.isPending || updateMutation.isPending}
-          defaultDate={modalDefaultDate}
-          mode={modalMode}
-        />
+              <Animated.View
+                entering={FadeInDown.delay(160).duration(400)}
+                style={[
+                  styles.card,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <AppointmentLogSection
+                  past={past}
+                  onAdd={openAdd}
+                  onEdit={openEdit}
+                  onDelete={handleDelete}
+                />
+              </Animated.View>
+            </>
+          )}
+
+          <Animated.View
+            entering={FadeInDown.delay(320).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.reportCard}
+              onPress={() => router.push("/visit-summary")}
+            >
+              <View style={styles.reportCardIcon}>
+                <Ionicons
+                  name="document-text"
+                  size={28}
+                  color={colors.primary}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.title, { color: colors.foreground }]}>
+                  View Full Visit Report
+                </Text>
+                <Text
+                  style={[styles.scribeDesc, { color: colors.mutedForeground }]}
+                >
+                  Appointment log, questions, and symptoms — all in one place.
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={colors.mutedForeground}
+              />
+            </TouchableOpacity>
+          </Animated.View>
+
+          <VisitModal
+            visible={modalVisible}
+            onClose={() => {
+              setModalVisible(false);
+              setEditing(null);
+            }}
+            onSave={handleSave}
+            initial={editing}
+            saving={createMutation.isPending || updateMutation.isPending}
+            defaultDate={modalDefaultDate}
+            mode={modalMode}
+          />
+        </ResponsiveContainer>
       </ScrollView>
     </View>
   );
@@ -1540,9 +1550,7 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
     marginLeft: 2,
   },
-  scroll: {
-    paddingHorizontal: 16,
-  },
+  scroll: {},
   modeBtn: {
     flexDirection: "row",
     alignItems: "center",

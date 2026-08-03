@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { AskCard } from "@/components/AskCard";
 import { SUPPORT_PERSON_VOL_2 } from "@/lib/support-person-survival";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 
 const PDF_ASSET = require("@/assets/docs/support-person-vol2.pdf");
 const HANDOUT_TITLE =
@@ -94,62 +95,68 @@ export default function SupportPersonVol2Screen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View entering={FadeInDown.duration(400)}>
-          <Text style={[styles.seriesLabel, { color: colors.primary }]}>
-            {data.seriesLabel}
-          </Text>
-          <Text style={[styles.pageTitle, { color: colors.foreground }]}>
-            {data.handoutTitle}
-          </Text>
-          <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
-            {data.pageSubtitle}
-          </Text>
-        </Animated.View>
+        <ResponsiveContainer style={{ paddingHorizontal: 16 }}>
+          <Animated.View entering={FadeInDown.duration(400)}>
+            <Text style={[styles.seriesLabel, { color: colors.primary }]}>
+              {data.seriesLabel}
+            </Text>
+            <Text style={[styles.pageTitle, { color: colors.foreground }]}>
+              {data.handoutTitle}
+            </Text>
+            <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
+              {data.pageSubtitle}
+            </Text>
+          </Animated.View>
 
-        <Animated.View
-          entering={FadeInDown.delay(60).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            Summary
-          </Text>
-          <Text style={[styles.summaryText, { color: colors.mutedForeground }]}>
-            {data.summary}
-          </Text>
-          {data.highlights.map((h, i) => (
-            <View key={i} style={styles.highlightRow}>
-              <Text style={[styles.bullet, { color: colors.primary }]}>•</Text>
-              <Text
-                style={[
-                  styles.highlightText,
-                  { color: colors.mutedForeground },
-                ]}
-              >
-                {h}
-              </Text>
-            </View>
-          ))}
-        </Animated.View>
-
-        <TouchableOpacity
-          style={[styles.pdfBtn, { backgroundColor: colors.primary }]}
-          onPress={openHandoutPdf}
-        >
-          <Ionicons
-            name="document-text-outline"
-            size={18}
-            color={colors.primaryForeground}
-          />
-          <Text
-            style={[styles.pdfBtnText, { color: colors.primaryForeground }]}
+          <Animated.View
+            entering={FadeInDown.delay(60).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
           >
-            Read "Can We Do This?" (PDF)
-          </Text>
-        </TouchableOpacity>
-        <AskCard returnTo="/support-person-vol2" />
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              Summary
+            </Text>
+            <Text
+              style={[styles.summaryText, { color: colors.mutedForeground }]}
+            >
+              {data.summary}
+            </Text>
+            {data.highlights.map((h, i) => (
+              <View key={i} style={styles.highlightRow}>
+                <Text style={[styles.bullet, { color: colors.primary }]}>
+                  •
+                </Text>
+                <Text
+                  style={[
+                    styles.highlightText,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  {h}
+                </Text>
+              </View>
+            ))}
+          </Animated.View>
+
+          <TouchableOpacity
+            style={[styles.pdfBtn, { backgroundColor: colors.primary }]}
+            onPress={openHandoutPdf}
+          >
+            <Ionicons
+              name="document-text-outline"
+              size={18}
+              color={colors.primaryForeground}
+            />
+            <Text
+              style={[styles.pdfBtnText, { color: colors.primaryForeground }]}
+            >
+              Read "Can We Do This?" (PDF)
+            </Text>
+          </TouchableOpacity>
+          <AskCard returnTo="/support-person-vol2" />
+        </ResponsiveContainer>
       </ScrollView>
     </View>
   );
@@ -173,7 +180,6 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   scroll: {
-    paddingHorizontal: 16,
     paddingTop: 16,
   },
   seriesLabel: {

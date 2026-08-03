@@ -25,6 +25,7 @@ import {
   type VideoVaultTopicId,
   type VideoVaultVideo,
 } from "@/lib/video-vault";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 
 function VideoRow({ video }: { video: VideoVaultVideo }) {
   const colors = useColors();
@@ -235,127 +236,137 @@ export default function VideoVaultScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Animated.View entering={FadeInDown.duration(400)}>
-          <Text style={[styles.pageTitle, { color: colors.foreground }]}>
-            Video Vault
-          </Text>
-          <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
-            Evidence-based pregnancy and newborn education videos from trusted
-            sources — ACOG, SMFM, AAP, NICHD, CDC, March of Dimes, MotherToBaby,
-            and AWHONN.
-          </Text>
-          <View style={styles.statsRow}>
-            <Text style={[styles.statsText, { color: colors.mutedForeground }]}>
-              {totalVideos} videos · {topicCount} topics
+        <ResponsiveContainer style={{ paddingHorizontal: 16 }}>
+          <Animated.View entering={FadeInDown.duration(400)}>
+            <Text style={[styles.pageTitle, { color: colors.foreground }]}>
+              Video Vault
             </Text>
-            <Text style={[styles.statsHighlight, { color: colors.primary }]}>
-              {verifiedCount} direct links verified
+            <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
+              Evidence-based pregnancy and newborn education videos from trusted
+              sources — ACOG, SMFM, AAP, NICHD, CDC, March of Dimes,
+              MotherToBaby, and AWHONN.
             </Text>
-          </View>
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(40).duration(400)}
-          style={styles.searchRow}
-        >
-          <View
-            style={[
-              styles.searchBox,
-              { borderColor: colors.border, backgroundColor: colors.muted },
-            ]}
-          >
-            <Ionicons name="search" size={16} color={colors.mutedForeground} />
-            <TextInput
-              style={[styles.searchInput, { color: colors.foreground }]}
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Search videos or topics…"
-              placeholderTextColor={colors.mutedForeground}
-              returnKeyType="search"
-            />
-            {search.length > 0 && (
-              <TouchableOpacity
-                onPress={() => setSearch("")}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            <View style={styles.statsRow}>
+              <Text
+                style={[styles.statsText, { color: colors.mutedForeground }]}
               >
-                <Ionicons
-                  name="close-circle"
-                  size={16}
-                  color={colors.mutedForeground}
-                />
-              </TouchableOpacity>
-            )}
-          </View>
-        </Animated.View>
+                {totalVideos} videos · {topicCount} topics
+              </Text>
+              <Text style={[styles.statsHighlight, { color: colors.primary }]}>
+                {verifiedCount} direct links verified
+              </Text>
+            </View>
+          </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(60).duration(400)}>
-          <FlatList
-            data={VIDEO_VAULT_SOURCES}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(s) => s}
-            contentContainerStyle={styles.chipsRow}
-            renderItem={({ item }) => {
-              const active = filterSource === item;
-              return (
+          <Animated.View
+            entering={FadeInDown.delay(40).duration(400)}
+            style={styles.searchRow}
+          >
+            <View
+              style={[
+                styles.searchBox,
+                { borderColor: colors.border, backgroundColor: colors.muted },
+              ]}
+            >
+              <Ionicons
+                name="search"
+                size={16}
+                color={colors.mutedForeground}
+              />
+              <TextInput
+                style={[styles.searchInput, { color: colors.foreground }]}
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Search videos or topics…"
+                placeholderTextColor={colors.mutedForeground}
+                returnKeyType="search"
+              />
+              {search.length > 0 && (
                 <TouchableOpacity
-                  style={[
-                    styles.chip,
-                    {
-                      backgroundColor: active ? colors.primary : colors.card,
-                      borderColor: active ? colors.primary : colors.border,
-                    },
-                  ]}
-                  onPress={() => setFilterSource(item)}
-                  activeOpacity={0.8}
+                  onPress={() => setSearch("")}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Text
+                  <Ionicons
+                    name="close-circle"
+                    size={16}
+                    color={colors.mutedForeground}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.delay(60).duration(400)}>
+            <FlatList
+              data={VIDEO_VAULT_SOURCES}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(s) => s}
+              contentContainerStyle={styles.chipsRow}
+              renderItem={({ item }) => {
+                const active = filterSource === item;
+                return (
+                  <TouchableOpacity
                     style={[
-                      styles.chipText,
+                      styles.chip,
                       {
-                        color: active
-                          ? colors.primaryForeground
-                          : colors.foreground,
+                        backgroundColor: active ? colors.primary : colors.card,
+                        borderColor: active ? colors.primary : colors.border,
                       },
                     ]}
+                    onPress={() => setFilterSource(item)}
+                    activeOpacity={0.8}
                   >
-                    {item}
-                  </Text>
-                </TouchableOpacity>
-              );
-            }}
-          />
-        </Animated.View>
-
-        {filtered.length === 0 ? (
-          <Animated.View
-            entering={FadeInDown.delay(100).duration(400)}
-            style={styles.emptyState}
-          >
-            <Ionicons
-              name="videocam-off-outline"
-              size={28}
-              color={colors.mutedForeground}
+                    <Text
+                      style={[
+                        styles.chipText,
+                        {
+                          color: active
+                            ? colors.primaryForeground
+                            : colors.foreground,
+                        },
+                      ]}
+                    >
+                      {item}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }}
             />
-            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-              No videos found
-            </Text>
-            <Text style={[styles.emptySub, { color: colors.mutedForeground }]}>
-              Try a different search term or source filter.
-            </Text>
           </Animated.View>
-        ) : (
-          filtered.map((topic, i) => (
-            <TopicCard
-              key={topic.id}
-              topic={topic}
-              delay={100 + i * 30}
-              openTrigger={deepLinkTopicId === topic.id ? deepLinkVersion : 0}
-            />
-          ))
-        )}
 
-        <AskCard returnTo="/video-vault" />
+          {filtered.length === 0 ? (
+            <Animated.View
+              entering={FadeInDown.delay(100).duration(400)}
+              style={styles.emptyState}
+            >
+              <Ionicons
+                name="videocam-off-outline"
+                size={28}
+                color={colors.mutedForeground}
+              />
+              <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+                No videos found
+              </Text>
+              <Text
+                style={[styles.emptySub, { color: colors.mutedForeground }]}
+              >
+                Try a different search term or source filter.
+              </Text>
+            </Animated.View>
+          ) : (
+            filtered.map((topic, i) => (
+              <TopicCard
+                key={topic.id}
+                topic={topic}
+                delay={100 + i * 30}
+                openTrigger={deepLinkTopicId === topic.id ? deepLinkVersion : 0}
+              />
+            ))
+          )}
+
+          <AskCard returnTo="/video-vault" />
+        </ResponsiveContainer>
       </ScrollView>
     </View>
   );
@@ -371,7 +382,7 @@ const styles = StyleSheet.create({
   },
   backBtn: { flexDirection: "row", alignItems: "center" },
   backText: { fontSize: 16, fontFamily: "Inter_500Medium", marginLeft: 2 },
-  scroll: { paddingHorizontal: 16, paddingTop: 16 },
+  scroll: { paddingTop: 16 },
   pageTitle: { fontSize: 26, fontFamily: "Inter_700Bold", marginBottom: 4 },
   pageSub: {
     fontSize: 14,

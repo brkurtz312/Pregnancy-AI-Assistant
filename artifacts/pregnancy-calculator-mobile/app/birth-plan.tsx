@@ -47,6 +47,7 @@ import {
 import { clearPendingSync, markPendingSync } from "@/lib/sync-queue";
 import { useNetReconnect } from "@/hooks/useNetReconnect";
 import { SyncBanner } from "@/components/SyncBanner";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 
 const BLANK_PDF_ASSET = require("@/assets/docs/sample-birth-plan.pdf");
 
@@ -432,199 +433,210 @@ export default function BirthPlanScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View entering={FadeInDown.duration(400)}>
-          <Text style={[styles.pageTitle, { color: colors.foreground }]}>
-            Prepare Your Birth Plan
-          </Text>
-          <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
-            Based on the ACOG Sample Birth Plan
-          </Text>
-        </Animated.View>
+        <ResponsiveContainer style={{ paddingHorizontal: 16 }}>
+          <Animated.View entering={FadeInDown.duration(400)}>
+            <Text style={[styles.pageTitle, { color: colors.foreground }]}>
+              Prepare Your Birth Plan
+            </Text>
+            <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
+              Based on the ACOG Sample Birth Plan
+            </Text>
+          </Animated.View>
 
-        <Animated.View
-          entering={FadeInDown.delay(40).duration(400)}
-          style={[styles.noteBox, { backgroundColor: colors.primary + "18" }]}
-        >
-          <Ionicons
-            name="shield-checkmark-outline"
-            size={20}
-            color={colors.primary}
-          />
-          <Text style={[styles.noteText, { color: colors.foreground }]}>
-            {isSignedIn
-              ? "Your answers sync securely to your account so they're available on all your devices. A birth plan is a great starting point, but be prepared for changes as labor unfolds; review your plan with your ob-gyn well before your due date."
-              : "Your answers are saved on this device only when you're not signed in. Sign in to sync your birth plan across devices. A birth plan is a great starting point, but be prepared for changes as labor unfolds; review your plan with your ob-gyn well before your due date."}
-          </Text>
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(80).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            Prefer to fill it out yourself?
-          </Text>
-          <Text
-            style={[
-              styles.body,
-              { color: colors.mutedForeground, marginBottom: 14 },
-            ]}
-          >
-            Print or save a blank copy of the ACOG birth plan worksheet and fill
-            it out by hand.
-          </Text>
-          <TouchableOpacity
-            style={[
-              styles.pdfBtn,
-              { borderColor: colors.primary, backgroundColor: colors.card },
-            ]}
-            onPress={openBlankPdf}
+          <Animated.View
+            entering={FadeInDown.delay(40).duration(400)}
+            style={[styles.noteBox, { backgroundColor: colors.primary + "18" }]}
           >
             <Ionicons
-              name="document-text-outline"
-              size={18}
+              name="shield-checkmark-outline"
+              size={20}
               color={colors.primary}
             />
-            <Text style={[styles.pdfBtnText, { color: colors.primary }]}>
-              View Blank PDF
+            <Text style={[styles.noteText, { color: colors.foreground }]}>
+              {isSignedIn
+                ? "Your answers sync securely to your account so they're available on all your devices. A birth plan is a great starting point, but be prepared for changes as labor unfolds; review your plan with your ob-gyn well before your due date."
+                : "Your answers are saved on this device only when you're not signed in. Sign in to sync your birth plan across devices. A birth plan is a great starting point, but be prepared for changes as labor unfolds; review your plan with your ob-gyn well before your due date."}
             </Text>
-          </TouchableOpacity>
-        </Animated.View>
+          </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(120).duration(400)}>
-          <Text style={[styles.formHeading, { color: colors.foreground }]}>
-            Or answer these questions to auto-fill your plan
-          </Text>
-          <Text
-            style={[styles.formHeadingSub, { color: colors.mutedForeground }]}
+          <Animated.View
+            entering={FadeInDown.delay(80).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
           >
-            {answeredCount} answered so far — skip any that don't apply
-          </Text>
-        </Animated.View>
-
-        {!loaded && (
-          <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
-        )}
-
-        {loaded &&
-          BIRTH_PLAN_SECTIONS.map((section, sIndex) => (
-            <Animated.View
-              key={section.id}
-              entering={FadeInDown.delay(160 + sIndex * 40).duration(400)}
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              Prefer to fill it out yourself?
+            </Text>
+            <Text
               style={[
-                styles.card,
-                { backgroundColor: colors.card, borderColor: colors.border },
+                styles.body,
+                { color: colors.mutedForeground, marginBottom: 14 },
               ]}
             >
-              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-                {section.title}
-              </Text>
-              {section.intro && (
-                <Text
-                  style={[
-                    styles.body,
-                    { color: colors.mutedForeground, marginBottom: 12 },
-                  ]}
-                >
-                  {section.intro}
-                </Text>
-              )}
-              {section.fields.map((field) => {
-                const value = answers[field.id];
-                if (field.type === "boolean") {
-                  return (
-                    <BooleanRow
-                      key={field.id}
-                      field={field}
-                      value={value}
-                      onChange={(v) => setField(field.id, v)}
-                      colors={colors}
-                    />
-                  );
-                }
-                if (field.type === "single") {
-                  return (
-                    <SingleChoiceField
-                      key={field.id}
-                      field={field}
-                      value={value}
-                      onChange={(v) => setField(field.id, v)}
-                      colors={colors}
-                    />
-                  );
-                }
-                if (field.type === "multi") {
-                  return (
-                    <MultiChoiceField
-                      key={field.id}
-                      field={field}
-                      value={value}
-                      onChange={(v) => setField(field.id, v)}
-                      colors={colors}
-                    />
-                  );
-                }
-                return (
-                  <TextField
-                    key={field.id}
-                    field={field}
-                    value={value}
-                    onChange={(v) => setField(field.id, v)}
-                    colors={colors}
-                  />
-                );
-              })}
-            </Animated.View>
-          ))}
-
-        <TouchableOpacity
-          style={[styles.generateBtn, { backgroundColor: colors.primary }]}
-          onPress={handleGenerate}
-          disabled={generating}
-        >
-          {generating ? (
-            <ActivityIndicator color={colors.primaryForeground} />
-          ) : (
-            <>
+              Print or save a blank copy of the ACOG birth plan worksheet and
+              fill it out by hand.
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.pdfBtn,
+                { borderColor: colors.primary, backgroundColor: colors.card },
+              ]}
+              onPress={openBlankPdf}
+            >
               <Ionicons
-                name="sparkles-outline"
+                name="document-text-outline"
                 size={18}
-                color={colors.primaryForeground}
+                color={colors.primary}
               />
-              <Text
+              <Text style={[styles.pdfBtnText, { color: colors.primary }]}>
+                View Blank PDF
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.delay(120).duration(400)}>
+            <Text style={[styles.formHeading, { color: colors.foreground }]}>
+              Or answer these questions to auto-fill your plan
+            </Text>
+            <Text
+              style={[styles.formHeadingSub, { color: colors.mutedForeground }]}
+            >
+              {answeredCount} answered so far — skip any that don't apply
+            </Text>
+          </Animated.View>
+
+          {!loaded && (
+            <ActivityIndicator
+              color={colors.primary}
+              style={{ marginTop: 20 }}
+            />
+          )}
+
+          {loaded &&
+            BIRTH_PLAN_SECTIONS.map((section, sIndex) => (
+              <Animated.View
+                key={section.id}
+                entering={FadeInDown.delay(160 + sIndex * 40).duration(400)}
                 style={[
-                  styles.generateBtnText,
-                  { color: colors.primaryForeground },
+                  styles.card,
+                  { backgroundColor: colors.card, borderColor: colors.border },
                 ]}
               >
-                Generate My Birth Plan
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
+                <Text
+                  style={[styles.sectionTitle, { color: colors.foreground }]}
+                >
+                  {section.title}
+                </Text>
+                {section.intro && (
+                  <Text
+                    style={[
+                      styles.body,
+                      { color: colors.mutedForeground, marginBottom: 12 },
+                    ]}
+                  >
+                    {section.intro}
+                  </Text>
+                )}
+                {section.fields.map((field) => {
+                  const value = answers[field.id];
+                  if (field.type === "boolean") {
+                    return (
+                      <BooleanRow
+                        key={field.id}
+                        field={field}
+                        value={value}
+                        onChange={(v) => setField(field.id, v)}
+                        colors={colors}
+                      />
+                    );
+                  }
+                  if (field.type === "single") {
+                    return (
+                      <SingleChoiceField
+                        key={field.id}
+                        field={field}
+                        value={value}
+                        onChange={(v) => setField(field.id, v)}
+                        colors={colors}
+                      />
+                    );
+                  }
+                  if (field.type === "multi") {
+                    return (
+                      <MultiChoiceField
+                        key={field.id}
+                        field={field}
+                        value={value}
+                        onChange={(v) => setField(field.id, v)}
+                        colors={colors}
+                      />
+                    );
+                  }
+                  return (
+                    <TextField
+                      key={field.id}
+                      field={field}
+                      value={value}
+                      onChange={(v) => setField(field.id, v)}
+                      colors={colors}
+                    />
+                  );
+                })}
+              </Animated.View>
+            ))}
 
-        {generated && (
           <TouchableOpacity
-            style={[
-              styles.viewBtn,
-              { borderColor: colors.primary, backgroundColor: colors.card },
-            ]}
-            onPress={() =>
-              router.push({
-                pathname: "/birth-plan-summary",
-                params: { from: "Birth Plan" },
-              })
-            }
+            style={[styles.generateBtn, { backgroundColor: colors.primary }]}
+            onPress={handleGenerate}
+            disabled={generating}
           >
-            <Ionicons name="reader-outline" size={18} color={colors.primary} />
-            <Text style={[styles.viewBtnText, { color: colors.primary }]}>
-              View My Birth Plan in App
-            </Text>
+            {generating ? (
+              <ActivityIndicator color={colors.primaryForeground} />
+            ) : (
+              <>
+                <Ionicons
+                  name="sparkles-outline"
+                  size={18}
+                  color={colors.primaryForeground}
+                />
+                <Text
+                  style={[
+                    styles.generateBtnText,
+                    { color: colors.primaryForeground },
+                  ]}
+                >
+                  Generate My Birth Plan
+                </Text>
+              </>
+            )}
           </TouchableOpacity>
-        )}
+
+          {generated && (
+            <TouchableOpacity
+              style={[
+                styles.viewBtn,
+                { borderColor: colors.primary, backgroundColor: colors.card },
+              ]}
+              onPress={() =>
+                router.push({
+                  pathname: "/birth-plan-summary",
+                  params: { from: "Birth Plan" },
+                })
+              }
+            >
+              <Ionicons
+                name="reader-outline"
+                size={18}
+                color={colors.primary}
+              />
+              <Text style={[styles.viewBtnText, { color: colors.primary }]}>
+                View My Birth Plan in App
+              </Text>
+            </TouchableOpacity>
+          )}
+        </ResponsiveContainer>
       </ScrollView>
     </View>
   );
@@ -648,7 +660,6 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   scroll: {
-    paddingHorizontal: 16,
     paddingTop: 16,
   },
   pageTitle: {

@@ -33,6 +33,7 @@ import { getTimelineForWeeks } from "@/lib/prenatal-testing-content";
 import { loadQuestions, getSelectedQuestions } from "@/lib/visit-questions";
 import { PassGate } from "@/components/PassGate";
 import { usePass } from "@/hooks/usePass";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -497,297 +498,316 @@ export default function VisitSummaryScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View entering={FadeInDown.duration(400)}>
-          <Text style={[styles.pageTitle, { color: colors.foreground }]}>
-            Visit Report
-          </Text>
-          <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
-            {nextVisit
-              ? formatDate(nextVisit.visitDate)
-              : "No upcoming appointment scheduled"}
-            {gaAtVisit ? ` · ${gaAtVisit.weeks}w ${gaAtVisit.days}d` : ""}
-          </Text>
-        </Animated.View>
+        <ResponsiveContainer style={{ paddingHorizontal: 16 }}>
+          <Animated.View entering={FadeInDown.duration(400)}>
+            <Text style={[styles.pageTitle, { color: colors.foreground }]}>
+              Visit Report
+            </Text>
+            <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
+              {nextVisit
+                ? formatDate(nextVisit.visitDate)
+                : "No upcoming appointment scheduled"}
+              {gaAtVisit ? ` · ${gaAtVisit.weeks}w ${gaAtVisit.days}d` : ""}
+            </Text>
+          </Animated.View>
 
-        {(latestMeasurementVisit?.weight ||
-          latestMeasurementVisit?.bloodPressure ||
-          weightGainText) && (
+          {(latestMeasurementVisit?.weight ||
+            latestMeasurementVisit?.bloodPressure ||
+            weightGainText) && (
+            <Animated.View
+              entering={FadeInDown.delay(60).duration(400)}
+              style={[
+                styles.card,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+                Last Recorded Measurements
+              </Text>
+              <View style={styles.statsRow}>
+                {latestMeasurementVisit?.weight && (
+                  <View
+                    style={[styles.statBox, { backgroundColor: colors.muted }]}
+                  >
+                    <Text
+                      style={[
+                        styles.statLabel,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      WEIGHT
+                    </Text>
+                    <Text
+                      style={[styles.statValue, { color: colors.foreground }]}
+                    >
+                      {latestMeasurementVisit.weight}
+                    </Text>
+                  </View>
+                )}
+                {latestMeasurementVisit?.bloodPressure && (
+                  <View
+                    style={[styles.statBox, { backgroundColor: colors.muted }]}
+                  >
+                    <Text
+                      style={[
+                        styles.statLabel,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      BLOOD PRESSURE
+                    </Text>
+                    <Text
+                      style={[styles.statValue, { color: colors.foreground }]}
+                    >
+                      {latestMeasurementVisit.bloodPressure}
+                    </Text>
+                  </View>
+                )}
+                {weightGainText && (
+                  <View
+                    style={[
+                      styles.statBox,
+                      { backgroundColor: colors.primary + "18" },
+                    ]}
+                  >
+                    <Text style={[styles.statLabel, { color: colors.primary }]}>
+                      TOTAL GAINED
+                    </Text>
+                    <Text style={[styles.statValue, { color: colors.primary }]}>
+                      {weightGainText}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <Text
+                style={[
+                  styles.bodyMuted,
+                  { color: colors.mutedForeground, marginTop: 6 },
+                ]}
+              >
+                From visit on{" "}
+                {formatShortDate(latestMeasurementVisit!.visitDate)}
+              </Text>
+            </Animated.View>
+          )}
+
           <Animated.View
-            entering={FadeInDown.delay(60).duration(400)}
+            entering={FadeInDown.delay(80).duration(400)}
             style={[
               styles.card,
               { backgroundColor: colors.card, borderColor: colors.border },
             ]}
           >
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-              Last Recorded Measurements
+              What to Expect at This Visit
             </Text>
-            <View style={styles.statsRow}>
-              {latestMeasurementVisit?.weight && (
-                <View
-                  style={[styles.statBox, { backgroundColor: colors.muted }]}
-                >
+            {whatToExpect.length ? (
+              whatToExpect.map((t) => (
+                <View key={t.time} style={styles.expectItem}>
+                  <Text style={[styles.expectTime, { color: colors.primary }]}>
+                    {t.time}
+                  </Text>
+                  <Text style={[styles.body, { color: colors.foreground }]}>
+                    {t.tests}
+                  </Text>
                   <Text
                     style={[
-                      styles.statLabel,
+                      styles.bodyMuted,
                       { color: colors.mutedForeground },
                     ]}
                   >
-                    WEIGHT
-                  </Text>
-                  <Text
-                    style={[styles.statValue, { color: colors.foreground }]}
-                  >
-                    {latestMeasurementVisit.weight}
+                    {t.why}
                   </Text>
                 </View>
-              )}
-              {latestMeasurementVisit?.bloodPressure && (
-                <View
-                  style={[styles.statBox, { backgroundColor: colors.muted }]}
-                >
-                  <Text
-                    style={[
-                      styles.statLabel,
-                      { color: colors.mutedForeground },
-                    ]}
-                  >
-                    BLOOD PRESSURE
+              ))
+            ) : (
+              <Text
+                style={[styles.bodyMuted, { color: colors.mutedForeground }]}
+              >
+                Set a due date and appointment to see stage-specific guidance.
+              </Text>
+            )}
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.delay(140).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              Questions to Ask
+            </Text>
+            {selectedQuestions.length ? (
+              selectedQuestions.map((q) => (
+                <View key={q} style={styles.bulletRow}>
+                  <Text style={[styles.bullet, { color: colors.primary }]}>
+                    •
                   </Text>
-                  <Text
-                    style={[styles.statValue, { color: colors.foreground }]}
-                  >
-                    {latestMeasurementVisit.bloodPressure}
+                  <Text style={[styles.body, { color: colors.foreground }]}>
+                    {q}
                   </Text>
                 </View>
-              )}
-              {weightGainText && (
-                <View
+              ))
+            ) : (
+              <Text
+                style={[styles.bodyMuted, { color: colors.mutedForeground }]}
+              >
+                No questions selected yet. Go back to Office Visits to pick
+                some.
+              </Text>
+            )}
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.delay(200).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              Recent Symptoms
+            </Text>
+            {symptoms?.items?.length ? (
+              symptoms.items.map((s) => (
+                <View key={s.id} style={styles.bulletRow}>
+                  <Text style={[styles.bullet, { color: colors.primary }]}>
+                    •
+                  </Text>
+                  <Text style={[styles.body, { color: colors.foreground }]}>
+                    {s.symptom} ({formatShortDate(s.loggedAt)})
+                    {s.severity ? ` — severity ${s.severity}/5` : ""}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <Text
+                style={[styles.bodyMuted, { color: colors.mutedForeground }]}
+              >
+                No symptoms logged recently.
+              </Text>
+            )}
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.delay(260).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              Kick Counts
+            </Text>
+            {latestKickSession ? (
+              <Text style={[styles.body, { color: colors.foreground }]}>
+                {latestKickSession.kickCount} kicks on{" "}
+                {formatShortDate(latestKickSession.startedAt)}
+              </Text>
+            ) : (
+              <Text
+                style={[styles.bodyMuted, { color: colors.mutedForeground }]}
+              >
+                No kick counting sessions recorded yet.
+              </Text>
+            )}
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.delay(320).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              Contraction Timing (Today)
+            </Text>
+            {contractionItems.length ? (
+              contractionItems.map((c) => (
+                <View key={c.id} style={styles.bulletRow}>
+                  <Text style={[styles.bullet, { color: colors.primary }]}>
+                    •
+                  </Text>
+                  <Text style={[styles.body, { color: colors.foreground }]}>
+                    Started {formatShortDate(c.startedAt)}
+                    {c.durationSeconds
+                      ? ` — ${Math.round(c.durationSeconds / 60)} min`
+                      : ""}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <Text
+                style={[styles.bodyMuted, { color: colors.mutedForeground }]}
+              >
+                No contractions logged today.
+              </Text>
+            )}
+          </Animated.View>
+
+          <TouchableOpacity
+            style={[
+              styles.exportBtn,
+              {
+                backgroundColor: hasPass
+                  ? colors.primary
+                  : (colors.muted ?? "#f5f5f5"),
+                borderWidth: hasPass ? 0 : 1,
+                borderColor: colors.border,
+              },
+            ]}
+            onPress={() => {
+              if (!hasPass) {
+                setShowPassGate(true);
+                return;
+              }
+              if (Platform.OS === "web") {
+                void handleExport();
+              } else {
+                void handleViewInApp();
+              }
+            }}
+            disabled={exporting || viewing}
+          >
+            {exporting || viewing ? (
+              <ActivityIndicator color={colors.primaryForeground} />
+            ) : (
+              <>
+                <Ionicons
+                  name={
+                    hasPass ? "document-text-outline" : "lock-closed-outline"
+                  }
+                  size={18}
+                  color={
+                    hasPass ? colors.primaryForeground : colors.mutedForeground
+                  }
+                />
+                <Text
                   style={[
-                    styles.statBox,
-                    { backgroundColor: colors.primary + "18" },
+                    styles.exportBtnText,
+                    {
+                      color: hasPass
+                        ? colors.primaryForeground
+                        : colors.mutedForeground,
+                    },
                   ]}
                 >
-                  <Text style={[styles.statLabel, { color: colors.primary }]}>
-                    TOTAL GAINED
-                  </Text>
-                  <Text style={[styles.statValue, { color: colors.primary }]}>
-                    {weightGainText}
-                  </Text>
-                </View>
-              )}
-            </View>
-            <Text
-              style={[
-                styles.bodyMuted,
-                { color: colors.mutedForeground, marginTop: 6 },
-              ]}
-            >
-              From visit on {formatShortDate(latestMeasurementVisit!.visitDate)}
-            </Text>
-          </Animated.View>
-        )}
+                  {hasPass ? "View Visit Report" : "Unlock to View Report"}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
 
-        <Animated.View
-          entering={FadeInDown.delay(80).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            What to Expect at This Visit
-          </Text>
-          {whatToExpect.length ? (
-            whatToExpect.map((t) => (
-              <View key={t.time} style={styles.expectItem}>
-                <Text style={[styles.expectTime, { color: colors.primary }]}>
-                  {t.time}
-                </Text>
-                <Text style={[styles.body, { color: colors.foreground }]}>
-                  {t.tests}
-                </Text>
-                <Text
-                  style={[styles.bodyMuted, { color: colors.mutedForeground }]}
-                >
-                  {t.why}
-                </Text>
-              </View>
-            ))
-          ) : (
-            <Text style={[styles.bodyMuted, { color: colors.mutedForeground }]}>
-              Set a due date and appointment to see stage-specific guidance.
-            </Text>
-          )}
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(140).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            Questions to Ask
-          </Text>
-          {selectedQuestions.length ? (
-            selectedQuestions.map((q) => (
-              <View key={q} style={styles.bulletRow}>
-                <Text style={[styles.bullet, { color: colors.primary }]}>
-                  •
-                </Text>
-                <Text style={[styles.body, { color: colors.foreground }]}>
-                  {q}
-                </Text>
-              </View>
-            ))
-          ) : (
-            <Text style={[styles.bodyMuted, { color: colors.mutedForeground }]}>
-              No questions selected yet. Go back to Office Visits to pick some.
-            </Text>
-          )}
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(200).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            Recent Symptoms
-          </Text>
-          {symptoms?.items?.length ? (
-            symptoms.items.map((s) => (
-              <View key={s.id} style={styles.bulletRow}>
-                <Text style={[styles.bullet, { color: colors.primary }]}>
-                  •
-                </Text>
-                <Text style={[styles.body, { color: colors.foreground }]}>
-                  {s.symptom} ({formatShortDate(s.loggedAt)})
-                  {s.severity ? ` — severity ${s.severity}/5` : ""}
-                </Text>
-              </View>
-            ))
-          ) : (
-            <Text style={[styles.bodyMuted, { color: colors.mutedForeground }]}>
-              No symptoms logged recently.
-            </Text>
-          )}
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(260).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            Kick Counts
-          </Text>
-          {latestKickSession ? (
-            <Text style={[styles.body, { color: colors.foreground }]}>
-              {latestKickSession.kickCount} kicks on{" "}
-              {formatShortDate(latestKickSession.startedAt)}
-            </Text>
-          ) : (
-            <Text style={[styles.bodyMuted, { color: colors.mutedForeground }]}>
-              No kick counting sessions recorded yet.
-            </Text>
-          )}
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(320).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            Contraction Timing (Today)
-          </Text>
-          {contractionItems.length ? (
-            contractionItems.map((c) => (
-              <View key={c.id} style={styles.bulletRow}>
-                <Text style={[styles.bullet, { color: colors.primary }]}>
-                  •
-                </Text>
-                <Text style={[styles.body, { color: colors.foreground }]}>
-                  Started {formatShortDate(c.startedAt)}
-                  {c.durationSeconds
-                    ? ` — ${Math.round(c.durationSeconds / 60)} min`
-                    : ""}
-                </Text>
-              </View>
-            ))
-          ) : (
-            <Text style={[styles.bodyMuted, { color: colors.mutedForeground }]}>
-              No contractions logged today.
-            </Text>
-          )}
-        </Animated.View>
-
-        <TouchableOpacity
-          style={[
-            styles.exportBtn,
-            {
-              backgroundColor: hasPass
-                ? colors.primary
-                : (colors.muted ?? "#f5f5f5"),
-              borderWidth: hasPass ? 0 : 1,
-              borderColor: colors.border,
-            },
-          ]}
-          onPress={() => {
-            if (!hasPass) {
-              setShowPassGate(true);
-              return;
-            }
-            if (Platform.OS === "web") {
-              void handleExport();
-            } else {
-              void handleViewInApp();
-            }
-          }}
-          disabled={exporting || viewing}
-        >
-          {exporting || viewing ? (
-            <ActivityIndicator color={colors.primaryForeground} />
-          ) : (
-            <>
-              <Ionicons
-                name={hasPass ? "document-text-outline" : "lock-closed-outline"}
-                size={18}
-                color={
-                  hasPass ? colors.primaryForeground : colors.mutedForeground
-                }
-              />
-              <Text
-                style={[
-                  styles.exportBtnText,
-                  {
-                    color: hasPass
-                      ? colors.primaryForeground
-                      : colors.mutedForeground,
-                  },
-                ]}
-              >
-                {hasPass ? "View Visit Report" : "Unlock to View Report"}
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
-
-        <PassGate
-          visible={showPassGate}
-          onClose={() => setShowPassGate(false)}
-          title="Full Pregnancy Pass"
-          description="View and share your complete visit report — including encounter notes, prep questions, and test timeline — as a beautiful PDF."
-        />
+          <PassGate
+            visible={showPassGate}
+            onClose={() => setShowPassGate(false)}
+            title="Full Pregnancy Pass"
+            description="View and share your complete visit report — including encounter notes, prep questions, and test timeline — as a beautiful PDF."
+          />
+        </ResponsiveContainer>
       </ScrollView>
     </View>
   );
@@ -811,7 +831,6 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   scroll: {
-    paddingHorizontal: 16,
     paddingTop: 16,
   },
   pageTitle: {

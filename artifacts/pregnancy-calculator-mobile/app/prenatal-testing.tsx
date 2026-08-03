@@ -26,6 +26,7 @@ import {
   type TestDetail,
   type HepBTest,
 } from "@/lib/prenatal-testing-content";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 
 const PDF_ASSET = require("@/assets/docs/routine-prenatal-tests.pdf");
 
@@ -143,219 +144,232 @@ export default function PrenatalTestingScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View entering={FadeInDown.duration(400)}>
-          <Text style={[styles.pageTitle, { color: colors.foreground }]}>
-            Understanding Prenatal Testing
-          </Text>
-          <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
-            What to expect during pregnancy and why these tests matter
-          </Text>
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(40).duration(400)}
-          style={[styles.tipBanner, { backgroundColor: colors.primary + "18" }]}
-        >
-          <Ionicons
-            name="information-circle"
-            size={20}
-            color={colors.primary}
-          />
-          <Text style={[styles.tipBannerText, { color: colors.foreground }]}>
-            Tap on each test below for more information — why it's done, when
-            it's done, and what happens if the result is abnormal.
-          </Text>
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(80).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.body, { color: colors.foreground }]}>
-            Prenatal testing helps your care team watch over both you and your
-            baby throughout pregnancy. Some tests are routine for most
-            pregnancies, while others are offered as options or recommended only
-            when there are special risks, symptoms, or earlier results that need
-            a closer look.
-          </Text>
-          <View
-            style={[styles.noteBox, { backgroundColor: colors.primary + "18" }]}
-          >
-            <Text style={[styles.noteText, { color: colors.foreground }]}>
-              Important: This page describes common prenatal testing during
-              pregnancy, but care should always be individualized. The exact
-              timing or need for testing may differ based on each patient's
-              history, symptoms, and clinical findings.
+        <ResponsiveContainer style={{ paddingHorizontal: 16 }}>
+          <Animated.View entering={FadeInDown.duration(400)}>
+            <Text style={[styles.pageTitle, { color: colors.foreground }]}>
+              Understanding Prenatal Testing
             </Text>
-          </View>
-        </Animated.View>
+            <Text style={[styles.pageSub, { color: colors.mutedForeground }]}>
+              What to expect during pregnancy and why these tests matter
+            </Text>
+          </Animated.View>
 
-        {TEST_CATEGORIES.map((category, categoryIndex) => (
           <Animated.View
-            key={category.id}
-            entering={FadeInDown.delay(120 + categoryIndex * 40).duration(400)}
+            entering={FadeInDown.delay(40).duration(400)}
+            style={[
+              styles.tipBanner,
+              { backgroundColor: colors.primary + "18" },
+            ]}
+          >
+            <Ionicons
+              name="information-circle"
+              size={20}
+              color={colors.primary}
+            />
+            <Text style={[styles.tipBannerText, { color: colors.foreground }]}>
+              Tap on each test below for more information — why it's done, when
+              it's done, and what happens if the result is abnormal.
+            </Text>
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.delay(80).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.body, { color: colors.foreground }]}>
+              Prenatal testing helps your care team watch over both you and your
+              baby throughout pregnancy. Some tests are routine for most
+              pregnancies, while others are offered as options or recommended
+              only when there are special risks, symptoms, or earlier results
+              that need a closer look.
+            </Text>
+            <View
+              style={[
+                styles.noteBox,
+                { backgroundColor: colors.primary + "18" },
+              ]}
+            >
+              <Text style={[styles.noteText, { color: colors.foreground }]}>
+                Important: This page describes common prenatal testing during
+                pregnancy, but care should always be individualized. The exact
+                timing or need for testing may differ based on each patient's
+                history, symptoms, and clinical findings.
+              </Text>
+            </View>
+          </Animated.View>
+
+          {TEST_CATEGORIES.map((category, categoryIndex) => (
+            <Animated.View
+              key={category.id}
+              entering={FadeInDown.delay(120 + categoryIndex * 40).duration(
+                400,
+              )}
+              style={[
+                styles.card,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+                {category.title}
+              </Text>
+              {category.tests.map((test, i) => (
+                <View key={test.id}>
+                  <TouchableOpacity
+                    style={[
+                      styles.testRow,
+                      i < category.tests.length - 1 && {
+                        borderBottomWidth: 1,
+                        borderBottomColor: colors.border,
+                      },
+                    ]}
+                    onPress={() => setSelectedTest(test)}
+                    activeOpacity={0.6}
+                  >
+                    <View
+                      style={[
+                        styles.testDot,
+                        { backgroundColor: colors.primary },
+                      ]}
+                    />
+                    <Text style={[styles.testName, { color: colors.primary }]}>
+                      {test.name}
+                    </Text>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={18}
+                      color={colors.mutedForeground}
+                    />
+                  </TouchableOpacity>
+                  {isHepBTest(test) && (
+                    <View style={styles.subPartRow}>
+                      {test.subParts.map((sub) => (
+                        <TouchableOpacity
+                          key={sub.id}
+                          style={[
+                            styles.subPartChip,
+                            {
+                              backgroundColor: colors.primary + "14",
+                              borderColor: colors.primary + "40",
+                            },
+                          ]}
+                          onPress={() => setSelectedTest(sub)}
+                          activeOpacity={0.6}
+                        >
+                          <Text
+                            style={[
+                              styles.subPartChipText,
+                              { color: colors.primary },
+                            ]}
+                          >
+                            {sub.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              ))}
+            </Animated.View>
+          ))}
+
+          <Animated.View
+            entering={FadeInDown.delay(240).duration(400)}
             style={[
               styles.card,
               { backgroundColor: colors.card, borderColor: colors.border },
             ]}
           >
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-              {category.title}
+              Questions patients often ask
             </Text>
-            {category.tests.map((test, i) => (
-              <View key={test.id}>
-                <TouchableOpacity
-                  style={[
-                    styles.testRow,
-                    i < category.tests.length - 1 && {
-                      borderBottomWidth: 1,
-                      borderBottomColor: colors.border,
-                    },
-                  ]}
-                  onPress={() => setSelectedTest(test)}
-                  activeOpacity={0.6}
-                >
-                  <View
-                    style={[
-                      styles.testDot,
-                      { backgroundColor: colors.primary },
-                    ]}
-                  />
-                  <Text style={[styles.testName, { color: colors.primary }]}>
-                    {test.name}
-                  </Text>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={18}
-                    color={colors.mutedForeground}
-                  />
-                </TouchableOpacity>
-                {isHepBTest(test) && (
-                  <View style={styles.subPartRow}>
-                    {test.subParts.map((sub) => (
-                      <TouchableOpacity
-                        key={sub.id}
-                        style={[
-                          styles.subPartChip,
-                          {
-                            backgroundColor: colors.primary + "14",
-                            borderColor: colors.primary + "40",
-                          },
-                        ]}
-                        onPress={() => setSelectedTest(sub)}
-                        activeOpacity={0.6}
-                      >
-                        <Text
-                          style={[
-                            styles.subPartChipText,
-                            { color: colors.primary },
-                          ]}
-                        >
-                          {sub.name}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
+            {FAQS.map((item, i) => (
+              <View
+                key={item.q}
+                style={[
+                  styles.faqRow,
+                  i < FAQS.length - 1 && {
+                    borderBottomWidth: 1,
+                    borderBottomColor: colors.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.faqQ, { color: colors.foreground }]}>
+                  {item.q}
+                </Text>
+                <Text style={[styles.faqA, { color: colors.mutedForeground }]}>
+                  {item.a}
+                </Text>
               </View>
             ))}
           </Animated.View>
-        ))}
 
-        <Animated.View
-          entering={FadeInDown.delay(240).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            Questions patients often ask
-          </Text>
-          {FAQS.map((item, i) => (
-            <View
-              key={item.q}
+          <Animated.View
+            entering={FadeInDown.delay(280).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              Questions to ask at your next visit
+            </Text>
+            {VISIT_QUESTIONS.map((q) => (
+              <View key={q} style={styles.bulletRow}>
+                <View
+                  style={[
+                    styles.bulletDot,
+                    { backgroundColor: colors.primary },
+                  ]}
+                />
+                <Text style={[styles.bulletText, { color: colors.foreground }]}>
+                  {q}
+                </Text>
+              </View>
+            ))}
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.delay(360).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              Want the full picture?
+            </Text>
+            <Text
               style={[
-                styles.faqRow,
-                i < FAQS.length - 1 && {
-                  borderBottomWidth: 1,
-                  borderBottomColor: colors.border,
-                },
+                styles.body,
+                { color: colors.mutedForeground, marginBottom: 14 },
               ]}
             >
-              <Text style={[styles.faqQ, { color: colors.foreground }]}>
-                {item.q}
-              </Text>
-              <Text style={[styles.faqA, { color: colors.mutedForeground }]}>
-                {item.a}
-              </Text>
-            </View>
-          ))}
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(280).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            Questions to ask at your next visit
-          </Text>
-          {VISIT_QUESTIONS.map((q) => (
-            <View key={q} style={styles.bulletRow}>
-              <View
-                style={[styles.bulletDot, { backgroundColor: colors.primary }]}
-              />
-              <Text style={[styles.bulletText, { color: colors.foreground }]}>
-                {q}
-              </Text>
-            </View>
-          ))}
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.delay(360).duration(400)}
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            Want the full picture?
-          </Text>
-          <Text
-            style={[
-              styles.body,
-              { color: colors.mutedForeground, marginBottom: 14 },
-            ]}
-          >
-            If you'd like to see the complete PDF summary this page is based on,
-            you can view or save it here.
-          </Text>
-          <TouchableOpacity
-            style={[
-              styles.pdfBtn,
-              { borderColor: colors.primary, backgroundColor: colors.card },
-            ]}
-            onPress={openPdfSummary}
-          >
-            <Ionicons
-              name="document-text-outline"
-              size={18}
-              color={colors.primary}
-            />
-            <Text style={[styles.pdfBtnText, { color: colors.primary }]}>
-              View Full Handout (PDF)
+              If you'd like to see the complete PDF summary this page is based
+              on, you can view or save it here.
             </Text>
-          </TouchableOpacity>
-        </Animated.View>
+            <TouchableOpacity
+              style={[
+                styles.pdfBtn,
+                { borderColor: colors.primary, backgroundColor: colors.card },
+              ]}
+              onPress={openPdfSummary}
+            >
+              <Ionicons
+                name="document-text-outline"
+                size={18}
+                color={colors.primary}
+              />
+              <Text style={[styles.pdfBtnText, { color: colors.primary }]}>
+                View Full Handout (PDF)
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
 
-        <AskCard returnTo="/prenatal-testing" />
+          <AskCard returnTo="/prenatal-testing" />
+        </ResponsiveContainer>
       </ScrollView>
 
       <Modal
@@ -460,7 +474,6 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
   },
   scroll: {
-    paddingHorizontal: 16,
     paddingTop: 16,
   },
   pageTitle: {

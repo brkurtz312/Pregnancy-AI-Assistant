@@ -19,6 +19,7 @@ import { useColors } from "@/hooks/useColors";
 import { saveScribeNote, type PatientSummary } from "@/lib/scribe-note";
 import { PassGate } from "@/components/PassGate";
 import { usePass } from "@/hooks/usePass";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 
 const apiBase = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
@@ -185,191 +186,207 @@ export default function ScribeScreen() {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <Ionicons name="mic-circle-outline" size={44} color={ACCENT} />
-          <Text style={[styles.title, { color: colors.foreground }]}>
-            Visit Notes Scribe
-          </Text>
-          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            Record your appointment and get a plain-language summary of what was
-            discussed, your next steps, and what to remember — in your own
-            words.
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <View
-            style={[
-              styles.infoBox,
-              { backgroundColor: colors.muted ?? "#f5f5f5" },
-            ]}
-          >
-            <Ionicons
-              name="information-circle-outline"
-              size={16}
-              color={colors.mutedForeground}
-            />
-            <Text style={[styles.infoText, { color: colors.mutedForeground }]}>
-              Keep this screen open during your visit. Your recording stays on
-              your device and is only used to create your personal summary.
+        <ResponsiveContainer style={{ paddingHorizontal: 16 }}>
+          <View style={styles.header}>
+            <Ionicons name="mic-circle-outline" size={44} color={ACCENT} />
+            <Text style={[styles.title, { color: colors.foreground }]}>
+              Visit Notes Scribe
+            </Text>
+            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+              Record your appointment and get a plain-language summary of what
+              was discussed, your next steps, and what to remember — in your own
+              words.
             </Text>
           </View>
 
-          {phase === "idle" && (
-            <TouchableOpacity
-              style={[styles.recordBtn, { backgroundColor: ACCENT }]}
-              onPress={startRecording}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="mic" size={28} color="#fff" />
-              <Text style={styles.recordBtnText}>Start Recording</Text>
-            </TouchableOpacity>
-          )}
-
-          {phase === "recording" && (
-            <View style={styles.recordingState}>
-              <View style={[styles.pulse, { borderColor: "#ef4444" }]}>
-                <TouchableOpacity
-                  style={[styles.stopBtn, { backgroundColor: "#ef4444" }]}
-                  onPress={stopRecording}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons name="stop" size={28} color="#fff" />
-                </TouchableOpacity>
-              </View>
-              <Text style={[styles.recordingLabel, { color: "#ef4444" }]}>
-                Recording… tap to stop
-              </Text>
-            </View>
-          )}
-
-          {(phase === "transcribing" || phase === "generating") && (
-            <View style={styles.loadingState}>
-              <ActivityIndicator size="large" color={ACCENT} />
-              <Text
-                style={[styles.loadingText, { color: colors.mutedForeground }]}
-              >
-                {phase === "transcribing"
-                  ? "Transcribing your recording…"
-                  : "Creating your visit summary…"}
-              </Text>
-            </View>
-          )}
-
-          {(phase === "transcribed" || phase === "done") && (
-            <View style={styles.transcriptSection}>
-              <Text
-                style={[styles.sectionLabel, { color: colors.mutedForeground }]}
-              >
-                WHAT WAS RECORDED
-              </Text>
-              <Text
-                style={[styles.transcriptText, { color: colors.foreground }]}
-              >
-                {transcript}
-              </Text>
-              {phase === "transcribed" && (
-                <TouchableOpacity
-                  style={[styles.generateBtn, { backgroundColor: ACCENT }]}
-                  onPress={generateSummary}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons name="sparkles-outline" size={18} color="#fff" />
-                  <Text style={styles.generateBtnText}>
-                    Create My Visit Summary
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-        </View>
-
-        {phase === "done" && note && (
           <View
             style={[
               styles.card,
               { backgroundColor: colors.card, borderColor: colors.border },
             ]}
           >
-            <View style={styles.noteHeader}>
-              <Text
-                style={[styles.sectionLabel, { color: colors.mutedForeground }]}
-              >
-                MY VISIT SUMMARY
-              </Text>
-              <TouchableOpacity
-                onPress={copyToClipboard}
-                style={styles.copyBtn}
-              >
-                <Ionicons name="copy-outline" size={18} color={ACCENT} />
-                <Text style={[styles.copyBtnText, { color: ACCENT }]}>
-                  Copy
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <PatientSummaryView note={note} colors={colors} />
-
             <View
               style={[
-                styles.disclaimer,
+                styles.infoBox,
                 { backgroundColor: colors.muted ?? "#f5f5f5" },
               ]}
             >
               <Ionicons
-                name="heart-outline"
-                size={15}
-                color={colors.mutedForeground}
-              />
-              <Text
-                style={[
-                  styles.disclaimerText,
-                  { color: colors.mutedForeground },
-                ]}
-              >
-                This is a personal note to help you remember your visit — not a
-                medical record. Always check with your provider if anything is
-                unclear.
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.resetBtn, { borderColor: colors.border }]}
-              onPress={reset}
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name="refresh-outline"
+                name="information-circle-outline"
                 size={16}
                 color={colors.mutedForeground}
               />
               <Text
-                style={[styles.resetBtnText, { color: colors.mutedForeground }]}
+                style={[styles.infoText, { color: colors.mutedForeground }]}
               >
-                Record another visit
+                Keep this screen open during your visit. Your recording stays on
+                your device and is only used to create your personal summary.
               </Text>
-            </TouchableOpacity>
-          </View>
-        )}
+            </View>
 
-        {error && (
-          <View
-            style={[
-              styles.errorBox,
-              { backgroundColor: "#fef2f2", borderColor: "#fca5a5" },
-            ]}
-          >
-            <Ionicons name="alert-circle-outline" size={18} color="#ef4444" />
-            <Text style={[styles.errorText, { color: "#b91c1c" }]}>
-              {error}
-            </Text>
+            {phase === "idle" && (
+              <TouchableOpacity
+                style={[styles.recordBtn, { backgroundColor: ACCENT }]}
+                onPress={startRecording}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="mic" size={28} color="#fff" />
+                <Text style={styles.recordBtnText}>Start Recording</Text>
+              </TouchableOpacity>
+            )}
+
+            {phase === "recording" && (
+              <View style={styles.recordingState}>
+                <View style={[styles.pulse, { borderColor: "#ef4444" }]}>
+                  <TouchableOpacity
+                    style={[styles.stopBtn, { backgroundColor: "#ef4444" }]}
+                    onPress={stopRecording}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="stop" size={28} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+                <Text style={[styles.recordingLabel, { color: "#ef4444" }]}>
+                  Recording… tap to stop
+                </Text>
+              </View>
+            )}
+
+            {(phase === "transcribing" || phase === "generating") && (
+              <View style={styles.loadingState}>
+                <ActivityIndicator size="large" color={ACCENT} />
+                <Text
+                  style={[
+                    styles.loadingText,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  {phase === "transcribing"
+                    ? "Transcribing your recording…"
+                    : "Creating your visit summary…"}
+                </Text>
+              </View>
+            )}
+
+            {(phase === "transcribed" || phase === "done") && (
+              <View style={styles.transcriptSection}>
+                <Text
+                  style={[
+                    styles.sectionLabel,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  WHAT WAS RECORDED
+                </Text>
+                <Text
+                  style={[styles.transcriptText, { color: colors.foreground }]}
+                >
+                  {transcript}
+                </Text>
+                {phase === "transcribed" && (
+                  <TouchableOpacity
+                    style={[styles.generateBtn, { backgroundColor: ACCENT }]}
+                    onPress={generateSummary}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="sparkles-outline" size={18} color="#fff" />
+                    <Text style={styles.generateBtnText}>
+                      Create My Visit Summary
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
           </View>
-        )}
+
+          {phase === "done" && note && (
+            <View
+              style={[
+                styles.card,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <View style={styles.noteHeader}>
+                <Text
+                  style={[
+                    styles.sectionLabel,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  MY VISIT SUMMARY
+                </Text>
+                <TouchableOpacity
+                  onPress={copyToClipboard}
+                  style={styles.copyBtn}
+                >
+                  <Ionicons name="copy-outline" size={18} color={ACCENT} />
+                  <Text style={[styles.copyBtnText, { color: ACCENT }]}>
+                    Copy
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <PatientSummaryView note={note} colors={colors} />
+
+              <View
+                style={[
+                  styles.disclaimer,
+                  { backgroundColor: colors.muted ?? "#f5f5f5" },
+                ]}
+              >
+                <Ionicons
+                  name="heart-outline"
+                  size={15}
+                  color={colors.mutedForeground}
+                />
+                <Text
+                  style={[
+                    styles.disclaimerText,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  This is a personal note to help you remember your visit — not
+                  a medical record. Always check with your provider if anything
+                  is unclear.
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.resetBtn, { borderColor: colors.border }]}
+                onPress={reset}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name="refresh-outline"
+                  size={16}
+                  color={colors.mutedForeground}
+                />
+                <Text
+                  style={[
+                    styles.resetBtnText,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  Record another visit
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {error && (
+            <View
+              style={[
+                styles.errorBox,
+                { backgroundColor: "#fef2f2", borderColor: "#fca5a5" },
+              ]}
+            >
+              <Ionicons name="alert-circle-outline" size={18} color="#ef4444" />
+              <Text style={[styles.errorText, { color: "#b91c1c" }]}>
+                {error}
+              </Text>
+            </View>
+          )}
+        </ResponsiveContainer>
       </ScrollView>
 
       <PassGate
@@ -455,7 +472,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   backText: { fontSize: 16, fontFamily: "Inter_500Medium" },
-  scroll: { padding: 16, gap: 16, paddingBottom: 48 },
+  scroll: { paddingTop: 16, gap: 16, paddingBottom: 48 },
   header: { alignItems: "center", gap: 10, paddingVertical: 8 },
   title: { fontSize: 24, fontFamily: "Inter_700Bold" },
   subtitle: {

@@ -30,6 +30,7 @@ import {
   saveFacilityChecklist,
   type ChecklistItem,
 } from "@/lib/location-mode";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 
 function formatPhone(phone: string) {
   const digits = phone.replace(/\D/g, "");
@@ -179,176 +180,244 @@ export default function AtFacilityScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Quick Actions */}
-        <Animated.View
-          entering={FadeInDown.delay(40).duration(350)}
-          style={styles.quickRow}
-        >
-          <TouchableOpacity
-            style={[
-              styles.quickBtn,
-              { backgroundColor: "#4a7ab515", borderColor: "#4a7ab530" },
-            ]}
-            onPress={() => router.push("/birth-plan")}
+        <ResponsiveContainer style={{ paddingHorizontal: 16 }}>
+          {/* Quick Actions */}
+          <Animated.View
+            entering={FadeInDown.delay(40).duration(350)}
+            style={styles.quickRow}
           >
-            <Ionicons name="document-text-outline" size={20} color="#4a7ab5" />
-            <Text style={[styles.quickLabel, { color: colors.foreground }]}>
-              Birth Plan
-            </Text>
-            <Text style={[styles.quickSub, { color: colors.mutedForeground }]}>
-              Share with staff
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.quickBtn,
-              { backgroundColor: "#4a7ab515", borderColor: "#4a7ab530" },
-            ]}
-            onPress={() => router.push("/(tabs)/tools")}
-          >
-            <Ionicons name="pulse-outline" size={20} color="#4a7ab5" />
-            <Text style={[styles.quickLabel, { color: colors.foreground }]}>
-              Contractions
-            </Text>
-            <Text style={[styles.quickSub, { color: colors.mutedForeground }]}>
-              Timer &amp; tracker
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.quickBtn,
-              { backgroundColor: "#4a7ab515", borderColor: "#4a7ab530" },
-            ]}
-            onPress={() => router.push("/hospital-bag")}
-          >
-            <Ionicons name="briefcase-outline" size={20} color="#4a7ab5" />
-            <Text style={[styles.quickLabel, { color: colors.foreground }]}>
-              Hospital Bag
-            </Text>
-            <Text style={[styles.quickSub, { color: colors.mutedForeground }]}>
-              Packing list
-            </Text>
-          </TouchableOpacity>
-        </Animated.View>
+            <TouchableOpacity
+              style={[
+                styles.quickBtn,
+                { backgroundColor: "#4a7ab515", borderColor: "#4a7ab530" },
+              ]}
+              onPress={() => router.push("/birth-plan")}
+            >
+              <Ionicons
+                name="document-text-outline"
+                size={20}
+                color="#4a7ab5"
+              />
+              <Text style={[styles.quickLabel, { color: colors.foreground }]}>
+                Birth Plan
+              </Text>
+              <Text
+                style={[styles.quickSub, { color: colors.mutedForeground }]}
+              >
+                Share with staff
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.quickBtn,
+                { backgroundColor: "#4a7ab515", borderColor: "#4a7ab530" },
+              ]}
+              onPress={() => router.push("/(tabs)/tools")}
+            >
+              <Ionicons name="pulse-outline" size={20} color="#4a7ab5" />
+              <Text style={[styles.quickLabel, { color: colors.foreground }]}>
+                Contractions
+              </Text>
+              <Text
+                style={[styles.quickSub, { color: colors.mutedForeground }]}
+              >
+                Timer &amp; tracker
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.quickBtn,
+                { backgroundColor: "#4a7ab515", borderColor: "#4a7ab530" },
+              ]}
+              onPress={() => router.push("/hospital-bag")}
+            >
+              <Ionicons name="briefcase-outline" size={20} color="#4a7ab5" />
+              <Text style={[styles.quickLabel, { color: colors.foreground }]}>
+                Hospital Bag
+              </Text>
+              <Text
+                style={[styles.quickSub, { color: colors.mutedForeground }]}
+              >
+                Packing list
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
 
-        {/* Arrival Checklist */}
-        <Animated.View entering={FadeInDown.delay(80).duration(350)}>
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <View style={styles.cardHeader}>
-              <View style={styles.cardTitleRow}>
-                <Ionicons
-                  name="checkmark-circle-outline"
-                  size={18}
-                  color="#4a7ab5"
-                />
-                <Text style={[styles.cardTitle, { color: colors.foreground }]}>
-                  Arrival Checklist
+          {/* Arrival Checklist */}
+          <Animated.View entering={FadeInDown.delay(80).duration(350)}>
+            <View
+              style={[
+                styles.card,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <View style={styles.cardHeader}>
+                <View style={styles.cardTitleRow}>
+                  <Ionicons
+                    name="checkmark-circle-outline"
+                    size={18}
+                    color="#4a7ab5"
+                  />
+                  <Text
+                    style={[styles.cardTitle, { color: colors.foreground }]}
+                  >
+                    Arrival Checklist
+                  </Text>
+                </View>
+                <Text style={[styles.progressText, { color: "#4a7ab5" }]}>
+                  {checkedCount}/{checklist.length}
                 </Text>
               </View>
-              <Text style={[styles.progressText, { color: "#4a7ab5" }]}>
-                {checkedCount}/{checklist.length}
-              </Text>
-            </View>
 
-            {checklist.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.checkRow}
-                onPress={() => toggleChecklist(item.id)}
-              >
-                <Ionicons
-                  name={item.checked ? "checkbox" : "square-outline"}
-                  size={22}
-                  color={item.checked ? "#4a7ab5" : colors.mutedForeground}
-                />
-                <Text
-                  style={[
-                    styles.checkText,
-                    {
-                      color: item.checked
-                        ? colors.mutedForeground
-                        : colors.foreground,
-                      textDecorationLine: item.checked
-                        ? "line-through"
-                        : "none",
-                    },
-                  ]}
-                >
-                  {item.text}
-                </Text>
-              </TouchableOpacity>
-            ))}
-
-            {checkedCount > 0 && (
-              <TouchableOpacity
-                style={[styles.resetBtn, { borderColor: colors.border }]}
-                onPress={resetChecklist}
-              >
-                <Text
-                  style={[styles.resetText, { color: colors.mutedForeground }]}
-                >
-                  Reset all
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </Animated.View>
-
-        {/* Emergency Contacts */}
-        <Animated.View entering={FadeInDown.delay(120).duration(350)}>
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <View style={[styles.cardTitleRow, { marginBottom: 12 }]}>
-              <Ionicons name="people-outline" size={18} color="#4a7ab5" />
-              <Text style={[styles.cardTitle, { color: colors.foreground }]}>
-                Emergency Contacts
-              </Text>
-            </View>
-
-            {contacts.length === 0 ? (
-              <View>
-                <Text
-                  style={[styles.emptyText, { color: colors.mutedForeground }]}
-                >
-                  No contacts saved yet.
-                </Text>
+              {checklist.map((item) => (
                 <TouchableOpacity
-                  onPress={() => router.push("/(tabs)/profile")}
-                  style={[styles.addContactBtn, { borderColor: "#4a7ab5" }]}
+                  key={item.id}
+                  style={styles.checkRow}
+                  onPress={() => toggleChecklist(item.id)}
                 >
-                  <Text style={[styles.addContactText, { color: "#4a7ab5" }]}>
-                    Add contacts in My Info →
+                  <Ionicons
+                    name={item.checked ? "checkbox" : "square-outline"}
+                    size={22}
+                    color={item.checked ? "#4a7ab5" : colors.mutedForeground}
+                  />
+                  <Text
+                    style={[
+                      styles.checkText,
+                      {
+                        color: item.checked
+                          ? colors.mutedForeground
+                          : colors.foreground,
+                        textDecorationLine: item.checked
+                          ? "line-through"
+                          : "none",
+                      },
+                    ]}
+                  >
+                    {item.text}
                   </Text>
                 </TouchableOpacity>
+              ))}
+
+              {checkedCount > 0 && (
+                <TouchableOpacity
+                  style={[styles.resetBtn, { borderColor: colors.border }]}
+                  onPress={resetChecklist}
+                >
+                  <Text
+                    style={[
+                      styles.resetText,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    Reset all
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </Animated.View>
+
+          {/* Emergency Contacts */}
+          <Animated.View entering={FadeInDown.delay(120).duration(350)}>
+            <View
+              style={[
+                styles.card,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <View style={[styles.cardTitleRow, { marginBottom: 12 }]}>
+                <Ionicons name="people-outline" size={18} color="#4a7ab5" />
+                <Text style={[styles.cardTitle, { color: colors.foreground }]}>
+                  Emergency Contacts
+                </Text>
               </View>
-            ) : (
-              contacts.map((c) => (
+
+              {contacts.length === 0 ? (
+                <View>
+                  <Text
+                    style={[
+                      styles.emptyText,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    No contacts saved yet.
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => router.push("/(tabs)/profile")}
+                    style={[styles.addContactBtn, { borderColor: "#4a7ab5" }]}
+                  >
+                    <Text style={[styles.addContactText, { color: "#4a7ab5" }]}>
+                      Add contacts in My Info →
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                contacts.map((c) => (
+                  <View
+                    key={c.id}
+                    style={[
+                      styles.contactRow,
+                      { borderBottomColor: colors.border },
+                    ]}
+                  >
+                    <View style={styles.contactAvatar}>
+                      <Text style={styles.contactInitial}>
+                        {c.firstName.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[
+                          styles.contactName,
+                          { color: colors.foreground },
+                        ]}
+                      >
+                        {c.firstName}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.contactRole,
+                          { color: colors.mutedForeground },
+                        ]}
+                      >
+                        {c.role}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={[styles.callBtn, { backgroundColor: "#4a7ab515" }]}
+                      onPress={() =>
+                        Linking.openURL(`tel:${c.phone.replace(/\D/g, "")}`)
+                      }
+                    >
+                      <Ionicons name="call" size={16} color="#4a7ab5" />
+                      <Text style={[styles.callBtnText, { color: "#4a7ab5" }]}>
+                        Call
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ))
+              )}
+
+              {/* Provider quick call */}
+              {profile?.providerPhone ? (
                 <View
-                  key={c.id}
                   style={[
                     styles.contactRow,
                     { borderBottomColor: colors.border },
                   ]}
                 >
-                  <View style={styles.contactAvatar}>
-                    <Text style={styles.contactInitial}>
-                      {c.firstName.charAt(0).toUpperCase()}
-                    </Text>
+                  <View
+                    style={[
+                      styles.contactAvatar,
+                      { backgroundColor: "#4a7ab520" },
+                    ]}
+                  >
+                    <Ionicons name="medical" size={14} color="#4a7ab5" />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text
                       style={[styles.contactName, { color: colors.foreground }]}
                     >
-                      {c.firstName}
+                      {profile.providerName ?? "My Provider"}
                     </Text>
                     <Text
                       style={[
@@ -356,13 +425,15 @@ export default function AtFacilityScreen() {
                         { color: colors.mutedForeground },
                       ]}
                     >
-                      {c.role}
+                      OB / Midwife
                     </Text>
                   </View>
                   <TouchableOpacity
                     style={[styles.callBtn, { backgroundColor: "#4a7ab515" }]}
                     onPress={() =>
-                      Linking.openURL(`tel:${c.phone.replace(/\D/g, "")}`)
+                      Linking.openURL(
+                        `tel:${profile.providerPhone!.replace(/\D/g, "")}`,
+                      )
                     }
                   >
                     <Ionicons name="call" size={16} color="#4a7ab5" />
@@ -371,197 +442,159 @@ export default function AtFacilityScreen() {
                     </Text>
                   </TouchableOpacity>
                 </View>
-              ))
-            )}
+              ) : null}
+            </View>
+          </Animated.View>
 
-            {/* Provider quick call */}
-            {profile?.providerPhone ? (
-              <View
-                style={[
-                  styles.contactRow,
-                  { borderBottomColor: colors.border },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.contactAvatar,
-                    { backgroundColor: "#4a7ab520" },
-                  ]}
-                >
-                  <Ionicons name="medical" size={14} color="#4a7ab5" />
-                </View>
-                <View style={{ flex: 1 }}>
+          {/* Baby Name Shortlist */}
+          <Animated.View entering={FadeInDown.delay(160).duration(350)}>
+            <View
+              style={[
+                styles.card,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <View style={styles.cardHeader}>
+                <View style={styles.cardTitleRow}>
+                  <Ionicons name="star-outline" size={18} color="#4a7ab5" />
                   <Text
-                    style={[styles.contactName, { color: colors.foreground }]}
+                    style={[styles.cardTitle, { color: colors.foreground }]}
                   >
-                    {profile.providerName ?? "My Provider"}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.contactRole,
-                      { color: colors.mutedForeground },
-                    ]}
-                  >
-                    OB / Midwife
+                    Baby Name Shortlist
                   </Text>
                 </View>
                 <TouchableOpacity
-                  style={[styles.callBtn, { backgroundColor: "#4a7ab515" }]}
-                  onPress={() =>
-                    Linking.openURL(
-                      `tel:${profile.providerPhone!.replace(/\D/g, "")}`,
-                    )
-                  }
+                  onPress={() => setAddingName(true)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Ionicons name="call" size={16} color="#4a7ab5" />
-                  <Text style={[styles.callBtnText, { color: "#4a7ab5" }]}>
-                    Call
-                  </Text>
+                  <Ionicons name="add-circle" size={22} color="#4a7ab5" />
                 </TouchableOpacity>
               </View>
-            ) : null}
-          </View>
-        </Animated.View>
 
-        {/* Baby Name Shortlist */}
-        <Animated.View entering={FadeInDown.delay(160).duration(350)}>
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <View style={styles.cardHeader}>
-              <View style={styles.cardTitleRow}>
-                <Ionicons name="star-outline" size={18} color="#4a7ab5" />
-                <Text style={[styles.cardTitle, { color: colors.foreground }]}>
-                  Baby Name Shortlist
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setAddingName(true)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="add-circle" size={22} color="#4a7ab5" />
-              </TouchableOpacity>
-            </View>
-
-            {babyNames.length === 0 && !addingName ? (
-              <Text
-                style={[styles.emptyText, { color: colors.mutedForeground }]}
-              >
-                No names yet. Tap + to add your favorites.
-              </Text>
-            ) : (
-              babyNames.map((name) => (
-                <View
-                  key={name}
-                  style={[styles.nameRow, { borderBottomColor: colors.border }]}
+              {babyNames.length === 0 && !addingName ? (
+                <Text
+                  style={[styles.emptyText, { color: colors.mutedForeground }]}
                 >
-                  <Ionicons name="sparkles" size={16} color="#4a7ab5" />
-                  <Text style={[styles.nameText, { color: colors.foreground }]}>
-                    {name}
-                  </Text>
+                  No names yet. Tap + to add your favorites.
+                </Text>
+              ) : (
+                babyNames.map((name) => (
+                  <View
+                    key={name}
+                    style={[
+                      styles.nameRow,
+                      { borderBottomColor: colors.border },
+                    ]}
+                  >
+                    <Ionicons name="sparkles" size={16} color="#4a7ab5" />
+                    <Text
+                      style={[styles.nameText, { color: colors.foreground }]}
+                    >
+                      {name}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => removeName(name)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons
+                        name="close-circle-outline"
+                        size={18}
+                        color={colors.mutedForeground}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                ))
+              )}
+
+              {addingName && (
+                <View
+                  style={[styles.addRow, { borderTopColor: colors.border }]}
+                >
+                  <TextInput
+                    style={[
+                      styles.addInput,
+                      {
+                        color: colors.foreground,
+                        borderColor: colors.border,
+                        backgroundColor: colors.background,
+                      },
+                    ]}
+                    value={newName}
+                    onChangeText={setNewName}
+                    placeholder="Enter a name…"
+                    placeholderTextColor={colors.mutedForeground}
+                    autoFocus
+                    onSubmitEditing={addName}
+                    returnKeyType="done"
+                    autoCapitalize="words"
+                  />
                   <TouchableOpacity
-                    onPress={() => removeName(name)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={[styles.addSaveBtn, { backgroundColor: "#4a7ab5" }]}
+                    onPress={addName}
+                  >
+                    <Text
+                      style={{
+                        color: "#fff",
+                        fontFamily: "Inter_600SemiBold",
+                        fontSize: 13,
+                      }}
+                    >
+                      Add
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setAddingName(false);
+                      setNewName("");
+                    }}
                   >
                     <Ionicons
-                      name="close-circle-outline"
-                      size={18}
+                      name="close-circle"
+                      size={22}
                       color={colors.mutedForeground}
                     />
                   </TouchableOpacity>
                 </View>
-              ))
-            )}
+              )}
+            </View>
+          </Animated.View>
 
-            {addingName && (
-              <View style={[styles.addRow, { borderTopColor: colors.border }]}>
-                <TextInput
-                  style={[
-                    styles.addInput,
-                    {
-                      color: colors.foreground,
-                      borderColor: colors.border,
-                      backgroundColor: colors.background,
-                    },
-                  ]}
-                  value={newName}
-                  onChangeText={setNewName}
-                  placeholder="Enter a name…"
-                  placeholderTextColor={colors.mutedForeground}
-                  autoFocus
-                  onSubmitEditing={addName}
-                  returnKeyType="done"
-                  autoCapitalize="words"
-                />
-                <TouchableOpacity
-                  style={[styles.addSaveBtn, { backgroundColor: "#4a7ab5" }]}
-                  onPress={addName}
-                >
-                  <Text
-                    style={{
-                      color: "#fff",
-                      fontFamily: "Inter_600SemiBold",
-                      fontSize: 13,
-                    }}
-                  >
-                    Add
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => {
-                    setAddingName(false);
-                    setNewName("");
-                  }}
-                >
-                  <Ionicons
-                    name="close-circle"
-                    size={22}
-                    color={colors.mutedForeground}
-                  />
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        </Animated.View>
-
-        {/* Reassurance note */}
-        <Animated.View entering={FadeInDown.delay(200).duration(350)}>
-          <View
-            style={[
-              styles.reassureBox,
-              { backgroundColor: "#4a7ab510", borderColor: "#4a7ab525" },
-            ]}
-          >
-            <Ionicons name="heart" size={16} color="#4a7ab5" />
-            <Text
-              style={[styles.reassureText, { color: colors.mutedForeground }]}
+          {/* Reassurance note */}
+          <Animated.View entering={FadeInDown.delay(200).duration(350)}>
+            <View
+              style={[
+                styles.reassureBox,
+                { backgroundColor: "#4a7ab510", borderColor: "#4a7ab525" },
+              ]}
             >
-              You&apos;re exactly where you need to be. You&apos;ve got this.
-            </Text>
-          </View>
-        </Animated.View>
+              <Ionicons name="heart" size={16} color="#4a7ab5" />
+              <Text
+                style={[styles.reassureText, { color: colors.mutedForeground }]}
+              >
+                You&apos;re exactly where you need to be. You&apos;ve got this.
+              </Text>
+            </View>
+          </Animated.View>
 
-        {/* Exit mode */}
-        <Animated.View entering={FadeInDown.delay(240).duration(350)}>
-          <TouchableOpacity
-            style={styles.exitBtn}
-            onPress={() => router.replace("/(tabs)")}
-          >
-            <Ionicons
-              name="exit-outline"
-              size={18}
-              color={colors.mutedForeground}
-            />
-            <Text
-              style={[styles.exitBtnText, { color: colors.mutedForeground }]}
+          {/* Exit mode */}
+          <Animated.View entering={FadeInDown.delay(240).duration(350)}>
+            <TouchableOpacity
+              style={styles.exitBtn}
+              onPress={() => router.replace("/(tabs)")}
             >
-              Exit Labor &amp; Delivery Mode
-            </Text>
-          </TouchableOpacity>
-        </Animated.View>
+              <Ionicons
+                name="exit-outline"
+                size={18}
+                color={colors.mutedForeground}
+              />
+              <Text
+                style={[styles.exitBtnText, { color: colors.mutedForeground }]}
+              >
+                Exit Labor &amp; Delivery Mode
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </ResponsiveContainer>
       </ScrollView>
     </View>
   );
@@ -621,7 +654,6 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
   },
   scroll: {
-    paddingHorizontal: 16,
     paddingTop: 16,
     gap: 12,
   },
