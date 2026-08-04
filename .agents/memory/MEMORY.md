@@ -24,4 +24,5 @@
 - [EAS prebuildCommand cannot run bash](eas-prebuild-command-limitation.md) — it's an expo CLI subcommand; bash wrappers break every build. Use eas-build-pre/post-install npm hooks.
 - [EAS runtimeVersion bare workflow](eas-runtime-version-bare.md) — runtimeVersion policy:"appVersion" rejected by EAS when bare workflow detected; must be a static string matching app version.
 - [Expo config plugin xcode addFile null crash](expo-config-plugin-xcode-addfile-crash.md) — addFile(path,null,opts) silently unwinds whole withXcodeProject modifier; debug via local prebuild + Node.js; Watch target needs appExtensions in app.json extra.eas.build.experimental.ios.
+- [GitHub sync token](github-sync-token.md) — GITHUB_TOKEN needs repo AND workflow scopes (repo has .github/workflows); wrapper "PUSH_REJECTED" is opaque, use git CLI to see the real reason.
 - [Xcode 26 Watch double-scheduling fix](xcode-watch-double-scheduling.md) — scheme+dep both required; buildForArchiving=NO on scheme entry; Expo withXcodeProject is LIFO so withWatchXcodeTarget must be applied last; ensureWatchTargetDependency must run unconditionally.
