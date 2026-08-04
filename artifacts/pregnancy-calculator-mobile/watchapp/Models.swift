@@ -44,6 +44,7 @@ enum WatchMessage {
     static let kickSessionEnd = "kickSessionEnd"
     static let kickSession = "kickSession"
     static let contractionUpdate = "contractionUpdate"
+    static let contractionSessionEnd = "contractionSessionEnd"
     static let contraction = "contraction"
     static let tips = "tips"
     static let gestationalWeek = "gestationalWeek"

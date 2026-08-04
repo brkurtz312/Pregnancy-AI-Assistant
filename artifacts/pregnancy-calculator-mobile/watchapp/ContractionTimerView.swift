@@ -9,6 +9,7 @@ private enum ContractionDefaults {
     static let lastEnd          = "wk.contractionLastEnd"   // TimeInterval since 1970
     static let lastInterval     = "wk.contractionLastInterval" // TimeInterval (0 = absent)
     static let records          = "wk.contractionRecords"   // JSON-encoded [ContractionRecord]
+    // Note: lastContractionCount is owned by WatchSessionManager (wk.lastContractionCount)
 }
 
 struct ContractionTimerView: View {
@@ -71,6 +72,15 @@ struct ContractionTimerView: View {
                         }
                     }
 
+                    // Idle screen: show last-session summary when no contractions
+                    // are recorded in the current session.
+                    if contractions.isEmpty, let lastCount = session.lastContractionCount {
+                        Text("Last session: \(lastCount) contraction\(lastCount == 1 ? "" : "s")")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+
                     Button("Start Contraction") {
                         startContraction()
                     }
@@ -83,6 +93,15 @@ struct ContractionTimerView: View {
                     Text("\(contractions.count) logged")
                         .font(.caption2)
                         .foregroundColor(.secondary)
+
+                    if !isActive {
+                        Button("End Session") {
+                            endSession()
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.secondary)
+                        .font(.caption)
+                    }
                 }
             }
             .padding()
@@ -141,6 +160,24 @@ struct ContractionTimerView: View {
         saveState()
         session.sendContractionUpdate(record: record)
         WKInterfaceDevice.current().play(.stop)
+    }
+
+    /// Ends the current session: persists the contraction count for the idle
+    /// screen, notifies the iPhone, and resets all in-session state so the
+    /// view returns to idle (showing the new "Last session: N contractions" label).
+    private func endSession() {
+        let count = contractions.count
+        guard count > 0 else { return }
+        session.sendContractionSessionEnd(count: count)
+        // Clear in-session state (UserDefaults keys are reset below via saveState)
+        contractions = []
+        lastContractionEnd = nil
+        lastInterval = nil
+        contractionStart = nil
+        isActive = false
+        duration = 0
+        saveState()
+        WKInterfaceDevice.current().play(.success)
     }
 
     // MARK: - Timer

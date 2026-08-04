@@ -22,6 +22,17 @@ final class WatchSessionManager: NSObject, ObservableObject {
         }
     }
 
+    /// Last completed contraction-session count, persisted across force-quits.
+    @Published var lastContractionCount: Int? = nil {
+        didSet {
+            if let count = lastContractionCount {
+                UserDefaults.standard.set(count, forKey: "wk.lastContractionCount")
+            } else {
+                UserDefaults.standard.removeObject(forKey: "wk.lastContractionCount")
+            }
+        }
+    }
+
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
@@ -50,6 +61,13 @@ final class WatchSessionManager: NSObject, ObservableObject {
         if savedKickCount > 0 {
             // Bypass didSet to avoid re-writing what is already stored
             _lastKickCount = Published(initialValue: savedKickCount)
+        }
+
+        // Restore last contraction count
+        let savedContractionCount = UserDefaults.standard.integer(forKey: "wk.lastContractionCount")
+        if savedContractionCount > 0 {
+            // Bypass didSet to avoid re-writing what is already stored
+            _lastContractionCount = Published(initialValue: savedContractionCount)
         }
     }
 
@@ -94,6 +112,21 @@ final class WatchSessionManager: NSObject, ObservableObject {
         } else {
             // Queue for ordered delivery when phone is reachable.
             WCSession.default.transferUserInfo([WatchMessage.contractionUpdate: data])
+        }
+    }
+
+    /// Called when the user explicitly ends a contraction session.
+    /// Persists the session count for the idle screen and forwards it to the
+    /// iPhone when reachable; falls back to transferUserInfo when offline.
+    func sendContractionSessionEnd(count: Int) {
+        // Persist for the Watch idle screen — survives restarts even without iPhone.
+        lastContractionCount = count
+
+        let payload: [String: Any] = [WatchMessage.contractionSessionEnd: count]
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(payload, replyHandler: nil, errorHandler: nil)
+        } else {
+            WCSession.default.transferUserInfo(payload)
         }
     }
 }
@@ -248,6 +281,8 @@ extension WatchSessionManager: WCSessionDelegate {
         ud.removeObject(forKey: "wk.contractionLastEnd")
         ud.removeObject(forKey: "wk.contractionLastInterval")
         ud.removeObject(forKey: "wk.contractionRecords")
+        // lastContractionCount setter handles its own UserDefaults key
+        lastContractionCount = nil
 
         // Reset published state
         tips = []
