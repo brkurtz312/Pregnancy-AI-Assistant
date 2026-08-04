@@ -60,6 +60,10 @@ jest.mock("@/lib/visit-questions", () => ({
   clearVisitQuestionsCache: jest.fn(async () => {}),
 }));
 
+jest.mock("@/lib/custom-reminders", () => ({
+  clearAllCustomReminders: jest.fn(async () => {}),
+}));
+
 jest.mock("@/lib/sync-queue", () => ({
   invalidateWatchQueueSession: jest.fn(async () => {}),
 }));

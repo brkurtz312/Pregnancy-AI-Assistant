@@ -20,9 +20,6 @@ const STORAGE_KEY = "@milestone_notif_v1";
 // Safe-require
 // ---------------------------------------------------------------------------
 
-// @ts-expect-error — expo-notifications types are not resolvable from the TS
-// module resolver in this workspace (same pre-existing issue as in
-// appointment-reminders.ts). The module is present at runtime on native.
 let Notifications: typeof import("expo-notifications") | null = null;
 try {
   Notifications = require("expo-notifications");

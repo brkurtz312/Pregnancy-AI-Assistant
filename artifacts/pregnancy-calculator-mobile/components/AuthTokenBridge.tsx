@@ -8,6 +8,7 @@ import { clearBirthPlanCache } from "@/lib/birth-plan";
 import { clearVisitQuestionsCache } from "@/lib/visit-questions";
 import { cancelAllAppointmentReminders } from "@/lib/appointment-reminders";
 import { cancelAllMilestoneNotifications } from "@/lib/milestone-notifications";
+import { clearAllCustomReminders } from "@/lib/custom-reminders";
 import { invalidateWatchQueueSession } from "@/lib/sync-queue";
 import WatchConnectivity from "@/modules/WatchConnectivity";
 
@@ -133,6 +134,7 @@ export function AuthTokenBridge() {
       clearVisitQuestionsCache().catch(() => {});
       cancelAllAppointmentReminders().catch(() => {});
       cancelAllMilestoneNotifications().catch(() => {});
+      clearAllCustomReminders().catch(() => {});
       // Notify the Watch to clear its persisted session data (kick counter,
       // contraction timer). Fire-and-forget: the native module is a no-op when
       // the Watch app is not installed or WCSession is not activated.

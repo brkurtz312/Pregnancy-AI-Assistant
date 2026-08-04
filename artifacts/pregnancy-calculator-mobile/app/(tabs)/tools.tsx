@@ -48,6 +48,31 @@ import {
 } from "@/hooks/useWatchConnectivity";
 import { calculateByDueDate } from "@/lib/pregnancy-math";
 import { getWeeklyTips } from "@/lib/watch-tips";
+import {
+  loadReminders,
+  createReminder,
+  updateReminder,
+  deleteReminder,
+  type CustomReminder,
+  type RepeatInterval,
+} from "@/lib/custom-reminders";
+import { requestNotificationPermission } from "@/lib/appointment-reminders";
+
+// Safe-require DateTimePicker — static import crashes the screen if the native
+// module is absent from the binary (see datetimepicker-safe-require.md).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const DateTimePicker: React.ComponentType<any> | null = (() => {
+  try {
+    return (
+      require("@react-native-community/datetimepicker") as {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        default: React.ComponentType<any>;
+      }
+    ).default;
+  } catch {
+    return null;
+  }
+})();
 
 const SYMPTOMS = [
   "Nausea",
@@ -1022,6 +1047,585 @@ export function ContractionTimerSection() {
   );
 }
 
+// ─── Reminders Section ───────────────────────────────────────────────────────
+
+const REPEAT_OPTIONS: { value: RepeatInterval; label: string }[] = [
+  { value: "none", label: "Once" },
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+];
+
+function formatReminderDate(iso: string) {
+  const d = new Date(iso);
+  return (
+    d.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }) +
+    " at " +
+    d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+  );
+}
+
+function ReminderFormModal({
+  visible,
+  initialReminder,
+  onClose,
+  onSave,
+}: {
+  visible: boolean;
+  initialReminder: CustomReminder | null;
+  onClose: () => void;
+  onSave: (
+    data: Omit<CustomReminder, "id" | "notifId"> & { id?: string },
+  ) => Promise<void>;
+}) {
+  const colors = useColors();
+
+  const [title, setTitle] = useState(initialReminder?.title ?? "");
+  const [scheduledAt, setScheduledAt] = useState<Date>(
+    initialReminder
+      ? new Date(initialReminder.scheduledAt)
+      : (() => {
+          const d = new Date();
+          d.setMinutes(d.getMinutes() + 60, 0, 0);
+          return d;
+        })(),
+  );
+  const [repeat, setRepeat] = useState<RepeatInterval>(
+    initialReminder?.repeat ?? "none",
+  );
+  const [saving, setSaving] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+
+  // Reset form whenever the modal opens with a new reminder.
+  useEffect(() => {
+    if (visible) {
+      setTitle(initialReminder?.title ?? "");
+      setScheduledAt(
+        initialReminder
+          ? new Date(initialReminder.scheduledAt)
+          : (() => {
+              const d = new Date();
+              d.setMinutes(d.getMinutes() + 60, 0, 0);
+              return d;
+            })(),
+      );
+      setRepeat(initialReminder?.repeat ?? "none");
+      setSaving(false);
+      setShowDatePicker(false);
+      setShowTimePicker(false);
+    }
+  }, [visible, initialReminder]);
+
+  const handleSave = useCallback(async () => {
+    if (!title.trim()) return;
+    setSaving(true);
+    try {
+      const payload: Omit<CustomReminder, "id" | "notifId"> & { id?: string } =
+        {
+          title: title.trim(),
+          scheduledAt: scheduledAt.toISOString(),
+          repeat,
+        };
+      if (initialReminder) payload.id = initialReminder.id;
+      await onSave(payload);
+    } finally {
+      setSaving(false);
+    }
+  }, [title, scheduledAt, repeat, initialReminder, onSave]);
+
+  const s = StyleSheet.create({
+    row: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginBottom: 16,
+    },
+    dateBtn: {
+      flex: 1,
+      borderWidth: 1,
+      borderRadius: 10,
+      padding: 12,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+    },
+    dateBtnText: {
+      fontSize: 15,
+      fontFamily: "Inter_400Regular",
+      color: colors.foreground,
+    },
+  });
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={styles.modalOverlay}>
+        <View
+          style={[styles.modalSheet, { backgroundColor: colors.background }]}
+        >
+          <View style={styles.modalHeader}>
+            <Text style={[styles.modalTitle, { color: colors.foreground }]}>
+              {initialReminder ? "Edit Reminder" : "New Reminder"}
+            </Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={22} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={[styles.label, { color: colors.mutedForeground }]}>
+            Title
+          </Text>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                color: colors.foreground,
+                borderColor: colors.border,
+                backgroundColor: colors.card,
+              },
+            ]}
+            value={title}
+            onChangeText={setTitle}
+            placeholder="e.g. Take iron supplement"
+            placeholderTextColor={colors.mutedForeground}
+            autoFocus
+            returnKeyType="done"
+          />
+
+          <Text style={[styles.label, { color: colors.mutedForeground }]}>
+            Date &amp; Time
+          </Text>
+
+          {DateTimePicker ? (
+            <>
+              <View style={s.row}>
+                <TouchableOpacity
+                  style={s.dateBtn}
+                  onPress={() => {
+                    setShowTimePicker(false);
+                    setShowDatePicker((v) => !v);
+                  }}
+                >
+                  <Text style={s.dateBtnText}>
+                    📅{" "}
+                    {scheduledAt.toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={s.dateBtn}
+                  onPress={() => {
+                    setShowDatePicker(false);
+                    setShowTimePicker((v) => !v);
+                  }}
+                >
+                  <Text style={s.dateBtnText}>
+                    🕐{" "}
+                    {scheduledAt.toLocaleTimeString(undefined, {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              {showDatePicker && (
+                <DateTimePicker
+                  value={scheduledAt}
+                  mode="date"
+                  display={Platform.OS === "ios" ? "inline" : "default"}
+                  minimumDate={new Date()}
+                  onChange={(_: unknown, date?: Date) => {
+                    if (date) {
+                      const next = new Date(scheduledAt);
+                      next.setFullYear(
+                        date.getFullYear(),
+                        date.getMonth(),
+                        date.getDate(),
+                      );
+                      setScheduledAt(next);
+                    }
+                    if (Platform.OS !== "ios") setShowDatePicker(false);
+                  }}
+                />
+              )}
+              {showTimePicker && (
+                <DateTimePicker
+                  value={scheduledAt}
+                  mode="time"
+                  display={Platform.OS === "ios" ? "spinner" : "default"}
+                  onChange={(_: unknown, date?: Date) => {
+                    if (date) {
+                      const next = new Date(scheduledAt);
+                      next.setHours(date.getHours(), date.getMinutes(), 0, 0);
+                      setScheduledAt(next);
+                    }
+                    if (Platform.OS !== "ios") setShowTimePicker(false);
+                  }}
+                />
+              )}
+            </>
+          ) : (
+            // Fallback when the native module is absent: plain text inputs.
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  color: colors.foreground,
+                  borderColor: colors.border,
+                  backgroundColor: colors.card,
+                },
+              ]}
+              value={scheduledAt.toISOString().slice(0, 16).replace("T", " ")}
+              onChangeText={(v) => {
+                const d = new Date(v);
+                if (!isNaN(d.getTime())) setScheduledAt(d);
+              }}
+              placeholder="YYYY-MM-DD HH:MM"
+              placeholderTextColor={colors.mutedForeground}
+            />
+          )}
+
+          <Text style={[styles.label, { color: colors.mutedForeground }]}>
+            Repeat
+          </Text>
+          <View
+            style={{
+              flexDirection: "row",
+              gap: 8,
+              marginBottom: 20,
+              flexWrap: "wrap",
+            }}
+          >
+            {REPEAT_OPTIONS.map((opt) => (
+              <TouchableOpacity
+                key={opt.value}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor:
+                      repeat === opt.value ? colors.primary : colors.muted,
+                    borderColor:
+                      repeat === opt.value ? colors.primary : colors.border,
+                  },
+                ]}
+                onPress={() => setRepeat(opt.value)}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    {
+                      color:
+                        repeat === opt.value
+                          ? colors.primaryForeground
+                          : colors.foreground,
+                    },
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.primaryBtn,
+              {
+                backgroundColor: colors.primary,
+                opacity: !title.trim() ? 0.5 : 1,
+              },
+            ]}
+            onPress={handleSave}
+            disabled={!title.trim() || saving}
+          >
+            {saving ? (
+              <ActivityIndicator color={colors.primaryForeground} />
+            ) : (
+              <Text
+                style={[
+                  styles.primaryBtnText,
+                  { color: colors.primaryForeground },
+                ]}
+              >
+                {initialReminder ? "Save Changes" : "Add Reminder"}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function RemindersSection() {
+  const colors = useColors();
+  const [reminders, setReminders] = useState<CustomReminder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editingReminder, setEditingReminder] = useState<CustomReminder | null>(
+    null,
+  );
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      setReminders(await loadReminders());
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const handleOpenAdd = useCallback(async () => {
+    // Request permission lazily on first interaction.
+    await requestNotificationPermission().catch(() => {});
+    setEditingReminder(null);
+    setShowModal(true);
+  }, []);
+
+  const handleOpenEdit = useCallback((r: CustomReminder) => {
+    setEditingReminder(r);
+    setShowModal(true);
+  }, []);
+
+  const handleSave = useCallback(
+    async (data: Omit<CustomReminder, "id" | "notifId"> & { id?: string }) => {
+      if (data.id) {
+        const existing = reminders.find((r) => r.id === data.id);
+        if (existing) {
+          await updateReminder({ ...existing, ...data } as CustomReminder);
+        }
+      } else {
+        await createReminder(data);
+      }
+      setShowModal(false);
+      await refresh();
+    },
+    [reminders, refresh],
+  );
+
+  const handleDelete = useCallback(
+    (id: string) => {
+      Alert.alert("Delete Reminder", "Remove this reminder?", [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            await deleteReminder(id);
+            await refresh();
+          },
+        },
+      ]);
+    },
+    [refresh],
+  );
+
+  const now = Date.now();
+  const upcoming = reminders.filter(
+    (r) => r.repeat !== "none" || new Date(r.scheduledAt).getTime() > now,
+  );
+  const past = reminders.filter(
+    (r) => r.repeat === "none" && new Date(r.scheduledAt).getTime() <= now,
+  );
+
+  const s = StyleSheet.create({
+    container: { marginBottom: 8 },
+    headerRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 12,
+    },
+    title: {
+      fontSize: 17,
+      fontFamily: "Inter_600SemiBold",
+      color: colors.foreground,
+    },
+    addBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      backgroundColor: colors.primary,
+      borderRadius: 16,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+    },
+    addBtnText: {
+      color: colors.primaryForeground,
+      fontSize: 13,
+      fontFamily: "Inter_500Medium",
+    },
+    empty: {
+      color: colors.mutedForeground,
+      fontSize: 14,
+      fontFamily: "Inter_400Regular",
+      textAlign: "center",
+      paddingVertical: 16,
+    },
+    sectionLabel: {
+      fontSize: 12,
+      fontFamily: "Inter_600SemiBold",
+      color: colors.mutedForeground,
+      textTransform: "uppercase",
+      letterSpacing: 0.6,
+      marginBottom: 6,
+      marginTop: 4,
+    },
+    item: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 8,
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    itemPast: {
+      opacity: 0.55,
+    },
+    itemMain: { flex: 1 },
+    itemTitle: {
+      fontSize: 15,
+      fontFamily: "Inter_500Medium",
+      color: colors.foreground,
+    },
+    itemMeta: {
+      fontSize: 12,
+      fontFamily: "Inter_400Regular",
+      color: colors.mutedForeground,
+      marginTop: 2,
+    },
+    itemActions: {
+      flexDirection: "row",
+      gap: 12,
+      alignItems: "center",
+    },
+    repeatBadge: {
+      fontSize: 11,
+      fontFamily: "Inter_500Medium",
+      color: colors.primary,
+      backgroundColor: colors.primary + "18",
+      borderRadius: 8,
+      paddingHorizontal: 7,
+      paddingVertical: 2,
+      alignSelf: "flex-start",
+      marginTop: 4,
+    },
+  });
+
+  return (
+    <View style={s.container}>
+      <View style={s.headerRow}>
+        <Text style={s.title}>My Reminders</Text>
+        <TouchableOpacity style={s.addBtn} onPress={handleOpenAdd}>
+          <Ionicons name="add" size={14} color={colors.primaryForeground} />
+          <Text style={s.addBtnText}>Add</Text>
+        </TouchableOpacity>
+      </View>
+
+      {loading && <ActivityIndicator color={colors.primary} />}
+
+      {!loading && reminders.length === 0 && (
+        <Text style={s.empty}>No reminders yet. Tap Add to create one.</Text>
+      )}
+
+      {!loading && upcoming.length > 0 && (
+        <>
+          {past.length > 0 && <Text style={s.sectionLabel}>Upcoming</Text>}
+          {upcoming.map((r) => (
+            <TouchableOpacity
+              key={r.id}
+              style={s.item}
+              onPress={() => handleOpenEdit(r)}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="notifications-outline"
+                size={18}
+                color={colors.primary}
+                style={{ marginTop: 2 }}
+              />
+              <View style={s.itemMain}>
+                <Text style={s.itemTitle}>{r.title}</Text>
+                <Text style={s.itemMeta}>
+                  {formatReminderDate(r.scheduledAt)}
+                </Text>
+                {r.repeat !== "none" && (
+                  <Text style={s.repeatBadge}>
+                    {r.repeat === "daily" ? "Repeats daily" : "Repeats weekly"}
+                  </Text>
+                )}
+              </View>
+              <View style={s.itemActions}>
+                <TouchableOpacity
+                  onPress={() => handleDelete(r.id)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons
+                    name="trash-outline"
+                    size={18}
+                    color={colors.mutedForeground}
+                  />
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </>
+      )}
+
+      {!loading && past.length > 0 && (
+        <>
+          <Text style={s.sectionLabel}>Past</Text>
+          {past.map((r) => (
+            <View key={r.id} style={[s.item, s.itemPast]}>
+              <Ionicons
+                name="notifications-off-outline"
+                size={18}
+                color={colors.mutedForeground}
+                style={{ marginTop: 2 }}
+              />
+              <View style={s.itemMain}>
+                <Text style={s.itemTitle}>{r.title}</Text>
+                <Text style={s.itemMeta}>
+                  {formatReminderDate(r.scheduledAt)}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => handleDelete(r.id)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons
+                  name="trash-outline"
+                  size={18}
+                  color={colors.mutedForeground}
+                />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </>
+      )}
+
+      <ReminderFormModal
+        visible={showModal}
+        initialReminder={editingReminder}
+        onClose={() => setShowModal(false)}
+        onSave={handleSave}
+      />
+    </View>
+  );
+}
+
 // ─── Watch Status Badge ──────────────────────────────────────────────────────
 
 function WatchStatusBadge({
@@ -1587,6 +2191,16 @@ export default function ToolsScreen() {
             ]}
           >
             <ContractionTimerSection />
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.delay(320).duration(400)}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <RemindersSection />
           </Animated.View>
         </ScrollView>
       </ResponsiveContainer>
