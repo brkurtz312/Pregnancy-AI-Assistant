@@ -82,12 +82,20 @@ export function useWatchConnectivity({
     activationState: "notActivated",
   });
 
-  // Fetch initial state once on mount (iOS only)
+  // Tracks whether a live onWatchStateChange event has already set watchStatus.
+  // When true, the async getSessionState() snapshot is discarded so a stale
+  // Promise result can never overwrite a fresher live value.
+  const liveEventReceivedRef = useRef(false);
+
+  // Fetch initial state once on mount (iOS only).
+  // Skipped if a live onWatchStateChange event already updated watchStatus —
+  // that value is always fresher than the async snapshot.
   useEffect(() => {
     if (!mod) return;
     mod
       .getSessionState()
       .then((s: WatchSessionState) => {
+        if (liveEventReceivedRef.current) return;
         setWatchStatus({
           isReachable: s.isReachable,
           isWatchAppInstalled: s.isWatchAppInstalled,
@@ -104,6 +112,7 @@ export function useWatchConnectivity({
     const sub = mod.addListener(
       "onWatchStateChange",
       (s: WatchSessionState) => {
+        liveEventReceivedRef.current = true;
         setWatchStatus({
           isReachable: s.isReachable,
           isWatchAppInstalled: s.isWatchAppInstalled,

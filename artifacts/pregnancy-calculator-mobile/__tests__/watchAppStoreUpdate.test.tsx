@@ -505,6 +505,52 @@ describe("useWatchConnectivity — App Store update from 1.0.11 (no Watch) to 1.
     expect(lastCall[1][0].week).toBe(30);
   });
 
+  // ── getSessionState race: live event wins ──────────────────────────────────
+  //
+  // If onWatchStateChange fires BEFORE getSessionState() resolves, the stale
+  // snapshot from getSessionState() must NOT overwrite the live value.
+  // Concretely: Watch is installed (live event says true) but getSessionState
+  // resolves late with isWatchAppInstalled: false — the hook must keep the live
+  // "installed" value and not revert to false.
+
+  it("does not overwrite a live onWatchStateChange update with a stale getSessionState result", async () => {
+    let resolveSessionState!: (s: object) => void;
+    mockGetSessionState.mockReturnValueOnce(
+      new Promise<object>((resolve) => {
+        resolveSessionState = resolve;
+      }),
+    );
+
+    await act(async () => {
+      create(<WatchHarness gestationalWeek={28} tips={makeTips(28)} />);
+    });
+
+    // Live event fires BEFORE getSessionState resolves — Watch is installed
+    await act(async () => {
+      stateChangeListener?.({
+        activationState: "activated",
+        isWatchAppInstalled: true,
+        isReachable: true,
+      });
+    });
+
+    // sendWeekAndTips should have fired once (live event set installed: true)
+    expect(mockSendWeekAndTips).toHaveBeenCalledTimes(1);
+
+    // Now getSessionState resolves with a stale snapshot (installed: false)
+    await act(async () => {
+      resolveSessionState({
+        activationState: "activated",
+        isWatchAppInstalled: false,
+        isReachable: false,
+      });
+    });
+
+    // Still exactly one call — the stale snapshot must not suppress future sends
+    // and must not have triggered a second send
+    expect(mockSendWeekAndTips).toHaveBeenCalledTimes(1);
+  });
+
   // ── Week change after Watch becomes available ───────────────────────────────
 
   it("sends updated week+tips when gestationalWeek changes after Watch was installed", async () => {
