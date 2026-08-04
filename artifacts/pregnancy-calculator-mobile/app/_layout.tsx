@@ -34,6 +34,11 @@ import { SubscriptionProvider } from "@/lib/revenuecat";
 import { SettingsProvider } from "@/contexts/SettingsContext";
 import { useGlobalBackgroundSync } from "@/hooks/useGlobalBackgroundSync";
 import { requestNotificationPermission } from "@/lib/appointment-reminders";
+import {
+  addNotificationTapListener,
+  getInitialMilestoneNotificationUrl,
+  scheduleMilestoneNotifications,
+} from "@/lib/milestone-notifications";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -127,16 +132,80 @@ function NotificationSetup() {
   return null;
 }
 
+/**
+ * Schedules (or reschedules) milestone notifications whenever the user's due
+ * date is set or changed.  Runs at most once per unique due date value so
+ * repeated renders don't create duplicate notifications.
+ *
+ * The in-memory guard (`lastScheduledDueDateRef`) is reset on sign-out so
+ * that the same user signing back in — or a new user with the same due date
+ * signing in on a shared device — triggers a fresh scheduling pass after
+ * `cancelAllMilestoneNotifications` has cleared the old notifications.
+ */
+function MilestoneNotificationScheduler() {
+  const { isSignedIn } = useAuth();
+  const { data: profile } = useGetProfile({
+    query: { enabled: !!isSignedIn, queryKey: getGetProfileQueryKey() },
+  });
+  const lastScheduledDueDateRef = useRef<string | null>(null);
+
+  // Clear the in-memory guard on sign-out so that a subsequent sign-in
+  // (same or different account) always triggers a fresh scheduling pass.
+  useEffect(() => {
+    if (!isSignedIn) {
+      lastScheduledDueDateRef.current = null;
+    }
+  }, [isSignedIn]);
+
+  useEffect(() => {
+    if (!isSignedIn || !profile?.dueDate) return;
+    const dueDateISO = profile.dueDate.slice(0, 10);
+    if (lastScheduledDueDateRef.current === dueDateISO) return;
+    lastScheduledDueDateRef.current = dueDateISO;
+    scheduleMilestoneNotifications(new Date(profile.dueDate)).catch(() => {
+      // best-effort — scheduling failure should not affect app behaviour
+    });
+  }, [isSignedIn, profile?.dueDate]);
+
+  return null;
+}
+
 function RootLayoutNav() {
   const appVersion = Constants.expoConfig?.version ?? "";
   const { visible, dismiss } = useWhatsNew();
+  const router = useRouter();
 
   useGlobalBackgroundSync();
+
+  // Deep-link into the relevant screen when the user taps a milestone
+  // notification while the app is running (foreground / background).
+  useEffect(() => {
+    const remove = addNotificationTapListener((url) => {
+      router.push(url as Parameters<typeof router.push>[0]);
+    });
+    return remove;
+  }, [router]);
+
+  // Handle cold-start taps: when the app was terminated and a notification
+  // tap launched it, Expo queues the response.  Read it once on mount and
+  // navigate to the validated URL if one is present.
+  useEffect(() => {
+    getInitialMilestoneNotificationUrl()
+      .then((url) => {
+        if (url) router.push(url as Parameters<typeof router.push>[0]);
+      })
+      .catch(() => {
+        // best-effort — navigation failure on startup should not crash the app
+      });
+    // Run only once on mount — no dependencies.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>
       <OnboardingGate />
       <NotificationSetup />
+      <MilestoneNotificationScheduler />
       <LocationModeGate />
       <WatchBackgroundListener />
       <Stack screenOptions={{ headerShown: false }}>

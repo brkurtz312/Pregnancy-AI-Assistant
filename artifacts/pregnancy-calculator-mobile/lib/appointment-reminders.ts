@@ -15,6 +15,9 @@ type NotifMap = Record<string, string>;
 
 // Safe-require: catch any native TurboModule init failure so that importing
 // this file on an incompatible binary does not hard-crash the app.
+// @ts-expect-error — expo-notifications types are not resolvable from the TS
+// module resolver in this workspace (native-only binary module absent from
+// node_modules). The module is present at runtime on native devices.
 let Notifications: typeof import("expo-notifications") | null = null;
 try {
   Notifications = require("expo-notifications");
