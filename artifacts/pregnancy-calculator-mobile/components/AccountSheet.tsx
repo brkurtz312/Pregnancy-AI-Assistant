@@ -27,6 +27,7 @@ import {
   useSubscription,
 } from "@/lib/revenuecat";
 import WatchConnectivity from "@/modules/WatchConnectivity";
+import { cancelAllAppointmentReminders } from "@/lib/appointment-reminders";
 
 const PASS_PRICE = "$14.99";
 
@@ -586,6 +587,9 @@ export function AccountSheet({
                       setIsSigningOut(true);
                       setSignOutError(null);
                       try {
+                        // Cancel appointment reminders before signing out so
+                        // they cannot fire for a different user on a shared device.
+                        cancelAllAppointmentReminders().catch(() => {});
                         await signOut();
                         pass.refresh();
                         onClose();

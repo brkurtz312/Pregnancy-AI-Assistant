@@ -51,6 +51,7 @@
       ],
       "expo-updates",
       "expo-font",
+      "expo-notifications",
       "expo-web-browser",
       [
         "expo-build-properties",

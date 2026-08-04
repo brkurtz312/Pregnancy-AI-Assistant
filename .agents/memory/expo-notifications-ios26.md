@@ -32,6 +32,12 @@ When removing ANY Expo package that registers a config plugin, always remove it 
 
 Missing step 2 causes: `✖ Build failed — Unknown error. See logs of the Read app config build phase.`
 
+## Re-enabling notifications (SDK 54)
+
+For SDK 54, the compatible version is `expo-notifications@~0.29.14`. Install with safe-require (IIFE try/catch) in `appointment-reminders.ts` — do NOT use a static import. Add `"expo-notifications"` to `app.json` plugins array (needed for iOS capabilities). Call `requestNotificationPermission()` from a signed-in `useEffect` hook in `_layout.tsx`.
+
+Trigger type for SDK 54 compatible scheduling: `SchedulableTriggerInputTypes.DATE` with a `date` field.
+
 ## Long-term fix
 
 Upgrade to Expo SDK 57 to align all native module versions with iOS 26. This is a planned separate task.

@@ -33,6 +33,7 @@ import { WatchBackgroundListener } from "@/components/WatchBackgroundListener";
 import { SubscriptionProvider } from "@/lib/revenuecat";
 import { SettingsProvider } from "@/contexts/SettingsContext";
 import { useGlobalBackgroundSync } from "@/hooks/useGlobalBackgroundSync";
+import { requestNotificationPermission } from "@/lib/appointment-reminders";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -107,6 +108,25 @@ function OnboardingGate() {
   return null;
 }
 
+/**
+ * Requests notification permission once after sign-in. Uses a ref to ensure
+ * the request fires at most once per app session regardless of re-renders.
+ */
+function NotificationSetup() {
+  const { isSignedIn } = useAuth();
+  const hasRequestedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isSignedIn || hasRequestedRef.current) return;
+    hasRequestedRef.current = true;
+    requestNotificationPermission().catch(() => {
+      // best-effort — permission denial is a normal user choice
+    });
+  }, [isSignedIn]);
+
+  return null;
+}
+
 function RootLayoutNav() {
   const appVersion = Constants.expoConfig?.version ?? "";
   const { visible, dismiss } = useWhatsNew();
@@ -116,6 +136,7 @@ function RootLayoutNav() {
   return (
     <>
       <OnboardingGate />
+      <NotificationSetup />
       <LocationModeGate />
       <WatchBackgroundListener />
       <Stack screenOptions={{ headerShown: false }}>
