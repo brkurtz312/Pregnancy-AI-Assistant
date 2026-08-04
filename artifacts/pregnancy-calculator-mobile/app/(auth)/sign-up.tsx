@@ -49,6 +49,7 @@ export default function SignUpScreen() {
   const [emailAddress, setEmailAddress] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
+  const [notice, setNotice] = useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [appleLoading, setAppleLoading] = useState(false);
@@ -73,15 +74,24 @@ export default function SignUpScreen() {
 
   const fetching = fetchStatus === "fetching";
   const showVerify =
-    signUp.status === "missing_requirements" &&
-    signUp.unverifiedFields.includes("email_address");
+    signUp?.status === "missing_requirements" &&
+    signUp?.unverifiedFields.includes("email_address");
 
   const formError =
-    errors.fields.emailAddress?.message ?? errors.fields.password?.message;
-  const codeError = errors.fields.code?.message;
+    errors.fields.emailAddress?.message ??
+    errors.fields.password?.message ??
+    notice;
+  const codeError = errors.fields.code?.message ?? notice;
 
   const onCreate = async () => {
     if (fetching) return;
+    if (!signUp) {
+      setNotice(
+        "Sign-up is not ready yet — please wait a moment and try again.",
+      );
+      return;
+    }
+    setNotice(null);
     const { error } = await signUp.password({
       emailAddress: emailAddress.trim(),
       password,
@@ -92,6 +102,13 @@ export default function SignUpScreen() {
 
   const onVerify = async () => {
     if (fetching) return;
+    if (!signUp) {
+      setNotice(
+        "Sign-up is not ready yet — please wait a moment and try again.",
+      );
+      return;
+    }
+    setNotice(null);
     await signUp.verifications.verifyEmailCode({ code });
     if (signUp.status === "complete") {
       await signUp.finalize({
@@ -440,7 +457,7 @@ export default function SignUpScreen() {
 
               <TouchableOpacity
                 style={styles.resendBtn}
-                onPress={() => signUp.verifications.sendEmailCode()}
+                onPress={() => signUp?.verifications.sendEmailCode()}
               >
                 <Text style={[styles.footerLink, { color: colors.primary }]}>
                   Resend code
