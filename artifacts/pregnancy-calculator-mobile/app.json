@@ -74,7 +74,6 @@
           }
         }
       ],
-      "./plugins/withWatchExtension",
       "./plugins/withAppleSignIn"
     ],
     "experiments": {
@@ -83,24 +82,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "8d9ddefc-b718-432f-9c1d-6bb44a7ea9d8",
-        "build": {
-          "experimental": {
-            "ios": {
-              "appExtensions": [
-                {
-                  "targetName": "PregnancyWatchApp",
-                  "bundleIdentifier": "app.replit.pregnancycalculator.watchapp",
-                  "entitlements": {
-                    "com.apple.security.application-groups": [
-                      "group.app.replit.pregnancycalculator"
-                    ]
-                  }
-                }
-              ]
-            }
-          }
-        }
+        "projectId": "8d9ddefc-b718-432f-9c1d-6bb44a7ea9d8"
       }
     },
     "owner": "brkurtz"
