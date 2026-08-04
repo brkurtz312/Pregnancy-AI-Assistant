@@ -139,15 +139,36 @@ extension WatchSessionManager: WCSessionDelegate {
             WCSession.default.sendMessage(
                 payload,
                 replyHandler: { [weak self] reply in
+                    // The phone answers from its native cache, which is EMPTY
+                    // until the JS layer has sent tips at least once in that
+                    // process (e.g. right after the phone app cold-launches).
+                    // An empty reply must not end the sync attempt — queue a
+                    // durable transferUserInfo request so the phone's JS layer
+                    // pushes a fresh snapshot once it has loaded the profile.
+                    if reply[WatchMessage.tips] == nil {
+                        WCSession.default.transferUserInfo(payload)
+                    }
                     self?.handleIncoming(reply)
                 },
                 errorHandler: { error in
                     print("[WatchSession] requestSync sendMessage failed: \(error.localizedDescription)")
+                    // Fall back to guaranteed background delivery.
+                    WCSession.default.transferUserInfo(payload)
                 }
             )
         } else {
             // transferUserInfo guarantees delivery even if the phone is backgrounded.
             WCSession.default.transferUserInfo(payload)
+        }
+    }
+
+    /// Re-request a sync whenever the phone becomes reachable and we still
+    /// have no tips. Activation-time requestSync can race a phone whose JS
+    /// layer hasn't loaded the profile yet; this retry closes that gap.
+    func sessionReachabilityDidChange(_ session: WCSession) {
+        guard session.isReachable else { return }
+        DispatchQueue.main.async { [weak self] in
+            self?.requestSyncIfNeeded()
         }
     }
 

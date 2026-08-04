@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useCallback, useState, useRef } from "react";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 import type { WatchSessionState } from "../modules/WatchConnectivity";
 
 // Lazy-require so the module is only resolved on iOS at runtime
@@ -177,6 +177,22 @@ export function useWatchConnectivity({
   useEffect(() => {
     syncDataRef.current = { gestationalWeek, tips };
   });
+
+  // Re-push the current week + tips whenever the app returns to the
+  // foreground. This closes a race where the Watch requested a sync while the
+  // phone's JS layer hadn't loaded the profile yet (the native reply was
+  // empty), and no data-change event fires afterwards to trigger a send.
+  useEffect(() => {
+    if (!mod) return;
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state !== "active") return;
+      const { gestationalWeek: week, tips: currentTips } = syncDataRef.current;
+      if (week == null || !currentTips?.length) return;
+      mod.sendWeekAndTips(week, currentTips).catch(() => {});
+    });
+    return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!mod]);
 
   useEffect(() => {
     if (!mod) return;

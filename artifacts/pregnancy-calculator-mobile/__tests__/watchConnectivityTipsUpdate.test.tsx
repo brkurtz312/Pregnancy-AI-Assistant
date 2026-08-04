@@ -113,6 +113,49 @@ describe("useWatchConnectivity — sendWeekAndTips fires on mount", () => {
   });
 });
 
+describe("useWatchConnectivity — re-push on app foreground", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("sends the current week + tips again when the app returns to the foreground", async () => {
+    const { AppState } = require("react-native");
+    let appStateListener: ((state: string) => void) | undefined;
+    const spy = jest
+      .spyOn(AppState, "addEventListener")
+      .mockImplementation((...args: unknown[]) => {
+        const [event, cb] = args as [string, (state: string) => void];
+        if (event === "change") appStateListener = cb;
+        return { remove: jest.fn() } as never;
+      });
+
+    const week = 22;
+    await act(async () => {
+      create(React.createElement(WatchWrapper, { gestationalWeek: week }));
+    });
+    expect(appStateListener).toBeDefined();
+    const callsAfterMount = mockSendWeekAndTips.mock.calls.length;
+
+    // Backgrounding must not trigger a send
+    await act(async () => {
+      appStateListener!("background");
+    });
+    expect(mockSendWeekAndTips.mock.calls.length).toBe(callsAfterMount);
+
+    // Foregrounding must re-push the current snapshot
+    await act(async () => {
+      appStateListener!("active");
+    });
+    expect(mockSendWeekAndTips.mock.calls.length).toBe(callsAfterMount + 1);
+    expect(mockSendWeekAndTips).toHaveBeenLastCalledWith(
+      week,
+      getWeeklyTips(week),
+    );
+
+    spy.mockRestore();
+  });
+});
+
 describe("useWatchConnectivity — sendWeekAndTips re-fires when gestationalWeek changes", () => {
   beforeEach(() => {
     jest.clearAllMocks();

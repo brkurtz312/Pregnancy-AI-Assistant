@@ -132,10 +132,7 @@ app.post(
               try {
                 const stripe = await getUncachableStripeClient();
                 const customer = await stripe.customers.retrieve(customerId);
-                if (
-                  !customer.deleted &&
-                  customer.metadata?.userId === userId
-                ) {
+                if (!customer.deleted && customer.metadata?.userId === userId) {
                   await setStripeCustomerId(userId, customerId);
                   await grantPass(userId);
                 } else {

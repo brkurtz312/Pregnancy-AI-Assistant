@@ -57,6 +57,32 @@ const stub: WatchConnectivityInterface = {
   signOut: async () => {},
 };
 
+/**
+ * RULE — feature-detect every native method.
+ *
+ * OTA (JS-only) updates run on ALL installed binaries that share the runtime
+ * version, including binaries built BEFORE a native method existed. Calling a
+ * missing method on the proxy throws SYNCHRONOUSLY, which bypasses callers'
+ * `.catch()` and crashes the app at the call site (this happened at startup
+ * with `signOut()` on binaries < 1.0.29).
+ *
+ * Therefore every method exposed here — including any new native method you
+ * add in the future — MUST go through `guarded()` (or otherwise check
+ * `typeof native.<method> === "function"`) so that on an older binary the
+ * call degrades to an async no-op / stub value instead of throwing.
+ */
+function guarded<Args extends unknown[], R>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  native: any,
+  method: string,
+  fallback: (...args: Args) => R,
+): (...args: Args) => Promise<Awaited<R>> {
+  return async (...args: Args) => {
+    if (typeof native?.[method] !== "function") return await fallback(...args);
+    return await native[method](...args);
+  };
+}
+
 function buildModule(): WatchConnectivityInterface {
   try {
     // These are always available at runtime in an Expo binary
@@ -66,21 +92,22 @@ function buildModule(): WatchConnectivityInterface {
 
     const emitter = new EventEmitter(native);
     return {
-      sendTips: (tips: object[]) => native.sendTips(tips),
-      sendGestationalWeek: (week: number) => native.sendGestationalWeek(week),
-      sendWeekAndTips: (week: number, tips: object[]) =>
-        native.sendWeekAndTips(week, tips),
-      getSessionState: () => native.getSessionState(),
-      addListener: (event: string, cb: Listener) =>
-        emitter.addListener(event, cb),
-      // Older installed binaries (< 1.0.29) do not include the native
-      // signOut method — an OTA update can run on top of them, so guard the
-      // call and degrade to a no-op instead of throwing synchronously
-      // (a sync throw is NOT caught by callers' .catch()).
-      signOut: async () => {
-        if (typeof native.signOut !== "function") return;
-        await native.signOut();
+      sendTips: guarded(native, "sendTips", stub.sendTips),
+      sendGestationalWeek: guarded(
+        native,
+        "sendGestationalWeek",
+        stub.sendGestationalWeek,
+      ),
+      sendWeekAndTips: guarded(native, "sendWeekAndTips", stub.sendWeekAndTips),
+      getSessionState: guarded(native, "getSessionState", stub.getSessionState),
+      addListener: (event: string, cb: Listener) => {
+        try {
+          return emitter.addListener(event, cb);
+        } catch {
+          return { remove: () => {} };
+        }
       },
+      signOut: guarded(native, "signOut", stub.signOut),
     };
   } catch {
     return stub;
