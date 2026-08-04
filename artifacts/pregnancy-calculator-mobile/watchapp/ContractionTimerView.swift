@@ -10,6 +10,11 @@ private enum ContractionDefaults {
     static let lastInterval     = "wk.contractionLastInterval" // TimeInterval (0 = absent)
     static let records          = "wk.contractionRecords"   // JSON-encoded [ContractionRecord]
     // Note: lastContractionCount is owned by WatchSessionManager (wk.lastContractionCount)
+
+    /// Saved state older than this threshold is discarded on restore so that
+    /// contractions from a previous day don't reappear as a fresh session.
+    /// Configurable for testing; production default is 24 hours.
+    static let staleSessionThreshold: TimeInterval = 24 * 3600
 }
 
 struct ContractionTimerView: View {
@@ -232,6 +237,39 @@ struct ContractionTimerView: View {
 
     private func restoreState() {
         let ud = UserDefaults.standard
+        let now = Date()
+
+        // MARK: Staleness guard
+        // Determine the timestamp of the most recent persisted contraction event.
+        // Prefer `lastEnd`; fall back to the newest record's `endedAt` so that
+        // sessions which were saved without a trailing `lastEnd` are also covered.
+        let lastEndRaw = ud.double(forKey: ContractionDefaults.lastEnd)
+        let referenceTimestamp: Double
+
+        if lastEndRaw > 0 {
+            referenceTimestamp = lastEndRaw
+        } else if let data = ud.data(forKey: ContractionDefaults.records),
+                  let saved = try? decoder.decode([ContractionRecord].self, from: data),
+                  let newest = saved.max(by: { $0.endedAt < $1.endedAt }) {
+            referenceTimestamp = newest.endedAt.timeIntervalSince1970
+        } else {
+            referenceTimestamp = 0
+        }
+
+        if referenceTimestamp > 0 {
+            let age = now.timeIntervalSince(Date(timeIntervalSince1970: referenceTimestamp))
+            if age > ContractionDefaults.staleSessionThreshold {
+                // Wipe stale entries so they don't re-surface on subsequent launches.
+                ud.removeObject(forKey: ContractionDefaults.records)
+                ud.removeObject(forKey: ContractionDefaults.lastEnd)
+                ud.removeObject(forKey: ContractionDefaults.start)
+                ud.set(0.0, forKey: ContractionDefaults.lastInterval)
+                ud.set(false, forKey: ContractionDefaults.active)
+                return
+            }
+        }
+
+        // Session is fresh — restore all state normally.
 
         // Restore logged contractions
         if let data = ud.data(forKey: ContractionDefaults.records),
@@ -247,7 +285,6 @@ struct ContractionTimerView: View {
             WKInterfaceDevice.current().play(.notification)
         }
 
-        let lastEndRaw = ud.double(forKey: ContractionDefaults.lastEnd)
         if lastEndRaw > 0 {
             lastContractionEnd = Date(timeIntervalSince1970: lastEndRaw)
         }
@@ -265,7 +302,7 @@ struct ContractionTimerView: View {
         let savedStart = Date(timeIntervalSince1970: startRaw)
         contractionStart = savedStart
         isActive = true
-        duration = Date().timeIntervalSince(savedStart)
+        duration = now.timeIntervalSince(savedStart)
         startDisplayTimer()
     }
 
