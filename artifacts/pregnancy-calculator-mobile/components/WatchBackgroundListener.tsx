@@ -99,6 +99,38 @@ function WatchToast({ message, visible, isError }: WatchToastState) {
   );
 }
 
+// ─── Live kick-count banner ────────────────────────────────────────────────────
+
+interface LiveKickBannerProps {
+  count: number | null;
+  safeBottom: number;
+}
+
+/**
+ * Persistent floating banner that appears while a Watch kick-counting session
+ * is in progress.  It mounts only when `count` is non-null and unmounts
+ * (cleanly removing itself from the tree) as soon as the session ends so that
+ * the stale count is never visible — even briefly — after onKickSessionEnd.
+ */
+function LiveKickBanner({ count, safeBottom }: LiveKickBannerProps) {
+  if (count === null) return null;
+
+  const bannerBottom = TAB_BAR_HEIGHT + safeBottom + TOAST_MARGIN;
+
+  return (
+    <View
+      style={[styles.toast, { bottom: bannerBottom + 52 }]}
+      pointerEvents="none"
+    >
+      <View style={[styles.inner, styles.innerLiveKick]}>
+        <Text style={styles.text}>
+          {`⌚ Watch session in progress — ${count} kick${count === 1 ? "" : "s"}`}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 // ─── Listener ─────────────────────────────────────────────────────────────────
 
 export function WatchBackgroundListener() {
@@ -175,6 +207,15 @@ export function WatchBackgroundListener() {
     ];
   }, [gestationalWeek]);
 
+  // ── Live kick-count state ─────────────────────────────────────────────────
+  // null  → no Watch session currently in progress (banner hidden)
+  // number → Watch session active; value reflects the latest tap count
+  const [liveKickCount, setLiveKickCount] = useState<number | null>(null);
+
+  const handleKickUpdate = useCallback((count: number) => {
+    setLiveKickCount(count);
+  }, []);
+
   const [toast, setToast] = useState<WatchToastState>({
     message: "",
     visible: false,
@@ -199,6 +240,10 @@ export function WatchBackgroundListener() {
   const handleKickSessionEnd = useCallback(
     async (session: KickSessionSummary) => {
       if (!isSignedIn || !userId) return;
+
+      // The session is over — clear the live-count banner immediately so the
+      // user doesn't see a stale mid-session count while the save is in flight.
+      setLiveKickCount(null);
 
       // ── Deduplication guard ───────────────────────────────────────────────
       // Layer 1: in-process Set — added optimistically so that a concurrent
@@ -345,14 +390,20 @@ export function WatchBackgroundListener() {
     tips: watchTips,
     onKickSessionEnd: isSignedIn ? handleKickSessionEnd : undefined,
     onContractionUpdate: isSignedIn ? handleContractionUpdate : undefined,
+    onKickUpdate: isSignedIn ? handleKickUpdate : undefined,
   });
 
+  const { bottom: safeBottom } = useSafeAreaInsets();
+
   return (
-    <WatchToast
-      message={toast.message}
-      visible={toast.visible}
-      isError={toast.isError}
-    />
+    <>
+      <LiveKickBanner count={liveKickCount} safeBottom={safeBottom} />
+      <WatchToast
+        message={toast.message}
+        visible={toast.visible}
+        isError={toast.isError}
+      />
+    </>
   );
 }
 
@@ -379,6 +430,9 @@ const styles = StyleSheet.create({
   },
   innerError: {
     backgroundColor: "rgba(185,28,28,0.92)",
+  },
+  innerLiveKick: {
+    backgroundColor: "rgba(99,102,241,0.92)",
   },
   text: {
     color: "#fff",

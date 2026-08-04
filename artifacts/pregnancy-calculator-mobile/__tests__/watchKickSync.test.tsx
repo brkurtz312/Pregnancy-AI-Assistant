@@ -198,15 +198,18 @@ jest.mock("@/lib/sync-queue", () => ({
 // Capture the callbacks so we can fire them manually in tests.
 let capturedOnKickSessionEnd: ((s: unknown) => Promise<void>) | undefined;
 let capturedOnContractionUpdate: ((r: unknown) => Promise<void>) | undefined;
+let capturedOnKickUpdate: ((count: number) => void) | undefined;
 
 jest.mock("@/hooks/useWatchConnectivity", () => ({
   useWatchConnectivity: jest.fn(
     (opts: {
       onKickSessionEnd?: (s: unknown) => Promise<void>;
       onContractionUpdate?: (r: unknown) => Promise<void>;
+      onKickUpdate?: (count: number) => void;
     }) => {
       capturedOnKickSessionEnd = opts.onKickSessionEnd;
       capturedOnContractionUpdate = opts.onContractionUpdate;
+      capturedOnKickUpdate = opts.onKickUpdate;
       return {
         pushTips: jest.fn(),
         isSupported: true,
@@ -255,6 +258,7 @@ describe("WatchBackgroundListener — Watch → Tools sync (no manual refresh)",
     listenerRenderer = null;
     capturedOnKickSessionEnd = undefined;
     capturedOnContractionUpdate = undefined;
+    capturedOnKickUpdate = undefined;
     jest.clearAllMocks();
     // Re-apply mock values cleared by clearAllMocks.
     // WatchBackgroundListener now calls apiDirectSave* directly (not via
@@ -427,6 +431,143 @@ describe("WatchBackgroundListener — Watch → Tools sync (no manual refresh)",
 
 // ─────────────────────────────────────────────────────────────────────────────
 //
+// Live kick-count updates (mid-session)
+//
+// The Watch fires onKickUpdate on every individual tap.  WatchBackgroundListener
+// should reflect this count in its rendered output in real time WITHOUT
+// triggering any API save or cache invalidation — those only happen on
+// onKickSessionEnd.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("WatchBackgroundListener — live kick-count updates (onKickUpdate)", () => {
+  let listenerRenderer: ReturnType<typeof create> | null = null;
+
+  function renderWatchListener() {
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      userId: "user-123",
+      getToken: jest.fn().mockResolvedValue("token-user-123"),
+    });
+    act(() => {
+      listenerRenderer = create(React.createElement(WatchBackgroundListener));
+    });
+    return listenerRenderer!;
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    listenerRenderer = null;
+    capturedOnKickSessionEnd = undefined;
+    capturedOnContractionUpdate = undefined;
+    capturedOnKickUpdate = undefined;
+    jest.clearAllMocks();
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      userId: "user-123",
+      getToken: jest.fn().mockResolvedValue("token-user-123"),
+    });
+    mockInvalidateQueries.mockResolvedValue(undefined);
+    mockApiDirectSaveKickSession.mockResolvedValue(undefined);
+    mockApiDirectSaveContraction.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    act(() => {
+      jest.runAllTimers();
+    });
+    if (listenerRenderer) {
+      act(() => {
+        listenerRenderer!.unmount();
+      });
+      listenerRenderer = null;
+    }
+    jest.useRealTimers();
+    jest.clearAllMocks();
+  });
+
+  it("registers an onKickUpdate callback with useWatchConnectivity", () => {
+    renderWatchListener();
+    act(() => {});
+
+    expect(capturedOnKickUpdate).toBeDefined();
+    expect(typeof capturedOnKickUpdate).toBe("function");
+  });
+
+  it("reflects the live kick count in rendered output without saving to the API", () => {
+    const renderer = renderWatchListener();
+    act(() => {});
+
+    expect(capturedOnKickUpdate).toBeDefined();
+
+    // Fire three successive kick updates — simulates the user tapping on Watch
+    act(() => {
+      capturedOnKickUpdate!(1);
+    });
+    act(() => {
+      capturedOnKickUpdate!(2);
+    });
+    act(() => {
+      capturedOnKickUpdate!(3);
+    });
+
+    // The current count must be visible somewhere in the rendered tree
+    const textNodes = renderer.root.findAllByType(Text);
+    const renderedTexts = textNodes
+      .map((n) => String(n.props.children ?? ""))
+      .join(" ");
+    expect(renderedTexts).toMatch(/3/);
+
+    // No API save or cache invalidation must have fired — those only happen on
+    // onKickSessionEnd, not on individual kick taps.
+    expect(mockApiDirectSaveKickSession).not.toHaveBeenCalled();
+    expect(mockInvalidateQueries).not.toHaveBeenCalled();
+  });
+
+  it("clears the live kick count from the UI when the session ends", async () => {
+    const renderer = renderWatchListener();
+    await act(async () => {});
+
+    expect(capturedOnKickUpdate).toBeDefined();
+    expect(capturedOnKickSessionEnd).toBeDefined();
+
+    // Simulate mid-session taps
+    act(() => {
+      capturedOnKickUpdate!(5);
+    });
+
+    // Verify count is shown
+    const textsBefore = renderer.root
+      .findAllByType(Text)
+      .map((n) => String(n.props.children ?? ""))
+      .join(" ");
+    expect(textsBefore).toMatch(/5/);
+
+    // Session ends — the live count banner must disappear (count → null)
+    await act(async () => {
+      await capturedOnKickSessionEnd!({
+        kickCount: 5,
+        startedAt: "2026-08-01T10:00:00.000Z",
+        endedAt: "2026-08-01T10:15:00.000Z",
+      });
+    });
+
+    // After session end the banner text "5 kicks" must no longer be driven by
+    // the live-count state (count is null).  The toast "Kick session saved"
+    // may still be visible, but the in-progress banner is gone.
+    const textsAfter = renderer.root
+      .findAllByType(Text)
+      .map((n) => String(n.props.children ?? ""))
+      .join(" ");
+    // The live-session banner ("Watch session in progress") must not appear
+    expect(textsAfter).not.toMatch(/Watch session in progress/);
+    // The save must have fired exactly once
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//
 // Concurrent Watch + phone race
 //
 // The Watch path (WatchBackgroundListener.handleKickSessionEnd):
@@ -469,6 +610,7 @@ describe("Watch + phone concurrent kick session ends", () => {
   beforeEach(() => {
     capturedOnKickSessionEnd = undefined;
     capturedOnContractionUpdate = undefined;
+    capturedOnKickUpdate = undefined;
     watchRendererRef = null;
     kickRendererRef = null;
     jest.useFakeTimers();
@@ -691,6 +833,7 @@ describe("WatchBackgroundListener — save-failure error toasts", () => {
     listenerRenderer = null;
     capturedOnKickSessionEnd = undefined;
     capturedOnContractionUpdate = undefined;
+    capturedOnKickUpdate = undefined;
     jest.clearAllMocks();
     mockUseAuth.mockReturnValue({
       isSignedIn: true,
@@ -1007,6 +1150,7 @@ describe("Cold-start durability — Watch data survives app close and reopen", (
     activeRenderers = [];
     capturedOnKickSessionEnd = undefined;
     capturedOnContractionUpdate = undefined;
+    capturedOnKickUpdate = undefined;
     jest.clearAllMocks();
 
     mockUseAuth.mockReturnValue({
@@ -1178,6 +1322,7 @@ describe("Cold-start durability — Watch data survives app close and reopen", (
     });
     activeRenderers.splice(activeRenderers.indexOf(phase1Listener), 1);
     capturedOnContractionUpdate = undefined;
+    capturedOnKickUpdate = undefined;
 
     // ── Phase 2: Cold-start — fresh ContractionTimerSection reads from server
     const createCallsBefore = mockApiDirectSaveContraction.mock.calls.length;
@@ -1270,6 +1415,7 @@ describe("WatchBackgroundListener — invalidateQueries key must match Tools tab
     toolsRenderer = null;
     capturedOnKickSessionEnd = undefined;
     capturedOnContractionUpdate = undefined;
+    capturedOnKickUpdate = undefined;
     jest.clearAllMocks();
     mockUseAuth.mockReturnValue({
       isSignedIn: true,
@@ -1449,6 +1595,7 @@ describe("WatchBackgroundListener — Watch reconnect backlog (N sessions replay
     listenerRenderer = null;
     capturedOnKickSessionEnd = undefined;
     capturedOnContractionUpdate = undefined;
+    capturedOnKickUpdate = undefined;
     jest.clearAllMocks();
     mockUseAuth.mockReturnValue({
       isSignedIn: true,
@@ -1664,6 +1811,7 @@ describe("WatchBackgroundListener — duplicate kick-session deduplication", () 
     listenerRenderer = null;
     capturedOnKickSessionEnd = undefined;
     capturedOnContractionUpdate = undefined;
+    capturedOnKickUpdate = undefined;
     jest.clearAllMocks();
     mockUseAuth.mockReturnValue({
       isSignedIn: true,
@@ -1863,6 +2011,7 @@ describe("WatchBackgroundListener — offline delivery persistence (transferUser
     listenerRenderer = null;
     capturedOnKickSessionEnd = undefined;
     capturedOnContractionUpdate = undefined;
+    capturedOnKickUpdate = undefined;
     jest.clearAllMocks();
     mockUseAuth.mockReturnValue({
       isSignedIn: true,
