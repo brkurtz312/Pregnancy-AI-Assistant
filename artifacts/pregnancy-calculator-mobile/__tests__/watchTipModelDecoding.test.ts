@@ -236,6 +236,81 @@ describe("Array of WatchTip objects (mirrors Swift [WatchTip] decode)", () => {
 // it in the expected set.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. Extra / unknown keys in the JS payload
+//
+// Swift's JSONDecoder ignores JSON keys that are not listed in CodingKeys by
+// default (there is no `.forbiddenKeys` or strict-mode equivalent).  This
+// means that if a new *optional* field is added to Swift's WatchTip struct
+// with a default value AND listed in CodingKeys, older JS payloads that do
+// not yet send that field will still decode correctly.
+//
+// Conversely, if the JS side sends an *extra* key that Swift's CodingKeys
+// does not mention (e.g. a JS-only annotation field), Swift will silently
+// ignore it — the payload is still accepted and all known fields are decoded.
+//
+// These tests guard that scenario: a JS payload with an extra unknown key
+// (here `priority`) is still a valid WatchTip at the TypeScript level and
+// round-trips through JSON without error.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("WatchTip with extra unknown key — Swift ignores unknown JSON keys by default", () => {
+  // A payload that carries `priority`, a hypothetical future optional field
+  // added on the JS side before Swift's CodingKeys is updated.
+  // TypeScript accepts it because WatchTip only requires week/emoji/text;
+  // the spread below satisfies the interface while carrying the extra key.
+  const payloadWithExtra = {
+    week: 32,
+    emoji: "⭐",
+    text: "Extra field present.",
+    priority: 1, // unknown to current Swift CodingKeys — Swift will ignore it
+  } as WatchTip & { priority: number };
+
+  it("a payload with an extra key still satisfies the WatchTip interface", () => {
+    // The three required CodingKeys fields must be present and correct.
+    expect(payloadWithExtra.week).toBe(32);
+    expect(payloadWithExtra.emoji).toBe("⭐");
+    expect(payloadWithExtra.text).toBe("Extra field present.");
+  });
+
+  it("the extra key survives JSON round-trip (Swift will encounter but ignore it)", () => {
+    // JSON.stringify preserves unknown keys — they travel to the Watch.
+    // Swift's JSONDecoder discards any key not in CodingKeys, so decoding
+    // succeeds and all three CodingKeys values are populated correctly.
+    const parsed = JSON.parse(JSON.stringify(payloadWithExtra)) as Record<
+      string,
+      unknown
+    >;
+
+    expect(parsed["week"]).toBe(32);
+    expect(parsed["emoji"]).toBe("⭐");
+    expect(parsed["text"]).toBe("Extra field present.");
+    // The extra key is present in JSON (Swift ignores it — no error thrown).
+    expect(parsed["priority"]).toBe(1);
+  });
+
+  it("the three CodingKeys fields are all present alongside the extra key", () => {
+    const parsed = JSON.parse(JSON.stringify(payloadWithExtra)) as Record<
+      string,
+      unknown
+    >;
+
+    // Every key that Swift needs to decode successfully is present.
+    SWIFT_CODING_KEYS.forEach((key) => {
+      expect(key in parsed).toBe(true);
+    });
+  });
+
+  it("id is still not present — the extra key does not trigger id injection", () => {
+    const parsed = JSON.parse(JSON.stringify(payloadWithExtra)) as Record<
+      string,
+      unknown
+    >;
+
+    expect("id" in parsed).toBe(false);
+  });
+});
+
 describe("SWIFT_CODING_KEYS canary — documents the current contract", () => {
   it("SWIFT_CODING_KEYS lists exactly three keys: week, emoji, text", () => {
     expect(SWIFT_CODING_KEYS).toHaveLength(3);
