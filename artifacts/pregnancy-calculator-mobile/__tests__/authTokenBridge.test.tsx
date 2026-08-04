@@ -84,6 +84,14 @@ jest.mock("@/lib/custom-reminders", () => ({
   clearAllCustomReminders: jest.fn(async () => {}),
 }));
 
+jest.mock("@/lib/appointment-reminders", () => ({
+  cancelAllAppointmentReminders: jest.fn(async () => {}),
+}));
+
+jest.mock("@/lib/milestone-notifications", () => ({
+  cancelAllMilestoneNotifications: jest.fn(async () => {}),
+}));
+
 jest.mock("@/lib/sync-queue", () => ({
   invalidateWatchQueueSession: jest.fn(async () => {}),
 }));
@@ -128,6 +136,7 @@ import { clearScribeNoteCache } from "@/lib/scribe-note";
 import { clearBfCheckinCache } from "@/lib/breastfeeding";
 import { clearPpdCache } from "@/lib/postpartum-depression";
 import { clearLocationModeUserData } from "@/lib/location-mode";
+import { cancelAllAppointmentReminders } from "@/lib/appointment-reminders";
 import { AuthTokenBridge } from "../components/AuthTokenBridge";
 
 const mockUseSession = useSession as jest.Mock;
@@ -142,6 +151,8 @@ const mockClearScribeNote = clearScribeNoteCache as jest.Mock;
 const mockClearBfCheckin = clearBfCheckinCache as jest.Mock;
 const mockClearPpd = clearPpdCache as jest.Mock;
 const mockClearLocationMode = clearLocationModeUserData as jest.Mock;
+const mockCancelAppointmentReminders =
+  cancelAllAppointmentReminders as jest.Mock;
 
 function makeSession(id: string) {
   return { getToken: jest.fn(async () => `token-${id}`) };
@@ -360,6 +371,7 @@ describe("AuthTokenBridge — session-switch isolation", () => {
     expect(mockClearBfCheckin).toHaveBeenCalledTimes(1);
     expect(mockClearPpd).toHaveBeenCalledTimes(1);
     expect(mockClearLocationMode).toHaveBeenCalledTimes(1);
+    expect(mockCancelAppointmentReminders).toHaveBeenCalledTimes(1);
   });
 
   it("does NOT clear tool caches on sign-in (only on sign-out)", async () => {
