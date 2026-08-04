@@ -1826,3 +1826,118 @@ describe("WatchBackgroundListener — duplicate kick-session deduplication", () 
     expect(mockInvalidateQueries).toHaveBeenCalledTimes(1);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Offline / transferUserInfo delivery — WatchBackgroundListener persistence
+//
+// Both the online (sendMessage) and offline (transferUserInfo) transports
+// arrive at WatchBackgroundListener via the same onKickSessionEnd /
+// onContractionUpdate callbacks — PhoneWatchBridge.handleMessage normalises
+// both paths into the same native event before the JS layer sees them.
+//
+// The native-event subscription boundary is tested separately in
+// watchOfflineDelivery.test.tsx (useWatchConnectivity + capturedListeners).
+// This suite confirms the WatchBackgroundListener persistence contract:
+// once the callback fires, the session is saved and the cache is invalidated.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("WatchBackgroundListener — offline delivery persistence (transferUserInfo path)", () => {
+  let listenerRenderer: ReturnType<typeof create> | null = null;
+
+  function renderWatchListener() {
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      userId: "user-123",
+      getToken: jest.fn().mockResolvedValue("token-user-123"),
+    });
+    act(() => {
+      listenerRenderer = create(React.createElement(WatchBackgroundListener));
+    });
+    return listenerRenderer!;
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    listenerRenderer = null;
+    capturedOnKickSessionEnd = undefined;
+    capturedOnContractionUpdate = undefined;
+    jest.clearAllMocks();
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      userId: "user-123",
+      getToken: jest.fn().mockResolvedValue("token-user-123"),
+    });
+    mockInvalidateQueries.mockResolvedValue(undefined);
+    mockApiDirectSaveKickSession.mockResolvedValue(undefined);
+    mockApiDirectSaveContraction.mockResolvedValue(undefined);
+    mockGetQueryData.mockReturnValue(undefined);
+  });
+
+  afterEach(() => {
+    act(() => {
+      jest.runAllTimers();
+    });
+    if (listenerRenderer) {
+      act(() => {
+        listenerRenderer!.unmount();
+      });
+      listenerRenderer = null;
+    }
+    jest.useRealTimers();
+    jest.clearAllMocks();
+  });
+
+  it("persists a kick session and invalidates the cache when the callback fires after offline reconnect", async () => {
+    // Simulates the end of the offline delivery chain: PhoneWatchBridge decoded
+    // the transferUserInfo payload in didReceiveUserInfo, called handleMessage,
+    // emitted "onKickSessionEnd", useWatchConnectivity forwarded it here.
+    renderWatchListener();
+    await act(async () => {});
+
+    expect(capturedOnKickSessionEnd).toBeDefined();
+
+    await act(async () => {
+      await capturedOnKickSessionEnd!({
+        kickCount: 8,
+        startedAt: "2026-08-04T10:00:00.000Z",
+        endedAt: "2026-08-04T10:30:00.000Z",
+      });
+    });
+
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(1);
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledWith(
+      {
+        startedAt: "2026-08-04T10:00:00.000Z",
+        endedAt: "2026-08-04T10:30:00.000Z",
+        kickCount: 8,
+      },
+      expect.any(Function), // frozen token getter
+    );
+    expect(mockInvalidateQueries).toHaveBeenCalledTimes(1);
+  });
+
+  it("persists a contraction and invalidates the cache when the callback fires after offline reconnect", async () => {
+    // Mirrors the kick-session test above for the contraction path
+    // (TestFlight checklist step 5.9).
+    renderWatchListener();
+    await act(async () => {});
+
+    expect(capturedOnContractionUpdate).toBeDefined();
+
+    await act(async () => {
+      await capturedOnContractionUpdate!({
+        startedAt: "2026-08-04T14:00:00.000Z",
+        endedAt: "2026-08-04T14:01:30.000Z", // 90 s
+        interval: 360,
+      });
+    });
+
+    expect(mockApiDirectSaveContraction).toHaveBeenCalledTimes(1);
+    const [payload] = mockApiDirectSaveContraction.mock.calls[0];
+    expect(payload.durationSeconds).toBe(90);
+    expect(payload.intervalSeconds).toBe(360);
+    expect(mockInvalidateQueries).toHaveBeenCalledTimes(1);
+  });
+});
