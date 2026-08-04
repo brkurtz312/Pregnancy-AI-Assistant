@@ -142,6 +142,51 @@ rather than waiting for the next due-date change.
 
 ---
 
+## 7 — Remove and reinstall the Watch companion app
+
+Run this section on a device that already has the Watch companion app installed and working
+(Tips tab showing current-week content). It covers the user-initiated uninstall/reinstall path
+that neither a fresh install nor an App Store update exercises.
+
+**Why this matters:** When the user removes the Watch companion from their watch, `isWatchAppInstalled`
+transitions `true → false`. When they reinstall it, `isWatchAppInstalled` transitions `false → true`.
+`useWatchConnectivity` must detect that second transition and re-push the current gestational week and
+tips automatically — without waiting for a due-date change on the phone.
+
+Covered by the unit tests in `watchAppStoreUpdate.test.tsx`:
+
+- `does NOT call sendWeekAndTips when Watch app is removed (true→false)`
+- `calls sendWeekAndTips when Watch app is reinstalled after removal (true→false→true)`
+- `sends the correct week+tips on reinstall even when gestationalWeek changed while Watch was removed`
+
+### Prerequisites
+
+- iPhone with the TestFlight build already installed
+- Apple Watch **paired, synced, and showing current-week tips** in the Pregnancy AI Watch app
+- Note the current gestational week shown in the iPhone app before starting
+
+---
+
+| Step | Action                                                                                            | Expected result                                                                        |
+| ---- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| 7.1  | Confirm Tips tab shows current-week content on the Watch                                          | Tips cards for Week N visible; "Open the app on your iPhone" message is **not** shown  |
+| 7.2  | On the iPhone, open the **Watch** app → My Watch → scroll to Pregnancy AI → tap **Uninstall App** | Watch companion is removed; the Pregnancy AI icon disappears from the Watch app grid   |
+| 7.3  | Leave the iPhone app open or in the foreground for 10 seconds                                     | No crash on the phone; the app continues running normally                              |
+| 7.4  | On the iPhone, open the **Watch** app → App Store (or My Watch → Pregnancy AI → Install)          | Watch app begins downloading                                                           |
+| 7.5  | Wait for installation to complete (up to 60 seconds); do **not** change due date on the phone     | The Pregnancy AI icon reappears in the Watch app grid                                  |
+| 7.6  | Open the Watch app → Tips tab                                                                     | Tips for **Week N** appear immediately — not blank, not "no data", not a stale week    |
+| 7.7  | Confirm the week shown on the Watch matches the week shown on the iPhone                          | Both show the same gestational week                                                    |
+| 7.8  | Record 2 kicks on the Watch                                                                       | Counter increments; kick count appears in the phone's Tools tab after the session ends |
+
+**Pass criteria:**
+
+- Watch app uninstalls cleanly with no phone-side crash (step 7.3)
+- Tips re-appear automatically after reinstall with no phone-side interaction beyond waiting (step 7.6)
+- Gestational week on Watch matches iPhone (step 7.7)
+- Data flows Watch → phone correctly after reinstall (step 7.8)
+
+---
+
 ## Sign-off
 
 | Build | Tester | Device      | watchOS | Date | Icon ✓ | Kicks ✓ | Contractions ✓ | Tips ✓ | Update ✓ | Notes                       |

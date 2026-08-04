@@ -374,6 +374,137 @@ describe("useWatchConnectivity — App Store update from 1.0.11 (no Watch) to 1.
     expect(contractionCall).toBeDefined();
   });
 
+  // ── Remove-and-reinstall (true→false→true) ─────────────────────────────────
+  //
+  // A user removes the Watch companion from their watch via the Watch app, then
+  // adds it back from the App Store. The hook must:
+  //   1. NOT call sendWeekAndTips when isWatchAppInstalled transitions true→false
+  //      (Watch just uninstalled — nothing to push to).
+  //   2. Call sendWeekAndTips exactly once when isWatchAppInstalled transitions
+  //      false→true (Watch reinstalled — data must be re-pushed automatically).
+
+  it("does NOT call sendWeekAndTips when Watch app is removed (true→false)", async () => {
+    mockGetSessionState.mockResolvedValue({
+      activationState: "activated",
+      isWatchAppInstalled: true,
+      isReachable: true,
+    });
+
+    await act(async () => {
+      create(<WatchHarness gestationalWeek={28} tips={makeTips(28)} />);
+    });
+
+    // Initial send on mount (Watch was installed)
+    expect(mockSendWeekAndTips).toHaveBeenCalledTimes(1);
+
+    // User removes the Watch companion app
+    await act(async () => {
+      stateChangeListener?.({
+        activationState: "activated",
+        isWatchAppInstalled: false,
+        isReachable: false,
+      });
+    });
+
+    // Must not send again — the Watch app is gone
+    expect(mockSendWeekAndTips).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls sendWeekAndTips when Watch app is reinstalled after removal (true→false→true)", async () => {
+    mockGetSessionState.mockResolvedValue({
+      activationState: "activated",
+      isWatchAppInstalled: true,
+      isReachable: true,
+    });
+
+    await act(async () => {
+      create(<WatchHarness gestationalWeek={28} tips={makeTips(28)} />);
+    });
+
+    // Initial send on mount
+    expect(mockSendWeekAndTips).toHaveBeenCalledTimes(1);
+
+    // User removes the Watch companion app
+    await act(async () => {
+      stateChangeListener?.({
+        activationState: "activated",
+        isWatchAppInstalled: false,
+        isReachable: false,
+      });
+    });
+
+    // Still only 1 call — removal must not trigger a send
+    expect(mockSendWeekAndTips).toHaveBeenCalledTimes(1);
+
+    // User reinstalls the Watch companion app from the App Store
+    await act(async () => {
+      stateChangeListener?.({
+        activationState: "activated",
+        isWatchAppInstalled: true,
+        isReachable: true,
+      });
+    });
+
+    // Reinstall must trigger exactly one new send with current data
+    expect(mockSendWeekAndTips).toHaveBeenCalledTimes(2);
+    expect(mockSendWeekAndTips).toHaveBeenLastCalledWith(28, makeTips(28));
+  });
+
+  it("sends the correct week+tips on reinstall even when gestationalWeek changed while Watch was removed", async () => {
+    let setWeek!: (w: number) => void;
+
+    mockGetSessionState.mockResolvedValue({
+      activationState: "activated",
+      isWatchAppInstalled: true,
+      isReachable: true,
+    });
+
+    await act(async () => {
+      create(
+        <ControlledWatchHarness
+          initialWeek={28}
+          onSetWeek={(fn) => {
+            setWeek = fn;
+          }}
+        />,
+      );
+    });
+
+    expect(mockSendWeekAndTips).toHaveBeenCalledTimes(1);
+
+    // Watch companion is removed
+    await act(async () => {
+      stateChangeListener?.({
+        activationState: "activated",
+        isWatchAppInstalled: false,
+        isReachable: false,
+      });
+    });
+
+    // Gestational week advances while Watch is absent
+    await act(async () => {
+      setWeek(30);
+    });
+
+    // Still only 1 call — no Watch to send to
+    expect(mockSendWeekAndTips).toHaveBeenCalledTimes(1);
+
+    // User reinstalls the Watch companion
+    await act(async () => {
+      stateChangeListener?.({
+        activationState: "activated",
+        isWatchAppInstalled: true,
+        isReachable: true,
+      });
+    });
+
+    // Must send the *current* week (30), not the stale week (28)
+    expect(mockSendWeekAndTips).toHaveBeenCalledTimes(2);
+    const lastCall = mockSendWeekAndTips.mock.calls[1] as [number, WatchTip[]];
+    expect(lastCall[0]).toBe(30);
+    expect(lastCall[1][0].week).toBe(30);
+  });
+
   // ── Week change after Watch becomes available ───────────────────────────────
 
   it("sends updated week+tips when gestationalWeek changes after Watch was installed", async () => {
