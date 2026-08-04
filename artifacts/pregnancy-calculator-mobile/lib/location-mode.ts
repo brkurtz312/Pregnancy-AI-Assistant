@@ -95,6 +95,24 @@ export async function clearLocationModeDismissal(): Promise<void> {
   await AsyncStorage.removeItem(DISMISSED_KEY);
 }
 
+/**
+ * Clears the user-entered location-mode data (baby names, facility/office
+ * checklists, dismissed-until) on sign-out. The geocode cache is generic
+ * (address → coordinates) and intentionally retained. Best-effort.
+ */
+export async function clearLocationModeUserData(): Promise<void> {
+  try {
+    await AsyncStorage.multiRemove([
+      DISMISSED_KEY,
+      BABY_NAMES_KEY,
+      FACILITY_CHECKLIST_KEY,
+      OFFICE_CHECKLIST_KEY,
+    ]);
+  } catch {
+    /* best-effort */
+  }
+}
+
 const BABY_NAMES_KEY = "@location_mode/baby_names_v1";
 
 export async function loadBabyNames(): Promise<string[]> {

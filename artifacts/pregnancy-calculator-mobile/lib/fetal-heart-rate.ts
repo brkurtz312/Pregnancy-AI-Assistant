@@ -37,6 +37,27 @@ export async function addFhrRecording(rec: FhrRecording): Promise<void> {
   await saveFhrRecordings([rec, ...list]);
 }
 
+/**
+ * Wipes all fetal heart rate data (recording index + audio files). Called on
+ * sign-out so the next account on this device never sees the previous user's
+ * recordings. Best-effort: errors are swallowed.
+ */
+export async function clearFhrCache(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(FHR_KEY);
+  } catch {
+    /* best-effort */
+  }
+  try {
+    const info = await FileSystem.getInfoAsync(FHR_DIR);
+    if (info.exists) {
+      await FileSystem.deleteAsync(FHR_DIR, { idempotent: true });
+    }
+  } catch {
+    /* best-effort */
+  }
+}
+
 export async function removeFhrRecording(id: string): Promise<FhrRecording[]> {
   const list = await loadFhrRecordings();
   const target = list.find((r) => r.id === id);

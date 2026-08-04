@@ -8,8 +8,13 @@ import {
 } from "./middlewares/clerkProxyMiddleware";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import { getStripeSync } from "./lib/stripeClient";
-import { revokePassByStripeCustomerId } from "./lib/users";
+import { getStripeSync, getUncachableStripeClient } from "./lib/stripeClient";
+import {
+  getUser,
+  grantPass,
+  revokePassByStripeCustomerId,
+  setStripeCustomerId,
+} from "./lib/users";
 
 const app: Express = express();
 
@@ -66,14 +71,87 @@ app.post(
       try {
         const event = JSON.parse(req.body.toString("utf8")) as {
           type: string;
-          data: { object: { customer?: string } };
+          data: {
+            object: {
+              customer?: string | { id?: string } | null;
+              metadata?: { userId?: string };
+              payment_status?: string;
+              status?: string;
+            };
+          };
         };
+        const obj = event.data.object;
+        const customerId =
+          typeof obj.customer === "string"
+            ? obj.customer
+            : (obj.customer?.id ?? undefined);
+
         const REVOCATION_EVENTS = new Set([
           "charge.refunded",
           "payment_intent.payment_failed",
         ]);
-        if (REVOCATION_EVENTS.has(event.type) && event.data.object.customer) {
-          await revokePassByStripeCustomerId(event.data.object.customer);
+        if (REVOCATION_EVENTS.has(event.type) && customerId) {
+          await revokePassByStripeCustomerId(customerId);
+        }
+
+        // Grant path: a paid checkout (or succeeded payment intent) carries our
+        // metadata.userId. Link the Stripe customer to the user right here so a
+        // webhook that arrives before /billing/checkout finished persisting the
+        // customer ID (or after a failed save) still results in a granted pass.
+        const isPaidCheckout =
+          event.type === "checkout.session.completed" &&
+          obj.payment_status === "paid";
+        const isSucceededIntent =
+          event.type === "payment_intent.succeeded" ||
+          (event.type === "payment_intent.created" &&
+            obj.status === "succeeded");
+        if (isPaidCheckout || isSucceededIntent) {
+          const userId = obj.metadata?.userId;
+          if (userId && customerId) {
+            const user = await getUser(userId);
+            if (!user) {
+              req.log.warn(
+                { userId, customerId },
+                "Paid webhook referenced unknown user; pass will be granted on first entitlement check after sign-in",
+              );
+            } else if (user.stripeCustomerId === customerId) {
+              // Already linked to this exact customer — safe to grant directly.
+              await grantPass(userId);
+            } else if (user.stripeCustomerId) {
+              // Linked to a DIFFERENT customer: never re-link or grant based on
+              // event metadata alone.
+              req.log.warn(
+                { userId, customerId, linked: user.stripeCustomerId },
+                "Paid webhook customer does not match the user's linked Stripe customer; skipping grant",
+              );
+            } else {
+              // User not linked yet (webhook raced /billing/checkout's save, or
+              // the save failed). Metadata alone must not authorize a permanent
+              // customer↔user association — confirm against the Stripe customer
+              // record, which we stamp with metadata.userId at creation.
+              try {
+                const stripe = await getUncachableStripeClient();
+                const customer = await stripe.customers.retrieve(customerId);
+                if (
+                  !customer.deleted &&
+                  customer.metadata?.userId === userId
+                ) {
+                  await setStripeCustomerId(userId, customerId);
+                  await grantPass(userId);
+                } else {
+                  req.log.warn(
+                    { userId, customerId },
+                    "Stripe customer metadata does not confirm this user; skipping link/grant",
+                  );
+                }
+              } catch (verifyErr) {
+                req.log.error(
+                  { err: verifyErr, userId, customerId },
+                  "Could not verify Stripe customer for early-webhook grant; entitlement backfill will retry",
+                );
+              }
+            }
+          }
         }
       } catch {
         // Non-fatal: the StripeSync tables are still updated correctly.

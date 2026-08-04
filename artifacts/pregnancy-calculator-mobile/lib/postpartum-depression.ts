@@ -104,6 +104,15 @@ export async function loadPhq9Answers(): Promise<Phq9Answers> {
   }
 }
 
+/** Clears PHQ-9 answers and the PPD check-in on sign-out. Best-effort. */
+export async function clearPpdCache(): Promise<void> {
+  try {
+    await AsyncStorage.multiRemove([PHQ9_STORAGE_KEY, PPD_CHECKIN_STORAGE_KEY]);
+  } catch {
+    /* best-effort */
+  }
+}
+
 export async function savePhq9Answers(answers: Phq9Answers): Promise<void> {
   await AsyncStorage.setItem(PHQ9_STORAGE_KEY, JSON.stringify(answers));
 }

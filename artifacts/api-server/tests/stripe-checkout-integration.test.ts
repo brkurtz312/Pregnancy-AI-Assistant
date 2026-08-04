@@ -47,6 +47,11 @@ interface MockUser {
 // already populated when any test runs.
 const mockUsers = new Map<string, MockUser>();
 
+// Stripe customer records (id → metadata) used by the stubbed
+// stripe.customers.retrieve — the webhook grant path verifies the customer's
+// own metadata.userId before linking a customer to a user.
+const mockStripeCustomers = new Map<string, Record<string, string>>();
+
 // ---------------------------------------------------------------------------
 // Tracks customer IDs for which a paid checkout.session.completed has been
 // processed — regardless of whether a user row existed at that moment.
@@ -123,6 +128,18 @@ vi.mock("../src/lib/users", () => ({
       }
     }
   },
+  getUser: async (id: string) => mockUsers.get(id),
+  grantPass: async (id: string): Promise<void> => {
+    const user = mockUsers.get(id);
+    if (user) user.hasPass = true;
+  },
+  setStripeCustomerId: async (
+    id: string,
+    stripeCustomerId: string,
+  ): Promise<void> => {
+    const user = mockUsers.get(id);
+    if (user) user.stripeCustomerId = stripeCustomerId;
+  },
 }));
 
 vi.mock("../src/lib/stripeClient", () => ({
@@ -164,7 +181,15 @@ vi.mock("../src/lib/stripeClient", () => ({
       }
     },
   }),
-  getUncachableStripeClient: vi.fn(),
+  getUncachableStripeClient: async () => ({
+    customers: {
+      retrieve: async (customerId: string) => {
+        const meta = mockStripeCustomers.get(customerId);
+        if (!meta) throw new Error(`No such customer: ${customerId}`);
+        return { id: customerId, deleted: false, metadata: meta };
+      },
+    },
+  }),
 }));
 
 // Entitlement check mirrors the real userHasPass two-phase logic:
@@ -197,6 +222,7 @@ describe("checkout.session.completed → Pass entitlement (integration)", () => 
   beforeEach(() => {
     mockUsers.clear();
     succeededPayments.clear();
+    mockStripeCustomers.clear();
     mockUsers.set(TEST_USER_ID, {
       id: TEST_USER_ID,
       stripeCustomerId: TEST_CUSTOMER_ID,
@@ -531,5 +557,85 @@ describe("checkout.session.completed → Pass entitlement (integration)", () => 
     // The pass must be discoverable via the stripe.payment_intents fallback
     // (modelled by succeededPayments) — it must not have been silently lost.
     expect(await userHasPass(LATE_USER_ID)).toBe(true);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Direct webhook grant path: the user row exists but the Stripe customer ID
+  // was not persisted yet (webhook raced /billing/checkout's save, or the save
+  // failed). The handler must verify the customer's own metadata.userId before
+  // linking, then grant immediately.
+  // ---------------------------------------------------------------------------
+  async function postPaidCheckout(customer: string, userId: string) {
+    const payload = JSON.stringify({
+      id: `evt_grant_${customer}`,
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          object: "checkout.session",
+          id: `cs_grant_${customer}`,
+          payment_status: "paid",
+          customer,
+          metadata: { userId },
+        },
+      },
+    });
+    return request(app)
+      .post("/api/stripe/webhook")
+      .set("stripe-signature", makeStripeHeader(payload))
+      .set("Content-Type", "application/json")
+      .send(payload);
+  }
+
+  it("links and grants when the user is unlinked and the Stripe customer's metadata confirms the user", async () => {
+    const USER = "unlinked_user_1";
+    const CUS = "cus_unlinked_confirmed";
+    mockUsers.set(USER, { id: USER, stripeCustomerId: null, hasPass: false });
+    mockStripeCustomers.set(CUS, { userId: USER });
+
+    const res = await postPaidCheckout(CUS, USER);
+    expect(res.status).toBe(200);
+
+    const user = mockUsers.get(USER)!;
+    expect(user.stripeCustomerId).toBe(CUS);
+    expect(user.hasPass).toBe(true);
+  });
+
+  it("does NOT link or grant when the Stripe customer's metadata references a different user", async () => {
+    const USER = "unlinked_user_2";
+    const CUS = "cus_metadata_mismatch";
+    mockUsers.set(USER, { id: USER, stripeCustomerId: null, hasPass: false });
+    mockStripeCustomers.set(CUS, { userId: "someone_else" });
+
+    const res = await postPaidCheckout(CUS, USER);
+    expect(res.status).toBe(200); // webhook still accepted
+
+    const user = mockUsers.get(USER)!;
+    expect(user.stripeCustomerId).toBeNull();
+    expect(user.hasPass).toBe(false);
+  });
+
+  it("does NOT grant when the user is already linked to a different Stripe customer", async () => {
+    const USER = "linked_elsewhere_user";
+    const CUS_EVENT = "cus_from_event";
+    mockUsers.set(USER, {
+      id: USER,
+      stripeCustomerId: "cus_original_link",
+      hasPass: false,
+    });
+    mockStripeCustomers.set(CUS_EVENT, { userId: USER });
+
+    const res = await postPaidCheckout(CUS_EVENT, USER);
+    expect(res.status).toBe(200);
+
+    const user = mockUsers.get(USER)!;
+    expect(user.stripeCustomerId).toBe("cus_original_link"); // unchanged
+    expect(user.hasPass).toBe(false);
+  });
+
+  it("grants directly when the user is already linked to the event's customer", async () => {
+    // TEST_USER_ID is seeded in beforeEach with TEST_CUSTOMER_ID and no pass.
+    const res = await postPaidCheckout(TEST_CUSTOMER_ID, TEST_USER_ID);
+    expect(res.status).toBe(200);
+    expect(mockUsers.get(TEST_USER_ID)!.hasPass).toBe(true);
   });
 });

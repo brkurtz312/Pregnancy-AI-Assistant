@@ -23,6 +23,15 @@ export async function loadScribeNote(): Promise<StoredScribeNote | null> {
   }
 }
 
+/** Clears the saved scribe note on sign-out. Best-effort. */
+export async function clearScribeNoteCache(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(SCRIBE_NOTE_KEY);
+  } catch {
+    /* best-effort */
+  }
+}
+
 export async function saveScribeNote(note: PatientSummary): Promise<void> {
   const stored: StoredScribeNote = {
     note,

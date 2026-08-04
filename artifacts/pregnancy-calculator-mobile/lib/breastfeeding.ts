@@ -24,6 +24,15 @@ export async function loadBfCheckin(): Promise<BfCheckin> {
   }
 }
 
+/** Clears the breastfeeding check-in on sign-out. Best-effort. */
+export async function clearBfCheckinCache(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(BF_CHECKIN_STORAGE_KEY);
+  } catch {
+    /* best-effort */
+  }
+}
+
 export async function saveBfCheckin(checkin: BfCheckin): Promise<void> {
   await AsyncStorage.setItem(BF_CHECKIN_STORAGE_KEY, JSON.stringify(checkin));
 }

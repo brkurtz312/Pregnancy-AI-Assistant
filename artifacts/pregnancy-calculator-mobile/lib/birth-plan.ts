@@ -319,6 +319,7 @@ export async function clearBirthPlanCache(): Promise<void> {
     await AsyncStorage.multiRemove([
       BIRTH_PLAN_STORAGE_KEY,
       BIRTH_PLAN_OWNER_KEY,
+      BIRTH_PLAN_GENERATED_KEY,
     ]);
   } catch {
     /* best-effort */

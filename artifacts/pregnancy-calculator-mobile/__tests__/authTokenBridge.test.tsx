@@ -60,6 +60,26 @@ jest.mock("@/lib/visit-questions", () => ({
   clearVisitQuestionsCache: jest.fn(async () => {}),
 }));
 
+jest.mock("@/lib/fetal-heart-rate", () => ({
+  clearFhrCache: jest.fn(async () => {}),
+}));
+
+jest.mock("@/lib/scribe-note", () => ({
+  clearScribeNoteCache: jest.fn(async () => {}),
+}));
+
+jest.mock("@/lib/breastfeeding", () => ({
+  clearBfCheckinCache: jest.fn(async () => {}),
+}));
+
+jest.mock("@/lib/postpartum-depression", () => ({
+  clearPpdCache: jest.fn(async () => {}),
+}));
+
+jest.mock("@/lib/location-mode", () => ({
+  clearLocationModeUserData: jest.fn(async () => {}),
+}));
+
 jest.mock("@/lib/custom-reminders", () => ({
   clearAllCustomReminders: jest.fn(async () => {}),
 }));
@@ -103,6 +123,11 @@ import { clearJournalCache } from "@/lib/journal";
 import { clearHospitalBagCache } from "@/lib/hospital-bag";
 import { clearBirthPlanCache } from "@/lib/birth-plan";
 import { clearVisitQuestionsCache } from "@/lib/visit-questions";
+import { clearFhrCache } from "@/lib/fetal-heart-rate";
+import { clearScribeNoteCache } from "@/lib/scribe-note";
+import { clearBfCheckinCache } from "@/lib/breastfeeding";
+import { clearPpdCache } from "@/lib/postpartum-depression";
+import { clearLocationModeUserData } from "@/lib/location-mode";
 import { AuthTokenBridge } from "../components/AuthTokenBridge";
 
 const mockUseSession = useSession as jest.Mock;
@@ -112,6 +137,11 @@ const mockClearJournal = clearJournalCache as jest.Mock;
 const mockClearHospitalBag = clearHospitalBagCache as jest.Mock;
 const mockClearBirthPlan = clearBirthPlanCache as jest.Mock;
 const mockClearVisitQuestions = clearVisitQuestionsCache as jest.Mock;
+const mockClearFhr = clearFhrCache as jest.Mock;
+const mockClearScribeNote = clearScribeNoteCache as jest.Mock;
+const mockClearBfCheckin = clearBfCheckinCache as jest.Mock;
+const mockClearPpd = clearPpdCache as jest.Mock;
+const mockClearLocationMode = clearLocationModeUserData as jest.Mock;
 
 function makeSession(id: string) {
   return { getToken: jest.fn(async () => `token-${id}`) };
@@ -325,6 +355,11 @@ describe("AuthTokenBridge — session-switch isolation", () => {
     expect(mockClearHospitalBag).toHaveBeenCalledTimes(1);
     expect(mockClearBirthPlan).toHaveBeenCalledTimes(1);
     expect(mockClearVisitQuestions).toHaveBeenCalledTimes(1);
+    expect(mockClearFhr).toHaveBeenCalledTimes(1);
+    expect(mockClearScribeNote).toHaveBeenCalledTimes(1);
+    expect(mockClearBfCheckin).toHaveBeenCalledTimes(1);
+    expect(mockClearPpd).toHaveBeenCalledTimes(1);
+    expect(mockClearLocationMode).toHaveBeenCalledTimes(1);
   });
 
   it("does NOT clear tool caches on sign-in (only on sign-out)", async () => {
@@ -348,6 +383,11 @@ describe("AuthTokenBridge — session-switch isolation", () => {
     expect(mockClearHospitalBag).not.toHaveBeenCalled();
     expect(mockClearBirthPlan).not.toHaveBeenCalled();
     expect(mockClearVisitQuestions).not.toHaveBeenCalled();
+    expect(mockClearFhr).not.toHaveBeenCalled();
+    expect(mockClearScribeNote).not.toHaveBeenCalled();
+    expect(mockClearBfCheckin).not.toHaveBeenCalled();
+    expect(mockClearPpd).not.toHaveBeenCalled();
+    expect(mockClearLocationMode).not.toHaveBeenCalled();
   });
 
   it("does not call invalidateQueries or clear when the same session re-renders without changing", async () => {
