@@ -189,11 +189,12 @@ Covered by the unit tests in `watchAppStoreUpdate.test.tsx`:
 
 ## Sign-off
 
-| Build | Tester | Device      | watchOS | Date | Icon ✓ | Kicks ✓ | Contractions ✓ | Tips ✓ | Update ✓ | Notes                       |
-| ----- | ------ | ----------- | ------- | ---- | ------ | ------- | -------------- | ------ | -------- | --------------------------- |
-| #124  |        |             |         |      |        |         |                |        | N/A      | Fresh-install only          |
-| #124  |        | Ultra 49 mm |         |      |        |         |                |        | N/A      | Ultra icon — see note below |
-|       |        |             |         |      |        |         |                |        |          |                             |
+| Build | Tester | Device           | watchOS | Date | Icon ✓ | Kicks ✓ | Contractions ✓ | Tips ✓ | Update ✓ | Notes                          |
+| ----- | ------ | ---------------- | ------- | ---- | ------ | ------- | -------------- | ------ | -------- | ------------------------------ |
+| #124  |        |                  |         |      |        |         |                |        | N/A      | Fresh-install only             |
+| #124  |        | Ultra 49 mm      |         |      |        |         |                |        | N/A      | Ultra icon — see note below    |
+| #124  |        | SE (2nd gen) 40 mm |         |      |        |         |                |        | N/A      | SE icon — see note below       |
+|       |        |                  |         |      |        |         |                |        |          |                                |
 
 ### Apple Watch Ultra (49 mm) — icon validation note
 
@@ -211,5 +212,22 @@ formatted source file renders correctly on Ultra hardware without any size-speci
 
 A tester with Apple Watch Ultra (49 mm) hardware should install build #124 from TestFlight and fill in the
 Tester / watchOS / Date / Icon ✓ columns above after running steps 1.1 – 1.4 on the Ultra.
+
+Record any failures as issues against the relevant task before approving the build for wider TestFlight distribution.
+
+---
+
+### Apple Watch SE (2nd gen, 40 mm) — icon validation note
+
+Apple Watch SE (2nd gen) uses a 40 mm display with a compositing pipeline that differs from Series hardware at the same physical size (e.g. Series 4/5/6 40 mm). Despite this difference, the Watch app icon uses the modern single-image `"idiom": "universal"` / `"platform": "watchos"` asset-catalog format (verified by `pnpm run validate:watch-icons` — all 6 checks pass). watchOS derives every display-size slot — including the SE 40 mm slot — from the single 1024 × 1024 px sRGB source at compositing time, so a correctly formatted source file renders correctly on SE hardware without any size-specific entry in `Contents.json`.
+
+**Source file properties confirmed:**
+
+- Dimensions: 1024 × 1024 px ✓
+- Color profile: 8-bit sRGB ✓
+- Alpha channel: none ✓
+- Asset catalog format: modern single-image universal (no `scale` / size matrix) ✓
+
+A tester with Apple Watch SE (2nd gen) hardware should install build #124 from TestFlight and fill in the Tester / watchOS / Date / Icon ✓ columns in the sign-off table above after running steps 1.1 – 1.4 on the SE.
 
 Record any failures as issues against the relevant task before approving the build for wider TestFlight distribution.
