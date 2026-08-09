@@ -189,12 +189,12 @@ Covered by the unit tests in `watchAppStoreUpdate.test.tsx`:
 
 ## Sign-off
 
-| Build | Tester | Device           | watchOS | Date | Icon ✓ | Kicks ✓ | Contractions ✓ | Tips ✓ | Update ✓ | Notes                          |
-| ----- | ------ | ---------------- | ------- | ---- | ------ | ------- | -------------- | ------ | -------- | ------------------------------ |
-| #124  |        |                  |         |      |        |         |                |        | N/A      | Fresh-install only             |
-| #124  |        | Ultra 49 mm      |         |      |        |         |                |        | N/A      | Ultra icon — see note below    |
-| #124  |        | SE (2nd gen) 40 mm |         |      |        |         |                |        | N/A      | SE icon — see note below       |
-|       |        |                  |         |      |        |         |                |        |          |                                |
+| Build | Tester | Device             | watchOS | Date | Icon ✓ | Kicks ✓ | Contractions ✓ | Tips ✓ | Update ✓ | Notes                       |
+| ----- | ------ | ------------------ | ------- | ---- | ------ | ------- | -------------- | ------ | -------- | --------------------------- |
+| #124  |        |                    |         |      |        |         |                |        | N/A      | Fresh-install only          |
+| #124  |        | Ultra 49 mm        |         |      |        |         |                |        | N/A      | Ultra icon — see note below |
+| #124  |        | SE (2nd gen) 40 mm |         |      |        |         |                |        | N/A      | SE icon — see note below    |
+|       |        |                    |         |      |        |         |                |        |          |                             |
 
 ### Apple Watch Ultra (49 mm) — icon validation note
 

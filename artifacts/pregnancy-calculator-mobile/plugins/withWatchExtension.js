@@ -41,6 +41,7 @@ const WATCH_SWIFT_SOURCES = [
   "PregnancyWatchApp.swift",
   "ContentView.swift",
   "KickCounterView.swift",
+  "KickSessionRestorePolicy.swift",
   "ContractionTimerView.swift",
   "TipsView.swift",
   "WatchSessionManager.swift",
@@ -321,6 +322,13 @@ function _withWatchXcodeTargetInner(config) {
     // Apple's ITMS-90391 validator checks for actual PNG files listed in
     // CFBundleIconFiles — it does not look inside Assets.car for icons.
     addWatchIconFilesToResources(project, watchUuid);
+
+    // Ensure ALL WATCH_SWIFT_SOURCES are registered in the Watch target's
+    // Sources phase. The addBuildPhase() call above only runs on the fresh-add
+    // path; when the target already exists (prebuild re-runs), any source file
+    // added to WATCH_SWIFT_SOURCES later (e.g. KickSessionRestorePolicy.swift)
+    // would otherwise never be compiled → "unresolved identifier" at build.
+    ensureWatchSourcesInWatchTarget(project, watchUuid);
   }
 
   // ── Always apply: phone bridge Swift files to main target Sources ─────────
@@ -836,6 +844,96 @@ function addEmbedWatchShellScript(project) {
  * project.addFile() with a null group would crash the xcode library, so all
  * insertions are done manually into the pbxproj object graph.
  */
+/**
+ * Ensures every file in WATCH_SWIFT_SOURCES is present in the Watch target's
+ * Sources build phase. Idempotent and phase-aware (checks PBXBuildFile
+ * membership in the phase, not just global file references), mirroring
+ * addPhoneBridgeToMainTarget. Must run unconditionally — the addBuildPhase()
+ * bulk registration only happens when the target is first created, so sources
+ * added to WATCH_SWIFT_SOURCES later are otherwise skipped on re-runs.
+ */
+function ensureWatchSourcesInWatchTarget(project, watchTargetUuid) {
+  const objects = project.hash.project.objects;
+  const nts = project.pbxNativeTargetSection();
+  const watchTarget = nts[watchTargetUuid];
+  if (!watchTarget) return;
+
+  const sourcesSection = objects["PBXSourcesBuildPhase"] || {};
+  const buildFileSection = objects["PBXBuildFile"] || {};
+  if (!objects["PBXBuildFile"]) objects["PBXBuildFile"] = {};
+  if (!objects["PBXFileReference"]) objects["PBXFileReference"] = {};
+  const frs = project.pbxFileReferenceSection();
+
+  // Locate the Watch target's Sources phase.
+  let sourcesPhaseUuid = null;
+  for (const phase of watchTarget.buildPhases || []) {
+    const uuid = typeof phase === "object" ? phase.value : phase;
+    if (sourcesSection[uuid]) { sourcesPhaseUuid = uuid; break; }
+  }
+  if (!sourcesPhaseUuid) {
+    console.warn("[Watch] ensureWatchSourcesInWatchTarget: Sources phase not found");
+    return;
+  }
+  const sourcesPhase = sourcesSection[sourcesPhaseUuid];
+  if (!sourcesPhase.files) sourcesPhase.files = [];
+
+  for (const fileName of WATCH_SWIFT_SOURCES) {
+    const filePath = `${WATCH_TARGET_NAME}/${fileName}`;
+
+    // Find existing file reference (bare name or watch-relative path).
+    let fileRefUuid = null;
+    for (const [k, v] of Object.entries(frs)) {
+      if (k.endsWith("_comment")) continue;
+      if (!v || typeof v !== "object") continue;
+      const p = v.path || v.name || "";
+      if (
+        p === `"${fileName}"` ||
+        p === fileName ||
+        p === `"${filePath}"` ||
+        p === filePath
+      ) {
+        fileRefUuid = k;
+        break;
+      }
+    }
+
+    if (fileRefUuid) {
+      // Phase-aware idempotency: skip when a build file for this ref is
+      // already in the Watch Sources phase.
+      const inPhase = sourcesPhase.files.some((bf) => {
+        const bfUuid = typeof bf === "object" ? bf.value : bf;
+        if (!bfUuid || bfUuid.endsWith("_comment")) return false;
+        const bfObj = buildFileSection[bfUuid];
+        if (!bfObj) return false;
+        const refVal =
+          typeof bfObj.fileRef === "object" ? bfObj.fileRef.value : bfObj.fileRef;
+        return refVal === fileRefUuid;
+      });
+      if (inPhase) continue;
+    } else {
+      fileRefUuid = project.generateUuid();
+      objects["PBXFileReference"][fileRefUuid] = {
+        isa: "PBXFileReference",
+        lastKnownFileType: "sourcecode.swift",
+        name: `"${fileName}"`,
+        path: `"${filePath}"`,
+        sourceTree: '"<group>"',
+      };
+      objects["PBXFileReference"][`${fileRefUuid}_comment`] = fileName;
+      console.log(`[Watch] Created PBXFileReference for ${fileName} (${fileRefUuid})`);
+    }
+
+    const buildFileUuid = project.generateUuid();
+    objects["PBXBuildFile"][buildFileUuid] = {
+      isa: "PBXBuildFile",
+      fileRef: fileRefUuid,
+    };
+    objects["PBXBuildFile"][`${buildFileUuid}_comment`] = `${fileName} in Sources`;
+    sourcesPhase.files.push({ value: buildFileUuid, comment: `${fileName} in Sources` });
+    console.log(`[Watch] Added ${fileName} to Watch target Sources (buildFile=${buildFileUuid})`);
+  }
+}
+
 function addPhoneBridgeToMainTarget(project, appName) {
   const nts = project.pbxNativeTargetSection();
   const objects = project.hash.project.objects;

@@ -165,24 +165,28 @@ struct KickCounterView: View {
 
     private func restoreSession() {
         let ud = UserDefaults.standard
-        guard ud.bool(forKey: KickDefaults.active) else { return }
+        let now = Date()
 
-        let savedCount = ud.integer(forKey: KickDefaults.count)
-        let startRaw   = ud.double(forKey: KickDefaults.start)
+        let outcome = KickSessionRestorePolicy.evaluate(
+            active: ud.bool(forKey: KickDefaults.active),
+            count: ud.integer(forKey: KickDefaults.count),
+            startRaw: ud.double(forKey: KickDefaults.start),
+            now: now
+        )
 
-        // Guard against a zero/missing start date which would indicate
-        // stale or corrupt persisted data — treat as no active session.
-        guard startRaw > 0 else {
-            clearSession()
+        switch outcome {
+        case .idle:
             return
+        case .clear:
+            // Stale (older than the threshold) or corrupt persisted data —
+            // wipe it so yesterday's kicks don't reappear as a new session.
+            clearSession()
+        case .restore(let count, let start):
+            kickCount    = count
+            sessionStart = start
+            sessionActive = true
+            elapsed      = now.timeIntervalSince(start)
+            startTimer()
         }
-
-        let savedStart = Date(timeIntervalSince1970: startRaw)
-
-        kickCount    = savedCount
-        sessionStart = savedStart
-        sessionActive = true
-        elapsed      = Date().timeIntervalSince(savedStart)
-        startTimer()
     }
 }
