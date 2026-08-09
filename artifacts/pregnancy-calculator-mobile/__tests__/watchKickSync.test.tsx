@@ -2223,3 +2223,253 @@ describe("WatchBackgroundListener — signed-out guard", () => {
     expect(renderedTexts).not.toMatch(/recorded/i);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Back-to-back sessions — no merging
+//
+// If the Watch fires onKickSessionEnd (or onContractionUpdate) twice in quick
+// succession for two DISTINCT sessions (different startedAt timestamps), each
+// call must produce a separate API request and a separate cache invalidation.
+//
+// The key property under test is CONCURRENCY: both callbacks are launched
+// simultaneously (neither is awaited before the other fires), the API mock is
+// held pending with a deferred promise, and microtasks are flushed until BOTH
+// calls have arrived at the blocked mock before the mock is resolved.  This
+// catches a debounce, an in-flight boolean guard, or any other mechanism that
+// would coalesce two distinct saves into one.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Flush the microtask queue enough times for all pending awaits inside
+ * async handlers to advance.  Each `await Promise.resolve()` processes one
+ * round of microtasks; handlers in WatchBackgroundListener need at most two
+ * rounds to progress past `await getToken()` and reach `await apiDirectSave`.
+ */
+async function flushMicrotasks(rounds = 20): Promise<void> {
+  for (let i = 0; i < rounds; i++) {
+    await Promise.resolve();
+  }
+}
+
+describe("WatchBackgroundListener — back-to-back sessions are not merged", () => {
+  let listenerRenderer: ReturnType<typeof create> | null = null;
+
+  function renderWatchListener() {
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      userId: "user-123",
+      getToken: jest.fn().mockResolvedValue("token-user-123"),
+    });
+    act(() => {
+      listenerRenderer = create(React.createElement(WatchBackgroundListener));
+    });
+    return listenerRenderer!;
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    listenerRenderer = null;
+    capturedOnKickSessionEnd = undefined;
+    capturedOnContractionUpdate = undefined;
+    capturedOnKickUpdate = undefined;
+    jest.clearAllMocks();
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      userId: "user-123",
+      getToken: jest.fn().mockResolvedValue("token-user-123"),
+    });
+    mockInvalidateQueries.mockResolvedValue(undefined);
+    mockApiDirectSaveKickSession.mockResolvedValue(undefined);
+    mockApiDirectSaveContraction.mockResolvedValue(undefined);
+    mockGetQueryData.mockReturnValue(undefined);
+  });
+
+  afterEach(() => {
+    act(() => {
+      jest.runAllTimers();
+    });
+    if (listenerRenderer) {
+      act(() => {
+        listenerRenderer!.unmount();
+      });
+      listenerRenderer = null;
+    }
+    jest.useRealTimers();
+    jest.clearAllMocks();
+  });
+
+  it("calls apiDirectSaveKickSession exactly twice when two distinct kick sessions are in-flight simultaneously", async () => {
+    renderWatchListener();
+    await act(async () => {});
+
+    expect(capturedOnKickSessionEnd).toBeDefined();
+
+    const sessionA = {
+      kickCount: 6,
+      startedAt: "2026-08-09T08:00:00.000Z",
+      endedAt: "2026-08-09T08:30:00.000Z",
+    };
+    const sessionB = {
+      kickCount: 4,
+      startedAt: "2026-08-09T09:00:00.000Z",
+      endedAt: "2026-08-09T09:25:00.000Z",
+    };
+
+    // Hold the API save open so we can assert both calls are in-flight before
+    // either resolves.  If a debounce or in-flight guard blocked the second
+    // call, its count would still be 1 when we assert below.
+    let resolveKickSave!: () => void;
+    const kickSaveBlocker = new Promise<void>((res) => {
+      resolveKickSave = res;
+    });
+    mockApiDirectSaveKickSession.mockImplementation(() => kickSaveBlocker);
+
+    // Launch both callbacks simultaneously — neither is awaited before the
+    // other is fired.
+    let p1!: Promise<void>, p2!: Promise<void>;
+    act(() => {
+      p1 = capturedOnKickSessionEnd!(sessionA) as Promise<void>;
+      p2 = capturedOnKickSessionEnd!(sessionB) as Promise<void>;
+    });
+
+    // Flush microtasks until both handlers have advanced past await getToken()
+    // and are now suspended at await apiDirectSaveKickSession (the blocker).
+    // We assert BEFORE resolving the blocker to prove both are concurrently
+    // in-flight.
+    await act(async () => {
+      // Poll: advance microtasks in bounded rounds until both calls arrive.
+      for (let round = 0; round < 30; round++) {
+        await Promise.resolve();
+        if (mockApiDirectSaveKickSession.mock.calls.length >= 2) break;
+      }
+    });
+
+    // Both saves must be in-flight at the API level before either resolves.
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(2);
+    // Payload identity — each session must carry its own distinct data.
+    const calledWith = mockApiDirectSaveKickSession.mock.calls.map(
+      (c: unknown[]) => (c[0] as { startedAt: string }).startedAt,
+    );
+    expect(calledWith).toContain(sessionA.startedAt);
+    expect(calledWith).toContain(sessionB.startedAt);
+
+    // Unblock and let both handlers finish.
+    await act(async () => {
+      resolveKickSave();
+      await Promise.all([p1, p2]);
+      await flushMicrotasks();
+    });
+  });
+
+  it("calls invalidateQueries exactly twice when two distinct kick sessions are in-flight simultaneously", async () => {
+    renderWatchListener();
+    await act(async () => {});
+
+    expect(capturedOnKickSessionEnd).toBeDefined();
+
+    // Deferred save holds both handlers open so both invalidations fire only
+    // after each save completes — not before one has even started.
+    let resolveAll!: () => void;
+    const blocker = new Promise<void>((res) => {
+      resolveAll = res;
+    });
+    mockApiDirectSaveKickSession.mockImplementation(() => blocker);
+
+    let p1!: Promise<void>, p2!: Promise<void>;
+    act(() => {
+      p1 = capturedOnKickSessionEnd!({
+        kickCount: 3,
+        startedAt: "2026-08-09T10:00:00.000Z",
+        endedAt: "2026-08-09T10:15:00.000Z",
+      }) as Promise<void>;
+      p2 = capturedOnKickSessionEnd!({
+        kickCount: 7,
+        startedAt: "2026-08-09T11:00:00.000Z",
+        endedAt: "2026-08-09T11:35:00.000Z",
+      }) as Promise<void>;
+    });
+
+    // Flush microtasks until both API calls have arrived (both in-flight).
+    await act(async () => {
+      for (let round = 0; round < 30; round++) {
+        await Promise.resolve();
+        if (mockApiDirectSaveKickSession.mock.calls.length >= 2) break;
+      }
+    });
+
+    // Confirm both are concurrently in-flight before we unblock.
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(2);
+
+    // Unblock: both saves complete, each must trigger its own invalidation.
+    await act(async () => {
+      resolveAll();
+      await Promise.all([p1, p2]);
+      await flushMicrotasks();
+    });
+
+    // Each completed session must trigger its own cache invalidation so that
+    // the Tools tab reflects both new records without a manual refresh.
+    expect(mockInvalidateQueries).toHaveBeenCalledTimes(2);
+  });
+
+  it("calls apiDirectSaveContraction exactly twice and invalidates twice when two distinct contractions are in-flight simultaneously", async () => {
+    renderWatchListener();
+    await act(async () => {});
+
+    expect(capturedOnContractionUpdate).toBeDefined();
+
+    const contractionA = {
+      startedAt: "2026-08-09T12:00:00.000Z",
+      endedAt: "2026-08-09T12:01:00.000Z",
+      interval: 300,
+    };
+    const contractionB = {
+      startedAt: "2026-08-09T12:05:00.000Z",
+      endedAt: "2026-08-09T12:06:00.000Z",
+      interval: 300,
+    };
+
+    // Hold the API save open so both handlers are concurrently suspended at
+    // the API call before either resolves.
+    let resolveContractionSave!: () => void;
+    const contractionBlocker = new Promise<void>((res) => {
+      resolveContractionSave = res;
+    });
+    mockApiDirectSaveContraction.mockImplementation(() => contractionBlocker);
+
+    // Both callbacks launched simultaneously.
+    let p1!: Promise<void>, p2!: Promise<void>;
+    act(() => {
+      p1 = capturedOnContractionUpdate!(contractionA) as Promise<void>;
+      p2 = capturedOnContractionUpdate!(contractionB) as Promise<void>;
+    });
+
+    // Flush microtasks until both are at the API mock (both in-flight).
+    await act(async () => {
+      for (let round = 0; round < 30; round++) {
+        await Promise.resolve();
+        if (mockApiDirectSaveContraction.mock.calls.length >= 2) break;
+      }
+    });
+
+    // Assert concurrency: both saves arrived before either completed.
+    expect(mockApiDirectSaveContraction).toHaveBeenCalledTimes(2);
+    const contractionStartedAts = mockApiDirectSaveContraction.mock.calls.map(
+      (c: unknown[]) => (c[0] as { startedAt: string }).startedAt,
+    );
+    expect(contractionStartedAts).toContain(contractionA.startedAt);
+    expect(contractionStartedAts).toContain(contractionB.startedAt);
+
+    // Unblock both saves and let the invalidations fire.
+    await act(async () => {
+      resolveContractionSave();
+      await Promise.all([p1, p2]);
+      await flushMicrotasks();
+    });
+
+    // Both saves must also produce a cache invalidation.
+    expect(mockInvalidateQueries).toHaveBeenCalledTimes(2);
+  });
+});
