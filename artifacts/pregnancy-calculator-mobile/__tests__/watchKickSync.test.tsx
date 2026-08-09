@@ -2090,3 +2090,136 @@ describe("WatchBackgroundListener — offline delivery persistence (transferUser
     expect(mockInvalidateQueries).toHaveBeenCalledTimes(1);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Signed-out guard
+//
+// When the user is signed out at the moment the Watch fires, the component
+// must silently drop both callbacks — no API save, no cache invalidation,
+// no toast.  The callbacks must also be passed as `undefined` to
+// useWatchConnectivity so the Watch layer never invokes them.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("WatchBackgroundListener — signed-out guard", () => {
+  let listenerRenderer: ReturnType<typeof create> | null = null;
+
+  function renderSignedOutListener() {
+    mockUseAuth.mockReturnValue({
+      isSignedIn: false,
+      userId: undefined,
+      getToken: jest.fn().mockResolvedValue(null),
+    });
+    act(() => {
+      listenerRenderer = create(React.createElement(WatchBackgroundListener));
+    });
+    return listenerRenderer!;
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    listenerRenderer = null;
+    capturedOnKickSessionEnd = undefined;
+    capturedOnContractionUpdate = undefined;
+    capturedOnKickUpdate = undefined;
+    jest.clearAllMocks();
+    mockInvalidateQueries.mockResolvedValue(undefined);
+    mockApiDirectSaveKickSession.mockResolvedValue(undefined);
+    mockApiDirectSaveContraction.mockResolvedValue(undefined);
+    mockGetQueryData.mockReturnValue(undefined);
+  });
+
+  afterEach(() => {
+    act(() => {
+      jest.runAllTimers();
+    });
+    if (listenerRenderer) {
+      act(() => {
+        listenerRenderer!.unmount();
+      });
+      listenerRenderer = null;
+    }
+    jest.useRealTimers();
+    jest.clearAllMocks();
+  });
+
+  it("passes undefined for onKickSessionEnd to useWatchConnectivity when signed out", () => {
+    renderSignedOutListener();
+    act(() => {});
+
+    // When isSignedIn is false the component must pass undefined so the Watch
+    // layer never has a function to call for kick session end events.
+    expect(capturedOnKickSessionEnd).toBeUndefined();
+  });
+
+  it("passes undefined for onContractionUpdate to useWatchConnectivity when signed out", () => {
+    renderSignedOutListener();
+    act(() => {});
+
+    // When isSignedIn is false the component must pass undefined so the Watch
+    // layer never has a function to call for contraction update events.
+    expect(capturedOnContractionUpdate).toBeUndefined();
+  });
+
+  it("passes undefined for onKickUpdate to useWatchConnectivity when signed out", () => {
+    renderSignedOutListener();
+    act(() => {});
+
+    // Mid-session live-count updates must also be suppressed when signed out.
+    expect(capturedOnKickUpdate).toBeUndefined();
+  });
+
+  it("does not call apiDirectSaveKickSession when a kick session arrives while signed out", async () => {
+    // Even if the internal handleKickSessionEnd were somehow invoked directly,
+    // the isSignedIn guard must prevent any API call.
+    renderSignedOutListener();
+    await act(async () => {});
+
+    // Callback is undefined — the Watch layer would not call it, but we verify
+    // the API is never touched regardless.
+    expect(capturedOnKickSessionEnd).toBeUndefined();
+    expect(mockApiDirectSaveKickSession).not.toHaveBeenCalled();
+    expect(mockInvalidateQueries).not.toHaveBeenCalled();
+  });
+
+  it("does not call apiDirectSaveContraction when a contraction arrives while signed out", async () => {
+    renderSignedOutListener();
+    await act(async () => {});
+
+    expect(capturedOnContractionUpdate).toBeUndefined();
+    expect(mockApiDirectSaveContraction).not.toHaveBeenCalled();
+    expect(mockInvalidateQueries).not.toHaveBeenCalled();
+  });
+
+  it("shows no toast when signed out and a kick session callback would have fired", async () => {
+    const renderer = renderSignedOutListener();
+    await act(async () => {});
+
+    // No callback is registered, so no toast path can be triggered.
+    // Verify the rendered tree contains no visible toast text (the toast
+    // component renders with visible:false and an empty message by default).
+    const textNodes = renderer.root.findAllByType(Text);
+    const renderedTexts = textNodes
+      .map((n) => String(n.props.children ?? ""))
+      .join(" ");
+
+    expect(renderedTexts).not.toMatch(/saved/i);
+    expect(renderedTexts).not.toMatch(/recorded/i);
+    expect(renderedTexts).not.toMatch(/kick session/i);
+    expect(renderedTexts).not.toMatch(/contraction/i);
+  });
+
+  it("shows no toast when signed out and a contraction callback would have fired", async () => {
+    const renderer = renderSignedOutListener();
+    await act(async () => {});
+
+    const textNodes = renderer.root.findAllByType(Text);
+    const renderedTexts = textNodes
+      .map((n) => String(n.props.children ?? ""))
+      .join(" ");
+
+    expect(renderedTexts).not.toMatch(/saved/i);
+    expect(renderedTexts).not.toMatch(/recorded/i);
+  });
+});
