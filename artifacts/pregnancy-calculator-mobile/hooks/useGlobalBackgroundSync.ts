@@ -1,6 +1,11 @@
 import { useAuth } from "@clerk/expo";
 import { useRef, useEffect } from "react";
 import NetInfo from "@react-native-community/netinfo";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  getListKickSessionsQueryKey,
+  getListContractionsQueryKey,
+} from "@workspace/api-client-react";
 import { useNetReconnect } from "@/hooks/useNetReconnect";
 import {
   hasPendingSync,
@@ -24,6 +29,10 @@ import {
 } from "@/lib/sync-api";
 import { loadHospitalBagChecklist } from "@/lib/hospital-bag";
 import { loadBirthPlanAnswers } from "@/lib/birth-plan";
+
+function todayDate() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 type TokenGetter = () => Promise<string | null>;
 type UserIdGetter = () => string | null | undefined;
@@ -106,6 +115,7 @@ async function syncPendingWatchKickSessions(
   userId: string,
   getToken: TokenGetter,
   getActiveUserId: UserIdGetter,
+  onItemSaved?: () => void,
 ): Promise<void> {
   const genAtStart = getWatchQueueGeneration(userId);
   if (!tryAcquireSyncLock("watch-kicks")) return;
@@ -140,6 +150,8 @@ async function syncPendingWatchKickSessions(
         if (getWatchQueueGeneration(userId) !== genAtStart) return;
         if (getActiveUserId() !== userId) return;
         await removeWatchKickSessionById(userId, session._clientId);
+        // Invalidate the Tools list so fresh data is visible after the flush.
+        onItemSaved?.();
       } catch {
         // Leave item in queue; it will be retried on the next reconnect.
       }
@@ -158,6 +170,7 @@ async function syncPendingWatchContractions(
   userId: string,
   getToken: TokenGetter,
   getActiveUserId: UserIdGetter,
+  onItemSaved?: () => void,
 ): Promise<void> {
   const genAtStart = getWatchQueueGeneration(userId);
   if (!tryAcquireSyncLock("watch-contractions")) return;
@@ -187,6 +200,8 @@ async function syncPendingWatchContractions(
         if (getWatchQueueGeneration(userId) !== genAtStart) return;
         if (getActiveUserId() !== userId) return;
         await removeWatchContractionById(userId, contraction._clientId);
+        // Invalidate the Tools list so fresh data is visible after the flush.
+        onItemSaved?.();
       } catch {
         // Leave item in queue; it will be retried on the next reconnect.
       }
@@ -200,12 +215,24 @@ async function runGlobalBackgroundSync(
   userId: string,
   getToken: TokenGetter,
   getActiveUserId: UserIdGetter,
+  onKickSessionSaved?: () => void,
+  onContractionSaved?: () => void,
 ): Promise<void> {
   await syncPendingJournal(getToken);
   await syncPendingHospitalBag(getToken);
   await syncPendingBirthPlan(getToken);
-  await syncPendingWatchKickSessions(userId, getToken, getActiveUserId);
-  await syncPendingWatchContractions(userId, getToken, getActiveUserId);
+  await syncPendingWatchKickSessions(
+    userId,
+    getToken,
+    getActiveUserId,
+    onKickSessionSaved,
+  );
+  await syncPendingWatchContractions(
+    userId,
+    getToken,
+    getActiveUserId,
+    onContractionSaved,
+  );
 }
 
 /**
@@ -231,6 +258,7 @@ async function runGlobalBackgroundSync(
  */
 export function useGlobalBackgroundSync(): void {
   const { isSignedIn, getToken, userId } = useAuth();
+  const queryClient = useQueryClient();
 
   const isSignedInRef = useRef(isSignedIn);
   isSignedInRef.current = isSignedIn;
@@ -240,6 +268,9 @@ export function useGlobalBackgroundSync(): void {
 
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
+
+  const queryClientRef = useRef(queryClient);
+  queryClientRef.current = queryClient;
 
   // Initial-mount / sign-in flush for Watch event queues.
   //
@@ -266,11 +297,24 @@ export function useGlobalBackgroundSync(): void {
             flushUserId,
             () => getTokenRef.current(),
             () => userIdRef.current,
+            () => {
+              queryClientRef.current.invalidateQueries({
+                queryKey: getListKickSessionsQueryKey({ limit: 10, offset: 0 }),
+              });
+            },
           ),
           syncPendingWatchContractions(
             flushUserId,
             () => getTokenRef.current(),
             () => userIdRef.current,
+            () => {
+              queryClientRef.current.invalidateQueries({
+                queryKey: getListContractionsQueryKey({
+                  sessionDate: todayDate(),
+                  limit: 50,
+                }),
+              });
+            },
           ),
         ]);
       })
@@ -286,6 +330,19 @@ export function useGlobalBackgroundSync(): void {
       () => getTokenRef.current(),
       // Live getter so the flush can detect mid-flight user changes.
       () => userIdRef.current,
+      () => {
+        queryClientRef.current.invalidateQueries({
+          queryKey: getListKickSessionsQueryKey({ limit: 10, offset: 0 }),
+        });
+      },
+      () => {
+        queryClientRef.current.invalidateQueries({
+          queryKey: getListContractionsQueryKey({
+            sessionDate: todayDate(),
+            limit: 50,
+          }),
+        });
+      },
     ).catch(() => {});
   });
 }

@@ -60,6 +60,23 @@ jest.mock("@react-native-community/netinfo", () => ({
   },
 }));
 
+// ─── React Query — useQueryClient is called by the hook; stub it out ─────────
+
+jest.mock("@tanstack/react-query", () => ({
+  useQueryClient: jest.fn(() => ({
+    invalidateQueries: jest.fn().mockResolvedValue(undefined),
+    getQueryData: jest.fn().mockReturnValue(undefined),
+  })),
+}));
+
+// ─── API client query-key helpers ─────────────────────────────────────────────
+
+jest.mock("@workspace/api-client-react", () => ({
+  getListKickSessionsQueryKey: jest.fn((p: object) => ["kick-sessions", p]),
+  getListContractionsQueryKey: jest.fn((p: object) => ["contractions", p]),
+  getGetProfileQueryKey: jest.fn(() => ["profile"]),
+}));
+
 // ─── Sync queue ───────────────────────────────────────────────────────────────
 
 jest.mock("@/lib/sync-queue", () => ({
@@ -68,6 +85,12 @@ jest.mock("@/lib/sync-queue", () => ({
   markPendingSync: jest.fn(async () => {}),
   tryAcquireSyncLock: jest.fn(() => true),
   releaseSyncLock: jest.fn(),
+  getWatchQueueGeneration: jest.fn(() => 0),
+  readWatchKickSessions: jest.fn(async () => []),
+  removeWatchKickSessionById: jest.fn(async () => {}),
+  readWatchContractions: jest.fn(async () => []),
+  removeWatchContractionById: jest.fn(async () => {}),
+  invalidateWatchQueueSession: jest.fn(async () => {}),
 }));
 
 // ─── sync-api mock ────────────────────────────────────────────────────────────

@@ -219,18 +219,20 @@ function findToastText(instance: ReturnType<typeof create>): string | null {
   if (!json) return null;
   const nodes = Array.isArray(json) ? json : [json];
 
-  function walk(
-    node: ReturnType<typeof create>["toJSON"] extends Array<infer T> ? T : ReturnType<typeof create>["toJSON"],
-  ): string | null {
+  function walk(node: unknown): string | null {
     if (!node || typeof node !== "object") return null;
-    const n = node as { type?: string; props?: Record<string, unknown>; children?: unknown[] };
+    const n = node as {
+      type?: string;
+      props?: Record<string, unknown>;
+      children?: unknown[];
+    };
     if (n.type === "Text" && Array.isArray(n.children)) {
       const text = n.children.join("");
       if (text.length > 0) return text;
     }
     if (Array.isArray(n.children)) {
       for (const child of n.children) {
-        const found = walk(child as Parameters<typeof walk>[0]);
+        const found = walk(child);
         if (found) return found;
       }
     }
@@ -238,7 +240,7 @@ function findToastText(instance: ReturnType<typeof create>): string | null {
   }
 
   for (const node of nodes) {
-    const found = walk(node as Parameters<typeof walk>[0]);
+    const found = walk(node);
     if (found) return found;
   }
   return null;
@@ -309,7 +311,7 @@ describe("WatchBackgroundListener — storage-full fallback toast", () => {
   // ── Kick session ─────────────────────────────────────────────────────────────
 
   it("attempts to enqueue locally when the API save fails", async () => {
-    const renderer = renderWatchListener();
+    renderWatchListener();
     await act(async () => {});
 
     expect(capturedOnKickSessionEnd).toBeDefined();
@@ -327,7 +329,7 @@ describe("WatchBackgroundListener — storage-full fallback toast", () => {
   });
 
   it("shows the manual-log fallback toast when enqueueWatchKickSession rejects", async () => {
-    const renderer = renderWatchListener();
+    renderWatchListener();
     await act(async () => {});
 
     expect(capturedOnKickSessionEnd).toBeDefined();
@@ -342,13 +344,13 @@ describe("WatchBackgroundListener — storage-full fallback toast", () => {
 
     // The toast must tell the user to log manually — not show a generic error
     // or remain silent.
-    const toastText = findToastText(renderer);
+    const toastText = findToastText(listenerRenderer!);
     expect(toastText).not.toBeNull();
     expect(toastText?.toLowerCase()).toContain("manually");
   });
 
   it("does not show the 'saved locally' toast when the queue write fails", async () => {
-    const renderer = renderWatchListener();
+    renderWatchListener();
     await act(async () => {});
 
     await act(async () => {
@@ -361,7 +363,7 @@ describe("WatchBackgroundListener — storage-full fallback toast", () => {
 
     // The "saved locally" success path must NOT appear — storage is full so
     // we never successfully queued the item.
-    const toastText = findToastText(renderer);
+    const toastText = findToastText(listenerRenderer!);
     expect(toastText?.toLowerCase()).not.toContain("saved locally");
     expect(toastText?.toLowerCase()).not.toContain("will sync");
   });
@@ -403,7 +405,7 @@ describe("WatchBackgroundListener — storage-full fallback toast", () => {
   });
 
   it("shows the manual-log fallback toast when enqueueWatchContraction rejects", async () => {
-    const renderer = renderWatchListener();
+    renderWatchListener();
     await act(async () => {});
 
     expect(capturedOnContractionUpdate).toBeDefined();
@@ -416,13 +418,13 @@ describe("WatchBackgroundListener — storage-full fallback toast", () => {
       });
     });
 
-    const toastText = findToastText(renderer);
+    const toastText = findToastText(listenerRenderer!);
     expect(toastText).not.toBeNull();
     expect(toastText?.toLowerCase()).toContain("manually");
   });
 
   it("does not show 'saved locally' toast when contraction queue write fails", async () => {
-    const renderer = renderWatchListener();
+    renderWatchListener();
     await act(async () => {});
 
     await act(async () => {
@@ -433,7 +435,7 @@ describe("WatchBackgroundListener — storage-full fallback toast", () => {
       });
     });
 
-    const toastText = findToastText(renderer);
+    const toastText = findToastText(listenerRenderer!);
     expect(toastText?.toLowerCase()).not.toContain("saved locally");
     expect(toastText?.toLowerCase()).not.toContain("will sync");
   });
@@ -444,7 +446,7 @@ describe("WatchBackgroundListener — storage-full fallback toast", () => {
     // Override: API still fails but queue write succeeds this time.
     mockEnqueueWatchKickSession.mockResolvedValue(undefined);
 
-    const renderer = renderWatchListener();
+    renderWatchListener();
     await act(async () => {});
 
     await act(async () => {
@@ -455,7 +457,7 @@ describe("WatchBackgroundListener — storage-full fallback toast", () => {
       });
     });
 
-    const toastText = findToastText(renderer);
+    const toastText = findToastText(listenerRenderer!);
     expect(toastText).not.toBeNull();
     expect(toastText?.toLowerCase()).toContain("saved locally");
   });

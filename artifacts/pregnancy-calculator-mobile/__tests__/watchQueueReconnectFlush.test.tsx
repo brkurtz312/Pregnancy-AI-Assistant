@@ -61,6 +61,21 @@ jest.mock("@/lib/birth-plan", () => ({
   loadBirthPlanAnswers: jest.fn(async () => ({})),
 }));
 
+// ── React Query — useQueryClient is called by the hook; stub it out ───────────
+jest.mock("@tanstack/react-query", () => ({
+  useQueryClient: jest.fn(() => ({
+    invalidateQueries: jest.fn().mockResolvedValue(undefined),
+    getQueryData: jest.fn().mockReturnValue(undefined),
+  })),
+}));
+
+// ── API client query-key helpers ──────────────────────────────────────────────
+jest.mock("@workspace/api-client-react", () => ({
+  getListKickSessionsQueryKey: jest.fn((p: object) => ["kick-sessions", p]),
+  getListContractionsQueryKey: jest.fn((p: object) => ["contractions", p]),
+  getGetProfileQueryKey: jest.fn(() => ["profile"]),
+}));
+
 // ── sync-api — Watch helpers are the focus; everything else is a no-op stub ───
 jest.mock("@/lib/sync-api", () => ({
   apiUpsertJournalEntry: jest.fn(async () => ({})),
