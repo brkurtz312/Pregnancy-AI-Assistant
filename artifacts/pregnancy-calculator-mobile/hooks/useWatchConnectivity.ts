@@ -82,20 +82,23 @@ export function useWatchConnectivity({
     activationState: "notActivated",
   });
 
-  // Tracks whether a live onWatchStateChange event has already set watchStatus.
-  // When true, the async getSessionState() snapshot is discarded so a stale
-  // Promise result can never overwrite a fresher live value.
-  const liveEventReceivedRef = useRef(false);
+  // Shared generation counter for all getSessionState() snapshot calls.
+  // Incremented before every new call (mount-time, foreground-resume) AND
+  // whenever a live onWatchStateChange event fires so that any in-flight
+  // Promise whose result is now stale is silently discarded.
+  const fetchGenRef = useRef(0);
 
   // Fetch initial state once on mount (iOS only).
-  // Skipped if a live onWatchStateChange event already updated watchStatus —
-  // that value is always fresher than the async snapshot.
+  // The generation guard ensures a delayed Promise cannot overwrite a fresher
+  // foreground-resume snapshot or a live onWatchStateChange event that settled
+  // while the native call was still in flight.
   useEffect(() => {
     if (!mod) return;
+    const gen = ++fetchGenRef.current;
     mod
       .getSessionState()
       .then((s: WatchSessionState) => {
-        if (liveEventReceivedRef.current) return;
+        if (fetchGenRef.current !== gen) return;
         setWatchStatus({
           isReachable: s.isReachable,
           isWatchAppInstalled: s.isWatchAppInstalled,
@@ -106,13 +109,15 @@ export function useWatchConnectivity({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!mod]);
 
-  // Subscribe to real-time state changes
+  // Subscribe to real-time state changes.
+  // Bumping fetchGenRef invalidates any in-flight getSessionState() call
+  // (mount-time or foreground-resume) so the live value always wins.
   useEffect(() => {
     if (!mod) return;
     const sub = mod.addListener(
       "onWatchStateChange",
       (s: WatchSessionState) => {
-        liveEventReceivedRef.current = true;
+        fetchGenRef.current += 1; // invalidate any concurrent snapshot fetch
         setWatchStatus({
           isReachable: s.isReachable,
           isWatchAppInstalled: s.isWatchAppInstalled,
@@ -177,6 +182,36 @@ export function useWatchConnectivity({
   useEffect(() => {
     syncDataRef.current = { gestationalWeek, tips };
   });
+
+  // Re-fetch session state when the app returns to the foreground so the
+  // badge reflects the current Watch reachability without waiting for the next
+  // organic onWatchStateChange event.  This handles the case where Watch
+  // reachability changed while the phone was backgrounded — WCSession won't
+  // fire sessionReachabilityDidChange again on resume because the state has
+  // already settled.
+  // Uses the same shared fetchGenRef as the mount-time fetch so a delayed
+  // initial snapshot can never overwrite a fresher foreground-resume result.
+  useEffect(() => {
+    if (!mod) return;
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state !== "active") return;
+      const gen = ++fetchGenRef.current;
+      mod
+        .getSessionState()
+        .then((s: WatchSessionState) => {
+          // Discard if a newer fetch or a live event has superseded this result.
+          if (fetchGenRef.current !== gen) return;
+          setWatchStatus({
+            isReachable: s.isReachable,
+            isWatchAppInstalled: s.isWatchAppInstalled,
+            activationState: s.activationState,
+          });
+        })
+        .catch(() => {});
+    });
+    return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!mod]);
 
   // Re-push the current week + tips whenever the app returns to the
   // foreground. This closes a race where the Watch requested a sync while the

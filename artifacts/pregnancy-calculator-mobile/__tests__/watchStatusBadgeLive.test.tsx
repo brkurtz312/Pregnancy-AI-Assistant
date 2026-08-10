@@ -22,7 +22,13 @@
  */
 
 import React from "react";
-import { Text, View, Platform } from "react-native";
+import {
+  Text,
+  View,
+  Platform,
+  AppState,
+  type AppStateStatus,
+} from "react-native";
 import { act, create } from "react-test-renderer";
 import { flushAsync } from "../test-helpers/testUtils";
 
@@ -283,5 +289,306 @@ describe("WatchStatusBadge — live state transitions via onWatchStateChange", (
 
     // Cleanup effect should have called sub.remove()
     expect(capturedStateListener).toBeNull();
+  });
+});
+
+// ─── AppState / foreground-resume tests ──────────────────────────────────────
+//
+// These tests exercise the path where Watch reachability changes while the
+// phone is backgrounded.  WCSession does NOT fire sessionReachabilityDidChange
+// on resume in that case — the hook must call getSessionState() itself when
+// AppState transitions to "active".
+
+describe("WatchStatusBadge — foreground-resume re-fetch via AppState", () => {
+  // Capture every AppState.addEventListener callback so tests can fire them.
+  type AppStateHandler = (state: AppStateStatus) => void;
+  const capturedAppStateHandlers: AppStateHandler[] = [];
+
+  let addEventListenerSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    capturedStateListener = null;
+    capturedAppStateHandlers.length = 0;
+
+    // Default: Watch installed, currently reachable
+    mockGetSessionState.mockResolvedValue({
+      activationState: "activated",
+      isWatchAppInstalled: true,
+      isReachable: true,
+    });
+
+    jest.clearAllMocks();
+
+    // Re-register addListener mock after clearAllMocks
+    mockAddListener.mockImplementation(
+      (event: string, cb: (state: WatchState) => void) => {
+        if (event === "onWatchStateChange") capturedStateListener = cb;
+        return {
+          remove: () => {
+            if (event === "onWatchStateChange") capturedStateListener = null;
+          },
+        };
+      },
+    );
+
+    // Spy on AppState.addEventListener to capture foreground-resume handlers
+    addEventListenerSpy = jest
+      .spyOn(AppState, "addEventListener")
+      .mockImplementation((event: string, handler: AppStateHandler) => {
+        if (event === "change") capturedAppStateHandlers.push(handler);
+        return { remove: jest.fn() };
+      });
+  });
+
+  afterEach(() => {
+    addEventListenerSpy.mockRestore();
+  });
+
+  it("calls getSessionState() when the app returns to the foreground", async () => {
+    mockGetSessionState.mockResolvedValue({
+      activationState: "activated",
+      isWatchAppInstalled: true,
+      isReachable: true,
+    });
+
+    let renderer: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(TestBadge));
+    });
+    await flushAsync();
+
+    const callsBefore = mockGetSessionState.mock.calls.length;
+
+    // Simulate app going to background then returning to foreground
+    await act(async () => {
+      capturedAppStateHandlers.forEach((h) => h("background"));
+    });
+    await act(async () => {
+      capturedAppStateHandlers.forEach((h) => h("active"));
+    });
+    await flushAsync();
+
+    // getSessionState must have been called again on resume
+    expect(mockGetSessionState.mock.calls.length).toBeGreaterThan(callsBefore);
+    renderer!.unmount();
+  });
+
+  it("updates badge to 'Watch not reachable' when Watch disconnects while backgrounded", async () => {
+    // App starts with Watch connected
+    mockGetSessionState.mockResolvedValue({
+      activationState: "activated",
+      isWatchAppInstalled: true,
+      isReachable: true,
+    });
+
+    let renderer: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(TestBadge));
+    });
+    await flushAsync();
+
+    expect(allTexts(renderer!.root)).toContain("Apple Watch connected");
+
+    // Watch goes out of range while phone is backgrounded — no live event fires.
+    // On foreground, getSessionState() returns the updated (disconnected) state.
+    mockGetSessionState.mockResolvedValue({
+      activationState: "activated",
+      isWatchAppInstalled: true,
+      isReachable: false,
+    });
+
+    await act(async () => {
+      capturedAppStateHandlers.forEach((h) => h("background"));
+    });
+    await act(async () => {
+      capturedAppStateHandlers.forEach((h) => h("active"));
+    });
+    await flushAsync();
+
+    // Badge must now reflect the disconnected state without a manual refresh
+    expect(allTexts(renderer!.root)).toContain("Watch not reachable");
+    expect(allTexts(renderer!.root)).not.toContain("Apple Watch connected");
+    renderer!.unmount();
+  });
+
+  it("updates badge to 'Apple Watch connected' when Watch reconnects while backgrounded", async () => {
+    // App starts with Watch not reachable
+    mockGetSessionState.mockResolvedValue({
+      activationState: "activated",
+      isWatchAppInstalled: true,
+      isReachable: false,
+    });
+
+    let renderer: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(TestBadge));
+    });
+    await flushAsync();
+
+    expect(allTexts(renderer!.root)).toContain("Watch not reachable");
+
+    // Watch becomes reachable while backgrounded; on resume getSessionState
+    // returns the connected state.
+    mockGetSessionState.mockResolvedValue({
+      activationState: "activated",
+      isWatchAppInstalled: true,
+      isReachable: true,
+    });
+
+    await act(async () => {
+      capturedAppStateHandlers.forEach((h) => h("background"));
+    });
+    await act(async () => {
+      capturedAppStateHandlers.forEach((h) => h("active"));
+    });
+    await flushAsync();
+
+    expect(allTexts(renderer!.root)).toContain("Apple Watch connected");
+    expect(allTexts(renderer!.root)).not.toContain("Watch not reachable");
+    renderer!.unmount();
+  });
+
+  it("ignores 'background' and 'inactive' AppState transitions (no extra fetch)", async () => {
+    mockGetSessionState.mockResolvedValue({
+      activationState: "activated",
+      isWatchAppInstalled: true,
+      isReachable: true,
+    });
+
+    let renderer: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(TestBadge));
+    });
+    await flushAsync();
+
+    const callsBefore = mockGetSessionState.mock.calls.length;
+
+    await act(async () => {
+      capturedAppStateHandlers.forEach((h) => h("background"));
+      capturedAppStateHandlers.forEach((h) => h("inactive"));
+    });
+    await flushAsync();
+
+    // No additional getSessionState calls for non-active transitions
+    expect(mockGetSessionState.mock.calls.length).toBe(callsBefore);
+    renderer!.unmount();
+  });
+
+  it("delayed initial mount fetch does not overwrite a fresher foreground-resume result", async () => {
+    // Scenario: app mounts, initial getSessionState() is slow (not resolved).
+    // While it is in flight the app backgrounds and foregrounds; the resume
+    // fetch immediately resolves with the correct state.  When the slow initial
+    // fetch finally resolves it must be discarded, not applied on top.
+
+    // Mount: Watch not reachable (initial state that would be stale)
+    let resolveInitialFetch!: (v: WatchState) => void;
+    mockGetSessionState.mockImplementationOnce(
+      () =>
+        new Promise<WatchState>((resolve) => {
+          resolveInitialFetch = resolve;
+        }),
+    );
+
+    let renderer: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(TestBadge));
+    });
+    // Do NOT flush — the initial Promise is still pending.
+
+    // App backgrounds then foregrounds; resume fetch resolves immediately
+    // with the current (connected) state.
+    mockGetSessionState.mockResolvedValueOnce({
+      activationState: "activated",
+      isWatchAppInstalled: true,
+      isReachable: true,
+    });
+
+    await act(async () => {
+      capturedAppStateHandlers.forEach((h) => h("background"));
+    });
+    await act(async () => {
+      capturedAppStateHandlers.forEach((h) => h("active"));
+    });
+    await flushAsync();
+
+    // Badge reflects the connected state from the foreground-resume fetch
+    expect(allTexts(renderer!.root)).toContain("Apple Watch connected");
+
+    // Now the slow initial fetch resolves with the stale disconnected state —
+    // it must be silently discarded
+    await act(async () => {
+      resolveInitialFetch({
+        activationState: "activated",
+        isWatchAppInstalled: true,
+        isReachable: false,
+      });
+    });
+    await flushAsync();
+
+    // Badge must stay connected — stale initial result was discarded
+    expect(allTexts(renderer!.root)).toContain("Apple Watch connected");
+    expect(allTexts(renderer!.root)).not.toContain("Watch not reachable");
+    await act(async () => {
+      renderer!.unmount();
+    });
+  });
+
+  it("live onWatchStateChange event supersedes an in-flight resume fetch", async () => {
+    // App starts with Watch not reachable
+    mockGetSessionState.mockResolvedValue({
+      activationState: "activated",
+      isWatchAppInstalled: true,
+      isReachable: false,
+    });
+
+    let renderer: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(TestBadge));
+    });
+    await flushAsync();
+
+    expect(allTexts(renderer!.root)).toContain("Watch not reachable");
+
+    // On foreground: getSessionState() resolves with stale "not reachable".
+    // But a live event fires first saying the Watch IS connected — the live
+    // value must win and the stale Promise result must be discarded.
+    let resolveSessionState!: (v: WatchState) => void;
+    mockGetSessionState.mockImplementationOnce(
+      () =>
+        new Promise<WatchState>((resolve) => {
+          resolveSessionState = resolve;
+        }),
+    );
+
+    await act(async () => {
+      capturedAppStateHandlers.forEach((h) => h("active"));
+    });
+
+    // Live event fires before the Promise resolves
+    expect(capturedStateListener).not.toBeNull();
+    await act(async () => {
+      capturedStateListener!({
+        activationState: "activated",
+        isWatchAppInstalled: true,
+        isReachable: true,
+      });
+    });
+
+    expect(allTexts(renderer!.root)).toContain("Apple Watch connected");
+
+    // Now resolve the stale getSessionState() with "not reachable"
+    await act(async () => {
+      resolveSessionState({
+        activationState: "activated",
+        isWatchAppInstalled: true,
+        isReachable: false,
+      });
+    });
+    await flushAsync();
+
+    // The live event's value must survive — the stale Promise is discarded
+    expect(allTexts(renderer!.root)).toContain("Apple Watch connected");
+    expect(allTexts(renderer!.root)).not.toContain("Watch not reachable");
+    renderer!.unmount();
   });
 });
