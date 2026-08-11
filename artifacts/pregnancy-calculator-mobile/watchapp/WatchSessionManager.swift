@@ -20,9 +20,9 @@ final class WatchSessionManager: NSObject, ObservableObject {
     @Published var lastKickCount: Int? = nil {
         didSet {
             if let count = lastKickCount {
-                UserDefaults.standard.set(count, forKey: "wk.lastKickCount")
+                userDefaults.set(count, forKey: WatchSessionPersistence.lastKickCountKey)
             } else {
-                UserDefaults.standard.removeObject(forKey: "wk.lastKickCount")
+                userDefaults.removeObject(forKey: WatchSessionPersistence.lastKickCountKey)
             }
         }
     }
@@ -31,9 +31,9 @@ final class WatchSessionManager: NSObject, ObservableObject {
     @Published var lastContractionCount: Int? = nil {
         didSet {
             if let count = lastContractionCount {
-                UserDefaults.standard.set(count, forKey: "wk.lastContractionCount")
+                userDefaults.set(count, forKey: WatchSessionPersistence.lastContractionCountKey)
             } else {
-                UserDefaults.standard.removeObject(forKey: "wk.lastContractionCount")
+                userDefaults.removeObject(forKey: WatchSessionPersistence.lastContractionCountKey)
             }
         }
     }
@@ -42,39 +42,55 @@ final class WatchSessionManager: NSObject, ObservableObject {
     private let decoder = JSONDecoder()
     private var syncTimeoutWork: DispatchWorkItem?
 
+    /// Injected persistence store. `.standard` in production; an isolated suite in tests.
+    let userDefaults: UserDefaults
+
+    /// Injected notification center. `.default` in production; an isolated instance in tests.
+    let notificationCenter: NotificationCenter
+
     /// UserDefaults key for the pending-acknowledgment retry queue.
     /// Records stay here until the phone sends a reply (or transferUserInfo delivers them).
-    private let pendingContractionUpdatesKey = "wk.pendingContractionUpdates"
+    private let pendingContractionUpdatesKey = WatchSessionPersistence.pendingContractionUpdatesKey
 
-    private override init() {
+    private override convenience init() {
+        self.init(userDefaults: .standard, notificationCenter: .default, activateSession: true)
+    }
+
+    /// Designated initializer with injectable dependencies.
+    /// Tests pass an isolated `UserDefaults` suite, their own `NotificationCenter`,
+    /// and `activateSession: false` so no WCSession activation is attempted in a
+    /// test host without paired-device connectivity.
+    init(userDefaults: UserDefaults, notificationCenter: NotificationCenter, activateSession: Bool) {
+        self.userDefaults = userDefaults
+        self.notificationCenter = notificationCenter
         super.init()
         encoder.dateEncodingStrategy = .iso8601
         decoder.dateDecodingStrategy = .iso8601
 
-        if WCSession.isSupported() {
+        if activateSession && WCSession.isSupported() {
             WCSession.default.delegate = self
             WCSession.default.activate()
         }
 
         // Load persisted tips and gestational week from UserDefaults
-        if let data = UserDefaults.standard.data(forKey: "watchTips"),
+        if let data = userDefaults.data(forKey: WatchSessionPersistence.tipsKey),
            let saved = try? decoder.decode([WatchTip].self, from: data) {
             tips = saved
         }
-        let savedWeek = UserDefaults.standard.integer(forKey: "watchGestationalWeek")
+        let savedWeek = userDefaults.integer(forKey: WatchSessionPersistence.gestationalWeekKey)
         if savedWeek > 0 {
             gestationalWeek = savedWeek
         }
 
         // Restore last kick count
-        let savedKickCount = UserDefaults.standard.integer(forKey: "wk.lastKickCount")
+        let savedKickCount = userDefaults.integer(forKey: WatchSessionPersistence.lastKickCountKey)
         if savedKickCount > 0 {
             // Bypass didSet to avoid re-writing what is already stored
             _lastKickCount = Published(initialValue: savedKickCount)
         }
 
         // Restore last contraction count
-        let savedContractionCount = UserDefaults.standard.integer(forKey: "wk.lastContractionCount")
+        let savedContractionCount = userDefaults.integer(forKey: WatchSessionPersistence.lastContractionCountKey)
         if savedContractionCount > 0 {
             // Bypass didSet to avoid re-writing what is already stored
             _lastContractionCount = Published(initialValue: savedContractionCount)
@@ -347,7 +363,7 @@ extension WatchSessionManager: WCSessionDelegate {
 
     /// Loads the pending-acknowledgment queue from UserDefaults.
     func loadPendingContractionQueue() -> [ContractionRecord] {
-        guard let data = UserDefaults.standard.data(forKey: pendingContractionUpdatesKey),
+        guard let data = userDefaults.data(forKey: pendingContractionUpdatesKey),
               let records = try? decoder.decode([ContractionRecord].self, from: data) else {
             return []
         }
@@ -358,9 +374,9 @@ extension WatchSessionManager: WCSessionDelegate {
     /// Removes the key entirely when the queue is empty.
     private func savePendingContractionQueue(_ records: [ContractionRecord]) {
         if records.isEmpty {
-            UserDefaults.standard.removeObject(forKey: pendingContractionUpdatesKey)
+            userDefaults.removeObject(forKey: pendingContractionUpdatesKey)
         } else if let data = try? encoder.encode(records) {
-            UserDefaults.standard.set(data, forKey: pendingContractionUpdatesKey)
+            userDefaults.set(data, forKey: pendingContractionUpdatesKey)
         }
     }
 
@@ -380,7 +396,7 @@ extension WatchSessionManager: WCSessionDelegate {
             if let data = payload[WatchMessage.tips] as? Data,
                let decoded = try? self.decoder.decode([WatchTip].self, from: data) {
                 self.tips = decoded
-                UserDefaults.standard.set(data, forKey: "watchTips")
+                self.userDefaults.set(data, forKey: WatchSessionPersistence.tipsKey)
                 // Tips have arrived — cancel the timeout and clear the loading flag.
                 self.syncTimeoutWork?.cancel()
                 self.syncTimeoutWork = nil
@@ -389,7 +405,7 @@ extension WatchSessionManager: WCSessionDelegate {
 
             if let week = payload[WatchMessage.gestationalWeek] as? Int {
                 self.gestationalWeek = week
-                UserDefaults.standard.set(week, forKey: "watchGestationalWeek")
+                self.userDefaults.set(week, forKey: WatchSessionPersistence.gestationalWeekKey)
             }
 
             if let count = payload[WatchMessage.kickCount] as? Int {
@@ -398,47 +414,26 @@ extension WatchSessionManager: WCSessionDelegate {
         }
     }
 
-    /// Clears every `wk.*` UserDefaults key written by the Watch app and resets
+    /// Clears every persisted UserDefaults key written by the Watch app and resets
     /// the published state so views restore to their idle state on next launch.
+    /// The key list lives in `WatchSessionPersistence.allKeys` — the single source
+    /// of truth shared with the unit tests.
     /// Also posts `.watchDidSignOut` so `KickCounterView` and `ContractionTimerView`
     /// can immediately reset their in-memory `@State` without waiting for a relaunch.
     func clearPersistedSession() {
-        let ud = UserDefaults.standard
+        // Remove every persisted key across all three subsystems (session manager,
+        // kick counter, contraction timer) plus the pending retry queue — a
+        // freshly signed-in user's session must never see the previous account's data.
+        WatchSessionPersistence.removeAll(from: userDefaults)
 
-        // WatchSessionManager keys
-        ud.removeObject(forKey: "watchTips")
-        ud.removeObject(forKey: "watchGestationalWeek")
-        // lastKickCount setter handles its own UserDefaults key
+        // Reset published state. The lastKickCount / lastContractionCount didSet
+        // observers remove their own (already-removed) keys — harmless no-ops.
         lastKickCount = nil
-
-        // KickCounterView keys
-        ud.removeObject(forKey: "wk.kickCount")
-        ud.removeObject(forKey: "wk.kickSessionActive")
-        ud.removeObject(forKey: "wk.kickSessionStart")
-
-        // ContractionTimerView keys
-        ud.removeObject(forKey: "wk.contractionActive")
-        ud.removeObject(forKey: "wk.contractionStart")
-        ud.removeObject(forKey: "wk.contractionLastEnd")
-        ud.removeObject(forKey: "wk.contractionLastInterval")
-        ud.removeObject(forKey: "wk.contractionRecords")
-        // lastContractionCount setter handles its own UserDefaults key
         lastContractionCount = nil
-
-        // Pending retry queue — must be cleared on sign-out so a freshly signed-in
-        // user's session cannot receive contraction records from the previous account.
-        ud.removeObject(forKey: pendingContractionUpdatesKey)
-
-        // Reset published state
         tips = []
         gestationalWeek = 0
 
         // Notify views so they reset their @State immediately
-        NotificationCenter.default.post(name: .watchDidSignOut, object: nil)
+        notificationCenter.post(name: .watchDidSignOut, object: nil)
     }
-}
-
-extension Notification.Name {
-    /// Posted by `WatchSessionManager` after a sign-out message is received from the phone.
-    static let watchDidSignOut = Notification.Name("WatchSessionManagerDidSignOut")
 }

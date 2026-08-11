@@ -32,11 +32,11 @@ import Foundation
 
 private let watchPendingKey = "wk.pendingContractionUpdates"
 
-private let iso8601Encoder: JSONEncoder = {
+private let retryQueueEncoder: JSONEncoder = {
     let e = JSONEncoder(); e.dateEncodingStrategy = .iso8601; return e
 }()
 
-private let iso8601Decoder: JSONDecoder = {
+private let retryQueueDecoder: JSONDecoder = {
     let d = JSONDecoder(); d.dateDecodingStrategy = .iso8601; return d
 }()
 
@@ -58,7 +58,7 @@ private func dequeuePending(id: UUID, in defaults: UserDefaults) {
 /// Mirrors `WatchSessionManager.loadPendingContractionQueue()`.
 private func loadPending(from defaults: UserDefaults) -> [ContractionRecord] {
     guard let data = defaults.data(forKey: watchPendingKey),
-          let records = try? iso8601Decoder.decode([ContractionRecord].self, from: data) else {
+          let records = try? retryQueueDecoder.decode([ContractionRecord].self, from: data) else {
         return []
     }
     return records
@@ -67,7 +67,7 @@ private func loadPending(from defaults: UserDefaults) -> [ContractionRecord] {
 private func savePending(_ records: [ContractionRecord], in defaults: UserDefaults) {
     if records.isEmpty {
         defaults.removeObject(forKey: watchPendingKey)
-    } else if let data = try? iso8601Encoder.encode(records) {
+    } else if let data = try? retryQueueEncoder.encode(records) {
         defaults.set(data, forKey: watchPendingKey)
     }
 }

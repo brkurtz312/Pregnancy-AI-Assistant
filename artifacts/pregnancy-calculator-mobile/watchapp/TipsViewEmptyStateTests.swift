@@ -177,7 +177,7 @@ final class TipsViewCurrentTipTests: XCTestCase {
 
 // MARK: - Tests: clearPersistedSession (account-switch / sign-out path)
 
-final class WatchSessionManagerClearSessionTests: XCTestCase {
+final class TipsViewClearSessionMirrorTests: XCTestCase {
 
     private var defaults: UserDefaults!
     private var suiteName: String!

@@ -45,7 +45,36 @@ const WATCH_SWIFT_SOURCES = [
   "ContractionTimerView.swift",
   "TipsView.swift",
   "WatchSessionManager.swift",
+  "WatchSessionPersistence.swift",
   "Models.swift",
+];
+
+// ─── Watch unit-test target ──────────────────────────────────────────────────
+// A watchOS unit-test bundle that compiles the XCTest suites from watchapp/
+// together with the non-UI production sources they exercise. Runs via:
+//   xcodebuild test -scheme <app> -destination 'platform=watchOS Simulator,…'
+const WATCH_TEST_TARGET_NAME = "PregnancyWatchAppTests";
+
+// XCTest suites copied from watchapp/ into the test target.
+const WATCH_TEST_SOURCES = [
+  "ContractionTimerTests.swift",
+  "KickCounterTimerTests.swift",
+  "TipsViewEmptyStateTests.swift",
+  "WatchContractionRetryQueueTests.swift",
+  "WatchOfflineDeliveryTests.swift",
+  "WatchSessionManagerContractionCountTests.swift",
+  "WatchSessionManagerKickCountTests.swift",
+  "WatchSessionManagerClearSessionTests.swift",
+];
+
+// Production (non-UI) sources compiled INTO the test bundle so the tests can
+// exercise the real implementations (WatchSessionManager.clearPersistedSession,
+// WatchSessionPersistence.allKeys, Models types) without a TEST_HOST.
+const WATCH_TEST_PRODUCTION_SOURCES = [
+  "Models.swift",
+  "WatchSessionPersistence.swift",
+  "WatchSessionManager.swift",
+  "KickSessionRestorePolicy.swift",
 ];
 
 // Standalone icon PNGs copied directly into the Watch bundle root.
@@ -134,6 +163,19 @@ function withWatchFiles(config) {
         console.log(`[Watch] copied Assets.xcassets → ${assetsDst}`);
       } else {
         console.warn(`[Watch] Assets.xcassets not found at ${assetsSrc} — Watch icons will be missing`);
+      }
+
+      // Copy XCTest suites into the unit-test target directory.
+      const testDir = path.join(iosRoot, WATCH_TEST_TARGET_NAME);
+      fs.mkdirSync(testDir, { recursive: true });
+      for (const file of WATCH_TEST_SOURCES) {
+        const src = path.join(sourceDir, file);
+        if (fs.existsSync(src)) {
+          fs.copyFileSync(src, path.join(testDir, file));
+          console.log(`[Watch] copied ${file} → ${WATCH_TEST_TARGET_NAME}`);
+        } else {
+          console.warn(`[Watch] test source NOT FOUND: ${src}`);
+        }
       }
 
       const mainDir = path.join(iosRoot, appName);
@@ -329,6 +371,10 @@ function _withWatchXcodeTargetInner(config) {
     // added to WATCH_SWIFT_SOURCES later (e.g. KickSessionRestorePolicy.swift)
     // would otherwise never be compiled → "unresolved identifier" at build.
     ensureWatchSourcesInWatchTarget(project, watchUuid);
+
+    // Create / maintain the watchOS unit-test bundle target that compiles the
+    // XCTest suites together with the non-UI production sources.
+    ensureWatchTestTarget(project);
   }
 
   // ── Always apply: phone bridge Swift files to main target Sources ─────────
@@ -1226,6 +1272,293 @@ function applyWatchBuildSettings(project, targetUuid) {
     console.log(`[Watch] patched buildSettings for config ${cfgUuid}`);
   });
 }
+/**
+ * Creates (idempotently) the watchOS unit-test bundle target
+ * `PregnancyWatchAppTests`. The bundle compiles the XCTest suites copied into
+ * ios/PregnancyWatchAppTests/ plus the non-UI production sources
+ * (WATCH_TEST_PRODUCTION_SOURCES) from ios/PregnancyWatchApp/, so the tests
+ * exercise the REAL implementations (no TEST_HOST needed — logic-style bundle).
+ *
+ * Hand-rolled (no project.addTarget) so no stray dependency / embed phase is
+ * created on the main target and all build settings are fully controlled.
+ */
+function ensureWatchTestTarget(project) {
+  const objects = project.hash.project.objects;
+  const nts = project.pbxNativeTargetSection();
+
+  // Idempotency: skip if the target already exists.
+  const existing = Object.keys(nts).find((k) => {
+    if (k.endsWith("_comment")) return false;
+    const t = nts[k];
+    return t && typeof t === "object" &&
+      (t.name === WATCH_TEST_TARGET_NAME || t.name === `"${WATCH_TEST_TARGET_NAME}"`);
+  });
+  if (existing) {
+    console.log(`[Watch/Tests] ${WATCH_TEST_TARGET_NAME} already present — ensuring frameworks`);
+    ensureWatchTestTargetFrameworks(project, existing);
+    return existing;
+  }
+
+  for (const section of [
+    "PBXNativeTarget", "PBXFileReference", "PBXBuildFile",
+    "PBXSourcesBuildPhase", "XCBuildConfiguration", "XCConfigurationList",
+  ]) {
+    if (!objects[section]) objects[section] = {};
+  }
+  const frs = project.pbxFileReferenceSection();
+
+  // Deployment target: mirror the Watch app target when available.
+  let watchosDeploymentTarget = "9.0";
+  for (const [k, cfg] of Object.entries(objects["XCBuildConfiguration"])) {
+    if (k.endsWith("_comment") || !cfg || typeof cfg !== "object") continue;
+    const bs = cfg.buildSettings || {};
+    if (bs.WATCHOS_DEPLOYMENT_TARGET &&
+        String(bs.SDKROOT || "").includes("watchos")) {
+      watchosDeploymentTarget = String(bs.WATCHOS_DEPLOYMENT_TARGET).replace(/"/g, "");
+      break;
+    }
+  }
+
+  // ── Product file reference (.xctest bundle) ────────────────────────────────
+  const productRefUuid = project.generateUuid();
+  objects["PBXFileReference"][productRefUuid] = {
+    isa: "PBXFileReference",
+    explicitFileType: "wrapper.cfbundle",
+    includeInIndex: 0,
+    path: `"${WATCH_TEST_TARGET_NAME}.xctest"`,
+    sourceTree: "BUILT_PRODUCTS_DIR",
+  };
+  objects["PBXFileReference"][`${productRefUuid}_comment`] =
+    `${WATCH_TEST_TARGET_NAME}.xctest`;
+
+  // ── Sources build phase ─────────────────────────────────────────────────────
+  const sourcesPhaseUuid = project.generateUuid();
+  const sourcesFiles = [];
+
+  const addSource = (fileName, filePath) => {
+    // Reuse an existing file reference when one exists (production sources are
+    // already referenced by the Watch app target).
+    let fileRefUuid = null;
+    for (const [k, v] of Object.entries(frs)) {
+      if (k.endsWith("_comment") || !v || typeof v !== "object") continue;
+      const p = v.path || v.name || "";
+      if (p === `"${filePath}"` || p === filePath) { fileRefUuid = k; break; }
+    }
+    if (!fileRefUuid) {
+      fileRefUuid = project.generateUuid();
+      objects["PBXFileReference"][fileRefUuid] = {
+        isa: "PBXFileReference",
+        lastKnownFileType: "sourcecode.swift",
+        name: `"${fileName}"`,
+        path: `"${filePath}"`,
+        sourceTree: '"<group>"',
+      };
+      objects["PBXFileReference"][`${fileRefUuid}_comment`] = fileName;
+    }
+    const buildFileUuid = project.generateUuid();
+    objects["PBXBuildFile"][buildFileUuid] = { isa: "PBXBuildFile", fileRef: fileRefUuid };
+    objects["PBXBuildFile"][`${buildFileUuid}_comment`] = `${fileName} in Sources`;
+    sourcesFiles.push({ value: buildFileUuid, comment: `${fileName} in Sources` });
+  };
+
+  for (const f of WATCH_TEST_SOURCES) {
+    addSource(f, `${WATCH_TEST_TARGET_NAME}/${f}`);
+  }
+  for (const f of WATCH_TEST_PRODUCTION_SOURCES) {
+    addSource(f, `${WATCH_TARGET_NAME}/${f}`);
+  }
+
+  objects["PBXSourcesBuildPhase"][sourcesPhaseUuid] = {
+    isa: "PBXSourcesBuildPhase",
+    buildActionMask: 2147483647,
+    files: sourcesFiles,
+    runOnlyForDeploymentPostprocessing: 0,
+  };
+  objects["PBXSourcesBuildPhase"][`${sourcesPhaseUuid}_comment`] = "Sources";
+
+  // ── Build configurations ────────────────────────────────────────────────────
+  const buildSettings = {
+    CODE_SIGN_STYLE: "Automatic",
+    CURRENT_PROJECT_VERSION: 1,
+    GENERATE_INFOPLIST_FILE: "YES",
+    MARKETING_VERSION: "1.0",
+    PRODUCT_BUNDLE_IDENTIFIER: `"${WATCH_BUNDLE_ID}.tests"`,
+    PRODUCT_NAME: '"$(TARGET_NAME)"',
+    SDKROOT: "watchos",
+    SKIP_INSTALL: "YES",
+    SWIFT_EMIT_LOC_STRINGS: "NO",
+    SWIFT_VERSION: "5.0",
+    TARGETED_DEVICE_FAMILY: '"1,2"',
+    WATCHOS_DEPLOYMENT_TARGET: watchosDeploymentTarget,
+  };
+
+  const debugCfgUuid = project.generateUuid();
+  objects["XCBuildConfiguration"][debugCfgUuid] = {
+    isa: "XCBuildConfiguration",
+    buildSettings: { ...buildSettings, DEBUG_INFORMATION_FORMAT: "dwarf" },
+    name: "Debug",
+  };
+  objects["XCBuildConfiguration"][`${debugCfgUuid}_comment`] = "Debug";
+
+  const releaseCfgUuid = project.generateUuid();
+  objects["XCBuildConfiguration"][releaseCfgUuid] = {
+    isa: "XCBuildConfiguration",
+    buildSettings: { ...buildSettings },
+    name: "Release",
+  };
+  objects["XCBuildConfiguration"][`${releaseCfgUuid}_comment`] = "Release";
+
+  const cfgListUuid = project.generateUuid();
+  objects["XCConfigurationList"][cfgListUuid] = {
+    isa: "XCConfigurationList",
+    buildConfigurations: [
+      { value: debugCfgUuid, comment: "Debug" },
+      { value: releaseCfgUuid, comment: "Release" },
+    ],
+    defaultConfigurationIsVisible: 0,
+    defaultConfigurationName: "Release",
+  };
+  objects["XCConfigurationList"][`${cfgListUuid}_comment`] =
+    `Build configuration list for PBXNativeTarget "${WATCH_TEST_TARGET_NAME}"`;
+
+  // ── Native target ───────────────────────────────────────────────────────────
+  const targetUuid = project.generateUuid();
+  objects["PBXNativeTarget"][targetUuid] = {
+    isa: "PBXNativeTarget",
+    buildConfigurationList: cfgListUuid,
+    buildConfigurationList_comment:
+      `Build configuration list for PBXNativeTarget "${WATCH_TEST_TARGET_NAME}"`,
+    buildPhases: [{ value: sourcesPhaseUuid, comment: "Sources" }],
+    buildRules: [],
+    dependencies: [],
+    name: WATCH_TEST_TARGET_NAME,
+    productName: WATCH_TEST_TARGET_NAME,
+    productReference: productRefUuid,
+    productReference_comment: `${WATCH_TEST_TARGET_NAME}.xctest`,
+    productType: '"com.apple.product-type.bundle.unit-test"',
+  };
+  objects["PBXNativeTarget"][`${targetUuid}_comment`] = WATCH_TEST_TARGET_NAME;
+
+  // ── Register in PBXProject targets ─────────────────────────────────────────
+  const pbxProjectSection = objects["PBXProject"];
+  const projKey = Object.keys(pbxProjectSection).find(
+    (k) => !k.endsWith("_comment") && pbxProjectSection[k] &&
+      typeof pbxProjectSection[k] === "object",
+  );
+  const projObj = pbxProjectSection[projKey];
+  projObj.targets = projObj.targets || [];
+  projObj.targets.push({ value: targetUuid, comment: WATCH_TEST_TARGET_NAME });
+
+  // TargetAttributes: mark as a test target (no TestTargetID — logic tests).
+  projObj.attributes = projObj.attributes || {};
+  projObj.attributes.TargetAttributes = projObj.attributes.TargetAttributes || {};
+  projObj.attributes.TargetAttributes[targetUuid] = { CreatedOnToolsVersion: "15.0" };
+
+  // ── Add product to the Products group so Xcode shows it ────────────────────
+  const groups = objects["PBXGroup"] || {};
+  for (const [k, g] of Object.entries(groups)) {
+    if (k.endsWith("_comment") || !g || typeof g !== "object") continue;
+    const gName = (g.name || "").replace(/"/g, "");
+    if (gName === "Products") {
+      g.children = g.children || [];
+      g.children.push({ value: productRefUuid, comment: `${WATCH_TEST_TARGET_NAME}.xctest` });
+      break;
+    }
+  }
+
+  console.log(`[Watch/Tests] Created ${WATCH_TEST_TARGET_NAME} target (${targetUuid})`);
+
+  // Link WatchConnectivity.framework — compiling WatchSessionManager.swift into
+  // the test bundle requires the framework to be linked explicitly (a separate
+  // target does not inherit the Watch app's Frameworks phase).
+  ensureWatchTestTargetFrameworks(project, targetUuid);
+
+  return targetUuid;
+}
+
+/**
+ * Ensures the test target has a Frameworks build phase linking the watchOS
+ * WatchConnectivity.framework (SDKROOT-relative). Idempotent.
+ */
+function ensureWatchTestTargetFrameworks(project, targetUuid) {
+  const objects = project.hash.project.objects;
+  const nts = project.pbxNativeTargetSection();
+  const target = nts[targetUuid];
+  if (!target) return;
+
+  for (const section of ["PBXFrameworksBuildPhase", "PBXFileReference", "PBXBuildFile"]) {
+    if (!objects[section]) objects[section] = {};
+  }
+  const frameworksSection = objects["PBXFrameworksBuildPhase"];
+  const buildFileSection = objects["PBXBuildFile"];
+  const frs = project.pbxFileReferenceSection();
+
+  // Locate (or create) the target's Frameworks phase.
+  target.buildPhases = target.buildPhases || [];
+  let frameworksPhaseUuid = null;
+  for (const phase of target.buildPhases) {
+    const uuid = typeof phase === "object" ? phase.value : phase;
+    if (frameworksSection[uuid]) { frameworksPhaseUuid = uuid; break; }
+  }
+  if (!frameworksPhaseUuid) {
+    frameworksPhaseUuid = project.generateUuid();
+    frameworksSection[frameworksPhaseUuid] = {
+      isa: "PBXFrameworksBuildPhase",
+      buildActionMask: 2147483647,
+      files: [],
+      runOnlyForDeploymentPostprocessing: 0,
+    };
+    frameworksSection[`${frameworksPhaseUuid}_comment`] = "Frameworks";
+    target.buildPhases.push({ value: frameworksPhaseUuid, comment: "Frameworks" });
+    console.log("[Watch/Tests] Created Frameworks build phase for test target");
+  }
+  const frameworksPhase = frameworksSection[frameworksPhaseUuid];
+  if (!frameworksPhase.files) frameworksPhase.files = [];
+
+  const fwName = "WatchConnectivity.framework";
+  const fwPath = "System/Library/Frameworks/WatchConnectivity.framework";
+
+  // Reuse an existing SDKROOT-relative file reference when present.
+  let fileRefUuid = null;
+  for (const [k, v] of Object.entries(frs)) {
+    if (k.endsWith("_comment") || !v || typeof v !== "object") continue;
+    const p = (v.path || "").replace(/"/g, "");
+    const st = (v.sourceTree || "").replace(/"/g, "");
+    if (p === fwPath && st === "SDKROOT") { fileRefUuid = k; break; }
+  }
+  if (fileRefUuid) {
+    // Idempotency: skip when already linked in this phase.
+    const inPhase = frameworksPhase.files.some((ref) => {
+      const bfUuid = typeof ref === "object" ? ref.value : ref;
+      if (!bfUuid || bfUuid.endsWith("_comment")) return false;
+      const bf = buildFileSection[bfUuid];
+      if (!bf) return false;
+      const fr = typeof bf.fileRef === "object" ? bf.fileRef.value : bf.fileRef;
+      return fr === fileRefUuid;
+    });
+    if (inPhase) {
+      console.log(`[Watch/Tests] ${fwName} already linked — skipping`);
+      return;
+    }
+  } else {
+    fileRefUuid = project.generateUuid();
+    objects["PBXFileReference"][fileRefUuid] = {
+      isa: "PBXFileReference",
+      lastKnownFileType: "wrapper.framework",
+      name: `"${fwName}"`,
+      path: `"${fwPath}"`,
+      sourceTree: "SDKROOT",
+    };
+    objects["PBXFileReference"][`${fileRefUuid}_comment`] = fwName;
+  }
+
+  const buildFileUuid = project.generateUuid();
+  buildFileSection[buildFileUuid] = { isa: "PBXBuildFile", fileRef: fileRefUuid };
+  buildFileSection[`${buildFileUuid}_comment`] = `${fwName} in Frameworks`;
+  frameworksPhase.files.push({ value: buildFileUuid, comment: `${fwName} in Frameworks` });
+  console.log(`[Watch/Tests] Linked ${fwName} to ${WATCH_TEST_TARGET_NAME}`);
+}
+
 // ─── Step 3: Xcode scheme — ensure Watch target IS in BuildActionEntries ──────
 //
 // Xcode 26's new build system does NOT honor cross-platform PBXTargetDependency
@@ -1329,6 +1662,47 @@ function withWatchScheme(config) {
         `$1${watchEntry}`,
       );
 
+      // 4. Register the watch unit-test bundle in the TestAction so
+      //    `xcodebuild test -scheme <app>` builds and runs it.
+      const testTargetUuid = Object.keys(nts).find((key) => {
+        if (key.endsWith("_comment")) return false;
+        const t = nts[key];
+        return t && typeof t === "object" &&
+          (t.name === WATCH_TEST_TARGET_NAME || t.name === `"${WATCH_TEST_TARGET_NAME}"`);
+      });
+      if (testTargetUuid) {
+        // Strip any stale entry (idempotency).
+        const testableRegex =
+          /[ \t]*<TestableReference[\s\S]*?BlueprintName\s*=\s*"PregnancyWatchAppTests"[\s\S]*?<\/TestableReference>\n?/g;
+        schemeXml = schemeXml.replace(testableRegex, "");
+
+        const testableEntry =
+          `      <TestableReference\n` +
+          `         skipped = "NO">\n` +
+          `         <BuildableReference\n` +
+          `            BuildableIdentifier = "primary"\n` +
+          `            BlueprintIdentifier = "${testTargetUuid}"\n` +
+          `            BuildableName = "${WATCH_TEST_TARGET_NAME}.xctest"\n` +
+          `            BlueprintName = "${WATCH_TEST_TARGET_NAME}"\n` +
+          `            ReferencedContainer = "container:${projectName}.xcodeproj">\n` +
+          `         </BuildableReference>\n` +
+          `      </TestableReference>\n`;
+
+        if (schemeXml.includes("<Testables>")) {
+          schemeXml = schemeXml.replace(/(<Testables>\s*\n)/, `$1${testableEntry}`);
+        } else if (schemeXml.includes("<Testables/>")) {
+          schemeXml = schemeXml.replace(
+            "<Testables/>",
+            `<Testables>\n${testableEntry}   </Testables>`,
+          );
+        } else {
+          console.warn("[Watch/Scheme] No <Testables> section found — test action not wired");
+        }
+        console.log(`[Watch/Scheme] Registered ${WATCH_TEST_TARGET_NAME} in TestAction Testables`);
+      } else {
+        console.warn("[Watch/Scheme] Test target not found — skipping Testables entry");
+      }
+
       fs.writeFileSync(schemePath, schemeXml, "utf8");
       console.log(
         `[Watch/Scheme] Inserted Watch BuildActionEntry FIRST (UUID: ${watchTargetUuid}, buildForArchiving=YES)`,
@@ -1359,4 +1733,15 @@ module.exports = (config) => {
   config = withWatchScheme(config);      // applied second → executes second
   config = withWatchXcodeTarget(config); // applied last   → executes first
   return config;
+};
+
+// Exposed for scripts/tests that need to apply the same pbxproj mutations
+// outside the expo prebuild pipeline (e.g. syncing the committed ios/ project).
+module.exports._internals = {
+  ensureWatchTestTarget,
+  ensureWatchSourcesInWatchTarget,
+  WATCH_TEST_TARGET_NAME,
+  WATCH_TEST_SOURCES,
+  WATCH_TEST_PRODUCTION_SOURCES,
+  WATCH_TARGET_NAME,
 };

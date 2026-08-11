@@ -86,13 +86,13 @@ private func phoneHandleKickSessionEnd(_ payload: [String: Any]) -> [String: Any
 
 // MARK: - Watch-side encoder helpers (mirrors WatchSessionManager.sendContractionUpdate / sendKickSessionEnd)
 
-private let iso8601Encoder: JSONEncoder = {
+private let offlineDeliveryEncoder: JSONEncoder = {
     let e = JSONEncoder()
     e.dateEncodingStrategy = .iso8601
     return e
 }()
 
-private let iso8601Decoder: JSONDecoder = {
+private let offlineDeliveryDecoder: JSONDecoder = {
     let d = JSONDecoder()
     d.dateDecodingStrategy = .iso8601
     return d
@@ -101,14 +101,14 @@ private let iso8601Decoder: JSONDecoder = {
 /// Encodes a `ContractionRecord` and wraps it in the wire payload dict,
 /// mirroring the offline branch of `WatchSessionManager.sendContractionUpdate`.
 private func makeContractionPayload(_ record: ContractionRecord) -> [String: Any]? {
-    guard let data = try? iso8601Encoder.encode(record) else { return nil }
+    guard let data = try? offlineDeliveryEncoder.encode(record) else { return nil }
     return [WatchMessage.contractionUpdate: data]
 }
 
 /// Encodes a `KickSessionSummary` and wraps it in the wire payload dict,
 /// mirroring the offline branch of `WatchSessionManager.sendKickSessionEnd`.
 private func makeKickSessionEndPayload(_ summary: KickSessionSummary) -> [String: Any]? {
-    guard let data = try? iso8601Encoder.encode(summary) else { return nil }
+    guard let data = try? offlineDeliveryEncoder.encode(summary) else { return nil }
     return [WatchMessage.kickSessionEnd: data]
 }
 
