@@ -67,12 +67,16 @@ specific hardware even when the build passes Apple's validator.
 
 ## 4 — Tips carousel
 
-| Step | Action                                     | Expected result                                       |
-| ---- | ------------------------------------------ | ----------------------------------------------------- |
-| 4.1  | Open the Pregnancy AI Watch app → Tips tab | Tips carousel loads with gestational-week content     |
-| 4.2  | Swipe through cards                        | Each card shows tip text and an emoji; no blank cards |
+| Step | Action                                                                                                      | Expected result                                                                                      |
+| ---- | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| 4.1  | Open the Pregnancy AI Watch app → Tips tab                                                                  | Tips carousel loads with gestational-week content                                                    |
+| 4.2  | Swipe through cards                                                                                         | Each card shows tip text and an emoji; no blank cards                                                |
+| 4.3  | Navigate to a card that is **not** the first (e.g. card 2 or 3)                                             | The selected card is shown; the position indicator reflects the current index                        |
+| 4.4  | On the iPhone app, edit the due date so that the gestational week changes (add or subtract at least 1 week) | iPhone sends updated week + tips to the Watch                                                        |
+| 4.5  | Return to the Watch → Tips tab (reopen if needed)                                                           | Carousel resets to **card 1** for the new gestational week; the old card index is **not** preserved |
+| 4.6  | Confirm the week label on card 1 matches the new gestational week                                           | "Week N" label shows the updated week number                                                         |
 
-**Pass criteria:** Tips content is visible and navigable.
+**Pass criteria:** Tips content is visible and navigable; editing the due date on the phone immediately resets the Watch Tips carousel to the first card for the new week.
 
 ---
 
