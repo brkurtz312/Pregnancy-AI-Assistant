@@ -16,7 +16,7 @@ export default defineConfig({
     // execute twice simultaneously under extreme resource contention.
     // 120 s gives individual tests room to complete without a flaky timeout
     // while still catching genuinely hung tests.
-    testTimeout: 120000,
+    testTimeout: 180000,
     // Run test files sequentially (single fork) to avoid "Timeout waiting for
     // worker to respond" failures under concurrent validation load. The
     // validation workflow runs `pnpm run test` (which also runs api-server

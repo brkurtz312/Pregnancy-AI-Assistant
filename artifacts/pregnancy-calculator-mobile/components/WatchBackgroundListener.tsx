@@ -36,6 +36,15 @@ import {
   type ContractionRecord,
   type WatchTip,
 } from "@/hooks/useWatchConnectivity";
+// Lazy-require so Android / missing-module builds degrade cleanly.
+function getWatchModule() {
+  try {
+    const mod = require("../modules/WatchConnectivity");
+    return mod?.default ?? mod ?? null;
+  } catch {
+    return null;
+  }
+}
 import { getWeeklyDevelopment } from "@/lib/fetal-development";
 import { calculateByDueDate } from "@/lib/pregnancy-math";
 import {
@@ -322,7 +331,7 @@ export function WatchBackgroundListener() {
   );
 
   const handleContractionUpdate = useCallback(
-    async (record: ContractionRecord) => {
+    async (record: ContractionRecord, opts?: { nativeReceiptId?: string }) => {
       if (!isSignedIn || !userId) return;
       const capturedGen = getWatchQueueGeneration(userId);
 
@@ -348,10 +357,25 @@ export function WatchBackgroundListener() {
             durationSeconds,
             intervalSeconds: record.interval,
             sessionDate: todayDate(),
+            // Pass the Watch-assigned UUID as a server-enforced idempotency key.
+            // If the phone is force-quit after the API succeeds but before the
+            // native receipt acknowledgement fires, the startup drain will replay
+            // this record. The server returns the existing row instead of creating
+            // a duplicate when watchRecordId matches an already-saved record.
+            watchRecordId: record.id ?? null,
           },
           frozenGetter,
         );
         if (getWatchQueueGeneration(userId) !== capturedGen) return;
+        // Remove from the phone's native pending store now that the record is
+        // durably saved to the API. This prevents the record from being replayed
+        // on the next app launch.
+        const nativeId = opts?.nativeReceiptId ?? record.id;
+        if (nativeId) {
+          getWatchModule()
+            ?.acknowledgeContractionReceipt(nativeId)
+            ?.catch(() => {});
+        }
         queryClient.invalidateQueries({
           queryKey: getListContractionsQueryKey({
             sessionDate: todayDate(),
@@ -360,7 +384,11 @@ export function WatchBackgroundListener() {
         });
         showToast("Contraction recorded");
       } catch {
-        // Save locally so the data isn't lost; retry when connectivity returns.
+        // Direct API save failed; enqueue the record locally so it is retried
+        // when connectivity returns.  The Watch UUID is forwarded as watchRecordId
+        // so that the queue flush — and the native startup drain — both submit the
+        // same idempotency key to the server.  This ensures that if both paths
+        // race (offline queue flush + startup drain replay), only one row is saved.
         try {
           await enqueueWatchContraction(
             {
@@ -369,10 +397,23 @@ export function WatchBackgroundListener() {
               durationSeconds,
               intervalSeconds: record.interval,
               sessionDate: todayDate(),
+              // Propagate the Watch UUID so the offline queue flush submits the
+              // same idempotency key as the startup drain path.
+              watchRecordId: record.id ?? null,
             },
             userId,
             capturedGen,
           );
+          // Now that the record is durably held in the offline queue, clear it
+          // from the native receipt store.  If the app is killed before this
+          // line, the worst outcome is a redundant queue entry on next launch —
+          // the idempotency key prevents a duplicate API row.
+          const nativeId = opts?.nativeReceiptId ?? record.id;
+          if (nativeId) {
+            getWatchModule()
+              ?.acknowledgeContractionReceipt(nativeId)
+              ?.catch(() => {});
+          }
           showToast("Contraction saved locally — will sync when online", true);
         } catch {
           showToast(
@@ -384,6 +425,88 @@ export function WatchBackgroundListener() {
     },
     [isSignedIn, userId, getToken, queryClient, showToast],
   );
+
+  // ── Active user gate + startup drain (chained, generation-gated) ───────────
+  //
+  // setActiveWatchUser MUST complete before getPendingContractionReceipts is
+  // called, otherwise the native bridge has not yet registered the active user
+  // and getPendingContractionReceipts returns an empty array (wrong partition).
+  //
+  // A monotonically increasing generation counter (drainGenRef) is captured at
+  // the start of each effect run.  Every async stage re-checks that the counter
+  // has not advanced before doing any native I/O or dispatching health data.
+  // This ensures a stale chain initiated for user A that resolves after B has
+  // signed in cannot:
+  //   • re-register A's native partition (which would redirect incoming Watch
+  //     deliveries to A's UserDefaults key-space while B is the active user), or
+  //   • read A's receipts and call handleContractionUpdate with A's health data
+  //     under B's authenticated session / React Query context.
+  const drainedForUserRef = useRef<string | null>(null);
+  const drainGenRef = useRef(0);
+  useEffect(() => {
+    const mod = getWatchModule();
+    if (!mod) return;
+
+    // Claim a generation token for this effect run.  Any async work started by
+    // a previous run will observe gen !== drainGenRef.current and abort.
+    const gen = ++drainGenRef.current;
+
+    if (!isSignedIn || !userId) {
+      // Signed out: deregister active user so incoming Watch deliveries are dropped.
+      // No generation check needed — deregistration is always safe.
+      mod.setActiveWatchUser(null)?.catch(() => {});
+      return;
+    }
+
+    if (drainedForUserRef.current === userId) return; // already drained this session
+    drainedForUserRef.current = userId;
+
+    // Stage 1: register the active user in the native bridge.
+    (mod.setActiveWatchUser(userId) ?? Promise.resolve())
+      .catch(() => {})
+      // Stage 2: read pending receipts — only if generation is still current.
+      // If the user signed out or switched accounts while stage 1 was running,
+      // drainGenRef will have advanced; return an empty array to skip dispatch.
+      .then(
+        (): Promise<
+          Array<{
+            id?: string;
+            startedAt?: string;
+            endedAt?: string;
+            interval?: number;
+          }>
+        > => {
+          if (drainGenRef.current !== gen) return Promise.resolve([]);
+          return mod.getPendingContractionReceipts();
+        },
+      )
+      // Stage 3: dispatch — only if generation is still current.
+      .then(
+        (
+          records: Array<{
+            id?: string;
+            startedAt?: string;
+            endedAt?: string;
+            interval?: number;
+          }>,
+        ) => {
+          if (drainGenRef.current !== gen) return;
+          for (const raw of records) {
+            if (!raw.startedAt || !raw.endedAt) continue;
+            const record: ContractionRecord = {
+              id: raw.id,
+              startedAt: raw.startedAt,
+              endedAt: raw.endedAt,
+              interval: raw.interval,
+            };
+            // Pass the native receipt ID so acknowledgeContractionReceipt fires
+            // after the API save succeeds.
+            handleContractionUpdate(record, { nativeReceiptId: raw.id });
+          }
+        },
+      )
+      .catch(() => {});
+  }, [isSignedIn, userId, handleContractionUpdate]);
 
   useWatchConnectivity({
     gestationalWeek,

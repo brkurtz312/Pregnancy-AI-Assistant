@@ -22,6 +22,10 @@ enum WatchMessage {
     static let requestSync = "requestSync"
     /// Sent from the phone when the user signs out so the Watch can clear its persisted session.
     static let signOut = "signOut"
+    /// Sent by the phone in the replyHandler of a contractionUpdate message.
+    /// The value is the record's UUID string, confirming durable native receipt on the phone.
+    /// The Watch dequeues only when this key is present and the UUID matches.
+    static let contractionUpdateAck = "contractionUpdateAck"
 }
 
 @objc final class PhoneWatchBridge: NSObject {
@@ -120,6 +124,15 @@ enum WatchMessage {
     ///   before the Watch wakes up, `transferUserInfo` queues each payload independently so the
     ///   sign-out message is always delivered even when subsequent context updates occur.
     @objc func sendSignOut() {
+        // Wipe native contraction receipt store for the departing user FIRST so
+        // that even a late Watch `transferUserInfo` that arrives during or after
+        // this call cannot be attributed to them.  After clearing, set activeUserId
+        // to nil so any subsequent receipt delivery (before the next user signs in)
+        // is silently dropped — the Watch's own retry queue holds the record and
+        // resends once an authenticated session is re-established.
+        clearAllContractionReceipts()
+        activeUserId = nil
+
         guard WCSession.default.activationState == .activated,
               WCSession.default.isWatchAppInstalled else { return }
 
@@ -153,6 +166,149 @@ enum WatchMessage {
             "isWatchAppInstalled": WCSession.isSupported() && session.isWatchAppInstalled,
             "isReachable": WCSession.isSupported() && session.isReachable,
         ]
+    }
+
+    // MARK: - Native contraction receipt store
+    //
+    // When the phone receives a `contractionUpdate` it writes the record to a
+    // native UserDefaults store **before** replying to the Watch.  This guarantees
+    // that a phone force-quit between the reply and a JS/API save cannot silently
+    // lose the record — on next launch JS reads the pending store and retries.
+    //
+    // Key layout (all keys are scoped to the signed-in user's ID):
+    //   ph.contractionReceiptIds:<userId>   [String]  — ordered list of received record UUIDs
+    //   ph.contractionRecord:<userId>.<id>  Data       — raw encoded record for each UUID
+    //
+    // Scoping by userId prevents a `transferUserInfo` that was already enqueued on the
+    // Watch from being attributed to the *next* signed-in account when the phone receives
+    // it after sign-out.  If no account is active (`activeUserId == nil`), receipt
+    // persistence is silently skipped — the Watch's own retry queue will resend when
+    // the next authenticated user restores the session.
+
+    // MARK: Active user gate
+
+    /// The signed-in user whose receipts are accepted.  JS must call
+    /// `setActiveUserId` on sign-in (before the startup drain) and on sign-out
+    /// (via `sendSignOut`, which clears the store for the departing user and then
+    /// sets this to nil).  When nil, incoming Watch receipts are silently dropped.
+    var activeUserId: String?
+
+    /// Called by JS when a user signs in or signs out.  Always set BEFORE reading
+    /// `pendingContractionReceipts` on sign-in so that reads use the correct scope.
+    func setActiveUserId(_ userId: String?) {
+        activeUserId = userId
+    }
+
+    // MARK: Scoped key helpers
+
+    private func receiptIdsKey(for userId: String) -> String {
+        "ph.contractionReceiptIds:\(userId)"
+    }
+
+    private func receiptDataKey(for userId: String, recordId: String) -> String {
+        "ph.contractionRecord:\(userId).\(recordId)"
+    }
+
+    // MARK: Receipt operations
+
+    /// Durably writes `record` data to native UserDefaults keyed by `id`.
+    ///
+    /// Returns `true` when the data was actually written; returns `false` and does
+    /// **not** persist in two cases:
+    ///   1. `activeUserId` is nil (signed out) — the caller MUST send an empty reply
+    ///      `replyHandler([:])` so the Watch keeps its retry record queued.  Sending
+    ///      a matching ack UUID when this returns `false` would cause the Watch to
+    ///      dequeue the record, losing the contraction silently.
+    ///   2. The ID is already present (idempotent duplicate — returns `true` so the
+    ///      caller sends a matching ack UUID; the Watch dequeues safely because the
+    ///      record is already durable and will be returned by the next drain call).
+    ///
+    /// This must be called **synchronously before** replying to the Watch so that
+    /// a phone crash after the reply still leaves the data recoverable on relaunch.
+    @discardableResult
+    func persistContractionReceipt(id: String, data: Data) -> Bool {
+        guard let userId = activeUserId else {
+            // No active user — drop the record.  The Watch's own retry queue still
+            // holds the record and will resend when the next authenticated session
+            // is established.  The caller must NOT send a matching ack.
+            return false
+        }
+        let idsKey = receiptIdsKey(for: userId)
+        var ids = UserDefaults.standard.stringArray(forKey: idsKey) ?? []
+        // Idempotent: record already durably stored — signal success so the caller
+        // sends a matching ack UUID and the Watch can safely dequeue the retry record.
+        // This covers the transferUserInfo-then-sendMessage flush pattern:
+        //   1. transferUserInfo persists the receipt (no Watch ack on this path)
+        //   2. Watch retries via sendMessage → duplicate → return true → ack sent
+        //   3. Watch dequeues; native store still holds the receipt for JS drain
+        guard !ids.contains(id) else { return true }
+        // Write data FIRST, then add to the IDs index.
+        // This ordering guarantees that a force-quit between the two writes leaves an
+        // orphan data key (with no ID in the list), NOT an orphan ID with no data.
+        // An orphan data key is harmless — the next Watch retry will overwrite it and
+        // then add the ID.  An orphan ID with no data would cause pendingContractionReceipts()
+        // to skip it forever (since the data key is missing), making the record unrecoverable.
+        UserDefaults.standard.set(data, forKey: receiptDataKey(for: userId, recordId: id))
+        ids.append(id)
+        UserDefaults.standard.set(ids, forKey: idsKey)
+        return true
+    }
+
+    /// Returns all pending contraction records that have been natively persisted
+    /// but not yet acknowledged as saved by JS (e.g. after a phone force-quit).
+    /// Returns an empty array when `activeUserId` is nil.
+    ///
+    /// Also repairs any orphan IDs whose data key was lost due to a partial write
+    /// (e.g. app terminated between the data write and the IDs-list update in the old
+    /// ordering); such IDs are silently removed from the list.
+    @objc func pendingContractionReceipts() -> [[String: Any]] {
+        guard let userId = activeUserId else { return [] }
+        let idsKey = receiptIdsKey(for: userId)
+        let ids = UserDefaults.standard.stringArray(forKey: idsKey) ?? []
+        var result: [[String: Any]] = []
+        var validIds: [String] = []
+        for id in ids {
+            let dataKey = receiptDataKey(for: userId, recordId: id)
+            if let data = UserDefaults.standard.data(forKey: dataKey),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                result.append(json)
+                validIds.append(id)
+            } else {
+                // Orphan ID — data was never written or was removed; clean up.
+                UserDefaults.standard.removeObject(forKey: dataKey)
+            }
+        }
+        if validIds.count != ids.count {
+            UserDefaults.standard.set(validIds, forKey: idsKey)
+        }
+        return result
+    }
+
+    /// Clears all natively persisted contraction receipts for the current
+    /// `activeUserId`.  Called on sign-out so that late Watch deliveries arriving
+    /// after account switch cannot be attributed to the next user.
+    /// After this returns, `sendSignOut()` sets `activeUserId = nil` so any
+    /// subsequent incoming `transferUserInfo` delivery is silently dropped.
+    @objc func clearAllContractionReceipts() {
+        guard let userId = activeUserId else { return }
+        let idsKey = receiptIdsKey(for: userId)
+        let ids = UserDefaults.standard.stringArray(forKey: idsKey) ?? []
+        for id in ids {
+            UserDefaults.standard.removeObject(forKey: receiptDataKey(for: userId, recordId: id))
+        }
+        UserDefaults.standard.removeObject(forKey: idsKey)
+    }
+
+    /// Called by JS once a contraction record has been durably saved (to the API or
+    /// an offline queue that guarantees eventual delivery) so the phone's native
+    /// pending store can be cleared and the record is not replayed on next launch.
+    @objc func acknowledgeContractionReceipt(id: String) {
+        guard let userId = activeUserId else { return }
+        let idsKey = receiptIdsKey(for: userId)
+        var ids = UserDefaults.standard.stringArray(forKey: idsKey) ?? []
+        ids.removeAll { $0 == id }
+        UserDefaults.standard.set(ids, forKey: idsKey)
+        UserDefaults.standard.removeObject(forKey: receiptDataKey(for: userId, recordId: id))
     }
 
     // MARK: - Callbacks registered by React Native
@@ -235,6 +391,35 @@ extension PhoneWatchBridge: WCSessionDelegate {
             DispatchQueue.main.async { [weak self] in self?.onSyncRequest?() }
             return
         }
+
+        // contractionUpdate: persist the record to native storage *before* replying
+        // so a phone force-quit after the reply cannot silently discard the data.
+        // The reply carries the record's UUID so the Watch dequeues only on a
+        // confirmed, durable receipt — not on a bare empty acknowledgment.
+        if let data = message[WatchMessage.contractionUpdate] as? Data,
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let idString = json["id"] as? String {
+            // 1. Write to native store synchronously (survives an immediate force-quit).
+            //    persistContractionReceipt returns true ONLY when activeUserId is set and the
+            //    record was actually written.  When it returns false (signed-out delivery),
+            //    we MUST NOT send a matching ack — an ack causes the Watch to dequeue its
+            //    retry record, permanently losing the contraction.
+            let persisted = persistContractionReceipt(id: idString, data: data)
+            if persisted {
+                // 2a. Durable receipt written — send matching ack so Watch dequeues.
+                replyHandler([WatchMessage.contractionUpdateAck: idString])
+                // 3. Dispatch to JS so React Native can persist to API / offline queue.
+                DispatchQueue.main.async { [weak self] in self?.onContractionUpdate?(json) }
+            } else {
+                // 2b. Signed out (activeUserId was nil at persist time) — empty reply keeps
+                //     the record in the Watch retry queue for the next authenticated session.
+                //     Duplicate receipts now return true (handled above with a matching ack),
+                //     so this branch is reached only when no user is active.
+                replyHandler([:])
+            }
+            return
+        }
+
         handleMessage(message)
         replyHandler([:])
     }
@@ -273,6 +458,13 @@ extension PhoneWatchBridge: WCSessionDelegate {
 
             if let data = payload["contractionUpdate"] as? Data,
                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                // Persist to native store (no replyHandler on this path — delivered via
+                // transferUserInfo or applicationContext). The Watch's retry queue will
+                // later resend via sendMessage to get an explicit ack; persisting here
+                // ensures idempotent de-duplication when that retry arrives.
+                if let idString = json["id"] as? String {
+                    self.persistContractionReceipt(id: idString, data: data)
+                }
                 self.onContractionUpdate?(json)
             }
         }

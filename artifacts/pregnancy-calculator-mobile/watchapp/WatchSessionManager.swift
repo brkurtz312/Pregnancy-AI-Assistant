@@ -42,6 +42,10 @@ final class WatchSessionManager: NSObject, ObservableObject {
     private let decoder = JSONDecoder()
     private var syncTimeoutWork: DispatchWorkItem?
 
+    /// UserDefaults key for the pending-acknowledgment retry queue.
+    /// Records stay here until the phone sends a reply (or transferUserInfo delivers them).
+    private let pendingContractionUpdatesKey = "wk.pendingContractionUpdates"
+
     private override init() {
         super.init()
         encoder.dateEncodingStrategy = .iso8601
@@ -109,14 +113,34 @@ final class WatchSessionManager: NSObject, ObservableObject {
 
     func sendContractionUpdate(record: ContractionRecord) {
         guard let data = try? encoder.encode(record) else { return }
+
+        // Persist in the retry queue *before* attempting delivery so that a
+        // force-quit of the Watch app between encoding and sending cannot lose the
+        // record. The record is removed once the phone acknowledges receipt.
+        enqueuePendingContractionUpdate(record)
+
         if WCSession.default.isReachable {
             WCSession.default.sendMessage(
                 [WatchMessage.contractionUpdate: data],
-                replyHandler: nil,
-                errorHandler: nil
+                replyHandler: { [weak self] reply in
+                    // Dequeue only when the phone replies with a matching ack UUID.
+                    // An empty or mismatched reply means the phone did not durably
+                    // persist the record — leave it in the queue for retry.
+                    guard let ackId = reply[WatchMessage.contractionUpdateAck] as? String,
+                          ackId == record.id.uuidString else { return }
+                    self?.dequeuePendingContractionUpdate(id: record.id)
+                },
+                errorHandler: { [weak self] _ in
+                    // Real-time send failed; keep the record in the queue so the
+                    // next reachability window can retry, and also fall back to
+                    // transferUserInfo for guaranteed background delivery.
+                    _ = self    // capture self intentionally; queue already holds the record
+                    WCSession.default.transferUserInfo([WatchMessage.contractionUpdate: data])
+                }
             )
         } else {
-            // Queue for ordered delivery when phone is reachable.
+            // transferUserInfo guarantees ordered delivery when the phone becomes
+            // reachable. The record stays in the retry queue until the phone acks.
             WCSession.default.transferUserInfo([WatchMessage.contractionUpdate: data])
         }
     }
@@ -244,10 +268,13 @@ extension WatchSessionManager: WCSessionDelegate {
     /// Re-request a sync whenever the phone becomes reachable and we still
     /// have no tips. Activation-time requestSync can race a phone whose JS
     /// layer hasn't loaded the profile yet; this retry closes that gap.
+    /// Also flushes any contraction records that were not yet acknowledged by
+    /// the phone (e.g. because the phone was force-quit mid-session).
     func sessionReachabilityDidChange(_ session: WCSession) {
         guard session.isReachable else { return }
         DispatchQueue.main.async { [weak self] in
             self?.requestSyncIfNeeded()
+            self?.flushPendingContractionUpdates()
         }
     }
 
@@ -271,6 +298,70 @@ extension WatchSessionManager: WCSessionDelegate {
     /// by a subsequent `updateApplicationContext` call before the Watch wakes up.
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
         handleIncoming(userInfo)
+    }
+
+    // MARK: - Contraction retry queue
+
+    /// Adds `record` to the UserDefaults pending-acknowledgment queue if it is
+    /// not already present (idempotent by `record.id`).
+    func enqueuePendingContractionUpdate(_ record: ContractionRecord) {
+        var pending = loadPendingContractionQueue()
+        guard !pending.contains(where: { $0.id == record.id }) else { return }
+        pending.append(record)
+        savePendingContractionQueue(pending)
+    }
+
+    /// Removes the record with `id` from the pending queue.
+    /// Called when the phone sends a reply acknowledging the record.
+    func dequeuePendingContractionUpdate(id: UUID) {
+        var pending = loadPendingContractionQueue()
+        pending.removeAll { $0.id == id }
+        savePendingContractionQueue(pending)
+    }
+
+    /// Resends every record in the pending queue now that the phone is reachable.
+    /// Each record is removed from the queue only after the phone sends back a
+    /// `contractionUpdateAck` whose UUID matches the sent record.  A blank,
+    /// absent, or mismatched reply is treated as "not yet durably persisted" and
+    /// the record is kept for the next reconnect.
+    func flushPendingContractionUpdates() {
+        let pending = loadPendingContractionQueue()
+        guard !pending.isEmpty else { return }
+
+        for record in pending {
+            guard let data = try? encoder.encode(record) else { continue }
+            WCSession.default.sendMessage(
+                [WatchMessage.contractionUpdate: data],
+                replyHandler: { [weak self] reply in
+                    guard let ackId = reply[WatchMessage.contractionUpdateAck] as? String,
+                          ackId == record.id.uuidString else { return }
+                    self?.dequeuePendingContractionUpdate(id: record.id)
+                },
+                errorHandler: { _ in
+                    // Leave in queue; transferUserInfo ensures eventual delivery.
+                    WCSession.default.transferUserInfo([WatchMessage.contractionUpdate: data])
+                }
+            )
+        }
+    }
+
+    /// Loads the pending-acknowledgment queue from UserDefaults.
+    func loadPendingContractionQueue() -> [ContractionRecord] {
+        guard let data = UserDefaults.standard.data(forKey: pendingContractionUpdatesKey),
+              let records = try? decoder.decode([ContractionRecord].self, from: data) else {
+            return []
+        }
+        return records
+    }
+
+    /// Persists the pending queue to UserDefaults.
+    /// Removes the key entirely when the queue is empty.
+    private func savePendingContractionQueue(_ records: [ContractionRecord]) {
+        if records.isEmpty {
+            UserDefaults.standard.removeObject(forKey: pendingContractionUpdatesKey)
+        } else if let data = try? encoder.encode(records) {
+            UserDefaults.standard.set(data, forKey: pendingContractionUpdatesKey)
+        }
     }
 
     // MARK: - Private helpers
@@ -333,6 +424,10 @@ extension WatchSessionManager: WCSessionDelegate {
         ud.removeObject(forKey: "wk.contractionRecords")
         // lastContractionCount setter handles its own UserDefaults key
         lastContractionCount = nil
+
+        // Pending retry queue — must be cleared on sign-out so a freshly signed-in
+        // user's session cannot receive contraction records from the previous account.
+        ud.removeObject(forKey: pendingContractionUpdatesKey)
 
         // Reset published state
         tips = []

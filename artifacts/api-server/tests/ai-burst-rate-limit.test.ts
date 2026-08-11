@@ -127,10 +127,12 @@ function askAI(ip: string) {
 }
 
 describe("POST /api/ai/ask burst rate-limit protection", () => {
+  // 3-minute safety margin: test imports heavy AI integrations at module load
+  // time; under CI load the import phase alone can take 60+ seconds.
   it("returns 503 when Anthropic is not configured (limiter not yet exhausted)", async () => {
     const res = await askAI("203.0.113.200");
     expect(res.status).toBe(503);
-  });
+  }, 180_000);
 
   it(`blocks the ${AI_BURST_LIMIT + 1}th request from the same IP with 429`, async () => {
     const ip = "203.0.113.10";

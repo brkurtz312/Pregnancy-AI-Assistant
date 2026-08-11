@@ -65,11 +65,23 @@ vi.mock("../src/middlewares/auth", () => ({
   requireAuth: (_req: Request, _res: Response, next: NextFunction) => next(),
 }));
 
-vi.mock("@workspace/db", () => ({
-  db: {},
-  aiUsageTable: {},
-  scribeIdempotencyKeysTable: {},
-}));
+vi.mock("@workspace/db", () => {
+  // Provide a minimal db stub with the methods that background sweeps call
+  // (scribe-idempotency.ts runs dbSweep on a 60s timer; if the test takes
+  // longer than that, the timer fires and db.delete must exist or the test
+  // crashes with "not a function").
+  const chain = { where: vi.fn().mockResolvedValue([]) };
+  return {
+    db: {
+      delete: vi.fn().mockReturnValue(chain),
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue([]) }),
+      }),
+    },
+    aiUsageTable: {},
+    scribeIdempotencyKeysTable: {},
+  };
+});
 
 // ─── Test app ────────────────────────────────────────────────────────────────
 

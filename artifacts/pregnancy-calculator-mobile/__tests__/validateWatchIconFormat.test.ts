@@ -130,9 +130,12 @@ eval(patched);
 `,
     );
 
+    // 60 s: spawning a Node process under heavy CI load (concurrent test runs)
+    // can easily exceed 10 s; a timed-out spawn returns status=null which
+    // collapses to exitCode 1 and silently fails the "happy path" checks.
     const result = spawnSync(process.execPath, [wrapperPath], {
       encoding: "utf8",
-      timeout: 10_000,
+      timeout: 60_000,
     });
 
     return {

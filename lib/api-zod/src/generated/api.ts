@@ -310,6 +310,10 @@ export const CreateContractionBody = zod.object({
     .min(createContractionBodyIntervalSecondsMin)
     .nullish(),
   sessionDate: zod.string().min(1),
+  // Optional Watch-assigned UUID used as a server-enforced idempotency key.
+  // When present, the server returns the existing record if one with the same
+  // watchRecordId already exists for this user (preventing duplicate rows on replay).
+  watchRecordId: zod.string().nullish(),
 });
 
 /**

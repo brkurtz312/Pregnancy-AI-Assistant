@@ -39,6 +39,35 @@ public class WatchConnectivityModule: Module {
             PhoneWatchBridge.shared.sendSignOut()
         }
 
+        // MARK: - Active user gate
+        //
+        // JS must call setActiveWatchUser(userId) immediately on sign-in (before the
+        // startup drain) and setActiveWatchUser(null) on sign-out (handled internally
+        // by signOut() which calls sendSignOut() → clearAllContractionReceipts() →
+        // activeUserId = nil, so the explicit null call is optional but harmless).
+        //
+        // Without the active user set, late Watch `transferUserInfo` deliveries that
+        // arrive after sign-out are silently dropped instead of being attributed to the
+        // next account (cross-account health-data isolation).
+        AsyncFunction("setActiveWatchUser") { (userId: String?) in
+            PhoneWatchBridge.shared.setActiveUserId(userId)
+        }
+
+        // Called by JS at launch to drain contraction records that the phone persisted
+        // natively (before replying to the Watch with the ack UUID) but whose JS/API
+        // save never completed (e.g. phone was force-quit after the ack).
+        // Returns an empty array when no user is active (signed out).
+        AsyncFunction("getPendingContractionReceipts") { () -> [[String: Any]] in
+            return PhoneWatchBridge.shared.pendingContractionReceipts()
+        }
+
+        // Called by JS once a contraction record has been durably saved (to the API or
+        // an offline queue that guarantees eventual delivery) so the phone's native
+        // pending store can be cleared and the record is not replayed on next launch.
+        AsyncFunction("acknowledgeContractionReceipt") { (id: String) in
+            PhoneWatchBridge.shared.acknowledgeContractionReceipt(id: id)
+        }
+
         Events("onKickSessionEnd", "onContractionUpdate", "onKickUpdate", "onWatchStateChange", "onSyncRequest")
 
         OnStartObserving {

@@ -210,6 +210,11 @@ export interface WatchContractionPayload {
   durationSeconds?: number | null;
   intervalSeconds?: number | null;
   sessionDate: string;
+  /** Watch-assigned UUID used as a server-enforced idempotency key.
+   *  When supplied, the server returns the existing row if one with this ID
+   *  already exists, preventing a duplicate save on replay after a phone
+   *  force-quit between API success and native receipt acknowledgement. */
+  watchRecordId?: string | null;
 }
 
 export async function apiDirectSaveKickSession(

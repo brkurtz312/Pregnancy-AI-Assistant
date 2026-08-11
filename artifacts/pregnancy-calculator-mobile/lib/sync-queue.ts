@@ -108,6 +108,10 @@ export interface PendingContraction {
   durationSeconds?: number | null;
   intervalSeconds?: number | null;
   sessionDate: string;
+  /** Watch-assigned UUID forwarded to the API as a server-enforced idempotency
+   *  key.  Presence prevents a duplicate row when the phone is force-quit after
+   *  the API call succeeds but before the native receipt acknowledgement fires. */
+  watchRecordId?: string | null;
 }
 
 // ── Storage keys ──────────────────────────────────────────────────────────────

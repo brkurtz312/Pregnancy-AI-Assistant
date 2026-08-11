@@ -53,4 +53,9 @@ enum WatchMessage {
     static let requestSync = "requestSync"
     /// Sent from the phone when the user signs out so the Watch can clear its persisted session.
     static let signOut = "signOut"
+    /// Sent by the phone in the replyHandler of a contractionUpdate message.
+    /// The value is the record's UUID string, confirming durable native receipt on the phone.
+    /// The Watch removes the record from its retry queue only when this key is present and
+    /// the UUID matches — a blank or absent reply means the phone did not durably persist it.
+    static let contractionUpdateAck = "contractionUpdateAck"
 }

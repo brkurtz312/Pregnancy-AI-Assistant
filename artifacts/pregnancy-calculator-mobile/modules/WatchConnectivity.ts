@@ -42,6 +42,30 @@ interface WatchConnectivityInterface {
    * the native module is a no-op in those cases.
    */
   signOut: () => Promise<void>;
+  /**
+   * Returns contraction records that the phone persisted natively (before
+   * replying to the Watch with the ack UUID) but whose JS/API persistence did
+   * not complete (e.g. the phone was force-quit after the ack).
+   * Call at app launch to drain any stranded records.
+   */
+  getPendingContractionReceipts: () => Promise<Record<string, unknown>[]>;
+  /**
+   * Removes the record with the given UUID string from the native pending
+   * store.  Call after the record has been durably saved to the API (or an
+   * offline queue that guarantees eventual delivery).
+   */
+  acknowledgeContractionReceipt: (id: string) => Promise<void>;
+  /**
+   * Registers the signed-in user's ID with the native receipt store so that
+   * incoming Watch payloads are scoped to that user's partition.
+   * Call immediately on sign-in (before `getPendingContractionReceipts`)
+   * so the startup drain reads the correct user's receipts.
+   * Pass `null` on sign-out (though `signOut()` sets this internally).
+   * Without a registered user, `persistContractionReceipt` is a no-op and
+   * late Watch `transferUserInfo` deliveries are silently dropped instead of
+   * being attributed to the next signed-in account.
+   */
+  setActiveWatchUser: (userId: string | null) => Promise<void>;
 }
 
 const stub: WatchConnectivityInterface = {
@@ -55,6 +79,9 @@ const stub: WatchConnectivityInterface = {
   }),
   addListener: () => ({ remove: () => {} }),
   signOut: async () => {},
+  getPendingContractionReceipts: async () => [],
+  acknowledgeContractionReceipt: async () => {},
+  setActiveWatchUser: async () => {},
 };
 
 /**
@@ -108,6 +135,21 @@ function buildModule(): WatchConnectivityInterface {
         }
       },
       signOut: guarded(native, "signOut", stub.signOut),
+      getPendingContractionReceipts: guarded(
+        native,
+        "getPendingContractionReceipts",
+        stub.getPendingContractionReceipts,
+      ),
+      acknowledgeContractionReceipt: guarded(
+        native,
+        "acknowledgeContractionReceipt",
+        stub.acknowledgeContractionReceipt,
+      ),
+      setActiveWatchUser: guarded(
+        native,
+        "setActiveWatchUser",
+        stub.setActiveWatchUser,
+      ),
     };
   } catch {
     return stub;

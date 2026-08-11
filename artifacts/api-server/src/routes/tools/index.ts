@@ -319,9 +319,24 @@ router.post(
       durationSeconds,
       intervalSeconds,
       sessionDate,
+      watchRecordId,
     } = parsed.data;
 
-    const [row] = await db
+    // Atomic idempotency insert.
+    //
+    // When the phone sends a Watch-assigned UUID as watchRecordId the DB has a
+    // partial unique index on (user_id, watch_record_id) where watch_record_id IS
+    // NOT NULL.  Instead of a read-then-write (TOCTOU race), we attempt the
+    // insert and let the DB's unique constraint handle concurrent duplicate
+    // requests atomically:
+    //   • First request  → inserts cleanly, returning the new row.
+    //   • Concurrent dup → ON CONFLICT DO NOTHING returns no row; we then
+    //     fetch the already-inserted row and return it without creating a duplicate.
+    //
+    // This covers the force-quit replay window: phone is killed after the API
+    // succeeds but before acknowledgeContractionReceipt fires → the next launch
+    // replays the receipt → server returns the existing row → no duplicate.
+    const [inserted] = await db
       .insert(contractionLogsTable)
       .values({
         userId,
@@ -330,10 +345,35 @@ router.post(
         durationSeconds: durationSeconds ?? null,
         intervalSeconds: intervalSeconds ?? null,
         sessionDate,
+        watchRecordId: watchRecordId ?? null,
       })
+      .onConflictDoNothing()
       .returning();
 
-    res.status(201).json({
+    // If the insert was suppressed by the unique constraint, fetch the existing row.
+    const row =
+      inserted ??
+      (
+        await db
+          .select()
+          .from(contractionLogsTable)
+          .where(
+            and(
+              eq(contractionLogsTable.userId, userId),
+              // watchRecordId is guaranteed non-null when the constraint fires.
+              eq(contractionLogsTable.watchRecordId, watchRecordId!),
+            ),
+          )
+          .limit(1)
+      )[0];
+
+    if (!row) {
+      // Should never happen; the insert either succeeds or conflicts.
+      res.status(500).json({ error: "Failed to save or retrieve contraction" });
+      return;
+    }
+
+    res.status(inserted ? 201 : 200).json({
       id: row.id,
       startedAt: row.startedAt.toISOString(),
       endedAt: row.endedAt?.toISOString() ?? null,

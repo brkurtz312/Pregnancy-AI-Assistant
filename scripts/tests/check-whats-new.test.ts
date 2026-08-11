@@ -71,7 +71,9 @@ function runScript(
 // ---------------------------------------------------------------------------
 
 // tsx subprocess startup can take a few seconds — allow up to 20s per test.
-const CLI_TIMEOUT = 120_000;
+// 3 minutes: spawning tsx + running the script against the workspace can be
+// slow on resource-constrained CI environments.  120 s is not enough.
+const CLI_TIMEOUT = 180_000;
 
 describe("check-whats-new script — CLI exit codes", () => {
   it(
@@ -324,7 +326,9 @@ describe("check-whats-new — real repo files", () => {
 // full git → hook → pnpm → check-whats-new chain without modifying the real
 // repository.
 
-const HOOK_SMOKE_TIMEOUT = 60_000;
+// 3 minutes: the pre-commit hook spawns pnpm/tsx in a temp git repo which can
+// be slow on resource-constrained CI environments.  60 s was not enough.
+const HOOK_SMOKE_TIMEOUT = 180_000;
 
 function makeHookScript(
   appJsonFixture: string,
