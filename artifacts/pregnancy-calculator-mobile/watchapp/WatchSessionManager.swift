@@ -156,16 +156,33 @@ extension WatchSessionManager: WCSessionDelegate {
         }
     }
 
-    /// Sends a requestSync message to the phone when the Watch has no cached tips.
+    /// Sends a requestSync message to the phone when the Watch has no cached tips,
+    /// or when the cached tips are stale (their week doesn't match the current
+    /// gestational week received from the phone).
+    ///
+    /// Staleness is detected by comparing `tips[0].week` to the last known
+    /// `gestationalWeek` stored in UserDefaults.  When the week has rolled over
+    /// the Watch requests a fresh snapshot even if the cache is non-empty, so
+    /// the Tips tab always reflects the current week on re-activation.
     ///
     /// - If the phone is reachable the message is delivered immediately and the
     ///   phone can reply inline with the current week + tips payload.
     /// - If the phone is not reachable the payload is queued via `transferUserInfo`
     ///   so it is delivered as soon as connectivity is restored.
     private func requestSyncIfNeeded() {
-        // tips is already populated from UserDefaults inside init(), so this
-        // check runs after the persisted state has been restored.
-        guard tips.isEmpty else { return }
+        // tips and gestationalWeek are already populated from UserDefaults inside
+        // init(), so this check runs after the persisted state has been restored.
+
+        // Tips are considered stale when the phone has previously told us the
+        // current gestational week and the cached tips were built for a different
+        // week.  A week value of 0 means we have never received a week from the
+        // phone, so we treat that as "unknown" and skip the staleness check to
+        // avoid a spurious sync on a fresh install where both values are 0.
+        let tipsStale = !tips.isEmpty
+            && gestationalWeek > 0
+            && tips.first?.week != gestationalWeek
+
+        guard tips.isEmpty || tipsStale else { return }
 
         let payload: [String: Any] = [WatchMessage.requestSync: true]
         if WCSession.default.isReachable {
