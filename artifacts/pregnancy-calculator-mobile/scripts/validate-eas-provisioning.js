@@ -85,9 +85,9 @@ if (mainBundleId) {
 
 section("2. Watch extension bundle identifier");
 
-const EXPECTED_WATCH_BUNDLE_ID = mainBundleId
-  ? `${mainBundleId}.watchapp`
-  : "app.replit.pregnancycalculator.watchapp";
+const FALLBACK_BUNDLE_ID = "app.replit.pregnancycalculator";
+const effectiveBundleId = mainBundleId || FALLBACK_BUNDLE_ID;
+const EXPECTED_WATCH_BUNDLE_ID = `${effectiveBundleId}.watchapp`;
 
 const appExtensions = extraEas?.build?.experimental?.ios?.appExtensions ?? [];
 
@@ -120,7 +120,7 @@ if (appExtensions.length === 0) {
   const appGroups =
     watchExtension.entitlements?.["com.apple.security.application-groups"] ??
     [];
-  const expectedGroup = `group.${mainBundleId}`;
+  const expectedGroup = `group.${effectiveBundleId}`;
   if (appGroups.includes(expectedGroup)) {
     ok(`Watch entitlements include App Group "${expectedGroup}"`);
   } else {

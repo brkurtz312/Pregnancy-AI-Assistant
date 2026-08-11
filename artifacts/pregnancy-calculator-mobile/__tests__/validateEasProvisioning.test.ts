@@ -226,6 +226,43 @@ describe("validate-eas-provisioning.js", () => {
     });
   });
 
+  describe("fallback bundle identifier (missing ios.bundleIdentifier)", () => {
+    it("still fails the App Group check with the fallback group name when both bundleIdentifier and entitlements are missing", () => {
+      const appJson = JSON.parse(JSON.stringify(VALID_APP_JSON));
+      delete appJson.expo.ios.bundleIdentifier;
+      // Align the extension with the fallback expected Watch bundle ID so the
+      // entitlement check runs, then remove the entitlements block.
+      appJson.expo.extra.eas.build.experimental.ios.appExtensions[0].bundleIdentifier =
+        "app.replit.pregnancycalculator.watchapp";
+      delete appJson.expo.extra.eas.build.experimental.ios.appExtensions[0]
+        .entitlements;
+
+      const { exitCode, stderr } = runScript(appJson, VALID_EAS_JSON);
+      expect(exitCode).toBe(1);
+      expect(stderr).toMatch(/App Group/i);
+      expect(stderr).toMatch(/group\.app\.replit\.pregnancycalculator/);
+    });
+
+    it("passes the App Group check when the fallback group is correctly set", () => {
+      const appJson = JSON.parse(JSON.stringify(VALID_APP_JSON));
+      delete appJson.expo.ios.bundleIdentifier;
+      appJson.expo.extra.eas.build.experimental.ios.appExtensions[0].bundleIdentifier =
+        "app.replit.pregnancycalculator.watchapp";
+      appJson.expo.extra.eas.build.experimental.ios.appExtensions[0].entitlements[
+        "com.apple.security.application-groups"
+      ] = ["group.app.replit.pregnancycalculator"];
+
+      const { exitCode, stdout, stderr } = runScript(appJson, VALID_EAS_JSON);
+      // The run still exits 1 because ios.bundleIdentifier itself is missing,
+      // but the App Group entitlement check must pass with the fallback group.
+      expect(exitCode).toBe(1);
+      expect(stdout).toMatch(
+        /✔\s+Watch entitlements include App Group "group\.app\.replit\.pregnancycalculator"/,
+      );
+      expect(stderr).not.toMatch(/App Group/i);
+    });
+  });
+
   describe("missing Watch config plugin", () => {
     it("exits 1 when withWatchExtension plugin is not registered", () => {
       const appJson = JSON.parse(JSON.stringify(VALID_APP_JSON));
