@@ -31,14 +31,27 @@ export interface CustomReminder {
 }
 
 // ---------------------------------------------------------------------------
-// Safe-require
+// Safe-require (lazy)
+//
+// Module-level eager require runs during the Jest worker's module evaluation
+// and can execute before virtual mocks are registered, leaving Notifications
+// null for the rest of the test file.  A lazy getter defers the require to
+// the first actual call site so the mock is always in place by then.
 // ---------------------------------------------------------------------------
 
-let Notifications: typeof import("expo-notifications") | null = null;
-try {
-  Notifications = require("expo-notifications");
-} catch {
-  // Native module unavailable — notifications will be skipped.
+let _notifications: typeof import("expo-notifications") | null | undefined =
+  undefined;
+
+function getNotifications(): typeof import("expo-notifications") | null {
+  if (_notifications !== undefined) return _notifications;
+  let resolved: typeof import("expo-notifications") | null = null;
+  try {
+    resolved = require("expo-notifications");
+  } catch {
+    // Native module unavailable — notifications will be skipped.
+  }
+  _notifications = resolved;
+  return resolved;
 }
 
 // ---------------------------------------------------------------------------
@@ -73,6 +86,7 @@ async function writeAll(reminders: CustomReminder[]): Promise<void> {
 async function scheduleNotification(
   reminder: CustomReminder,
 ): Promise<string | undefined> {
+  const Notifications = getNotifications();
   if (!Notifications || Platform.OS === "web") return undefined;
 
   const fireAt = new Date(reminder.scheduledAt);
@@ -121,6 +135,7 @@ async function scheduleNotification(
 }
 
 async function cancelNotification(notifId: string | undefined): Promise<void> {
+  const Notifications = getNotifications();
   if (!notifId || !Notifications || Platform.OS === "web") return;
   try {
     await Notifications.cancelScheduledNotificationAsync(notifId);

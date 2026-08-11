@@ -36,16 +36,16 @@ specific hardware even when the build passes Apple's validator.
 
 ## 2 — Kick counter
 
-| Step | Action                                                                                                  | Expected result                                                                              |
-| ---- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| 2.1  | Open the Pregnancy AI Watch app → Kicks tab                                                             | Kick counter screen loads; count shows 0                                                     |
-| 2.2  | Tap the kick button 5 times                                                                             | Counter increments to 5 with haptic feedback on each tap                                     |
-| 2.3  | Tap **End Session** to complete the kick session                                                        | Session ends; idle screen shows "Last session: 5 kicks"                                      |
-| 2.4  | Force-quit the Watch app (swipe up from bottom to open app switcher, swipe up on the Pregnancy AI card) | Watch app is closed                                                                          |
-| 2.5  | Put the iPhone out of reach or into Airplane Mode                                                       | Phone is unreachable — no background push can arrive                                         |
-| 2.6  | Relaunch the Pregnancy AI Watch app from the app grid → Kicks tab                                       | Idle screen immediately shows **"Last session: 5 kicks"** — previous count is **not** reset  |
-| 2.7  | Put iPhone out of reach (airplane mode)                                                                 | Counter continues to increment normally                                                      |
-| 2.8  | Restore iPhone connectivity                                                                             | Kick session syncs to the iPhone app automatically                                           |
+| Step | Action                                                                                                  | Expected result                                                                             |
+| ---- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| 2.1  | Open the Pregnancy AI Watch app → Kicks tab                                                             | Kick counter screen loads; count shows 0                                                    |
+| 2.2  | Tap the kick button 5 times                                                                             | Counter increments to 5 with haptic feedback on each tap                                    |
+| 2.3  | Tap **End Session** to complete the kick session                                                        | Session ends; idle screen shows "Last session: 5 kicks"                                     |
+| 2.4  | Force-quit the Watch app (swipe up from bottom to open app switcher, swipe up on the Pregnancy AI card) | Watch app is closed                                                                         |
+| 2.5  | Put the iPhone out of reach or into Airplane Mode                                                       | Phone is unreachable — no background push can arrive                                        |
+| 2.6  | Relaunch the Pregnancy AI Watch app from the app grid → Kicks tab                                       | Idle screen immediately shows **"Last session: 5 kicks"** — previous count is **not** reset |
+| 2.7  | Put iPhone out of reach (airplane mode)                                                                 | Counter continues to increment normally                                                     |
+| 2.8  | Restore iPhone connectivity                                                                             | Kick session syncs to the iPhone app automatically                                          |
 
 **Pass criteria:** Kicks are counted, the last completed session count survives a force-quit and relaunch (step 2.6), and sessions are delivered to the iPhone after reconnect.
 
@@ -67,14 +67,14 @@ specific hardware even when the build passes Apple's validator.
 
 ## 4 — Tips carousel
 
-| Step | Action                                                                                                      | Expected result                                                                                      |
-| ---- | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| 4.1  | Open the Pregnancy AI Watch app → Tips tab                                                                  | Tips carousel loads with gestational-week content                                                    |
-| 4.2  | Swipe through cards                                                                                         | Each card shows tip text and an emoji; no blank cards                                                |
-| 4.3  | Navigate to a card that is **not** the first (e.g. card 2 or 3)                                             | The selected card is shown; the position indicator reflects the current index                        |
-| 4.4  | On the iPhone app, edit the due date so that the gestational week changes (add or subtract at least 1 week) | iPhone sends updated week + tips to the Watch                                                        |
+| Step | Action                                                                                                      | Expected result                                                                                     |
+| ---- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| 4.1  | Open the Pregnancy AI Watch app → Tips tab                                                                  | Tips carousel loads with gestational-week content                                                   |
+| 4.2  | Swipe through cards                                                                                         | Each card shows tip text and an emoji; no blank cards                                               |
+| 4.3  | Navigate to a card that is **not** the first (e.g. card 2 or 3)                                             | The selected card is shown; the position indicator reflects the current index                       |
+| 4.4  | On the iPhone app, edit the due date so that the gestational week changes (add or subtract at least 1 week) | iPhone sends updated week + tips to the Watch                                                       |
 | 4.5  | Return to the Watch → Tips tab (reopen if needed)                                                           | Carousel resets to **card 1** for the new gestational week; the old card index is **not** preserved |
-| 4.6  | Confirm the week label on card 1 matches the new gestational week                                           | "Week N" label shows the updated week number                                                         |
+| 4.6  | Confirm the week label on card 1 matches the new gestational week                                           | "Week N" label shows the updated week number                                                        |
 
 **Pass criteria:** Tips content is visible and navigable; editing the due date on the phone immediately resets the Watch Tips carousel to the first card for the new week.
 
