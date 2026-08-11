@@ -59,6 +59,20 @@ jest.mock("@/hooks/usePass", () => ({
 const mockPurchase = jest.fn();
 const mockRestore = jest.fn();
 
+jest.mock("@/modules/WatchConnectivity", () => ({
+  __esModule: true,
+  default: { signOut: jest.fn(async () => {}) },
+}));
+const mockWatchSignOut = (
+  jest.requireMock("@/modules/WatchConnectivity") as {
+    default: { signOut: jest.Mock };
+  }
+).default.signOut;
+
+jest.mock("@/lib/appointment-reminders", () => ({
+  cancelAllAppointmentReminders: jest.fn(async () => {}),
+}));
+
 jest.mock("@/lib/revenuecat", () => ({
   useSubscription: jest.fn(),
   isTestStore: jest.fn(() => true),
@@ -335,5 +349,46 @@ describe("AccountSheet — RevenueCat in-app purchase (native)", () => {
     expect(allText).toContain("3");
     expect(allText).toContain("5");
     expect(allText).toContain("free AI questions left this week");
+  });
+
+  it("calls WatchConnectivity.signOut exactly once when Sign Out is pressed", async () => {
+    const mockClerkSignOut = jest.fn(async () => {});
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      signOut: mockClerkSignOut,
+    });
+
+    const renderer = renderSheet();
+    await act(async () => {});
+
+    const signOutBtn = findBtn(renderer.root, "Sign Out");
+    expect(signOutBtn).toBeDefined();
+
+    await act(async () => {
+      await signOutBtn!.props.onPress();
+    });
+
+    expect(mockClerkSignOut).toHaveBeenCalledTimes(1);
+    expect(mockWatchSignOut).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT call WatchConnectivity.signOut when Clerk signOut fails", async () => {
+    const mockClerkSignOut = jest.fn(async () => {
+      throw new Error("network");
+    });
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      signOut: mockClerkSignOut,
+    });
+
+    const renderer = renderSheet();
+    await act(async () => {});
+
+    await act(async () => {
+      await findBtn(renderer.root, "Sign Out")!.props.onPress();
+    });
+
+    expect(mockClerkSignOut).toHaveBeenCalledTimes(1);
+    expect(mockWatchSignOut).not.toHaveBeenCalled();
   });
 });
