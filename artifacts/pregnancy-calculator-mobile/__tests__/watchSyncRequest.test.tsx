@@ -314,6 +314,94 @@ describe("useWatchConnectivity — onSyncRequest → sendWeekAndTips", () => {
     expect(mockSendWeekAndTips).toHaveBeenNthCalledWith(2, 24, makeTips(24));
   });
 
+  // ── First-render race: data not yet loaded when sync fires ─────────────────
+  //
+  // syncDataRef is initialised with the props passed on the very first render
+  // (useRef({ gestationalWeek, tips })).  When those props are undefined at
+  // mount time (data still loading), the guard inside the listener
+  //   if (week == null || !currentTips?.length) return;
+  // must silently no-op.  Once the data arrives (props update → re-render →
+  // effect updates the ref), the next sync request should send correctly
+  // without re-registering the listener.
+
+  it("no-ops when onSyncRequest fires before gestationalWeek has loaded, then sends correctly once data arrives", async () => {
+    let setWeek!: (w: number | undefined) => void;
+    let setTips!: (t: WatchTip[]) => void;
+
+    function LoadingHarness() {
+      const [week, setW] = React.useState<number | undefined>(undefined);
+      const [tipsList, setT] = React.useState<WatchTip[]>([]);
+      setWeek = setW;
+      setTips = setT;
+      useWatchConnectivity({ gestationalWeek: week, tips: tipsList });
+      return null;
+    }
+
+    await act(async () => {
+      create(<LoadingHarness />);
+    });
+
+    mockSendWeekAndTips.mockClear();
+
+    // Sync request fires before profile data has loaded — must be a no-op
+    await act(async () => {
+      fireEvent("onSyncRequest");
+    });
+    expect(mockSendWeekAndTips).not.toHaveBeenCalled();
+
+    // Profile data arrives — ref is updated by the post-render effect
+    await act(async () => {
+      setWeek(20);
+      setTips(makeTips(20));
+    });
+
+    mockSendWeekAndTips.mockClear();
+
+    // Next sync request picks up the now-populated ref and sends the data
+    await act(async () => {
+      fireEvent("onSyncRequest");
+    });
+    expect(mockSendWeekAndTips).toHaveBeenCalledTimes(1);
+    expect(mockSendWeekAndTips).toHaveBeenCalledWith(20, makeTips(20));
+  });
+
+  it("no-ops when onSyncRequest fires before tips have loaded (week defined, tips empty), then sends once tips arrive", async () => {
+    let setTips!: (t: WatchTip[]) => void;
+
+    function TipsLoadingHarness() {
+      const [tipsList, setT] = React.useState<WatchTip[]>([]);
+      setTips = setT;
+      useWatchConnectivity({ gestationalWeek: 24, tips: tipsList });
+      return null;
+    }
+
+    await act(async () => {
+      create(<TipsLoadingHarness />);
+    });
+
+    mockSendWeekAndTips.mockClear();
+
+    // Sync request fires while tips array is still empty — must be a no-op
+    await act(async () => {
+      fireEvent("onSyncRequest");
+    });
+    expect(mockSendWeekAndTips).not.toHaveBeenCalled();
+
+    // Tips arrive — ref is updated
+    await act(async () => {
+      setTips(makeTips(24));
+    });
+
+    mockSendWeekAndTips.mockClear();
+
+    // Next sync request now has tips and sends correctly
+    await act(async () => {
+      fireEvent("onSyncRequest");
+    });
+    expect(mockSendWeekAndTips).toHaveBeenCalledTimes(1);
+    expect(mockSendWeekAndTips).toHaveBeenCalledWith(24, makeTips(24));
+  });
+
   // ── Listener cleanup on unmount ─────────────────────────────────────────────
 
   it("removes the onSyncRequest listener on unmount", async () => {
