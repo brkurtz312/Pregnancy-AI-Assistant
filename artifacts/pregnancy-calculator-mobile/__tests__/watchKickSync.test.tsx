@@ -1973,6 +1973,77 @@ describe("WatchBackgroundListener — duplicate kick-session deduplication", () 
     expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(1);
     expect(mockInvalidateQueries).toHaveBeenCalledTimes(1);
   });
+
+  it("resets the dedup window when a different user signs in — user B's session with the same startedAt IS saved", async () => {
+    renderWatchListener();
+    await act(async () => {});
+
+    expect(capturedOnKickSessionEnd).toBeDefined();
+
+    const session = {
+      kickCount: 6,
+      startedAt: "2026-08-03T15:00:00.000Z",
+      endedAt: "2026-08-03T15:25:00.000Z",
+    };
+
+    // User A's Watch session — saved and recorded in the in-process dedup Set.
+    await act(async () => {
+      await capturedOnKickSessionEnd!(session);
+    });
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(1);
+
+    // Account switch on the same device: user B signs in. Re-render the SAME
+    // component instance (same process lifetime, same ref) with the new userId.
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      userId: "user-456",
+      getToken: jest.fn().mockResolvedValue("token-user-456"),
+    });
+    act(() => {
+      listenerRenderer!.update(React.createElement(WatchBackgroundListener));
+    });
+    await act(async () => {});
+
+    // User B's Watch fires a session with the IDENTICAL startedAt. If the
+    // dedup Set were not cleared on userId change, this save would be
+    // silently dropped and user B would lose the session.
+    await act(async () => {
+      await capturedOnKickSessionEnd!(session);
+    });
+
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(2);
+    expect(mockInvalidateQueries).toHaveBeenCalledTimes(2);
+  });
+
+  it("does NOT reset the dedup window on a re-render with the same userId", async () => {
+    renderWatchListener();
+    await act(async () => {});
+
+    const session = {
+      kickCount: 2,
+      startedAt: "2026-08-03T16:00:00.000Z",
+      endedAt: "2026-08-03T16:10:00.000Z",
+    };
+
+    await act(async () => {
+      await capturedOnKickSessionEnd!(session);
+    });
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(1);
+
+    // Re-render with the SAME userId — an ordinary re-render must not wipe
+    // the dedup Set, otherwise Watch retries would slip through.
+    act(() => {
+      listenerRenderer!.update(React.createElement(WatchBackgroundListener));
+    });
+    await act(async () => {});
+
+    await act(async () => {
+      await capturedOnKickSessionEnd!(session);
+    });
+
+    // Duplicate still suppressed.
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(1);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
