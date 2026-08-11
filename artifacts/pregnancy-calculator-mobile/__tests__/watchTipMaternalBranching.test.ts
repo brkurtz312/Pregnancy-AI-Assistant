@@ -17,6 +17,7 @@ import { getWeeklyTips } from "../lib/watch-tips";
 
 const TWO_MOTHER_WEEK = 88; // sentinel week — not in real data
 const ONE_MOTHER_WEEK = 89;
+const ONE_DEV_WEEK = 90; // week with exactly one development milestone
 const NO_DATA_WEEK = 0; // genuinely outside the real data set
 
 jest.mock("../lib/fetal-development", () => ({
@@ -38,6 +39,15 @@ jest.mock("../lib/fetal-development", () => ({
       development: ["Dev milestone C", "Dev milestone D"],
       motherChanges: ["Only mother change"],
       comingUp: "Fallback coming-up text",
+    },
+    /** Week 90 — has exactly one development milestone */
+    90: {
+      week: 90,
+      size: "test-size-3",
+      sizeComparison: "a third test fruit",
+      development: ["Solo dev milestone"],
+      motherChanges: ["Mother change first", "Mother change second"],
+      comingUp: "Week-90 coming-up text",
     },
   },
 }));
@@ -108,7 +118,44 @@ describe("getWeeklyTips — week with one maternal bullet (comingUp fallback)", 
   });
 });
 
-// ── (c) No data → three generic fallback tips ─────────────────────────────────
+// ── (c) One development milestone → second-development slot absent ───────────
+
+describe("getWeeklyTips — week with only one development milestone", () => {
+  let tips: ReturnType<typeof getWeeklyTips>;
+
+  beforeEach(() => {
+    tips = getWeeklyTips(ONE_DEV_WEEK);
+  });
+
+  it("returns 4 tips, not 5 (second-development slot degrades gracefully)", () => {
+    expect(tips).toHaveLength(4);
+    expect(tips.length).toBeGreaterThanOrEqual(3);
+    expect(tips.length).toBeLessThan(5);
+  });
+
+  it("every tip carries the correct week field", () => {
+    tips.forEach((tip) => {
+      expect(tip.week).toBe(ONE_DEV_WEEK);
+    });
+  });
+
+  it("includes the single development milestone exactly once", () => {
+    const texts = tips.map((t) => t.text);
+    expect(texts.filter((t) => t === "Solo dev milestone")).toHaveLength(1);
+  });
+
+  it("no second-development (🌱) slot appears anywhere in the list", () => {
+    expect(tips.some((t) => t.emoji === "🌱")).toBe(false);
+  });
+
+  it("remaining slots shift up: maternal changes fill positions after the solo milestone", () => {
+    const texts = tips.map((t) => t.text);
+    expect(texts).toContain("Mother change first");
+    expect(texts).toContain("Mother change second");
+  });
+});
+
+// ── (d) No data → three generic fallback tips ─────────────────────────────────
 
 describe("getWeeklyTips — out-of-range week (no data)", () => {
   it("returns exactly 3 tips for week 0", () => {
