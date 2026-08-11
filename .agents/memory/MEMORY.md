@@ -27,3 +27,4 @@
 - [GitHub sync token](github-sync-token.md) — GITHUB_TOKEN needs repo AND workflow scopes (repo has .github/workflows); wrapper "PUSH_REJECTED" is opaque, use git CLI to see the real reason.
 - [Xcode 26 Watch double-scheduling fix](xcode-watch-double-scheduling.md) — scheme+dep both required; buildForArchiving=NO on scheme entry; Expo withXcodeProject is LIFO so withWatchXcodeTarget must be applied last; ensureWatchTargetDependency must run unconditionally.
 - [watchOS unit-test target wiring](watch-test-target.md) — Watch XCTests must exercise real code via injected deps; sync script + plugin link WatchConnectivity into the test bundle.
+- [Watch transport injection](watch-transport-injection.md) — send paths use injected transport for real-code tests; every reachable sendMessage needs a transferUserInfo fallback errorHandler.

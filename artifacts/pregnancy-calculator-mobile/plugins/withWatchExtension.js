@@ -62,6 +62,7 @@ const WATCH_TEST_SOURCES = [
   "TipsViewEmptyStateTests.swift",
   "WatchContractionRetryQueueTests.swift",
   "WatchOfflineDeliveryTests.swift",
+  "WatchPhoneForceQuitDeliveryTests.swift",
   "WatchSessionManagerContractionCountTests.swift",
   "WatchSessionManagerKickCountTests.swift",
   "WatchSessionManagerClearSessionTests.swift",

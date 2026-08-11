@@ -2,6 +2,38 @@ import Foundation
 import WatchConnectivity
 import Combine
 
+/// Abstraction over the WatchConnectivity send/transfer operations so unit
+/// tests can drive the REAL send paths (`sendKickSessionEnd`,
+/// `sendContractionUpdate`, `sendContractionSessionEnd`, sync requests and the
+/// retry-queue flush) through a fake transport and assert channel selection,
+/// enqueue ordering, and failure fallbacks.
+protocol WatchConnectivityTransport {
+    var isReachable: Bool { get }
+    func sendMessage(
+        _ message: [String: Any],
+        replyHandler: (([String: Any]) -> Void)?,
+        errorHandler: ((Error) -> Void)?
+    )
+    func transferUserInfo(_ userInfo: [String: Any])
+}
+
+/// Production transport backed by `WCSession.default`.
+struct WCSessionTransport: WatchConnectivityTransport {
+    var isReachable: Bool { WCSession.default.isReachable }
+
+    func sendMessage(
+        _ message: [String: Any],
+        replyHandler: (([String: Any]) -> Void)?,
+        errorHandler: ((Error) -> Void)?
+    ) {
+        WCSession.default.sendMessage(message, replyHandler: replyHandler, errorHandler: errorHandler)
+    }
+
+    func transferUserInfo(_ userInfo: [String: Any]) {
+        WCSession.default.transferUserInfo(userInfo)
+    }
+}
+
 /// Manages WCSession on the Watch side. Receives data from the iPhone
 /// and sends kick/contraction updates back.
 final class WatchSessionManager: NSObject, ObservableObject {
@@ -48,6 +80,10 @@ final class WatchSessionManager: NSObject, ObservableObject {
     /// Injected notification center. `.default` in production; an isolated instance in tests.
     let notificationCenter: NotificationCenter
 
+    /// Injected WatchConnectivity transport. `WCSessionTransport` in production;
+    /// a recording fake in tests so the real send paths can be exercised.
+    let transport: WatchConnectivityTransport
+
     /// UserDefaults key for the pending-acknowledgment retry queue.
     /// Records stay here until the phone sends a reply (or transferUserInfo delivers them).
     private let pendingContractionUpdatesKey = WatchSessionPersistence.pendingContractionUpdatesKey
@@ -60,9 +96,15 @@ final class WatchSessionManager: NSObject, ObservableObject {
     /// Tests pass an isolated `UserDefaults` suite, their own `NotificationCenter`,
     /// and `activateSession: false` so no WCSession activation is attempted in a
     /// test host without paired-device connectivity.
-    init(userDefaults: UserDefaults, notificationCenter: NotificationCenter, activateSession: Bool) {
+    init(
+        userDefaults: UserDefaults,
+        notificationCenter: NotificationCenter,
+        activateSession: Bool,
+        transport: WatchConnectivityTransport = WCSessionTransport()
+    ) {
         self.userDefaults = userDefaults
         self.notificationCenter = notificationCenter
+        self.transport = transport
         super.init()
         encoder.dateEncodingStrategy = .iso8601
         decoder.dateDecodingStrategy = .iso8601
@@ -100,8 +142,8 @@ final class WatchSessionManager: NSObject, ObservableObject {
     // MARK: - Outbound messages to iPhone
 
     func sendKickUpdate(count: Int) {
-        guard WCSession.default.isReachable else { return }
-        WCSession.default.sendMessage(
+        guard transport.isReachable else { return }
+        transport.sendMessage(
             [WatchMessage.kickUpdate: count],
             replyHandler: nil,
             errorHandler: nil
@@ -113,17 +155,23 @@ final class WatchSessionManager: NSObject, ObservableObject {
         lastKickCount = summary.kickCount
 
         guard let data = try? encoder.encode(summary) else { return }
-        if WCSession.default.isReachable {
-            WCSession.default.sendMessage(
-                [WatchMessage.kickSessionEnd: data],
+        let payload: [String: Any] = [WatchMessage.kickSessionEnd: data]
+        if transport.isReachable {
+            transport.sendMessage(
+                payload,
                 replyHandler: nil,
-                errorHandler: nil
+                errorHandler: { [transport] _ in
+                    // Reachability can flip mid-send (e.g. the phone is force-quit
+                    // right after the check). Fall back to the durable OS queue so
+                    // the session summary is delivered on the phone's next launch.
+                    transport.transferUserInfo(payload)
+                }
             )
         } else {
             // Queue for ordered delivery when phone is reachable.
             // transferUserInfo guarantees every payload is delivered;
             // updateApplicationContext would silently discard all but the last.
-            WCSession.default.transferUserInfo([WatchMessage.kickSessionEnd: data])
+            transport.transferUserInfo(payload)
         }
     }
 
@@ -135,8 +183,8 @@ final class WatchSessionManager: NSObject, ObservableObject {
         // record. The record is removed once the phone acknowledges receipt.
         enqueuePendingContractionUpdate(record)
 
-        if WCSession.default.isReachable {
-            WCSession.default.sendMessage(
+        if transport.isReachable {
+            transport.sendMessage(
                 [WatchMessage.contractionUpdate: data],
                 replyHandler: { [weak self] reply in
                     // Dequeue only when the phone replies with a matching ack UUID.
@@ -146,18 +194,17 @@ final class WatchSessionManager: NSObject, ObservableObject {
                           ackId == record.id.uuidString else { return }
                     self?.dequeuePendingContractionUpdate(id: record.id)
                 },
-                errorHandler: { [weak self] _ in
+                errorHandler: { [transport] _ in
                     // Real-time send failed; keep the record in the queue so the
                     // next reachability window can retry, and also fall back to
                     // transferUserInfo for guaranteed background delivery.
-                    _ = self    // capture self intentionally; queue already holds the record
-                    WCSession.default.transferUserInfo([WatchMessage.contractionUpdate: data])
+                    transport.transferUserInfo([WatchMessage.contractionUpdate: data])
                 }
             )
         } else {
             // transferUserInfo guarantees ordered delivery when the phone becomes
             // reachable. The record stays in the retry queue until the phone acks.
-            WCSession.default.transferUserInfo([WatchMessage.contractionUpdate: data])
+            transport.transferUserInfo([WatchMessage.contractionUpdate: data])
         }
     }
 
@@ -169,10 +216,14 @@ final class WatchSessionManager: NSObject, ObservableObject {
         lastContractionCount = count
 
         let payload: [String: Any] = [WatchMessage.contractionSessionEnd: count]
-        if WCSession.default.isReachable {
-            WCSession.default.sendMessage(payload, replyHandler: nil, errorHandler: nil)
+        if transport.isReachable {
+            transport.sendMessage(payload, replyHandler: nil, errorHandler: { [transport] _ in
+                // Reachability can flip mid-send (phone force-quit racing the
+                // check) — fall back to the durable OS queue.
+                transport.transferUserInfo(payload)
+            })
         } else {
-            WCSession.default.transferUserInfo(payload)
+            transport.transferUserInfo(payload)
         }
     }
 }
@@ -236,10 +287,10 @@ extension WatchSessionManager: WCSessionDelegate {
         startSyncingWithTimeout()
 
         let payload: [String: Any] = [WatchMessage.requestSync: true]
-        if WCSession.default.isReachable {
-            WCSession.default.sendMessage(
+        if transport.isReachable {
+            transport.sendMessage(
                 payload,
-                replyHandler: { [weak self] reply in
+                replyHandler: { [weak self, transport] reply in
                     // The phone answers from its native cache, which is EMPTY
                     // until the JS layer has sent tips at least once in that
                     // process (e.g. right after the phone app cold-launches).
@@ -247,19 +298,19 @@ extension WatchSessionManager: WCSessionDelegate {
                     // durable transferUserInfo request so the phone's JS layer
                     // pushes a fresh snapshot once it has loaded the profile.
                     if reply[WatchMessage.tips] == nil {
-                        WCSession.default.transferUserInfo(payload)
+                        transport.transferUserInfo(payload)
                     }
                     self?.handleIncoming(reply)
                 },
-                errorHandler: { error in
+                errorHandler: { [transport] error in
                     print("[WatchSession] requestSync sendMessage failed: \(error.localizedDescription)")
                     // Fall back to guaranteed background delivery.
-                    WCSession.default.transferUserInfo(payload)
+                    transport.transferUserInfo(payload)
                 }
             )
         } else {
             // transferUserInfo guarantees delivery even if the phone is backgrounded.
-            WCSession.default.transferUserInfo(payload)
+            transport.transferUserInfo(payload)
         }
     }
 
@@ -346,16 +397,16 @@ extension WatchSessionManager: WCSessionDelegate {
 
         for record in pending {
             guard let data = try? encoder.encode(record) else { continue }
-            WCSession.default.sendMessage(
+            transport.sendMessage(
                 [WatchMessage.contractionUpdate: data],
                 replyHandler: { [weak self] reply in
                     guard let ackId = reply[WatchMessage.contractionUpdateAck] as? String,
                           ackId == record.id.uuidString else { return }
                     self?.dequeuePendingContractionUpdate(id: record.id)
                 },
-                errorHandler: { _ in
+                errorHandler: { [transport] _ in
                     // Leave in queue; transferUserInfo ensures eventual delivery.
-                    WCSession.default.transferUserInfo([WatchMessage.contractionUpdate: data])
+                    transport.transferUserInfo([WatchMessage.contractionUpdate: data])
                 }
             )
         }
