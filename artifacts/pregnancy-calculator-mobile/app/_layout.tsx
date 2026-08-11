@@ -31,6 +31,7 @@ import { ErrorFallback } from "@/components/ErrorFallback";
 import { LocationModeGate } from "@/components/LocationModePrompt";
 import { WatchBackgroundListener } from "@/components/WatchBackgroundListener";
 import { SubscriptionProvider } from "@/lib/revenuecat";
+import { useSplashSafetyTimeout } from "@/lib/splash-gate";
 import { SettingsProvider } from "@/contexts/SettingsContext";
 import { useGlobalBackgroundSync } from "@/hooks/useGlobalBackgroundSync";
 import { requestNotificationPermission } from "@/lib/appointment-reminders";
@@ -373,13 +374,20 @@ function RootLayout() {
     Inter_700Bold,
   });
 
+  // Safety valve: guarantees the splash screen is dismissed within a bounded
+  // time even if font loading stalls (e.g. an OTA-updated bundle misbehaving
+  // or a hung native module). The native OTA layer itself never blocks launch
+  // (app.json → updates.fallbackToCacheTimeout: 0). See lib/splash-gate.ts.
+  const splashTimedOut = useSplashSafetyTimeout();
+  const appReady = fontsLoaded || !!fontError || splashTimedOut;
+
   useEffect(() => {
-    if (fontsLoaded || fontError) {
+    if (appReady) {
       SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, fontError]);
+  }, [appReady]);
 
-  if (!fontsLoaded && !fontError) return null;
+  if (!appReady) return null;
 
   // ErrorBoundary + SafeAreaProvider are the outermost wrappers so that any
   // throw from the provider tree below (including ClerkProvider) surfaces as a
