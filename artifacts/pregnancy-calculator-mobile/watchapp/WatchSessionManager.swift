@@ -11,6 +11,11 @@ final class WatchSessionManager: NSObject, ObservableObject {
     @Published var tips: [WatchTip] = []
     @Published var gestationalWeek: Int = 0
 
+    /// True while the Watch has sent a requestSync to the phone and is waiting
+    /// for the first tips payload to arrive.  Resets to false once tips land or
+    /// after a short timeout so the view can fall back to the normal empty state.
+    @Published var isSyncing: Bool = false
+
     /// Last completed kick-session count, persisted across force-quits.
     @Published var lastKickCount: Int? = nil {
         didSet {
@@ -35,6 +40,7 @@ final class WatchSessionManager: NSObject, ObservableObject {
 
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
+    private var syncTimeoutWork: DispatchWorkItem?
 
     private override init() {
         super.init()
@@ -184,6 +190,11 @@ extension WatchSessionManager: WCSessionDelegate {
 
         guard tips.isEmpty || tipsStale else { return }
 
+        // Show a loading indicator while we wait for the phone to respond.
+        // A 10-second timeout resets to false so the view can fall back to
+        // the normal empty state if the phone never replies.
+        startSyncingWithTimeout()
+
         let payload: [String: Any] = [WatchMessage.requestSync: true]
         if WCSession.default.isReachable {
             WCSession.default.sendMessage(
@@ -210,6 +221,24 @@ extension WatchSessionManager: WCSessionDelegate {
             // transferUserInfo guarantees delivery even if the phone is backgrounded.
             WCSession.default.transferUserInfo(payload)
         }
+    }
+
+    /// Marks `isSyncing = true` and schedules a 10-second timeout that resets
+    /// it to false if no tips arrive in time.  Any incoming tips cancel the timer.
+    private func startSyncingWithTimeout() {
+        syncTimeoutWork?.cancel()
+        DispatchQueue.main.async { self.isSyncing = true }
+
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            // Only clear the flag if we still have no tips; if tips arrived
+            // the flag was already cleared in handleIncoming.
+            if self.tips.isEmpty {
+                self.isSyncing = false
+            }
+        }
+        syncTimeoutWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10, execute: work)
     }
 
     /// Re-request a sync whenever the phone becomes reachable and we still
@@ -261,6 +290,10 @@ extension WatchSessionManager: WCSessionDelegate {
                let decoded = try? self.decoder.decode([WatchTip].self, from: data) {
                 self.tips = decoded
                 UserDefaults.standard.set(data, forKey: "watchTips")
+                // Tips have arrived — cancel the timeout and clear the loading flag.
+                self.syncTimeoutWork?.cancel()
+                self.syncTimeoutWork = nil
+                self.isSyncing = false
             }
 
             if let week = payload[WatchMessage.gestationalWeek] as? Int {

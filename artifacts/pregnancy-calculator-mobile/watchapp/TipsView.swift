@@ -46,7 +46,25 @@ struct TipsView: View {
                             .disabled(tipIndex == session.tips.count - 1)
                         }
                     }
+                } else if session.isSyncing {
+                    // Loading state: a sync request has been sent to the phone
+                    // and we are waiting for the first tips payload to arrive.
+                    // This is distinct from the "no due date" empty state below.
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                        .tint(.pink)
+                    Text("Syncing tips…")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 4)
+                    Text("Just a moment")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
                 } else {
+                    // Idle empty state: tips are not available and no sync is
+                    // in progress (phone may not be nearby or due date not set).
                     Image(systemName: "sparkles")
                         .font(.largeTitle)
                         .foregroundColor(.pink)
