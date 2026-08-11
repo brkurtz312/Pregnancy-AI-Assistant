@@ -195,6 +195,44 @@ Covered by the unit tests in `watchAppStoreUpdate.test.tsx`:
 
 ---
 
+## 8 — Phone force-quit mid-Watch-session (offline record delivery)
+
+Run this section on a device with the Watch companion installed and a signed-in account.
+It covers the guaranteed-delivery path: kick-session-end and contraction records queued on
+the Watch via `transferUserInfo` while the phone app is backgrounded or force-quit, then
+delivered to `didReceiveUserInfo` after the phone relaunches.
+
+**Why this matters:** `WatchSessionManager.sendKickSessionEnd` / `sendContractionUpdate`
+fall back to `transferUserInfo` when the phone is unreachable. Each payload is queued
+independently and delivered in order on next reachability — unlike
+`updateApplicationContext`, which would silently keep only the last record. Contractions
+additionally sit in a Watch-side retry queue until the phone replies with a matching ack
+UUID, and the phone persists each contraction to a native receipt store _before_ acking so
+a force-quit after the ack cannot lose it (the JS startup drain replays it on relaunch).
+
+Covered by the unit tests (all layers below the hardware boundary):
+
+- `watchapp/WatchOfflineDeliveryTests.swift` — transferUserInfo queue semantics: both back-to-back offline contractions and kick-session-ends arrive, in order; documents that applicationContext would lose all but the last
+- `watchapp/WatchContractionRetryQueueTests.swift` — Watch retry queue dequeues only on a matching ack UUID
+- `__tests__/watchOfflineDelivery.test.tsx` — `onKickSessionEnd` / `onContractionUpdate` JS subscriptions fire for events routed from `didReceiveUserInfo`, in order, including mixed backlogs
+- `__tests__/watchKickSync.test.tsx` — `WatchBackgroundListener` saves each delivered record to the API, invalidates the Tools tab caches, and the record appears in the list after a cold start
+
+| Step | Action                                                                       | Expected result                                                                                                   |
+| ---- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| 8.1  | Force-quit the iPhone app (swipe up from the app switcher)                   | Phone app is fully terminated                                                                                     |
+| 8.2  | On the Watch, start a kick session and record 3 kicks                        | Counter increments normally — no error despite the phone being unreachable                                        |
+| 8.3  | End the kick session on the Watch                                            | Watch shows the completed session count on its idle screen                                                        |
+| 8.4  | Still with the phone app closed, start and stop one contraction on the Watch | Contraction records on the Watch without error                                                                    |
+| 8.5  | Relaunch the iPhone app and sign in if prompted; open the Tools tab          | Within ~30 s the kick session (3 kicks) and the contraction both appear in history; a toast may confirm each save |
+| 8.6  | Force-quit and relaunch the iPhone app once more; reopen the Tools tab       | Exactly one copy of each record — no duplicates from the retry queue or startup drain replay                      |
+
+**Pass criteria:**
+
+- Both record types survive a phone force-quit and arrive after relaunch (step 8.5)
+- No duplicate rows after a second relaunch (step 8.6) — the ack UUID + `watchRecordId` idempotency key dedupe retries
+
+---
+
 ## Sign-off
 
 | Build | Tester | Device             | watchOS | Date | Icon ✓ | Kicks ✓ | Contractions ✓ | Tips ✓ | Update ✓ | Notes                       |
