@@ -1,5 +1,5 @@
 import React from "react";
-import { Text, TouchableOpacity } from "react-native";
+import { ActivityIndicator, Text, TouchableOpacity } from "react-native";
 import { act, create, type ReactTestInstance } from "react-test-renderer";
 
 jest.mock("react-native-reanimated", () =>
@@ -312,6 +312,55 @@ describe("AccountSheet — sign-out error recovery", () => {
     expect(mockOnClose).toHaveBeenCalledTimes(1);
 
     // pass.refresh() must also have been called on successful retry
+    expect(mockRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables the button and shows a spinner while the retry sign-out is in flight", async () => {
+    // First call rejects; second call stays pending until we resolve it.
+    let resolveRetry!: () => void;
+    const retryPromise = new Promise<void>((resolve) => {
+      resolveRetry = resolve;
+    });
+    const mockSignOut = jest
+      .fn()
+      .mockRejectedValueOnce(new Error("Network error"))
+      .mockReturnValueOnce(retryPromise);
+    mockUseAuth.mockReturnValue({ isSignedIn: true, signOut: mockSignOut });
+
+    const renderer = renderSheet();
+    await act(async () => {});
+
+    // First tap → failure, button re-enabled with visible label
+    await act(async () => {
+      await findBtn(renderer.root, "Sign Out")!.props.onPress();
+    });
+    const retryBtn = findBtn(renderer.root, "Sign Out");
+    expect(retryBtn).toBeDefined();
+    expect(retryBtn!.props.disabled).toBeFalsy();
+
+    // Second tap → held unresolved: press without awaiting completion.
+    await act(async () => {
+      retryBtn!.props.onPress();
+    });
+
+    // Mid-flight: the "Sign Out" label is replaced by a spinner…
+    expect(findBtn(renderer.root, "Sign Out")).toBeUndefined();
+    const spinners = renderer.root.findAllByType(ActivityIndicator);
+    const spinnerBtn = spinners
+      .map((s) => touchableParent(s))
+      .find((btn) => btn !== undefined);
+    expect(spinnerBtn).toBeDefined();
+
+    // …and the button is disabled so a double-tap cannot fire signOut twice.
+    expect(spinnerBtn!.props.disabled).toBe(true);
+    expect(mockSignOut).toHaveBeenCalledTimes(2);
+
+    // Resolve the retry: sheet closes and pass state refreshes.
+    await act(async () => {
+      resolveRetry();
+      await retryPromise;
+    });
+    expect(mockOnClose).toHaveBeenCalledTimes(1);
     expect(mockRefresh).toHaveBeenCalledTimes(1);
   });
 });
