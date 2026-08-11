@@ -192,6 +192,8 @@ jest.mock("@/lib/sync-queue", () => ({
   readWatchContractions: jest.fn().mockResolvedValue([]),
   removeWatchContractionById: jest.fn().mockResolvedValue(undefined),
   invalidateWatchQueueSession: jest.fn().mockResolvedValue(undefined),
+  isKickSessionRecentlySaved: jest.fn().mockResolvedValue(false),
+  markKickSessionSaved: jest.fn().mockResolvedValue(undefined),
 }));
 
 // ── Watch connectivity ────────────────────────────────────────────────────────
@@ -323,6 +325,7 @@ describe("WatchBackgroundListener — Watch → Tools sync (no manual refresh)",
         startedAt: session.startedAt,
         endedAt: session.endedAt,
         kickCount: session.kickCount,
+        watchSessionId: session.startedAt,
       },
       expect.any(Function), // frozen token getter
     );
@@ -755,6 +758,7 @@ describe("Watch + phone concurrent kick session ends", () => {
         startedAt: watchSession.startedAt,
         endedAt: watchSession.endedAt,
         kickCount: watchSession.kickCount,
+        watchSessionId: watchSession.startedAt,
       },
       expect.any(Function), // frozen token getter
     );
@@ -892,6 +896,7 @@ describe("WatchBackgroundListener — save-failure error toasts", () => {
         startedAt: "2026-08-01T10:00:00.000Z",
         endedAt: "2026-08-01T10:20:00.000Z",
         kickCount: 5,
+        watchSessionId: "2026-08-01T10:00:00.000Z",
       },
       "user-123",
       0, // capturedGen from the mocked getWatchQueueGeneration
@@ -1058,6 +1063,7 @@ describe("WatchBackgroundListener — save-failure error toasts", () => {
     const syncQueueMock = require("@/lib/sync-queue");
     syncQueueMock.getWatchQueueGeneration
       .mockReturnValueOnce(0) // capturedGen at callback start
+      .mockReturnValueOnce(0) // check after persisted recent-saves read
       .mockReturnValueOnce(0) // check after getToken → save proceeds
       .mockReturnValueOnce(1); // check after apiDirectSave → sign-out mid-flight
 
@@ -1711,6 +1717,7 @@ describe("WatchBackgroundListener — Watch reconnect backlog (N sessions replay
         startedAt: zeroKickSession.startedAt,
         endedAt: zeroKickSession.endedAt,
         kickCount: 0,
+        watchSessionId: zeroKickSession.startedAt,
       },
       expect.any(Function), // frozen token getter
     );
@@ -1721,6 +1728,7 @@ describe("WatchBackgroundListener — Watch reconnect backlog (N sessions replay
         startedAt: nonZeroKickSession.startedAt,
         endedAt: nonZeroKickSession.endedAt,
         kickCount: 9,
+        watchSessionId: nonZeroKickSession.startedAt,
       },
       expect.any(Function),
     );
@@ -1773,6 +1781,7 @@ describe("WatchBackgroundListener — Watch reconnect backlog (N sessions replay
           startedAt: session.startedAt,
           endedAt: session.endedAt,
           kickCount: session.kickCount,
+          watchSessionId: session.startedAt,
         },
         expect.any(Function),
       );
@@ -1902,11 +1911,21 @@ describe("WatchBackgroundListener — duplicate kick-session deduplication", () 
     // Only the two distinct sessions should have been saved.
     expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(2);
     expect(mockApiDirectSaveKickSession).toHaveBeenCalledWith(
-      { startedAt: first.startedAt, endedAt: first.endedAt, kickCount: 5 },
+      {
+        startedAt: first.startedAt,
+        endedAt: first.endedAt,
+        kickCount: 5,
+        watchSessionId: first.startedAt,
+      },
       expect.any(Function),
     );
     expect(mockApiDirectSaveKickSession).toHaveBeenCalledWith(
-      { startedAt: second.startedAt, endedAt: second.endedAt, kickCount: 3 },
+      {
+        startedAt: second.startedAt,
+        endedAt: second.endedAt,
+        kickCount: 3,
+        watchSessionId: second.startedAt,
+      },
       expect.any(Function),
     );
     expect(mockInvalidateQueries).toHaveBeenCalledTimes(2);
@@ -2132,6 +2151,7 @@ describe("WatchBackgroundListener — offline delivery persistence (transferUser
         startedAt: "2026-08-04T10:00:00.000Z",
         endedAt: "2026-08-04T10:30:00.000Z",
         kickCount: 8,
+        watchSessionId: "2026-08-04T10:00:00.000Z",
       },
       expect.any(Function), // frozen token getter
     );

@@ -51,6 +51,8 @@ import {
   enqueueWatchKickSession,
   enqueueWatchContraction,
   getWatchQueueGeneration,
+  isKickSessionRecentlySaved,
+  markKickSessionSaved,
 } from "@/lib/sync-queue";
 function todayDate() {
   return new Date().toISOString().slice(0, 10);
@@ -276,6 +278,21 @@ export function WatchBackgroundListener() {
       // Capture the session generation at Watch-event-receive time.
       const capturedGen = getWatchQueueGeneration(userId);
 
+      // Layer 3: persisted recent-saves store — covers the cold-start gap.
+      // The in-process Set (layer 1) dies with the JS process, so if the app
+      // is force-quit after a successful save and the Watch retries the same
+      // session on relaunch, only this persisted check can suppress it.
+      try {
+        if (await isKickSessionRecentlySaved(userId, session.startedAt)) {
+          return; // already saved within the last 24h — drop the retry
+        }
+      } catch {
+        // Persisted-store read failed — fall through to the API save; the
+        // server-side layers above still guard the common duplicate paths.
+      }
+      // Re-verify the session is still valid after the async store read.
+      if (getWatchQueueGeneration(userId) !== capturedGen) return;
+
       // Snapshot the token for THIS user's session before any async gap.
       // Using a frozen getter ensures the HTTP request always carries the token
       // that corresponds to the data owner, even if another user signs in while
@@ -292,6 +309,11 @@ export function WatchBackgroundListener() {
             startedAt: session.startedAt,
             endedAt: session.endedAt,
             kickCount: session.kickCount,
+            // Server-enforced idempotency key: even if the app is force-quit
+            // before the persisted recent-save marker below commits, a Watch
+            // retry of this logical session returns the existing row instead
+            // of creating a duplicate.
+            watchSessionId: session.startedAt,
           },
           frozenGetter,
         );
@@ -299,6 +321,16 @@ export function WatchBackgroundListener() {
         // request the data was either accepted with the correct (frozen) token
         // or rejected by the server; either way, do not update this session's cache.
         if (getWatchQueueGeneration(userId) !== capturedGen) return;
+        // Persist the startedAt (24h TTL) so a Watch retry after force-quit +
+        // relaunch is suppressed even though the in-process Set is gone.
+        // Awaited so the marker is durably committed before this save path
+        // completes; if the write fails we still proceed — the server-side
+        // watchSessionId unique constraint is the backstop for duplicates.
+        try {
+          await markKickSessionSaved(userId, session.startedAt);
+        } catch {
+          // Non-fatal: dedup falls back to the server idempotency key.
+        }
         queryClient.invalidateQueries({
           queryKey: getListKickSessionsQueryKey({ limit: 10, offset: 0 }),
         });
@@ -314,6 +346,9 @@ export function WatchBackgroundListener() {
               startedAt: session.startedAt,
               endedAt: session.endedAt,
               kickCount: session.kickCount,
+              // Forward the idempotency key so the queue flush submits it too
+              // and a flush/retry race cannot create a duplicate row.
+              watchSessionId: session.startedAt,
             },
             userId,
             capturedGen,

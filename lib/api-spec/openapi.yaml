@@ -1195,6 +1195,15 @@ components:
         notes:
           type: ["string", "null"]
           maxLength: 500
+        watchSessionId:
+          type: ["string", "null"]
+          maxLength: 128
+          description: >
+            Idempotency key for Watch-originated sessions (the Watch session's
+            startedAt timestamp). When present, the server returns the existing
+            row instead of inserting a duplicate if a session with the same
+            watchSessionId was already saved for this user (e.g. a Watch retry
+            after the phone app was force-quit and relaunched).
     UpdateKickSessionBody:
       type: object
       properties:
@@ -1331,6 +1340,14 @@ components:
         sessionDate:
           type: string
           minLength: 1
+        watchRecordId:
+          type: ["string", "null"]
+          maxLength: 128
+          description: >
+            UUID assigned by the Watch to each contraction record, used as a
+            server-enforced idempotency key: the insert is skipped and the
+            existing row is returned when a record with the same watchRecordId
+            already exists for this user (preventing duplicate rows on replay).
       required:
         - startedAt
         - sessionDate

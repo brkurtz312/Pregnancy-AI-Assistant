@@ -124,6 +124,8 @@ jest.mock("@/lib/sync-queue", () => ({
   enqueueWatchKickSession: jest.fn().mockResolvedValue(undefined),
   enqueueWatchContraction: jest.fn().mockResolvedValue(undefined),
   getWatchQueueGeneration: jest.fn().mockReturnValue(0),
+  isKickSessionRecentlySaved: jest.fn().mockResolvedValue(false),
+  markKickSessionSaved: jest.fn().mockResolvedValue(undefined),
 }));
 
 // ── Watch connectivity ────────────────────────────────────────────────────────

@@ -202,6 +202,10 @@ export interface WatchKickSessionPayload {
   startedAt?: string | null;
   endedAt?: string | null;
   kickCount?: number | null;
+  /** Server-enforced idempotency key for Watch-originated sessions (the Watch
+   *  session's startedAt).  A retry of the same logical session returns the
+   *  existing row instead of creating a duplicate. */
+  watchSessionId?: string | null;
 }
 
 export interface WatchContractionPayload {

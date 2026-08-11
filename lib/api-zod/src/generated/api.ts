@@ -220,11 +220,20 @@ export const createKickSessionBodyKickCountMin = 0;
 
 export const createKickSessionBodyNotesMax = 500;
 
+export const createKickSessionBodyWatchSessionIdMax = 128;
+
 export const CreateKickSessionBody = zod.object({
   startedAt: zod.coerce.date().nullish(),
   kickCount: zod.number().min(createKickSessionBodyKickCountMin).nullish(),
   endedAt: zod.coerce.date().nullish(),
   notes: zod.string().max(createKickSessionBodyNotesMax).nullish(),
+  watchSessionId: zod
+    .string()
+    .max(createKickSessionBodyWatchSessionIdMax)
+    .nullish()
+    .describe(
+      "Idempotency key for Watch-originated sessions (the Watch session's startedAt timestamp). When present, the server returns the existing row instead of inserting a duplicate if a session with the same watchSessionId was already saved for this user (e.g. a Watch retry after the phone app was force-quit and relaunched).\n",
+    ),
 });
 
 /**
@@ -298,6 +307,8 @@ export const createContractionBodyDurationSecondsMin = 0;
 
 export const createContractionBodyIntervalSecondsMin = 0;
 
+export const createContractionBodyWatchRecordIdMax = 128;
+
 export const CreateContractionBody = zod.object({
   startedAt: zod.coerce.date(),
   endedAt: zod.coerce.date().nullish(),
@@ -310,10 +321,13 @@ export const CreateContractionBody = zod.object({
     .min(createContractionBodyIntervalSecondsMin)
     .nullish(),
   sessionDate: zod.string().min(1),
-  // Optional Watch-assigned UUID used as a server-enforced idempotency key.
-  // When present, the server returns the existing record if one with the same
-  // watchRecordId already exists for this user (preventing duplicate rows on replay).
-  watchRecordId: zod.string().nullish(),
+  watchRecordId: zod
+    .string()
+    .max(createContractionBodyWatchRecordIdMax)
+    .nullish()
+    .describe(
+      "UUID assigned by the Watch to each contraction record, used as a server-enforced idempotency key: the insert is skipped and the existing row is returned when a record with the same watchRecordId already exists for this user (preventing duplicate rows on replay).\n",
+    ),
 });
 
 /**

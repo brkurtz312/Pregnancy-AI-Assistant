@@ -153,6 +153,13 @@ export interface CreateKickSessionBody {
    * @nullable
    */
   notes?: string | null;
+  /**
+   * Idempotency key for Watch-originated sessions (the Watch session's startedAt timestamp). When present, the server returns the existing row instead of inserting a duplicate if a session with the same watchSessionId was already saved for this user (e.g. a Watch retry after the phone app was force-quit and relaunched).
+
+   * @maxLength 128
+   * @nullable
+   */
+  watchSessionId?: string | null;
 }
 
 export interface UpdateKickSessionBody {
@@ -271,6 +278,13 @@ export interface CreateContractionBody {
   intervalSeconds?: number | null;
   /** @minLength 1 */
   sessionDate: string;
+  /**
+   * UUID assigned by the Watch to each contraction record, used as a server-enforced idempotency key: the insert is skipped and the existing row is returned when a record with the same watchRecordId already exists for this user (preventing duplicate rows on replay).
+
+   * @maxLength 128
+   * @nullable
+   */
+  watchRecordId?: string | null;
 }
 
 export interface SupportContact {

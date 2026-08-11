@@ -1,3 +1,4 @@
+- [API spec codegen source of truth](api-spec-codegen-source-of-truth.md) — edit lib/api-spec/openapi.yaml then codegen; hand-edits to generated api-zod get wiped. DB schema via drizzle push, no migration files; assert new columns with real-PG schema tests.
 - [AI integration + mobile API base URL](ai-integration-and-mobile-api.md) — copied Anthropic client throws at import (crashes whole API) → make lazy; Expo native needs setBaseUrl(https://EXPO_PUBLIC_DOMAIN).
 - [iOS pod install fails on Clerk reCAPTCHA pods](ios-cocoapods-modular-headers.md) — AppCheckCore/GoogleUtilities/RecaptchaInterop need modular_headers via expo-build-properties extraPods, not node-linker.
 - [RevenueCat entitlement_id vs lookup_key](revenuecat-entitlement-id.md) — customer active entitlement_id is opaque internal id, not your "pass" lookup_key; resolve via listEntitlements first or grants silently never fire.

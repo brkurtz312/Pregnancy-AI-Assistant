@@ -160,9 +160,22 @@ router.post(
       return;
     }
     const userId = req.userId!;
-    const { startedAt, kickCount, endedAt, notes } = parsed.data;
+    const { startedAt, kickCount, endedAt, notes, watchSessionId } =
+      parsed.data;
 
-    const [row] = await db
+    // Atomic idempotency insert (mirrors POST /tools/contractions).
+    //
+    // Watch-originated sessions carry a watchSessionId (the Watch session's
+    // startedAt).  A partial unique index on (user_id, watch_session_id) WHERE
+    // watch_session_id IS NOT NULL lets the DB reject a duplicate atomically:
+    //   • First request  → inserts cleanly, returning the new row.
+    //   • Retry/duplicate → ON CONFLICT DO NOTHING returns no row; we fetch
+    //     the already-inserted row and return it (200) without duplicating.
+    //
+    // This closes the client crash gap: even if the phone is force-quit before
+    // its persisted recent-save marker commits, a Watch retry of the same
+    // logical session cannot create a second row.
+    const [inserted] = await db
       .insert(kickSessionsTable)
       .values({
         userId,
@@ -170,10 +183,34 @@ router.post(
         endedAt: endedAt ? new Date(endedAt) : null,
         kickCount: kickCount ?? 0,
         notes: notes ?? null,
+        watchSessionId: watchSessionId ?? null,
       })
+      .onConflictDoNothing()
       .returning();
 
-    res.status(201).json({
+    const row =
+      inserted ??
+      (
+        await db
+          .select()
+          .from(kickSessionsTable)
+          .where(
+            and(
+              eq(kickSessionsTable.userId, userId),
+              // watchSessionId is guaranteed non-null when the constraint fires.
+              eq(kickSessionsTable.watchSessionId, watchSessionId!),
+            ),
+          )
+          .limit(1)
+      )[0];
+
+    if (!row) {
+      // Should never happen; the insert either succeeds or conflicts.
+      res.status(500).json({ error: "Failed to save or retrieve session" });
+      return;
+    }
+
+    res.status(inserted ? 201 : 200).json({
       id: row.id,
       startedAt: row.startedAt.toISOString(),
       endedAt: row.endedAt?.toISOString() ?? null,

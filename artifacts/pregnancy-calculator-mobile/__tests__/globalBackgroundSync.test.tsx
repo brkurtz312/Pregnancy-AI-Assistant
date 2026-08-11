@@ -52,6 +52,8 @@ jest.mock("@/lib/sync-queue", () => ({
   readWatchContractions: jest.fn(async () => []),
   removeWatchContractionById: jest.fn(async () => {}),
   invalidateWatchQueueSession: jest.fn(async () => {}),
+  isKickSessionRecentlySaved: jest.fn().mockResolvedValue(false),
+  markKickSessionSaved: jest.fn().mockResolvedValue(undefined),
 }));
 
 // ─── Journal lib ──────────────────────────────────────────────────────────────

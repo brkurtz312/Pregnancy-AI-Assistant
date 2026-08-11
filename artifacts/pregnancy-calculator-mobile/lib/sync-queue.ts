@@ -98,6 +98,9 @@ export interface PendingKickSession {
   startedAt?: string | null;
   endedAt?: string | null;
   kickCount?: number | null;
+  /** Server-enforced idempotency key (the Watch session's startedAt) forwarded
+   *  by the queue flush so a replay cannot create a duplicate row. */
+  watchSessionId?: string | null;
 }
 
 export interface PendingContraction {
@@ -122,6 +125,10 @@ function watchKicksKey(userId: string): string {
 
 function watchContractionsKey(userId: string): string {
   return `watch_queue:contractions:${userId}`;
+}
+
+function recentKickSavesKey(userId: string): string {
+  return `watch_recent_kicks:${userId}`;
 }
 
 function generateClientId(): string {
@@ -316,6 +323,103 @@ export function removeWatchContractionById(
   });
 }
 
+// ── Persisted recent-kick-session store (cold-start deduplication) ────────────
+//
+// The in-process dedup Set in WatchBackgroundListener only survives for the
+// lifetime of the current JS process.  If the user force-quits the app and the
+// Watch retries the same logical session on relaunch, the Set is empty and the
+// duplicate would be written again.  This small persisted store of recently
+// saved kick-session `startedAt` timestamps (per user, 24-hour TTL) covers
+// that cold-start gap: handleKickSessionEnd consults it before calling the
+// API, and records into it after a successful save.
+//
+// Storage shape: JSON map of `startedAt` → savedAt epoch-ms, under a per-user
+// key.  Expired entries are pruned on every read and write.  All mutations are
+// serialized through `kickChain` alongside queue ops, and the store is wiped
+// (and the key removed) by `invalidateWatchQueueSession` on sign-out.
+
+const RECENT_KICK_SAVE_TTL_MS = 24 * 60 * 60 * 1000;
+
+type RecentKickSaves = Record<string, number>;
+
+async function readRecentKickSaves(
+  userId: string,
+  now: number,
+): Promise<RecentKickSaves> {
+  const raw = await AsyncStorage.getItem(recentKickSavesKey(userId));
+  if (!raw) return {};
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return {};
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return {};
+  }
+  const pruned: RecentKickSaves = {};
+  for (const [startedAt, savedAt] of Object.entries(
+    parsed as Record<string, unknown>,
+  )) {
+    if (
+      typeof savedAt === "number" &&
+      now - savedAt < RECENT_KICK_SAVE_TTL_MS
+    ) {
+      pruned[startedAt] = savedAt;
+    }
+  }
+  return pruned;
+}
+
+/**
+ * Records a successfully saved kick session `startedAt` in the persisted
+ * recent-saves store so a Watch retry after force-quit + relaunch is
+ * suppressed.  Entries expire after 24 hours.
+ */
+export function markKickSessionSaved(
+  userId: string,
+  startedAt: string,
+): Promise<void> {
+  return chainKickOp(async () => {
+    const now = Date.now();
+    const saves = await readRecentKickSaves(userId, now);
+    saves[startedAt] = now;
+    await AsyncStorage.setItem(
+      recentKickSavesKey(userId),
+      JSON.stringify(saves),
+    );
+  });
+}
+
+/**
+ * Returns true if the given kick session `startedAt` was saved for this user
+ * within the last 24 hours (persisted across app restarts).
+ *
+ * Expired entries are pruned and the pruned map is written back so the stored
+ * map cannot grow without bound.  Serialized through the kick chain so the
+ * write-back cannot interleave with a concurrent markKickSessionSaved.
+ */
+export function isKickSessionRecentlySaved(
+  userId: string,
+  startedAt: string,
+): Promise<boolean> {
+  return chainKickOp(async () => {
+    const key = recentKickSavesKey(userId);
+    const raw = await AsyncStorage.getItem(key);
+    const saves = await readRecentKickSaves(userId, Date.now());
+    const prunedJson = JSON.stringify(saves);
+    if (raw !== null && raw !== prunedJson) {
+      // Persist the pruned map (or remove the key entirely when empty).
+      if (Object.keys(saves).length === 0) {
+        await AsyncStorage.removeItem(key);
+      } else {
+        await AsyncStorage.setItem(key, prunedJson);
+      }
+    }
+    return startedAt in saves;
+  });
+}
+
 /**
  * Invalidates the Watch queue session for the given user and clears all
  * pending events.  Must be called on sign-out.
@@ -337,6 +441,7 @@ export function invalidateWatchQueueSession(userId: string): Promise<void> {
     await AsyncStorage.multiRemove([
       watchKicksKey(userId),
       watchContractionsKey(userId),
+      recentKickSavesKey(userId),
     ]);
   };
   // Route through BOTH chains so the clear is ordered after any in-flight op
