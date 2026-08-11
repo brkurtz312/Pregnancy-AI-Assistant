@@ -36,14 +36,18 @@ specific hardware even when the build passes Apple's validator.
 
 ## 2 — Kick counter
 
-| Step | Action                                      | Expected result                                          |
-| ---- | ------------------------------------------- | -------------------------------------------------------- |
-| 2.1  | Open the Pregnancy AI Watch app → Kicks tab | Kick counter screen loads; count shows 0                 |
-| 2.2  | Tap the kick button 5 times                 | Counter increments to 5 with haptic feedback on each tap |
-| 2.3  | Put iPhone out of reach (airplane mode)     | Counter continues to increment normally                  |
-| 2.4  | Restore iPhone connectivity                 | Kick session syncs to the iPhone app automatically       |
+| Step | Action                                                                                                  | Expected result                                                                              |
+| ---- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| 2.1  | Open the Pregnancy AI Watch app → Kicks tab                                                             | Kick counter screen loads; count shows 0                                                     |
+| 2.2  | Tap the kick button 5 times                                                                             | Counter increments to 5 with haptic feedback on each tap                                     |
+| 2.3  | Tap **End Session** to complete the kick session                                                        | Session ends; idle screen shows "Last session: 5 kicks"                                      |
+| 2.4  | Force-quit the Watch app (swipe up from bottom to open app switcher, swipe up on the Pregnancy AI card) | Watch app is closed                                                                          |
+| 2.5  | Put the iPhone out of reach or into Airplane Mode                                                       | Phone is unreachable — no background push can arrive                                         |
+| 2.6  | Relaunch the Pregnancy AI Watch app from the app grid → Kicks tab                                       | Idle screen immediately shows **"Last session: 5 kicks"** — previous count is **not** reset  |
+| 2.7  | Put iPhone out of reach (airplane mode)                                                                 | Counter continues to increment normally                                                      |
+| 2.8  | Restore iPhone connectivity                                                                             | Kick session syncs to the iPhone app automatically                                           |
 
-**Pass criteria:** Kicks are counted, persisted offline, and delivered to the iPhone after reconnect.
+**Pass criteria:** Kicks are counted, the last completed session count survives a force-quit and relaunch (step 2.6), and sessions are delivered to the iPhone after reconnect.
 
 ---
 
