@@ -23,6 +23,7 @@ import {
 } from "@workspace/api-client-react";
 import { useAuth } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 import { usePass } from "@/hooks/usePass";
 import { PassGate } from "@/components/PassGate";
 import { FREE_PHOTO_LIMIT } from "@/constants/free-limits";
@@ -342,237 +343,241 @@ export default function JournalEntryScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        ref={scrollRef}
-        style={{ flex: 1 }}
-        contentContainerStyle={[
-          styles.scroll,
-          { paddingBottom: insets.bottom + 48 },
-        ]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {showPrompts && prompts.length > 0 && (
-          <Animated.View entering={FadeInDown.duration(300)}>
-            <View
-              style={[
-                styles.promptsCard,
-                {
-                  backgroundColor: ACCENT + "12",
-                  borderColor: ACCENT + "30",
-                },
-              ]}
-            >
-              <View style={styles.promptsHeader}>
-                <Ionicons name="sparkles" size={15} color={ACCENT} />
-                <Text style={[styles.promptsTitle, { color: ACCENT }]}>
-                  Writing prompts for you
-                </Text>
-                <TouchableOpacity onPress={() => setShowPrompts(false)}>
-                  <Ionicons
-                    name="close-circle"
-                    size={18}
-                    color={colors.mutedForeground}
-                  />
-                </TouchableOpacity>
-              </View>
-              {prompts.map((p, i) => (
-                <TouchableOpacity
-                  key={i}
-                  style={[
-                    styles.promptRow,
-                    i < prompts.length - 1 && {
-                      borderBottomColor: ACCENT + "20",
-                      borderBottomWidth: 1,
-                    },
-                  ]}
-                  onPress={() => insertPrompt(p)}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={[styles.promptText, { color: colors.foreground }]}
-                  >
-                    {p}
-                  </Text>
-                  <Ionicons
-                    name="arrow-down-circle-outline"
-                    size={16}
-                    color={ACCENT}
-                  />
-                </TouchableOpacity>
-              ))}
-            </View>
-          </Animated.View>
-        )}
-
-        {!showPrompts && (
-          <TouchableOpacity
-            style={styles.promptsToggle}
-            onPress={() => setShowPrompts(true)}
-          >
-            <Ionicons name="sparkles" size={13} color={ACCENT} />
-            <Text style={[styles.promptsToggleText, { color: ACCENT }]}>
-              Show writing prompts
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        <TextInput
-          style={[
-            styles.textInput,
-            { color: colors.foreground, borderColor: colors.border },
+      <ResponsiveContainer>
+        <ScrollView
+          ref={scrollRef}
+          style={{ flex: 1 }}
+          contentContainerStyle={[
+            styles.scroll,
+            { paddingBottom: insets.bottom + 48 },
           ]}
-          placeholder="What's on your mind today? How are you feeling? What do you want to remember?"
-          placeholderTextColor={colors.mutedForeground}
-          value={entry.text}
-          onChangeText={(t) => setEntry((prev) => ({ ...prev, text: t }))}
-          multiline
-          textAlignVertical="top"
-          scrollEnabled={false}
-          autoCorrect
-          autoCapitalize="sentences"
-        />
-
-        <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: colors.foreground }]}>
-            Mood
-          </Text>
-          <View style={styles.moodRow}>
-            {MOOD_OPTIONS.map((m) => {
-              const active = entry.mood === m.value;
-              return (
-                <TouchableOpacity
-                  key={m.value}
-                  style={[
-                    styles.moodChip,
-                    {
-                      backgroundColor: active
-                        ? ACCENT + "18"
-                        : (colors.muted ?? "#f5f5f5"),
-                      borderColor: active ? ACCENT : colors.border,
-                    },
-                  ]}
-                  onPress={() =>
-                    setEntry((prev) => ({
-                      ...prev,
-                      mood:
-                        prev.mood === m.value
-                          ? undefined
-                          : (m.value as JournalMood),
-                    }))
-                  }
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.moodEmoji}>{m.emoji}</Text>
-                  <Text
-                    style={[
-                      styles.moodLabel,
-                      { color: active ? ACCENT : colors.mutedForeground },
-                    ]}
-                  >
-                    {m.label}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {showPrompts && prompts.length > 0 && (
+            <Animated.View entering={FadeInDown.duration(300)}>
+              <View
+                style={[
+                  styles.promptsCard,
+                  {
+                    backgroundColor: ACCENT + "12",
+                    borderColor: ACCENT + "30",
+                  },
+                ]}
+              >
+                <View style={styles.promptsHeader}>
+                  <Ionicons name="sparkles" size={15} color={ACCENT} />
+                  <Text style={[styles.promptsTitle, { color: ACCENT }]}>
+                    Writing prompts for you
                   </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <View style={styles.sectionRow}>
-            <Text style={[styles.sectionLabel, { color: colors.foreground }]}>
-              Photos & Videos
-            </Text>
-            <TouchableOpacity
-              style={[styles.addMediaBtn, { borderColor: ACCENT }]}
-              onPress={handlePickMedia}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="add" size={16} color={ACCENT} />
-              <Text style={[styles.addMediaText, { color: ACCENT }]}>Add</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={[styles.mediaHint, { color: colors.mutedForeground }]}>
-            You'll be asked whether each photo is a bump photo, ultrasound, or
-            general journal photo.
-          </Text>
-
-          {entry.media.length > 0 && (
-            <View style={styles.mediaGrid}>
-              {entry.media.map((m) => (
-                <View key={m.id} style={styles.mediaItem}>
-                  {m.type === "photo" ? (
-                    <Image
-                      source={{ uri: m.uri }}
-                      style={styles.mediaThumb}
-                      contentFit="cover"
+                  <TouchableOpacity onPress={() => setShowPrompts(false)}>
+                    <Ionicons
+                      name="close-circle"
+                      size={18}
+                      color={colors.mutedForeground}
                     />
-                  ) : (
-                    <View
-                      style={[
-                        styles.mediaThumb,
-                        {
-                          backgroundColor: colors.muted,
-                          alignItems: "center",
-                          justifyContent: "center",
-                        },
-                      ]}
-                    >
-                      <Ionicons name="play-circle" size={32} color={ACCENT} />
-                    </View>
-                  )}
-                  <View
-                    style={[
-                      styles.mediaCategoryBadge,
-                      { backgroundColor: ACCENT + "dd" },
-                    ]}
-                  >
-                    <Text style={styles.mediaCategoryText}>
-                      {m.category === "bump"
-                        ? "Bump"
-                        : m.category === "ultrasound"
-                          ? "US"
-                          : ""}
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.mediaRemoveBtn}
-                    onPress={() => removeMedia(m.id)}
-                    hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-                  >
-                    <Ionicons name="close-circle" size={20} color="#fff" />
                   </TouchableOpacity>
                 </View>
-              ))}
-            </View>
+                {prompts.map((p, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    style={[
+                      styles.promptRow,
+                      i < prompts.length - 1 && {
+                        borderBottomColor: ACCENT + "20",
+                        borderBottomWidth: 1,
+                      },
+                    ]}
+                    onPress={() => insertPrompt(p)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[styles.promptText, { color: colors.foreground }]}
+                    >
+                      {p}
+                    </Text>
+                    <Ionicons
+                      name="arrow-down-circle-outline"
+                      size={16}
+                      color={ACCENT}
+                    />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </Animated.View>
           )}
-        </View>
 
-        {!isNew && (
-          <TouchableOpacity
-            style={[
-              styles.deleteBtn,
-              { borderColor: colors.destructive ?? "#e53e3e" },
-            ]}
-            onPress={handleDelete}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name="trash-outline"
-              size={16}
-              color={colors.destructive ?? "#e53e3e"}
-            />
-            <Text
-              style={[
-                styles.deleteBtnText,
-                { color: colors.destructive ?? "#e53e3e" },
-              ]}
+          {!showPrompts && (
+            <TouchableOpacity
+              style={styles.promptsToggle}
+              onPress={() => setShowPrompts(true)}
             >
-              Delete Entry
+              <Ionicons name="sparkles" size={13} color={ACCENT} />
+              <Text style={[styles.promptsToggleText, { color: ACCENT }]}>
+                Show writing prompts
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          <TextInput
+            style={[
+              styles.textInput,
+              { color: colors.foreground, borderColor: colors.border },
+            ]}
+            placeholder="What's on your mind today? How are you feeling? What do you want to remember?"
+            placeholderTextColor={colors.mutedForeground}
+            value={entry.text}
+            onChangeText={(t) => setEntry((prev) => ({ ...prev, text: t }))}
+            multiline
+            textAlignVertical="top"
+            scrollEnabled={false}
+            autoCorrect
+            autoCapitalize="sentences"
+          />
+
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: colors.foreground }]}>
+              Mood
             </Text>
-          </TouchableOpacity>
-        )}
-      </ScrollView>
+            <View style={styles.moodRow}>
+              {MOOD_OPTIONS.map((m) => {
+                const active = entry.mood === m.value;
+                return (
+                  <TouchableOpacity
+                    key={m.value}
+                    style={[
+                      styles.moodChip,
+                      {
+                        backgroundColor: active
+                          ? ACCENT + "18"
+                          : (colors.muted ?? "#f5f5f5"),
+                        borderColor: active ? ACCENT : colors.border,
+                      },
+                    ]}
+                    onPress={() =>
+                      setEntry((prev) => ({
+                        ...prev,
+                        mood:
+                          prev.mood === m.value
+                            ? undefined
+                            : (m.value as JournalMood),
+                      }))
+                    }
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.moodEmoji}>{m.emoji}</Text>
+                    <Text
+                      style={[
+                        styles.moodLabel,
+                        { color: active ? ACCENT : colors.mutedForeground },
+                      ]}
+                    >
+                      {m.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <View style={styles.sectionRow}>
+              <Text style={[styles.sectionLabel, { color: colors.foreground }]}>
+                Photos & Videos
+              </Text>
+              <TouchableOpacity
+                style={[styles.addMediaBtn, { borderColor: ACCENT }]}
+                onPress={handlePickMedia}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="add" size={16} color={ACCENT} />
+                <Text style={[styles.addMediaText, { color: ACCENT }]}>
+                  Add
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.mediaHint, { color: colors.mutedForeground }]}>
+              You'll be asked whether each photo is a bump photo, ultrasound, or
+              general journal photo.
+            </Text>
+
+            {entry.media.length > 0 && (
+              <View style={styles.mediaGrid}>
+                {entry.media.map((m) => (
+                  <View key={m.id} style={styles.mediaItem}>
+                    {m.type === "photo" ? (
+                      <Image
+                        source={{ uri: m.uri }}
+                        style={styles.mediaThumb}
+                        contentFit="cover"
+                      />
+                    ) : (
+                      <View
+                        style={[
+                          styles.mediaThumb,
+                          {
+                            backgroundColor: colors.muted,
+                            alignItems: "center",
+                            justifyContent: "center",
+                          },
+                        ]}
+                      >
+                        <Ionicons name="play-circle" size={32} color={ACCENT} />
+                      </View>
+                    )}
+                    <View
+                      style={[
+                        styles.mediaCategoryBadge,
+                        { backgroundColor: ACCENT + "dd" },
+                      ]}
+                    >
+                      <Text style={styles.mediaCategoryText}>
+                        {m.category === "bump"
+                          ? "Bump"
+                          : m.category === "ultrasound"
+                            ? "US"
+                            : ""}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.mediaRemoveBtn}
+                      onPress={() => removeMedia(m.id)}
+                      hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                    >
+                      <Ionicons name="close-circle" size={20} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+
+          {!isNew && (
+            <TouchableOpacity
+              style={[
+                styles.deleteBtn,
+                { borderColor: colors.destructive ?? "#e53e3e" },
+              ]}
+              onPress={handleDelete}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="trash-outline"
+                size={16}
+                color={colors.destructive ?? "#e53e3e"}
+              />
+              <Text
+                style={[
+                  styles.deleteBtnText,
+                  { color: colors.destructive ?? "#e53e3e" },
+                ]}
+              >
+                Delete Entry
+              </Text>
+            </TouchableOpacity>
+          )}
+        </ScrollView>
+      </ResponsiveContainer>
 
       <PassGate
         visible={showPhotoGate}

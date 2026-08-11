@@ -28,6 +28,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 import {
   FHR_DIR,
   ensureFhrDir,
@@ -313,169 +314,188 @@ export default function FetalHeartRateScreen() {
         </Text>
       </View>
 
-      <ScrollView
-        contentContainerStyle={[
-          s.scroll,
-          { paddingBottom: insets.bottom + 40 },
-        ]}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Permission gate */}
-        {permission === "denied" ? (
-          <Animated.View entering={FadeInDown.duration(350)} style={s.permBox}>
-            <Ionicons
-              name="mic-off-outline"
-              size={40}
-              color={colors.mutedForeground}
-            />
-            <Text style={[s.permTitle, { color: colors.foreground }]}>
-              Microphone access required
-            </Text>
-            <Text style={[s.permSub, { color: colors.mutedForeground }]}>
-              Go to Settings → Privacy → Microphone and enable access for this
-              app.
-            </Text>
-          </Animated.View>
-        ) : permission === "unknown" ? (
-          <Animated.View entering={FadeInDown.duration(350)} style={s.permBox}>
-            <Ionicons
-              name="mic-outline"
-              size={40}
-              color={colors.mutedForeground}
-            />
-            <Text style={[s.permTitle, { color: colors.foreground }]}>
-              Microphone permission needed
-            </Text>
-            <Text style={[s.permSub, { color: colors.mutedForeground }]}>
-              Allow microphone access to record the fetal heartbeat.
-            </Text>
-            <TouchableOpacity
-              style={[s.permBtn, { backgroundColor: colors.primary }]}
-              onPress={requestPermission}
-            >
-              <Text style={s.permBtnText}>Allow Microphone</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        ) : (
-          <>
-            {/* Recorder */}
+      <ResponsiveContainer>
+        <ScrollView
+          contentContainerStyle={[
+            s.scroll,
+            { paddingBottom: insets.bottom + 40 },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Permission gate */}
+          {permission === "denied" ? (
             <Animated.View
               entering={FadeInDown.duration(350)}
-              style={s.recorderBox}
+              style={s.permBox}
             >
-              <View style={s.ringWrap}>
-                <Animated.View
-                  style={[s.ringPulse, { borderColor: ringColor }, pulseStyle]}
-                />
-                <TouchableOpacity
-                  style={[s.recordBtn, { backgroundColor: ringColor }]}
-                  onPress={isRecording ? stopRecording : startRecording}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons
-                    name={isRecording ? "stop" : "mic"}
-                    size={32}
-                    color="#fff"
-                  />
-                </TouchableOpacity>
-              </View>
-
-              {isRecording ? (
-                <Text style={[s.countdownText, { color: colors.foreground }]}>
-                  {formatCountdown(countdown)} remaining
-                </Text>
-              ) : (
-                <Text style={[s.recLabel, { color: colors.mutedForeground }]}>
-                  Tap to start recording
-                </Text>
-              )}
-
-              {isRecording && (
-                <TouchableOpacity
-                  style={[s.stopRow, { borderColor: colors.border }]}
-                  onPress={stopRecording}
-                >
-                  <Text style={[s.stopText, { color: colors.mutedForeground }]}>
-                    Stop early
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </Animated.View>
-
-            {/* History */}
-            <Animated.View
-              entering={FadeInDown.delay(80).duration(350)}
-              style={[
-                s.historyCard,
-                {
-                  backgroundColor: colors.card,
-                  borderColor: colors.border,
-                },
-              ]}
-            >
-              <Text style={[s.historyTitle, { color: colors.foreground }]}>
-                Past Recordings
+              <Ionicons
+                name="mic-off-outline"
+                size={40}
+                color={colors.mutedForeground}
+              />
+              <Text style={[s.permTitle, { color: colors.foreground }]}>
+                Microphone access required
               </Text>
-
-              {recordings.length === 0 ? (
-                <Text style={[s.empty, { color: colors.mutedForeground }]}>
-                  No recordings yet. Tap the microphone above to capture the
-                  heartbeat.
-                </Text>
-              ) : (
-                recordings.map((rec) => {
-                  const isPlaying = playingId === rec.id;
-                  return (
-                    <View
-                      key={rec.id}
-                      style={[s.recRow, { borderColor: colors.border }]}
-                    >
-                      <TouchableOpacity
-                        style={[
-                          s.playBtn,
-                          {
-                            backgroundColor: isPlaying
-                              ? colors.primary
-                              : colors.primary + "18",
-                          },
-                        ]}
-                        onPress={() => togglePlayback(rec)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Ionicons
-                          name={isPlaying ? "pause" : "play"}
-                          size={18}
-                          color={isPlaying ? "#fff" : colors.primary}
-                        />
-                      </TouchableOpacity>
-                      <View style={s.recMeta}>
-                        <Text style={[s.recDate, { color: colors.foreground }]}>
-                          {formatDate(rec.recordedAt)}
-                        </Text>
-                        <Text
-                          style={[s.recDur, { color: colors.mutedForeground }]}
-                        >
-                          {formatDuration(rec.durationMs)}
-                        </Text>
-                      </View>
-                      <TouchableOpacity
-                        onPress={() => handleDelete(rec.id)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Ionicons
-                          name="trash-outline"
-                          size={18}
-                          color={colors.mutedForeground}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  );
-                })
-              )}
+              <Text style={[s.permSub, { color: colors.mutedForeground }]}>
+                Go to Settings → Privacy → Microphone and enable access for this
+                app.
+              </Text>
             </Animated.View>
-          </>
-        )}
-      </ScrollView>
+          ) : permission === "unknown" ? (
+            <Animated.View
+              entering={FadeInDown.duration(350)}
+              style={s.permBox}
+            >
+              <Ionicons
+                name="mic-outline"
+                size={40}
+                color={colors.mutedForeground}
+              />
+              <Text style={[s.permTitle, { color: colors.foreground }]}>
+                Microphone permission needed
+              </Text>
+              <Text style={[s.permSub, { color: colors.mutedForeground }]}>
+                Allow microphone access to record the fetal heartbeat.
+              </Text>
+              <TouchableOpacity
+                style={[s.permBtn, { backgroundColor: colors.primary }]}
+                onPress={requestPermission}
+              >
+                <Text style={s.permBtnText}>Allow Microphone</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          ) : (
+            <>
+              {/* Recorder */}
+              <Animated.View
+                entering={FadeInDown.duration(350)}
+                style={s.recorderBox}
+              >
+                <View style={s.ringWrap}>
+                  <Animated.View
+                    style={[
+                      s.ringPulse,
+                      { borderColor: ringColor },
+                      pulseStyle,
+                    ]}
+                  />
+                  <TouchableOpacity
+                    style={[s.recordBtn, { backgroundColor: ringColor }]}
+                    onPress={isRecording ? stopRecording : startRecording}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons
+                      name={isRecording ? "stop" : "mic"}
+                      size={32}
+                      color="#fff"
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                {isRecording ? (
+                  <Text style={[s.countdownText, { color: colors.foreground }]}>
+                    {formatCountdown(countdown)} remaining
+                  </Text>
+                ) : (
+                  <Text style={[s.recLabel, { color: colors.mutedForeground }]}>
+                    Tap to start recording
+                  </Text>
+                )}
+
+                {isRecording && (
+                  <TouchableOpacity
+                    style={[s.stopRow, { borderColor: colors.border }]}
+                    onPress={stopRecording}
+                  >
+                    <Text
+                      style={[s.stopText, { color: colors.mutedForeground }]}
+                    >
+                      Stop early
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </Animated.View>
+
+              {/* History */}
+              <Animated.View
+                entering={FadeInDown.delay(80).duration(350)}
+                style={[
+                  s.historyCard,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Text style={[s.historyTitle, { color: colors.foreground }]}>
+                  Past Recordings
+                </Text>
+
+                {recordings.length === 0 ? (
+                  <Text style={[s.empty, { color: colors.mutedForeground }]}>
+                    No recordings yet. Tap the microphone above to capture the
+                    heartbeat.
+                  </Text>
+                ) : (
+                  recordings.map((rec) => {
+                    const isPlaying = playingId === rec.id;
+                    return (
+                      <View
+                        key={rec.id}
+                        style={[s.recRow, { borderColor: colors.border }]}
+                      >
+                        <TouchableOpacity
+                          style={[
+                            s.playBtn,
+                            {
+                              backgroundColor: isPlaying
+                                ? colors.primary
+                                : colors.primary + "18",
+                            },
+                          ]}
+                          onPress={() => togglePlayback(rec)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Ionicons
+                            name={isPlaying ? "pause" : "play"}
+                            size={18}
+                            color={isPlaying ? "#fff" : colors.primary}
+                          />
+                        </TouchableOpacity>
+                        <View style={s.recMeta}>
+                          <Text
+                            style={[s.recDate, { color: colors.foreground }]}
+                          >
+                            {formatDate(rec.recordedAt)}
+                          </Text>
+                          <Text
+                            style={[
+                              s.recDur,
+                              { color: colors.mutedForeground },
+                            ]}
+                          >
+                            {formatDuration(rec.durationMs)}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => handleDelete(rec.id)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Ionicons
+                            name="trash-outline"
+                            size={18}
+                            color={colors.mutedForeground}
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })
+                )}
+              </Animated.View>
+            </>
+          )}
+        </ScrollView>
+      </ResponsiveContainer>
     </View>
   );
 }
