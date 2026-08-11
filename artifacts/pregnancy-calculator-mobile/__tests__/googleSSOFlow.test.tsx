@@ -32,11 +32,15 @@ jest.mock("expo-web-browser", () => ({
   coolDownAsync: jest.fn(),
 }));
 
+// Mutable so individual tests can simulate a missing/misconfigured scheme.
+const mockExpoConfig: { scheme?: string | string[] } = {
+  scheme: "pregnancy-calculator-mobile",
+};
 jest.mock("expo-constants", () => ({
   __esModule: true,
   default: {
-    expoConfig: {
-      scheme: "pregnancy-calculator-mobile",
+    get expoConfig() {
+      return mockExpoConfig;
     },
   },
 }));
@@ -389,6 +393,140 @@ describe("SignInScreen — Google SSO", () => {
     await act(async () => {
       resolveSSOFlow({ createdSessionId: null, setActive: null });
     });
+  });
+});
+
+// ─── fresh install — configuration & full completion path ───────────────────
+//
+// A fresh install has no cached Clerk session, so sign-in relies entirely on
+// the OAuth redirect returning to the app. The redirect only works if the
+// scheme registered with the OS (expo.scheme in app.json) matches the scheme
+// passed to makeRedirectUri. These tests catch drift between the two, plus
+// the full consent → return → setActive → dismiss sequence.
+
+describe("Fresh install — Google SSO", () => {
+  let dismissAll: jest.Mock;
+
+  beforeEach(() => {
+    mockExpoConfig.scheme = "pregnancy-calculator-mobile";
+    dismissAll = jest.fn();
+    mockUseRouter.mockReturnValue({ dismissAll, back: jest.fn() });
+    mockUseSSO.mockReturnValue({ startSSOFlow: mockStartSSOFlow });
+    mockUseSignIn.mockReturnValue({
+      // Fresh install: no cached session, no createdSessionId on signIn.
+      signIn: { ...mockSignIn, createdSessionId: null },
+      errors: mockErrors,
+      fetchStatus: "idle",
+    });
+    mockStartSSOFlow.mockReset();
+  });
+
+  afterEach(() => {
+    mockExpoConfig.scheme = "pregnancy-calculator-mobile";
+    jest.clearAllMocks();
+  });
+
+  it("app.json expo.scheme matches the scheme used for the OAuth redirect URI", () => {
+    // Read the REAL app.json — this catches a scheme rename or removal that
+    // would break the browser → app redirect on a fresh install.
+    const appJson = require("../app.json") as {
+      expo: { scheme?: string | string[]; android?: { package?: string } };
+    };
+    expect(appJson.expo.scheme).toBe("pregnancy-calculator-mobile");
+    // The mocked Constants value must mirror the real config, otherwise
+    // the assertions in this suite would be testing the wrong scheme.
+    expect(mockExpoConfig.scheme).toEqual(appJson.expo.scheme);
+    // Android needs a package for the intent filter to be registered.
+    expect(appJson.expo.android?.package).toBeTruthy();
+  });
+
+  it("completes the full fresh-install sequence: consent → redirect back → setActive → dismiss", async () => {
+    const callOrder: string[] = [];
+    const setActive = jest.fn().mockImplementation(async () => {
+      callOrder.push("setActive");
+    });
+    mockStartSSOFlow.mockImplementation(async (opts: unknown) => {
+      callOrder.push("startSSOFlow");
+      // Simulate browser consent + redirect back into the app with a
+      // brand-new session (fresh install ⇒ no pre-existing session id).
+      expect((opts as { redirectUrl: string }).redirectUrl).toBe(
+        "pregnancy-calculator-mobile://",
+      );
+      return { createdSessionId: "sess_fresh_install", setActive };
+    });
+    dismissAll.mockImplementation(() => {
+      callOrder.push("dismissAll");
+    });
+
+    let renderer!: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(SignInScreen));
+    });
+    await act(async () => {});
+
+    const btn = findGoogleButton(renderer.root);
+    await act(async () => {
+      btn.props.onPress();
+    });
+
+    expect(setActive).toHaveBeenCalledWith({ session: "sess_fresh_install" });
+    // Order matters: session must be activated BEFORE the screen dismisses,
+    // otherwise the app re-opens signed out.
+    expect(callOrder).toEqual(["startSSOFlow", "setActive", "dismissAll"]);
+    // No error notice should be shown on success.
+    const json = JSON.stringify(renderer.toJSON());
+    expect(json).not.toContain("sign-in failed");
+    expect(json).not.toContain("Sign-in could not be completed");
+  });
+
+  it("logs a loud misconfiguration error when expo.scheme is missing, instead of failing silently", async () => {
+    mockExpoConfig.scheme = undefined;
+    const consoleError = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    mockStartSSOFlow.mockResolvedValue({
+      createdSessionId: null,
+      setActive: null,
+    });
+
+    let renderer!: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(SignInScreen));
+    });
+    await act(async () => {});
+
+    const btn = findGoogleButton(renderer.root);
+    await act(async () => {
+      btn.props.onPress();
+    });
+
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining("expo.scheme is not set"),
+    );
+    consoleError.mockRestore();
+  });
+
+  it("handles an array-valued expo.scheme by using its first entry", async () => {
+    mockExpoConfig.scheme = ["pregnancy-calculator-mobile", "legacy-scheme"];
+    mockStartSSOFlow.mockResolvedValue({
+      createdSessionId: null,
+      setActive: null,
+    });
+
+    let renderer!: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(SignInScreen));
+    });
+    await act(async () => {});
+
+    const btn = findGoogleButton(renderer.root);
+    await act(async () => {
+      btn.props.onPress();
+    });
+
+    expect(mockMakeRedirectUri).toHaveBeenCalledWith(
+      expect.objectContaining({ scheme: "pregnancy-calculator-mobile" }),
+    );
   });
 });
 
