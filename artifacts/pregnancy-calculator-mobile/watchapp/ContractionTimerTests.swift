@@ -221,3 +221,90 @@ final class ContractionTimerStaleSessionTests: XCTestCase {
         )
     }
 }
+
+// MARK: - Relaunch haptic guard tests
+
+/// Models the `didFireRelaunchHaptic` guard logic that lives in `restoreState()`.
+///
+/// Returns `true` when the haptic *should* fire (urgent pattern, not yet fired this session)
+/// and `false` otherwise. Mirrors the exact condition in ContractionTimerView:
+///
+///     if !didFireRelaunchHaptic, let interval = lastInterval, interval < 300 { … }
+func shouldFireRelaunchHaptic(interval: TimeInterval?, didAlreadyFire: Bool) -> Bool {
+    guard !didAlreadyFire else { return false }
+    return isPatternUrgent(lastInterval: interval)
+}
+
+final class ContractionTimerRelaunchHapticGuardTests: XCTestCase {
+
+    // MARK: First appearance after cold launch
+
+    func testFirstAppear_urgentPattern_fires() {
+        // Simulates the very first .onAppear after a cold launch with an urgent saved interval.
+        let fires = shouldFireRelaunchHaptic(interval: 240, didAlreadyFire: false)
+        XCTAssertTrue(fires, "Haptic must fire on the first .onAppear when pattern is urgent")
+    }
+
+    func testFirstAppear_nonUrgentPattern_doesNotFire() {
+        let fires = shouldFireRelaunchHaptic(interval: 360, didAlreadyFire: false)
+        XCTAssertFalse(fires, "Haptic must not fire for a non-urgent interval (> 5 min apart)")
+    }
+
+    func testFirstAppear_noStoredInterval_doesNotFire() {
+        let fires = shouldFireRelaunchHaptic(interval: nil, didAlreadyFire: false)
+        XCTAssertFalse(fires, "Haptic must not fire when no interval was stored (first-ever launch)")
+    }
+
+    // MARK: Subsequent appearances (navigation push/pop, crown scroll)
+
+    func testSecondAppear_urgentPattern_doesNotFireAgain() {
+        // After the flag is set on the first appear, subsequent calls must be suppressed.
+        let fires = shouldFireRelaunchHaptic(interval: 240, didAlreadyFire: true)
+        XCTAssertFalse(fires,
+            "Haptic must NOT fire on a second .onAppear — flag already set this session")
+    }
+
+    func testManySubsequentAppears_urgentPattern_neverFireAgain() {
+        // Simulate N re-appearances (e.g. deep navigation stack): flag stays true.
+        var didFire = false
+        var hapticCount = 0
+
+        for _ in 1...10 {
+            if shouldFireRelaunchHaptic(interval: 200, didAlreadyFire: didFire) {
+                hapticCount += 1
+                didFire = true  // flag set after first fire
+            }
+        }
+
+        XCTAssertEqual(hapticCount, 1,
+            "Haptic must fire exactly once across 10 simulated .onAppear events")
+    }
+
+    // MARK: After sign-out (resetState resets the flag)
+
+    func testAfterSignOut_flagReset_firstAppearFiresAgain() {
+        // Simulate: fired on cold launch → sign-out resets flag → next cold launch can fire again.
+        var didFire = true // state after first cold launch
+
+        // Sign-out resets the flag (mirrors resetState())
+        didFire = false
+
+        let fires = shouldFireRelaunchHaptic(interval: 240, didAlreadyFire: didFire)
+        XCTAssertTrue(fires,
+            "After a sign-out the flag resets, so the next cold launch must fire the haptic")
+    }
+
+    // MARK: Boundary: exactly at threshold
+
+    func testExactlyAtThreshold_doesNotFire() {
+        // 300 s is NOT urgent (interval < 300, not ≤ 300), so haptic must not fire.
+        let fires = shouldFireRelaunchHaptic(interval: 300, didAlreadyFire: false)
+        XCTAssertFalse(fires,
+            "Interval exactly at 300 s is not urgent — haptic must not fire")
+    }
+
+    func testOneSecondBelowThreshold_fires() {
+        let fires = shouldFireRelaunchHaptic(interval: 299, didAlreadyFire: false)
+        XCTAssertTrue(fires, "299 s is below the threshold — haptic must fire on first appear")
+    }
+}

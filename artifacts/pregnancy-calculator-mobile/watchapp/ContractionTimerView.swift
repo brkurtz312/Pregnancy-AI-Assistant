@@ -28,6 +28,10 @@ struct ContractionTimerView: View {
     @State private var lastContractionEnd: Date? = nil
     @State private var contractions: [ContractionRecord] = []
     @State private var displayTimer: Timer? = nil
+    /// Prevents the relaunch haptic from firing more than once per app session.
+    /// `.onAppear` can be called repeatedly (navigation push/pop, crown scroll),
+    /// so this flag ensures the notification plays only on the very first appearance.
+    @State private var didFireRelaunchHaptic: Bool = false
 
     private let encoder: JSONEncoder = {
         let e = JSONEncoder(); e.dateEncodingStrategy = .iso8601; return e
@@ -233,6 +237,8 @@ struct ContractionTimerView: View {
         lastInterval = nil
         lastContractionEnd = nil
         contractions = []
+        // Reset so the next cold launch after sign-in can fire the haptic if needed.
+        didFireRelaunchHaptic = false
     }
 
     private func restoreState() {
@@ -281,8 +287,11 @@ struct ContractionTimerView: View {
         lastInterval = intervalRaw > 0 ? intervalRaw : nil
 
         // Fire a one-time haptic on relaunch if the pattern was already urgent before the quit.
-        if let interval = lastInterval, interval < 300 {
+        // The `didFireRelaunchHaptic` guard prevents this from triggering on every subsequent
+        // `.onAppear` event (e.g. navigation push/pop, Watch crown scroll) within the same session.
+        if !didFireRelaunchHaptic, let interval = lastInterval, interval < 300 {
             WKInterfaceDevice.current().play(.notification)
+            didFireRelaunchHaptic = true
         }
 
         if lastEndRaw > 0 {
