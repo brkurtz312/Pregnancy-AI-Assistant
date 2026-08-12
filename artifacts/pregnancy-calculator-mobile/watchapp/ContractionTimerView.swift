@@ -10,6 +10,10 @@ private enum ContractionDefaults {
     static let lastInterval     = "wk.contractionLastInterval" // TimeInterval (0 = absent)
     static let records          = "wk.contractionRecords"   // JSON-encoded [ContractionRecord]
     // Note: lastContractionCount is owned by WatchSessionManager (wk.lastContractionCount)
+    /// JSON-encoded `StaleSessionSummary` describing the most recently discarded
+    /// stale session. Written just before the staleness guard wipes the saved
+    /// records; removed once the user dismisses the banner.
+    static let staleSummary     = "wk.contractionStaleSummary"
 
     /// Saved state older than this threshold is discarded on restore so that
     /// contractions from a previous day don't reappear as a fresh session.
@@ -32,6 +36,11 @@ struct ContractionTimerView: View {
     /// `.onAppear` can be called repeatedly (navigation push/pop, crown scroll),
     /// so this flag ensures the notification plays only on the very first appearance.
     @State private var didFireRelaunchHaptic: Bool = false
+    /// Summary of a stale session discarded by the staleness guard. Shown as a
+    /// dismissible banner; persisted in UserDefaults until the user dismisses it
+    /// so it is not lost if the app relaunches before being seen, but never
+    /// re-shown after dismissal.
+    @State private var staleSummary: StaleSessionSummary? = nil
 
     private let encoder: JSONEncoder = {
         let e = JSONEncoder(); e.dateEncodingStrategy = .iso8601; return e
@@ -52,6 +61,26 @@ struct ContractionTimerView: View {
             VStack(spacing: 10) {
                 Text("Contractions")
                     .font(.headline)
+
+                // One-time banner describing a stale session that the
+                // staleness guard discarded on relaunch.
+                if let summary = staleSummary {
+                    VStack(spacing: 4) {
+                        Text(staleSummaryText(summary))
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                        Button("Dismiss") {
+                            dismissStaleSummary()
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.secondary)
+                        .font(.caption2)
+                    }
+                    .padding(6)
+                    .background(Color.white.opacity(0.08))
+                    .cornerRadius(8)
+                }
 
                 if isActive {
                     Text(durationString)
@@ -189,6 +218,24 @@ struct ContractionTimerView: View {
         WKInterfaceDevice.current().play(.success)
     }
 
+    // MARK: - Stale-session summary
+
+    /// User-facing text for the discarded-session banner,
+    /// e.g. "Discarded 4 contractions from yesterday".
+    private func staleSummaryText(_ summary: StaleSessionSummary) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.dateTimeStyle = .named
+        let when = formatter.localizedString(for: summary.lastEventAt, relativeTo: Date())
+        return "Discarded \(summary.count) contraction\(summary.count == 1 ? "" : "s") from \(when)"
+    }
+
+    /// Dismisses the banner permanently: clears both the in-memory state and
+    /// the persisted summary so it is never re-shown on subsequent relaunches.
+    private func dismissStaleSummary() {
+        staleSummary = nil
+        UserDefaults.standard.removeObject(forKey: ContractionDefaults.staleSummary)
+    }
+
     // MARK: - Timer
 
     private func startDisplayTimer() {
@@ -239,11 +286,23 @@ struct ContractionTimerView: View {
         contractions = []
         // Reset so the next cold launch after sign-in can fire the haptic if needed.
         didFireRelaunchHaptic = false
+        // A discarded-session summary belongs to the signed-out user; drop it.
+        staleSummary = nil
+        UserDefaults.standard.removeObject(forKey: ContractionDefaults.staleSummary)
     }
 
     private func restoreState() {
         let ud = UserDefaults.standard
         let now = Date()
+
+        // Restore an undismissed stale-session summary from a previous launch.
+        // (If this launch's staleness guard below discards another session,
+        // the newer summary replaces this one.)
+        if staleSummary == nil,
+           let data = ud.data(forKey: ContractionDefaults.staleSummary),
+           let summary = try? decoder.decode(StaleSessionSummary.self, from: data) {
+            staleSummary = summary
+        }
 
         // MARK: Staleness guard
         // Determine the timestamp of the most recent persisted contraction event.
@@ -265,6 +324,23 @@ struct ContractionTimerView: View {
         if referenceTimestamp > 0 {
             let age = now.timeIntervalSince(Date(timeIntervalSince1970: referenceTimestamp))
             if age > ContractionDefaults.staleSessionThreshold {
+                // Before wiping, persist a summary (count + date) of what is
+                // being discarded so the user can be told about it once.
+                var discardedCount = 0
+                if let data = ud.data(forKey: ContractionDefaults.records),
+                   let saved = try? decoder.decode([ContractionRecord].self, from: data) {
+                    discardedCount = saved.count
+                }
+                if discardedCount > 0 {
+                    let summary = StaleSessionSummary(
+                        count: discardedCount,
+                        lastEventAt: Date(timeIntervalSince1970: referenceTimestamp)
+                    )
+                    if let data = try? encoder.encode(summary) {
+                        ud.set(data, forKey: ContractionDefaults.staleSummary)
+                    }
+                    staleSummary = summary
+                }
                 // Wipe stale entries so they don't re-surface on subsequent launches.
                 ud.removeObject(forKey: ContractionDefaults.records)
                 ud.removeObject(forKey: ContractionDefaults.lastEnd)

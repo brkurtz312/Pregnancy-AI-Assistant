@@ -31,6 +31,7 @@ enum WatchSessionPersistence {
     static let contractionLastEndKey = "wk.contractionLastEnd"
     static let contractionLastIntervalKey = "wk.contractionLastInterval"
     static let contractionRecordsKey = "wk.contractionRecords"
+    static let contractionStaleSummaryKey = "wk.contractionStaleSummary"
 
     // MARK: Pending-acknowledgment retry queue
     static let pendingContractionUpdatesKey = "wk.pendingContractionUpdates"
@@ -49,6 +50,7 @@ enum WatchSessionPersistence {
         contractionLastEndKey,
         contractionLastIntervalKey,
         contractionRecordsKey,
+        contractionStaleSummaryKey,
         pendingContractionUpdatesKey,
     ]
 

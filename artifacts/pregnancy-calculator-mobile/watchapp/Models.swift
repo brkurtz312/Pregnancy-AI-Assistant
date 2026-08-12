@@ -19,6 +19,15 @@ struct ContractionRecord: Codable, Identifiable {
     var duration: TimeInterval { endedAt.timeIntervalSince(startedAt) }
 }
 
+/// Summary of a stale contraction session that was discarded on relaunch.
+/// Persisted just before the staleness guard wipes UserDefaults so the user
+/// can be told what disappeared ("Discarded 4 contractions from yesterday").
+struct StaleSessionSummary: Codable {
+    var count: Int
+    /// Timestamp of the most recent contraction event in the discarded session.
+    var lastEventAt: Date
+}
+
 // MARK: - Tip
 
 struct WatchTip: Codable, Identifiable {

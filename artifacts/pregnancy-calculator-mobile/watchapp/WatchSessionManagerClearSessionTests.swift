@@ -63,6 +63,7 @@ final class WatchSessionManagerClearSessionTests: XCTestCase {
         defaults.set(Date().timeIntervalSince1970, forKey: WatchSessionPersistence.contractionLastEndKey)
         defaults.set(240.0, forKey: WatchSessionPersistence.contractionLastIntervalKey)
         defaults.set(Data([0x01, 0x02]), forKey: WatchSessionPersistence.contractionRecordsKey)
+        defaults.set(Data([0x05, 0x06]), forKey: WatchSessionPersistence.contractionStaleSummaryKey)
 
         defaults.set(Data([0x03, 0x04]), forKey: WatchSessionPersistence.pendingContractionUpdatesKey)
     }
@@ -70,11 +71,11 @@ final class WatchSessionManagerClearSessionTests: XCTestCase {
     // MARK: - Key registry sanity
 
     func testKeyRegistry_coversAllThreeSubsystemsPlusRetryQueue() {
-        // 10 wk.* subsystem keys + wk.pendingContractionUpdates + watchTips +
-        // watchGestationalWeek = 13 keys total. Guard against accidental removal.
-        XCTAssertEqual(WatchSessionPersistence.allKeys.count, 13)
-        XCTAssertEqual(Set(WatchSessionPersistence.allKeys).count, 13, "No duplicate keys")
-        XCTAssertEqual(WatchSessionPersistence.allKeys.filter { $0.hasPrefix("wk.") }.count, 11)
+        // 11 wk.* subsystem keys + wk.pendingContractionUpdates + watchTips +
+        // watchGestationalWeek = 14 keys total. Guard against accidental removal.
+        XCTAssertEqual(WatchSessionPersistence.allKeys.count, 14)
+        XCTAssertEqual(Set(WatchSessionPersistence.allKeys).count, 14, "No duplicate keys")
+        XCTAssertEqual(WatchSessionPersistence.allKeys.filter { $0.hasPrefix("wk.") }.count, 12)
         XCTAssertTrue(WatchSessionPersistence.allKeys.contains("watchTips"))
         XCTAssertTrue(WatchSessionPersistence.allKeys.contains("watchGestationalWeek"))
     }
@@ -102,6 +103,21 @@ final class WatchSessionManagerClearSessionTests: XCTestCase {
             XCTAssertNil(defaults.object(forKey: key),
                          "\(key) must be removed after clearPersistedSession()")
         }
+    }
+
+    /// Regression: a persisted stale-session summary must be wiped on sign-out
+    /// by `clearPersistedSession()` itself — no `ContractionTimerView` instance
+    /// exists here, mirroring a sign-out that happens while the user never
+    /// opened the Contractions screen.
+    func testClearPersistedSession_removesStaleSummary_withoutTimerView() {
+        defaults.set(Data("summary".utf8),
+                     forKey: WatchSessionPersistence.contractionStaleSummaryKey)
+        let manager = makeManager()
+
+        manager.clearPersistedSession()
+
+        XCTAssertNil(defaults.object(forKey: WatchSessionPersistence.contractionStaleSummaryKey),
+                     "Stale-session summary must not leak to the next signed-in user")
     }
 
     // MARK: - Published properties reset
