@@ -2564,3 +2564,193 @@ describe("WatchBackgroundListener — back-to-back sessions are not merged", () 
     expect(mockInvalidateQueries).toHaveBeenCalledTimes(2);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Force-quit mid-delivery — unmount while the save is in flight
+//
+// The transferUserInfo path delivers a kick session via didReceiveUserInfo →
+// onKickSessionEnd.  If the iPhone process is killed (or the React tree torn
+// down) after the callback fires but before apiDirectSaveKickSession settles,
+// the session must not be silently dropped: the in-flight async chain must
+// still run to completion — the save commits and the persisted recent-save
+// marker is written (success path), or the record is enqueued for retry via
+// enqueueWatchKickSession (failure path).
+//
+// These tests fire onKickSessionEnd against a DEFERRED save promise, unmount
+// WatchBackgroundListener while the save is still pending, then settle the
+// promise and confirm the chain completed.  Mirrors the deferred-promise
+// pattern used in the save-failure toast suite above.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("WatchBackgroundListener — unmount while transferUserInfo save is in flight", () => {
+  let listenerRenderer: ReturnType<typeof create> | null = null;
+
+  function renderWatchListener() {
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      userId: "user-123",
+      getToken: jest.fn().mockResolvedValue("token-user-123"),
+    });
+    act(() => {
+      listenerRenderer = create(React.createElement(WatchBackgroundListener));
+    });
+    return listenerRenderer!;
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    listenerRenderer = null;
+    capturedOnKickSessionEnd = undefined;
+    capturedOnContractionUpdate = undefined;
+    capturedOnKickUpdate = undefined;
+    jest.clearAllMocks();
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      userId: "user-123",
+      getToken: jest.fn().mockResolvedValue("token-user-123"),
+    });
+    mockInvalidateQueries.mockResolvedValue(undefined);
+    mockApiDirectSaveKickSession.mockResolvedValue(undefined);
+    mockApiDirectSaveContraction.mockResolvedValue(undefined);
+    mockEnqueueWatchKickSession.mockResolvedValue(undefined);
+    mockGetQueryData.mockReturnValue(undefined);
+  });
+
+  afterEach(() => {
+    act(() => {
+      jest.runAllTimers();
+    });
+    if (listenerRenderer) {
+      act(() => {
+        listenerRenderer!.unmount();
+      });
+      listenerRenderer = null;
+    }
+    jest.useRealTimers();
+    jest.clearAllMocks();
+  });
+
+  const session = {
+    kickCount: 9,
+    startedAt: "2026-08-10T07:00:00.000Z",
+    endedAt: "2026-08-10T07:40:00.000Z",
+  };
+
+  it("completes the in-flight save (and persists the recent-save marker) even when the component unmounts before the API resolves", async () => {
+    // Hold the API save open with a deferred promise.
+    let resolveSave!: () => void;
+    mockApiDirectSaveKickSession.mockImplementation(
+      () =>
+        new Promise<void>((res) => {
+          resolveSave = res;
+        }),
+    );
+
+    renderWatchListener();
+    await act(async () => {});
+    expect(capturedOnKickSessionEnd).toBeDefined();
+
+    // Fire the Watch delivery WITHOUT awaiting it — the save is now pending.
+    let handlerPromise!: Promise<void>;
+    act(() => {
+      handlerPromise = capturedOnKickSessionEnd!(session) as Promise<void>;
+    });
+
+    // Advance microtasks until the handler is suspended at the deferred save.
+    await act(async () => {
+      for (let round = 0; round < 30; round++) {
+        await Promise.resolve();
+        if (mockApiDirectSaveKickSession.mock.calls.length >= 1) break;
+      }
+    });
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(1);
+
+    // Simulate the force-quit teardown: unmount while the save is in flight.
+    act(() => {
+      listenerRenderer!.unmount();
+    });
+    listenerRenderer = null;
+
+    // Now let the API call settle. The chain must run to completion.
+    const syncQueueMock = require("@/lib/sync-queue");
+    await act(async () => {
+      resolveSave();
+      await handlerPromise;
+      await flushMicrotasks();
+    });
+
+    // The save reached the API with the full payload + idempotency key…
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledWith(
+      {
+        startedAt: session.startedAt,
+        endedAt: session.endedAt,
+        kickCount: session.kickCount,
+        watchSessionId: session.startedAt,
+      },
+      expect.any(Function),
+    );
+    // …and the post-save chain still completed after the unmount: the durable
+    // recent-save marker was written so a Watch retry on relaunch is suppressed.
+    expect(syncQueueMock.markKickSessionSaved).toHaveBeenCalledWith(
+      "user-123",
+      session.startedAt,
+    );
+    // The session was NOT routed to the offline queue — it was saved directly.
+    expect(mockEnqueueWatchKickSession).not.toHaveBeenCalled();
+  });
+
+  it("enqueues the session for retry when the in-flight save fails after the component has unmounted", async () => {
+    // Deferred save that we will REJECT after the unmount.
+    let rejectSave!: (err: Error) => void;
+    mockApiDirectSaveKickSession.mockImplementation(
+      () =>
+        new Promise<void>((_res, rej) => {
+          rejectSave = rej;
+        }),
+    );
+
+    renderWatchListener();
+    await act(async () => {});
+    expect(capturedOnKickSessionEnd).toBeDefined();
+
+    let handlerPromise!: Promise<void>;
+    act(() => {
+      handlerPromise = capturedOnKickSessionEnd!(session) as Promise<void>;
+    });
+
+    await act(async () => {
+      for (let round = 0; round < 30; round++) {
+        await Promise.resolve();
+        if (mockApiDirectSaveKickSession.mock.calls.length >= 1) break;
+      }
+    });
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(1);
+
+    // Unmount while the save is still pending, then fail the request.
+    act(() => {
+      listenerRenderer!.unmount();
+    });
+    listenerRenderer = null;
+
+    await act(async () => {
+      rejectSave(new Error("Network error — phone killed mid-delivery"));
+      await handlerPromise;
+      await flushMicrotasks();
+    });
+
+    // The failed save must still be enqueued for retry — not silently dropped.
+    expect(mockEnqueueWatchKickSession).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueWatchKickSession).toHaveBeenCalledWith(
+      {
+        startedAt: session.startedAt,
+        endedAt: session.endedAt,
+        kickCount: session.kickCount,
+        watchSessionId: session.startedAt,
+      },
+      "user-123",
+      0, // capturedGen from the mocked getWatchQueueGeneration
+    );
+  });
+});
