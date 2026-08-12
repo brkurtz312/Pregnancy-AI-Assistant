@@ -311,6 +311,85 @@ describe("WatchTip with extra unknown key — Swift ignores unknown JSON keys by
   });
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 7. New optional Swift CodingKeys field NOT yet sent by JS
+//
+// Complementary case to section 6: instead of JS sending an extra key that
+// Swift ignores, here Swift's CodingKeys gains a NEW field (hypothetically
+// `category`) that the JS payload does NOT yet include.
+//
+// Swift decoding rule: JSONDecoder throws `keyNotFound` for any CodingKeys
+// field that is absent from the incoming JSON — UNLESS the Swift property
+// either has a default value applied via a custom init(from:) /
+// decodeIfPresent, or is declared Optional (`var category: String?`), in
+// which case it decodes as nil. Therefore ANY field added to Swift's
+// WatchTip CodingKeys MUST be optional or carry a default value until every
+// JS client sends it, or tips will stop appearing on the Watch entirely.
+//
+// These tests make that contract explicit: a payload missing the
+// hypothetical new field still carries the three existing CodingKeys fields
+// intact, so a correctly-defaulted Swift decode succeeds with full data.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("WatchTip missing a hypothetical new optional CodingKeys field — Swift must default it", () => {
+  // Simulates the current JS payload after Swift has added an optional
+  // `category` field to CodingKeys. JS does not send it yet.
+  type FutureWatchTip = WatchTip & { category?: string };
+
+  const payloadMissingNewField: FutureWatchTip = {
+    week: 24,
+    emoji: "🎃",
+    text: "No category field sent yet.",
+    // `category` intentionally omitted — Swift must supply a default (or the
+    // property must be Optional) for JSONDecoder not to throw keyNotFound.
+  };
+
+  it("the three existing CodingKeys fields still decode correctly", () => {
+    const parsed = JSON.parse(JSON.stringify(payloadMissingNewField)) as Record<
+      string,
+      unknown
+    >;
+
+    expect(parsed["week"]).toBe(24);
+    expect(parsed["emoji"]).toBe("🎃");
+    expect(parsed["text"]).toBe("No category field sent yet.");
+  });
+
+  it("the new field is genuinely absent from the serialised JSON", () => {
+    // This is the exact JSON Swift's JSONDecoder receives: `category` is not
+    // present as a key at all (not even as null). Swift requires the field
+    // to be Optional or have a decode-time default, otherwise decoding
+    // throws keyNotFound and NO tips appear on the Watch.
+    const parsed = JSON.parse(JSON.stringify(payloadMissingNewField)) as Record<
+      string,
+      unknown
+    >;
+
+    expect("category" in parsed).toBe(false);
+  });
+
+  it("the payload carries exactly the three current CodingKeys fields", () => {
+    const keys = presentKeys(payloadMissingNewField).sort();
+    expect(keys).toEqual([...SWIFT_CODING_KEYS].sort());
+  });
+
+  it("an array missing the new field round-trips with all existing fields intact", () => {
+    const tips: FutureWatchTip[] = [
+      { week: 24, emoji: "🎃", text: "First tip." },
+      { week: 24, emoji: "💪", text: "Second tip." },
+    ];
+    const parsed = JSON.parse(JSON.stringify(tips)) as FutureWatchTip[];
+
+    expect(parsed).toHaveLength(2);
+    parsed.forEach((tip, i) => {
+      expect(tip.week).toBe(tips[i]!.week);
+      expect(tip.emoji).toBe(tips[i]!.emoji);
+      expect(tip.text).toBe(tips[i]!.text);
+      expect("category" in tip).toBe(false);
+    });
+  });
+});
+
 describe("SWIFT_CODING_KEYS canary — documents the current contract", () => {
   it("SWIFT_CODING_KEYS lists exactly three keys: week, emoji, text", () => {
     expect(SWIFT_CODING_KEYS).toHaveLength(3);

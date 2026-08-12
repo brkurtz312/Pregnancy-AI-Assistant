@@ -68,6 +68,7 @@ const WATCH_TEST_SOURCES = [
   "WatchSessionManagerKickCountTests.swift",
   "WatchSessionManagerClearSessionTests.swift",
   "WatchFreshInstallSyncTests.swift",
+  "WatchTipDecodingTests.swift",
 ];
 
 // Production (non-UI) sources compiled INTO the test bundle so the tests can
