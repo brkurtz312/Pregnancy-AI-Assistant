@@ -23,6 +23,19 @@ jest.mock("react-native-reanimated", () =>
   require("react-native-reanimated/mock"),
 );
 
+// ── RN Animated ──────────────────────────────────────────────────────────────
+// The real Animated implementation with useNativeDriver:true never updates the
+// JS-side value in Jest (updates happen on the mocked native module), so an
+// opacity assertion would always read 0.  Swap in React Native's own
+// AnimatedMock, which runs animations to their end value — letting us assert
+// the settled state after the 200 ms fade-in.
+jest.mock("react-native/Libraries/Animated/AnimatedImplementation", () => {
+  const AnimatedMock = jest.requireActual(
+    "react-native/Libraries/Animated/AnimatedMock",
+  );
+  return { __esModule: true, default: AnimatedMock.default ?? AnimatedMock };
+});
+
 // ── Clerk ─────────────────────────────────────────────────────────────────────
 jest.mock("@clerk/expo", () => ({
   useAuth: jest.fn(() => ({
@@ -129,20 +142,36 @@ jest.mock("@/lib/sync-queue", () => ({
 }));
 
 // ── Watch connectivity ────────────────────────────────────────────────────────
+// Capture the callbacks so the fade-in tests can fire real Watch events.
+let capturedOnKickSessionEnd: ((s: unknown) => Promise<void>) | undefined;
+let capturedOnContractionUpdate: ((r: unknown) => Promise<void>) | undefined;
+
 jest.mock("@/hooks/useWatchConnectivity", () => ({
-  useWatchConnectivity: jest.fn(() => ({
-    pushTips: jest.fn(),
-    isSupported: false,
-    watchStatus: {
-      isReachable: false,
-      isWatchAppInstalled: false,
-      activationState: "notActivated",
+  useWatchConnectivity: jest.fn(
+    (opts: {
+      onKickSessionEnd?: (s: unknown) => Promise<void>;
+      onContractionUpdate?: (r: unknown) => Promise<void>;
+    }) => {
+      capturedOnKickSessionEnd = opts?.onKickSessionEnd;
+      capturedOnContractionUpdate = opts?.onContractionUpdate;
+      return {
+        pushTips: jest.fn(),
+        isSupported: false,
+        watchStatus: {
+          isReachable: false,
+          isWatchAppInstalled: false,
+          activationState: "notActivated",
+        },
+      };
     },
-  })),
+  ),
 }));
 
 // ── Imports (after all mocks) ─────────────────────────────────────────────────
+import { useAuth } from "@clerk/expo";
 import { WatchBackgroundListener } from "../components/WatchBackgroundListener";
+
+const mockUseAuth = useAuth as jest.Mock;
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -356,5 +385,236 @@ describe("WatchToast — bottom offset accounts for safe-area inset", () => {
 
     expect(bottomLarge).toBeGreaterThan(bottomSmall);
     expect(bottomLarge - bottomSmall).toBe(34 - 10); // delta equals inset delta
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Fade-in after a real Watch sync event
+//
+// The static tests above only assert the bottom offset at initial render
+// (opacity 0). These tests fire an actual Watch callback with a signed-in
+// user, let the 200 ms opacity animation settle, and then assert that the
+// visible toast node has opacity > 0 AND still sits strictly above the tab
+// bar — on both phone (safeBottom=34) and tablet (safeBottom=20) insets.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Find the toast container node (position: absolute + numeric bottom) and
+ * return both its bottom offset and the current opacity value.  `opacity` is
+ * an Animated.Value in the style, so unwrap it via __getValue() when present.
+ */
+function findToastBottomAndOpacity(renderer: ReturnType<typeof create>): {
+  bottom: number;
+  opacity: number;
+} {
+  const bottom = findToastBottom(renderer);
+
+  const candidates = renderer.root.findAll((node) => {
+    const style = node.props?.style;
+    if (!style) return false;
+    const styles = Array.isArray(style) ? style : [style];
+    return (
+      styles.some(
+        (s) =>
+          s &&
+          typeof s === "object" &&
+          (s as Record<string, unknown>).position === "absolute",
+      ) &&
+      styles.some(
+        (s) => s && typeof s === "object" && "bottom" in s && s.bottom != null,
+      ) &&
+      styles.some((s) => s && typeof s === "object" && "opacity" in s)
+    );
+  });
+
+  if (candidates.length === 0) {
+    throw new Error("Could not find the animated toast node with opacity");
+  }
+
+  const styles = Array.isArray(candidates[0].props.style)
+    ? candidates[0].props.style
+    : [candidates[0].props.style];
+
+  let opacityValue: number | undefined;
+  for (const s of styles) {
+    if (s && typeof s === "object" && "opacity" in s) {
+      const raw = (s as Record<string, unknown>).opacity;
+      if (typeof raw === "number") {
+        opacityValue = raw;
+      } else if (
+        raw &&
+        typeof (raw as { __getValue?: () => number }).__getValue === "function"
+      ) {
+        opacityValue = (raw as { __getValue: () => number }).__getValue();
+      }
+    }
+  }
+
+  if (opacityValue == null) {
+    throw new Error("Could not read the opacity value from the toast node");
+  }
+  return { bottom, opacity: opacityValue };
+}
+
+describe("WatchToast — fade-in after a Watch sync keeps the toast above the tab bar", () => {
+  let renderer: ReturnType<typeof create> | null = null;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    capturedOnKickSessionEnd = undefined;
+    capturedOnContractionUpdate = undefined;
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      userId: "user-123",
+      getToken: jest.fn().mockResolvedValue("token-user-123"),
+    });
+  });
+
+  afterEach(() => {
+    act(() => {
+      jest.runAllTimers();
+    });
+    if (renderer) {
+      act(() => {
+        renderer!.unmount();
+      });
+      renderer = null;
+    }
+    jest.clearAllMocks();
+  });
+
+  afterAll(() => {
+    jest.useRealTimers();
+  });
+
+  async function fireAndSettle(
+    fire: () => Promise<void>,
+  ): Promise<{ bottom: number; opacity: number }> {
+    await act(async () => {}); // flush mount effects
+
+    expect(capturedOnKickSessionEnd).toBeDefined();
+    expect(capturedOnContractionUpdate).toBeDefined();
+
+    await act(async () => {
+      await fire();
+    });
+
+    // Let the 200 ms fade-in animation run to completion.
+    act(() => {
+      jest.advanceTimersByTime(250);
+    });
+
+    return findToastBottomAndOpacity(renderer!);
+  }
+
+  it("shows the toast above the tab bar after onKickSessionEnd on phone insets (safeBottom=34)", async () => {
+    mockUseSafeAreaInsets.mockReturnValue({
+      top: 59,
+      bottom: 34,
+      left: 0,
+      right: 0,
+    });
+
+    act(() => {
+      renderer = create(React.createElement(WatchBackgroundListener));
+    });
+
+    const { bottom, opacity } = await fireAndSettle(() =>
+      capturedOnKickSessionEnd!({
+        kickCount: 6,
+        startedAt: "2026-08-12T10:00:00.000Z",
+        endedAt: "2026-08-12T10:20:00.000Z",
+      }),
+    );
+
+    expect(opacity).toBeGreaterThan(0);
+    expect(bottom).toBeGreaterThan(TAB_BAR_HEIGHT);
+    expect(bottom).toBe(TAB_BAR_HEIGHT + 34 + TOAST_MARGIN);
+    // The success message is rendered in the tree
+    expect(JSON.stringify(renderer!.toJSON())).toContain("Kick session saved");
+  });
+
+  it("shows the toast above the tab bar after onKickSessionEnd on tablet insets (safeBottom=20)", async () => {
+    mockUseSafeAreaInsets.mockReturnValue({
+      top: 24,
+      bottom: 20,
+      left: 0,
+      right: 0,
+    });
+
+    act(() => {
+      renderer = create(React.createElement(WatchBackgroundListener));
+    });
+
+    const { bottom, opacity } = await fireAndSettle(() =>
+      capturedOnKickSessionEnd!({
+        kickCount: 3,
+        startedAt: "2026-08-12T11:00:00.000Z",
+        endedAt: "2026-08-12T11:15:00.000Z",
+      }),
+    );
+
+    expect(opacity).toBeGreaterThan(0);
+    expect(bottom).toBeGreaterThan(TAB_BAR_HEIGHT);
+    expect(bottom).toBe(TAB_BAR_HEIGHT + 20 + TOAST_MARGIN);
+    expect(JSON.stringify(renderer!.toJSON())).toContain("Kick session saved");
+  });
+
+  it("shows the toast above the tab bar after onContractionUpdate on phone insets (safeBottom=34)", async () => {
+    mockUseSafeAreaInsets.mockReturnValue({
+      top: 59,
+      bottom: 34,
+      left: 0,
+      right: 0,
+    });
+
+    act(() => {
+      renderer = create(React.createElement(WatchBackgroundListener));
+    });
+
+    const { bottom, opacity } = await fireAndSettle(() =>
+      capturedOnContractionUpdate!({
+        startedAt: "2026-08-12T14:00:00.000Z",
+        endedAt: "2026-08-12T14:01:10.000Z",
+        interval: 300,
+      }),
+    );
+
+    expect(opacity).toBeGreaterThan(0);
+    expect(bottom).toBeGreaterThan(TAB_BAR_HEIGHT);
+    expect(bottom).toBe(TAB_BAR_HEIGHT + 34 + TOAST_MARGIN);
+    expect(JSON.stringify(renderer!.toJSON())).toContain(
+      "Contraction recorded",
+    );
+  });
+
+  it("shows the toast above the tab bar after onContractionUpdate on tablet insets (safeBottom=20)", async () => {
+    mockUseSafeAreaInsets.mockReturnValue({
+      top: 24,
+      bottom: 20,
+      left: 0,
+      right: 0,
+    });
+
+    act(() => {
+      renderer = create(React.createElement(WatchBackgroundListener));
+    });
+
+    const { bottom, opacity } = await fireAndSettle(() =>
+      capturedOnContractionUpdate!({
+        startedAt: "2026-08-12T15:00:00.000Z",
+        endedAt: "2026-08-12T15:01:00.000Z",
+        interval: 240,
+      }),
+    );
+
+    expect(opacity).toBeGreaterThan(0);
+    expect(bottom).toBeGreaterThan(TAB_BAR_HEIGHT);
+    expect(bottom).toBe(TAB_BAR_HEIGHT + 20 + TOAST_MARGIN);
+    expect(JSON.stringify(renderer!.toJSON())).toContain(
+      "Contraction recorded",
+    );
   });
 });
