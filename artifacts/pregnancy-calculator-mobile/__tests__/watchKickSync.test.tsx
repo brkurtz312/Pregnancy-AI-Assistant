@@ -2567,6 +2567,164 @@ describe("WatchBackgroundListener — back-to-back sessions are not merged", () 
 
 // ─────────────────────────────────────────────────────────────────────────────
 //
+// Sign-out mid-flight — user signs out while the API save is in progress
+//
+// A Watch kick session arrives while the user is signed in.  The component
+// fetches the auth token, confirms the generation matches, then begins the
+// async API call.  While that call is still pending, the user signs out —
+// bumping the watch-queue generation counter.  Once the API call resolves,
+// the post-save generation check sees the mismatch and bails out without
+// touching the query cache.
+//
+// Two invariants must hold:
+//   1. The API save itself completed (the data is NOT silently dropped — it
+//      was sent to the server with the frozen token for the correct user).
+//   2. invalidateQueries is NOT called — we must not update a cache that may
+//      now belong to a different signed-in user.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("WatchBackgroundListener — sign-out mid-flight while API save is in progress", () => {
+  let listenerRenderer: ReturnType<typeof create> | null = null;
+
+  function renderWatchListener() {
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      userId: "user-123",
+      getToken: jest.fn().mockResolvedValue("token-user-123"),
+    });
+    act(() => {
+      listenerRenderer = create(React.createElement(WatchBackgroundListener));
+    });
+    return listenerRenderer!;
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    listenerRenderer = null;
+    capturedOnKickSessionEnd = undefined;
+    capturedOnContractionUpdate = undefined;
+    capturedOnKickUpdate = undefined;
+    jest.clearAllMocks();
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      userId: "user-123",
+      getToken: jest.fn().mockResolvedValue("token-user-123"),
+    });
+    mockInvalidateQueries.mockResolvedValue(undefined);
+    mockApiDirectSaveKickSession.mockResolvedValue(undefined);
+    mockApiDirectSaveContraction.mockResolvedValue(undefined);
+    mockEnqueueWatchKickSession.mockResolvedValue(undefined);
+    mockGetQueryData.mockReturnValue(undefined);
+  });
+
+  afterEach(() => {
+    act(() => {
+      jest.runAllTimers();
+    });
+    if (listenerRenderer) {
+      act(() => {
+        listenerRenderer!.unmount();
+      });
+      listenerRenderer = null;
+    }
+    jest.useRealTimers();
+    jest.clearAllMocks();
+  });
+
+  it("completes the API save with the frozen token but skips cache invalidation when sign-out bumps the generation mid-flight", async () => {
+    const syncQueueMock = require("@/lib/sync-queue");
+
+    // Arrange: generation is 0 at event-receive time; the post-save check will
+    // see 1 (sign-out bumped it while the API call was pending).
+    //
+    // Call order inside handleKickSessionEnd:
+    //   1. getWatchQueueGeneration → capturedGen (0)
+    //   2. getWatchQueueGeneration → check after isKickSessionRecentlySaved (0 → pass)
+    //   3. getWatchQueueGeneration → check after getToken (0 → pass; save starts)
+    //   4. getWatchQueueGeneration → check after apiDirectSaveKickSession (1 → bail)
+    syncQueueMock.getWatchQueueGeneration
+      .mockReturnValueOnce(0) // capturedGen
+      .mockReturnValueOnce(0) // after persisted-store read → pass
+      .mockReturnValueOnce(0) // after getToken → save proceeds
+      .mockReturnValueOnce(1); // after API save → sign-out detected
+
+    // Hold the API save open with a deferred promise so we can interpose
+    // the sign-out (generation bump) before the response arrives.
+    let resolveSave!: () => void;
+    mockApiDirectSaveKickSession.mockImplementation(
+      () =>
+        new Promise<void>((res) => {
+          resolveSave = res;
+        }),
+    );
+
+    renderWatchListener();
+    await act(async () => {});
+    expect(capturedOnKickSessionEnd).toBeDefined();
+
+    const session = {
+      kickCount: 5,
+      startedAt: "2026-08-12T09:00:00.000Z",
+      endedAt: "2026-08-12T09:25:00.000Z",
+    };
+
+    // Fire the callback without awaiting — the handler suspends at the
+    // deferred apiDirectSaveKickSession call.
+    let handlerPromise!: Promise<void>;
+    act(() => {
+      handlerPromise = capturedOnKickSessionEnd!(session) as Promise<void>;
+    });
+
+    // Advance microtasks until the handler has reached the deferred API call.
+    await act(async () => {
+      for (let round = 0; round < 30; round++) {
+        await Promise.resolve();
+        if (mockApiDirectSaveKickSession.mock.calls.length >= 1) break;
+      }
+    });
+
+    // Confirm the API call is in-flight (not yet resolved).
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(1);
+    // The save was issued with the correct payload and the frozen token getter.
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledWith(
+      {
+        startedAt: session.startedAt,
+        endedAt: session.endedAt,
+        kickCount: session.kickCount,
+        watchSessionId: session.startedAt,
+      },
+      expect.any(Function), // frozen token getter
+    );
+    // invalidateQueries must not have fired yet (API still pending).
+    expect(mockInvalidateQueries).not.toHaveBeenCalled();
+
+    // --- sign-out happens here (generation was already pre-configured to
+    //     return 1 on the next call via mockReturnValueOnce above) ---
+
+    // Now let the API call resolve and the handler run to completion.
+    await act(async () => {
+      resolveSave();
+      await handlerPromise;
+      await flushMicrotasks();
+    });
+
+    // Invariant 1: the save itself completed — data was NOT silently dropped.
+    // (already confirmed above that the API was called exactly once)
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(1);
+
+    // Invariant 2: the generation mismatch must have suppressed all
+    // post-save side-effects on the (now stale) session.
+    expect(mockInvalidateQueries).not.toHaveBeenCalled();
+
+    // The data must not have been re-routed to the offline queue either —
+    // the save succeeded; only the cache update was suppressed.
+    expect(mockEnqueueWatchKickSession).not.toHaveBeenCalled();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//
 // Force-quit mid-delivery — unmount while the save is in flight
 //
 // The transferUserInfo path delivers a kick session via didReceiveUserInfo →
