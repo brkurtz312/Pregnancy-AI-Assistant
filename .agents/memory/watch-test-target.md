@@ -7,3 +7,7 @@ The Watch XCTest suites run in a real watchOS unit-test bundle (`PregnancyWatchA
 **Why:** completion review rejects mirror-only Swift "tests"; tests must compile production sources (WatchSessionManager, WatchSessionPersistence, Models) and invoke the real implementations via injectable UserDefaults/NotificationCenter (`activateSession: false`).
 
 **How to apply:** after adding/renaming watch test suites, run `node scripts/sync-watch-test-target.js` (mobile artifact) to refresh the committed ios/ project; keep top-level test-file symbols unique across the bundle (one module → class/func name collisions break the build); every persisted watch key must be registered in `WatchSessionPersistence.allKeys` to be cleared on sign-out.
+
+## Existing-target idempotency traps
+- `ensureWatchTestTarget` returns early when the test target exists; any per-source registration only in the creation path silently skips suites added later — the file is copied to disk but never compiled, so its assertions never run. Ensure-source helpers must run unconditionally (same class of bug as `ensureWatchTargetDependency`).
+- Phone-side code (PhoneWatchBridge) can't compile into the watchOS test bundle: iOS-only WCSessionDelegate requirements + WCSession.default at init. To unit-test phone dispatch logic, extract it into a Foundation-only type (PhoneWatchMessageDispatcher) compiled into both the phone target and the test bundle; the bridge keeps only the WCSession wiring/main-queue hop and forwards its callback properties.

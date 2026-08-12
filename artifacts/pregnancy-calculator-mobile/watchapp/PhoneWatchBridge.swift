@@ -51,6 +51,13 @@ enum WatchMessage {
         encoder.dateEncodingStrategy = .iso8601
         decoder.dateDecodingStrategy = .iso8601
 
+        // Wire the shared dispatcher's persistence hook to the native receipt
+        // store so records dispatched via handleMessage are durably written
+        // before the JS callback fires.
+        dispatcher.persistContractionReceipt = { [weak self] id, data in
+            self?.persistContractionReceipt(id: id, data: data) ?? false
+        }
+
         if WCSession.isSupported() {
             WCSession.default.delegate = self
             WCSession.default.activate()
@@ -312,15 +319,34 @@ enum WatchMessage {
     }
 
     // MARK: - Callbacks registered by React Native
+    //
+    // The record-dispatch callbacks live on the shared PhoneWatchMessageDispatcher
+    // (the extracted, unit-tested dispatch logic — see PhoneWatchMessageDispatcher.swift);
+    // these forwarding properties keep WatchConnectivityModule's registration
+    // surface unchanged.
 
-    var onKickSessionEnd: (([String: Any]) -> Void)?
-    var onContractionUpdate: (([String: Any]) -> Void)?
-    var onKickUpdate: ((Int) -> Void)?
+    let dispatcher = PhoneWatchMessageDispatcher()
+
+    var onKickSessionEnd: (([String: Any]) -> Void)? {
+        get { dispatcher.onKickSessionEnd }
+        set { dispatcher.onKickSessionEnd = newValue }
+    }
+    var onContractionUpdate: (([String: Any]) -> Void)? {
+        get { dispatcher.onContractionUpdate }
+        set { dispatcher.onContractionUpdate = newValue }
+    }
+    var onKickUpdate: ((Int) -> Void)? {
+        get { dispatcher.onKickUpdate }
+        set { dispatcher.onKickUpdate = newValue }
+    }
     /// Called whenever Watch connectivity state changes (reachability, activation, install)
     var onSessionStateChange: (([String: Any]) -> Void)?
     /// Called when the Watch requests a tip sync (no cached tips on Watch side).
     /// The receiver should respond by calling sendWeekAndTips with current data.
-    var onSyncRequest: (() -> Void)?
+    var onSyncRequest: (() -> Void)? {
+        get { dispatcher.onSyncRequest }
+        set { dispatcher.onSyncRequest = newValue }
+    }
 
     // MARK: - Private helpers
 
@@ -435,38 +461,12 @@ extension PhoneWatchBridge: WCSessionDelegate {
         handleMessage(userInfo)
     }
 
+    /// Hops to the main queue and hands the payload to the shared dispatcher —
+    /// the extracted, unit-tested dispatch logic that fires each registered JS
+    /// callback once per delivered record (see PhoneWatchMessageDispatcher.swift).
     private func handleMessage(_ payload: [String: Any]) {
         DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-
-            // Watch is asking for a sync (delivered via transferUserInfo when the
-            // Watch was not reachable at activation time).  Notify JS so it can
-            // call sendWeekAndTips with the current state.
-            if payload[WatchMessage.requestSync] != nil {
-                self.onSyncRequest?()
-                return
-            }
-
-            if let count = payload["kickUpdate"] as? Int {
-                self.onKickUpdate?(count)
-            }
-
-            if let data = payload["kickSessionEnd"] as? Data,
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                self.onKickSessionEnd?(json)
-            }
-
-            if let data = payload["contractionUpdate"] as? Data,
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                // Persist to native store (no replyHandler on this path — delivered via
-                // transferUserInfo or applicationContext). The Watch's retry queue will
-                // later resend via sendMessage to get an explicit ack; persisting here
-                // ensures idempotent de-duplication when that retry arrives.
-                if let idString = json["id"] as? String {
-                    self.persistContractionReceipt(id: idString, data: data)
-                }
-                self.onContractionUpdate?(json)
-            }
+            self?.dispatcher.dispatch(payload)
         }
     }
 }

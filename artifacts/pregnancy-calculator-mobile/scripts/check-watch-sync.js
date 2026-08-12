@@ -26,6 +26,7 @@ const TEST_DIR = "PregnancyWatchAppTests";
 // Files compiled into the *phone* app target rather than the Watch target.
 const PHONE_SIDE_FILES = new Set([
   "PhoneWatchBridge.swift",
+  "PhoneWatchMessageDispatcher.swift",
   "WatchConnectivityModule.swift",
 ]);
 

@@ -28,8 +28,11 @@ const xcode = require(require.resolve("xcode", { paths: [configPluginsDir] }));
 const {
   ensureWatchTestTarget,
   ensureWatchSourcesInWatchTarget,
+  addPhoneBridgeToMainTarget,
   WATCH_TEST_TARGET_NAME,
   WATCH_TEST_SOURCES,
+  PHONE_BRIDGE_SOURCES,
+  PHONE_APP_DIR,
   WATCH_TARGET_NAME,
 } = require(
   path.join(projectRoot, "plugins", "withWatchExtension.js"),
@@ -89,6 +92,19 @@ if (watchUuid) {
 } else {
   console.warn("Watch app target not found — skipped source registration");
 }
+
+// Ensure phone-side bridge sources (incl. PhoneWatchMessageDispatcher.swift)
+// are copied and compiled into the main iOS app target so the committed
+// project builds without waiting for an Expo prebuild.
+const phoneDir = path.join(iosRoot, PHONE_APP_DIR);
+for (const file of PHONE_BRIDGE_SOURCES) {
+  const src = path.join(sourceDir, file);
+  if (fs.existsSync(src)) {
+    fs.copyFileSync(src, path.join(phoneDir, file));
+    console.log(`copied ${file} → ios/${PHONE_APP_DIR}`);
+  }
+}
+addPhoneBridgeToMainTarget(project, PHONE_APP_DIR);
 
 const testTargetUuid = ensureWatchTestTarget(project);
 fs.writeFileSync(pbxPath, project.writeSync(), "utf8");

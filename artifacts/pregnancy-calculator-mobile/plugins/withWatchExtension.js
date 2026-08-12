@@ -58,6 +58,7 @@ const WATCH_TEST_TARGET_NAME = "PregnancyWatchAppTests";
 // XCTest suites copied from watchapp/ into the test target.
 const WATCH_TEST_SOURCES = [
   "ContractionTimerTests.swift",
+  "PhoneWatchBridgeCallbackTests.swift",
   "KickCounterTimerTests.swift",
   "TipsViewEmptyStateTests.swift",
   "WatchContractionRetryQueueTests.swift",
@@ -101,8 +102,21 @@ const WATCH_ICON_FILES = [
 
 const PHONE_BRIDGE_SOURCES = [
   "PhoneWatchBridge.swift",
+  "PhoneWatchMessageDispatcher.swift",
   "WatchConnectivityModule.swift",
 ];
+
+// Phone-side production sources ALSO compiled into the PregnancyWatchAppTests
+// bundle so the tests exercise the real dispatch logic (they live in the
+// iPhone app directory, unlike WATCH_TEST_PRODUCTION_SOURCES).
+// PhoneWatchBridge.swift itself cannot join them — it implements iOS-only
+// WCSessionDelegate requirements that don't compile against the watchOS SDK.
+const PHONE_TEST_PRODUCTION_SOURCES = [
+  "PhoneWatchMessageDispatcher.swift",
+];
+// Directory (Xcode group path) of the iPhone app sources referenced by
+// PHONE_TEST_PRODUCTION_SOURCES. Matches config.modRequest.projectName.
+const PHONE_APP_DIR = "PregnancyAIAssistant";
 
 // ─── Step 1: copy source files ────────────────────────────────────────────────
 
@@ -1296,8 +1310,9 @@ function ensureWatchTestTarget(project) {
       (t.name === WATCH_TEST_TARGET_NAME || t.name === `"${WATCH_TEST_TARGET_NAME}"`);
   });
   if (existing) {
-    console.log(`[Watch/Tests] ${WATCH_TEST_TARGET_NAME} already present — ensuring frameworks`);
+    console.log(`[Watch/Tests] ${WATCH_TEST_TARGET_NAME} already present — ensuring frameworks and sources`);
     ensureWatchTestTargetFrameworks(project, existing);
+    ensureWatchTestTargetSources(project, existing);
     return existing;
   }
 
@@ -1368,6 +1383,9 @@ function ensureWatchTestTarget(project) {
   }
   for (const f of WATCH_TEST_PRODUCTION_SOURCES) {
     addSource(f, `${WATCH_TARGET_NAME}/${f}`);
+  }
+  for (const f of PHONE_TEST_PRODUCTION_SOURCES) {
+    addSource(f, `${PHONE_APP_DIR}/${f}`);
   }
 
   objects["PBXSourcesBuildPhase"][sourcesPhaseUuid] = {
@@ -1476,6 +1494,94 @@ function ensureWatchTestTarget(project) {
   ensureWatchTestTargetFrameworks(project, targetUuid);
 
   return targetUuid;
+}
+
+/**
+ * Ensures every WATCH_TEST_SOURCES / WATCH_TEST_PRODUCTION_SOURCES file is
+ * compiled into the (already existing) test target's Sources phase.
+ * Idempotent — skips files already present. Without this, a test suite added
+ * after the target was first created would be copied to disk but never
+ * compiled, silently skipping its assertions.
+ */
+function ensureWatchTestTargetSources(project, targetUuid) {
+  const objects = project.hash.project.objects;
+  const nts = project.pbxNativeTargetSection();
+  const target = nts[targetUuid];
+  if (!target) return;
+
+  for (const section of ["PBXSourcesBuildPhase", "PBXFileReference", "PBXBuildFile"]) {
+    if (!objects[section]) objects[section] = {};
+  }
+  const sourcesSection = objects["PBXSourcesBuildPhase"];
+  const frs = project.pbxFileReferenceSection();
+
+  // Locate the target's Sources phase.
+  target.buildPhases = target.buildPhases || [];
+  let sourcesPhaseUuid = null;
+  for (const phase of target.buildPhases) {
+    const uuid = typeof phase === "object" ? phase.value : phase;
+    if (sourcesSection[uuid]) { sourcesPhaseUuid = uuid; break; }
+  }
+  if (!sourcesPhaseUuid) {
+    sourcesPhaseUuid = project.generateUuid();
+    sourcesSection[sourcesPhaseUuid] = {
+      isa: "PBXSourcesBuildPhase",
+      buildActionMask: 2147483647,
+      files: [],
+      runOnlyForDeploymentPostprocessing: 0,
+    };
+    sourcesSection[`${sourcesPhaseUuid}_comment`] = "Sources";
+    target.buildPhases.push({ value: sourcesPhaseUuid, comment: "Sources" });
+    console.log("[Watch/Tests] Created Sources build phase for test target");
+  }
+  const sourcesPhase = sourcesSection[sourcesPhaseUuid];
+  if (!sourcesPhase.files) sourcesPhase.files = [];
+
+  // Set of file-reference UUIDs already compiled by this phase.
+  const compiledFileRefs = new Set();
+  for (const entry of sourcesPhase.files) {
+    const buildFileUuid = typeof entry === "object" ? entry.value : entry;
+    const bf = objects["PBXBuildFile"][buildFileUuid];
+    if (bf && bf.fileRef) compiledFileRefs.add(bf.fileRef);
+  }
+
+  const ensureSource = (fileName, filePath) => {
+    // Find (or create) the file reference for this path.
+    let fileRefUuid = null;
+    for (const [k, v] of Object.entries(frs)) {
+      if (k.endsWith("_comment") || !v || typeof v !== "object") continue;
+      const p = v.path || v.name || "";
+      if (p === `"${filePath}"` || p === filePath) { fileRefUuid = k; break; }
+    }
+    if (fileRefUuid && compiledFileRefs.has(fileRefUuid)) return; // already compiled
+    if (!fileRefUuid) {
+      fileRefUuid = project.generateUuid();
+      objects["PBXFileReference"][fileRefUuid] = {
+        isa: "PBXFileReference",
+        lastKnownFileType: "sourcecode.swift",
+        name: `"${fileName}"`,
+        path: `"${filePath}"`,
+        sourceTree: '"<group>"',
+      };
+      objects["PBXFileReference"][`${fileRefUuid}_comment`] = fileName;
+    }
+    const buildFileUuid = project.generateUuid();
+    objects["PBXBuildFile"][buildFileUuid] = { isa: "PBXBuildFile", fileRef: fileRefUuid };
+    objects["PBXBuildFile"][`${buildFileUuid}_comment`] = `${fileName} in Sources`;
+    sourcesPhase.files.push({ value: buildFileUuid, comment: `${fileName} in Sources` });
+    compiledFileRefs.add(fileRefUuid);
+    console.log(`[Watch/Tests] Added ${fileName} to test target Sources`);
+  };
+
+  for (const f of WATCH_TEST_SOURCES) {
+    ensureSource(f, `${WATCH_TEST_TARGET_NAME}/${f}`);
+  }
+  for (const f of WATCH_TEST_PRODUCTION_SOURCES) {
+    ensureSource(f, `${WATCH_TARGET_NAME}/${f}`);
+  }
+  for (const f of PHONE_TEST_PRODUCTION_SOURCES) {
+    ensureSource(f, `${PHONE_APP_DIR}/${f}`);
+  }
 }
 
 /**
@@ -1742,8 +1848,11 @@ module.exports = (config) => {
 module.exports._internals = {
   ensureWatchTestTarget,
   ensureWatchSourcesInWatchTarget,
+  addPhoneBridgeToMainTarget,
   WATCH_TEST_TARGET_NAME,
   WATCH_TEST_SOURCES,
   WATCH_TEST_PRODUCTION_SOURCES,
+  PHONE_BRIDGE_SOURCES,
+  PHONE_APP_DIR,
   WATCH_TARGET_NAME,
 };
