@@ -41,6 +41,10 @@ import { formatPhone } from "@/lib/phone";
 import { useSettings } from "@/contexts/SettingsContext";
 import type { ThemeMode } from "@/contexts/SettingsContext";
 import { formatDate, getGestationalAgeAtDate } from "@/lib/pregnancy-math";
+import {
+  MILESTONE_SCHEDULE,
+  getMilestoneDate,
+} from "@/lib/milestone-notifications";
 
 function CallButton({ phone }: { phone: string }) {
   const colors = useColors();
@@ -1633,6 +1637,127 @@ export default function ProfileScreen() {
                 thumbColor="#fff"
               />
             </View>
+
+            <Text
+              style={[
+                styles.fieldLabel,
+                { color: colors.mutedForeground, marginTop: 4 },
+              ]}
+            >
+              MILESTONE REMINDERS
+            </Text>
+
+            <View style={styles.settingRow}>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[styles.settingLabel, { color: colors.foreground }]}
+                >
+                  Milestone Reminders
+                </Text>
+                <Text
+                  style={[
+                    styles.settingHint,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  Notifications for key pregnancy milestones
+                </Text>
+              </View>
+              <Switch
+                value={settings.milestoneRemindersEnabled}
+                onValueChange={settings.setMilestoneRemindersEnabled}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor="#fff"
+              />
+            </View>
+
+            {(() => {
+              const dueDateObj = profile?.dueDate
+                ? new Date(profile.dueDate)
+                : null;
+
+              if (!dueDateObj) {
+                return (
+                  <Text
+                    style={[
+                      styles.settingHint,
+                      { color: colors.mutedForeground, marginBottom: 8 },
+                    ]}
+                  >
+                    Set your due date in the calculator to see upcoming
+                    milestone reminders.
+                  </Text>
+                );
+              }
+
+              const now = Date.now();
+              const upcoming = MILESTONE_SCHEDULE.filter(
+                (m) => getMilestoneDate(dueDateObj, m.week).getTime() > now,
+              );
+
+              if (upcoming.length === 0) {
+                return (
+                  <Text
+                    style={[
+                      styles.settingHint,
+                      { color: colors.mutedForeground, marginBottom: 8 },
+                    ]}
+                  >
+                    No upcoming milestone reminders — all milestones have
+                    passed.
+                  </Text>
+                );
+              }
+
+              return (
+                <View
+                  style={{
+                    opacity: settings.milestoneRemindersEnabled ? 1 : 0.4,
+                  }}
+                >
+                  {upcoming.map((m) => {
+                    const enabled = !settings.disabledMilestoneWeeks.includes(
+                      m.week,
+                    );
+                    return (
+                      <View key={m.week} style={styles.settingRow}>
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={[
+                              styles.settingLabel,
+                              { color: colors.foreground },
+                            ]}
+                          >
+                            Week {m.week} — {m.title}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.settingHint,
+                              { color: colors.mutedForeground },
+                            ]}
+                            numberOfLines={2}
+                          >
+                            {m.body}
+                          </Text>
+                        </View>
+                        <Switch
+                          value={enabled}
+                          onValueChange={(v) =>
+                            settings.setMilestoneWeekEnabled(m.week, v)
+                          }
+                          disabled={!settings.milestoneRemindersEnabled}
+                          trackColor={{
+                            false: colors.border,
+                            true: colors.primary,
+                          }}
+                          thumbColor="#fff"
+                        />
+                      </View>
+                    );
+                  })}
+                </View>
+              );
+            })()}
           </View>
         </ResponsiveContainer>
       </ScrollView>

@@ -15,6 +15,7 @@ import { Platform } from "react-native";
 import { PREGNANCY_DURATION_DAYS } from "./pregnancy-math";
 
 const STORAGE_KEY = "@milestone_notif_v1";
+const PREFS_KEY = "@milestone_prefs_v1";
 
 // ---------------------------------------------------------------------------
 // Safe-require
@@ -136,6 +137,92 @@ async function clearState(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Serialization of mutations
+//
+// All operations that read-modify-write the scheduled notifications or the
+// persisted state/preferences run through a single promise queue so they can
+// never interleave (e.g. an in-flight resync scheduling notifications after a
+// sign-out cancellation started).  A generation counter — bumped synchronously
+// when sign-out cancellation is REQUESTED — additionally invalidates any
+// already-queued schedule/resync work from the previous session so it becomes
+// a no-op instead of scheduling and then being cancelled.
+// ---------------------------------------------------------------------------
+
+let opChain: Promise<unknown> = Promise.resolve();
+let generation = 0;
+
+function enqueue<T>(fn: () => Promise<T>): Promise<T> {
+  const run = opChain.then(fn, fn);
+  // Keep the chain alive regardless of individual op failures.
+  opChain = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+// ---------------------------------------------------------------------------
+// Preferences
+// ---------------------------------------------------------------------------
+
+export interface MilestonePreferences {
+  /** Master switch — when false, no milestone notifications are scheduled. */
+  masterEnabled: boolean;
+  /** Gestational weeks the user has individually disabled. */
+  disabledWeeks: number[];
+}
+
+export const DEFAULT_MILESTONE_PREFERENCES: MilestonePreferences = {
+  masterEnabled: true,
+  disabledWeeks: [],
+};
+
+/** Read persisted milestone notification preferences (defaults if unset). */
+export async function readMilestonePreferences(): Promise<MilestonePreferences> {
+  try {
+    const raw = await AsyncStorage.getItem(PREFS_KEY);
+    if (!raw) return { ...DEFAULT_MILESTONE_PREFERENCES };
+    const parsed = JSON.parse(raw) as Partial<MilestonePreferences>;
+    return {
+      masterEnabled:
+        typeof parsed.masterEnabled === "boolean" ? parsed.masterEnabled : true,
+      disabledWeeks: Array.isArray(parsed.disabledWeeks)
+        ? parsed.disabledWeeks.filter((w): w is number => typeof w === "number")
+        : [],
+    };
+  } catch {
+    return { ...DEFAULT_MILESTONE_PREFERENCES };
+  }
+}
+
+/** Persist milestone notification preferences. */
+export async function writeMilestonePreferences(
+  prefs: MilestonePreferences,
+): Promise<void> {
+  try {
+    await AsyncStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+  } catch {
+    // best-effort
+  }
+}
+
+async function clearMilestonePreferences(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(PREFS_KEY);
+  } catch {
+    // best-effort
+  }
+}
+
+/** True when the given milestone week should be scheduled under `prefs`. */
+export function isMilestoneEnabled(
+  prefs: MilestonePreferences,
+  week: number,
+): boolean {
+  return prefs.masterEnabled && !prefs.disabledWeeks.includes(week);
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -143,20 +230,29 @@ async function clearState(): Promise<void> {
  * Cancel all previously scheduled milestone notifications and clear persisted
  * state.  Call on sign-out or before rescheduling after a due-date change.
  */
-export async function cancelAllMilestoneNotifications(): Promise<void> {
-  if (Platform.OS === "web") return;
-  const state = await readState();
-  if (!state) return;
-  if (Notifications) {
-    for (const notifId of Object.values(state.notifIds)) {
-      try {
-        await Notifications.cancelScheduledNotificationAsync(notifId);
-      } catch {
-        // best-effort — keep iterating even if one cancellation fails
+export function cancelAllMilestoneNotifications(): Promise<void> {
+  // Invalidate any queued/in-flight schedule/resync work from the previous
+  // session synchronously, before this cancellation is even queued.
+  generation += 1;
+  return enqueue(async () => {
+    // Preferences are user-scoped: always clear them on sign-out — on EVERY
+    // platform, including web — so they never leak to the next account on a
+    // shared device.
+    await clearMilestonePreferences();
+    if (Platform.OS === "web") return;
+    const state = await readState();
+    if (!state) return;
+    if (Notifications) {
+      for (const notifId of Object.values(state.notifIds)) {
+        try {
+          await Notifications.cancelScheduledNotificationAsync(notifId);
+        } catch {
+          // best-effort — keep iterating even if one cancellation fails
+        }
       }
     }
-  }
-  await clearState();
+    await clearState();
+  });
 }
 
 /**
@@ -252,38 +348,63 @@ export async function getInitialMilestoneNotificationUrl(): Promise<
  *
  * Safe no-op on web or when expo-notifications is unavailable.
  */
-export async function scheduleMilestoneNotifications(
-  dueDate: Date,
-): Promise<void> {
-  if (!Notifications || Platform.OS === "web") return;
+export function scheduleMilestoneNotifications(dueDate: Date): Promise<void> {
+  const gen = generation;
+  return enqueue(async () => {
+    // A sign-out happened after this scheduling was requested — the request
+    // belongs to the previous session, so drop it.
+    if (gen !== generation) return;
+    if (!Notifications || Platform.OS === "web") return;
 
-  const dueDateISO = dueDate.toISOString().slice(0, 10);
-  const existing = await readState();
+    const dueDateISO = dueDate.toISOString().slice(0, 10);
+    const existing = await readState();
 
-  // If due date hasn't changed, nothing to do.
-  if (existing?.dueDate === dueDateISO) return;
+    // If due date hasn't changed, nothing to do.
+    if (existing?.dueDate === dueDateISO) return;
 
-  // Due date changed (or first run) — cancel old notifications first.
-  if (existing) {
-    for (const notifId of Object.values(existing.notifIds)) {
-      try {
-        await Notifications.cancelScheduledNotificationAsync(notifId);
-      } catch {
-        // best-effort
+    // Due date changed (or first run) — cancel old notifications first.
+    if (existing) {
+      for (const notifId of Object.values(existing.notifIds)) {
+        try {
+          await Notifications.cancelScheduledNotificationAsync(notifId);
+        } catch {
+          // best-effort
+        }
       }
     }
-  }
 
+    const prefs = await readMilestonePreferences();
+    const notifIds = await scheduleForDueDate(dueDate, prefs);
+    await writeState({ dueDate: dueDateISO, notifIds });
+  });
+}
+
+/**
+ * Return the local trigger date (9 AM, first day of the milestone week) for a
+ * milestone given the user's due date.
+ */
+export function getMilestoneDate(dueDate: Date, week: number): Date {
+  const daysFromToday = PREGNANCY_DURATION_DAYS - week * 7;
+  const milestoneDate = new Date(dueDate);
+  milestoneDate.setDate(milestoneDate.getDate() - daysFromToday);
+  milestoneDate.setHours(9, 0, 0, 0);
+  return milestoneDate;
+}
+
+/** Schedule all enabled, still-future milestones. Returns week → notif id. */
+async function scheduleForDueDate(
+  dueDate: Date,
+  prefs: MilestonePreferences,
+): Promise<Record<number, string>> {
   const notifIds: Record<number, string> = {};
+  if (!Notifications) return notifIds;
   const now = Date.now();
 
   for (const milestone of MILESTONE_SCHEDULE) {
-    // Notification fires at 9 AM on the first day of the milestone week.
-    // milestone week start = dueDate − (PREGNANCY_DURATION_DAYS − week * 7)
-    const daysFromToday = PREGNANCY_DURATION_DAYS - milestone.week * 7;
-    const milestoneDate = new Date(dueDate);
-    milestoneDate.setDate(milestoneDate.getDate() - daysFromToday);
-    milestoneDate.setHours(9, 0, 0, 0);
+    // Skip milestones the user has disabled (individually or via master).
+    if (!isMilestoneEnabled(prefs, milestone.week)) continue;
+
+    const milestoneDate = getMilestoneDate(dueDate, milestone.week);
 
     // Skip milestones that are already past.
     if (milestoneDate.getTime() <= now) continue;
@@ -301,11 +422,77 @@ export async function scheduleMilestoneNotifications(
           date: milestoneDate,
         },
       });
-      notifIds[milestone.week] = notifId;
+      // Guard against a falsy id (some platforms/mocks may return
+      // undefined) — storing it would silently drop the entry on JSON
+      // round-trip and make the notification uncancellable.
+      if (notifId) notifIds[milestone.week] = notifId;
     } catch {
       // best-effort — a single scheduling failure should not block the rest
     }
   }
 
-  await writeState({ dueDate: dueDateISO, notifIds });
+  return notifIds;
+}
+
+/**
+ * Re-apply the current milestone preferences to the already-scheduled
+ * notifications: cancels everything previously scheduled and reschedules
+ * only the milestones that are enabled and still in the future.
+ *
+ * Call after any preference change.  No-op if milestones have never been
+ * scheduled (no stored due date), on web, or when expo-notifications is
+ * unavailable.
+ */
+export function resyncMilestoneNotifications(): Promise<void> {
+  const gen = generation;
+  return enqueue(() => resyncLocked(gen));
+}
+
+async function resyncLocked(gen: number): Promise<void> {
+  // A sign-out happened after this resync was requested — drop it so it
+  // cannot re-schedule the previous user's reminders.
+  if (gen !== generation) return;
+  if (!Notifications || Platform.OS === "web") return;
+  const state = await readState();
+  if (!state) return;
+
+  for (const notifId of Object.values(state.notifIds)) {
+    try {
+      await Notifications.cancelScheduledNotificationAsync(notifId);
+    } catch {
+      // best-effort
+    }
+  }
+
+  // Parse the stored YYYY-MM-DD as a LOCAL date (new Date("YYYY-MM-DD")
+  // would parse as UTC midnight and can shift the day in negative-offset
+  // timezones).
+  const [y, m, d] = state.dueDate.split("-").map(Number);
+  const dueDate = new Date(y!, m! - 1, d!, 12, 0, 0, 0);
+
+  const prefs = await readMilestonePreferences();
+  const notifIds = await scheduleForDueDate(dueDate, prefs);
+  await writeState({ dueDate: state.dueDate, notifIds });
+}
+
+/**
+ * Atomically update the persisted milestone preferences and re-apply them to
+ * the scheduled notifications.  The read-modify-write and the resync run as
+ * one serialized operation, so rapid successive toggles cannot interleave and
+ * a sign-out requested before this update runs invalidates it entirely.
+ */
+export function updateMilestonePreferences(
+  update: (current: MilestonePreferences) => MilestonePreferences,
+): Promise<MilestonePreferences | null> {
+  const gen = generation;
+  return enqueue(async () => {
+    // Sign-out was requested after this update — the toggle belonged to the
+    // previous session; do not re-persist its preferences.
+    if (gen !== generation) return null;
+    const current = await readMilestonePreferences();
+    const next = update(current);
+    await writeMilestonePreferences(next);
+    await resyncLocked(gen);
+    return next;
+  });
 }

@@ -30,3 +30,4 @@
 - [watchOS unit-test target wiring](watch-test-target.md) — Watch XCTests must exercise real code via injected deps; sync script + plugin link WatchConnectivity into the test bundle.
 - [Watch transport injection](watch-transport-injection.md) — send paths use injected transport for real-code tests; every reachable sendMessage needs a transferUserInfo fallback errorHandler.
 - [Mobile jest suite flaky under load](mobile-jest-flaky-under-load.md) — full-suite runs time out on random suites; verify failing suites in isolation before debugging; typecheck also fails until check-watch-sync --fix re-syncs ios/ Swift copies.
+- [expo-notifications test mocking](expo-notifications-test-mocking.md) — real module IS installed; package-level manual mock prevents random full-suite failures from real-module leaks.
