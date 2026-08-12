@@ -274,6 +274,60 @@ describe("WatchStatusBadge — live state transitions via onWatchStateChange", (
     expect(allTexts(renderer!.root)).not.toContain("Watch app not installed");
   });
 
+  it("never flickers to 'not installed' when the live event beats the slow initial snapshot", async () => {
+    // Slow-device launch scenario: the mount-time getSessionState() is still
+    // in flight when a live onWatchStateChange event arrives reporting the
+    // Watch app IS installed. When the slow snapshot finally resolves with
+    // isWatchAppInstalled:false (stale), it must be discarded — the badge
+    // must never regress to "Watch app not installed" after the live event.
+    let resolveInitialSnapshot!: (v: WatchState) => void;
+    mockGetSessionState.mockImplementationOnce(
+      () =>
+        new Promise<WatchState>((resolve) => {
+          resolveInitialSnapshot = resolve;
+        }),
+    );
+
+    let renderer: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(React.createElement(TestBadge));
+    });
+    // Do NOT flush — the initial snapshot Promise is still pending.
+
+    // Initial default state shows "not installed" (nothing has resolved yet)
+    expect(allTexts(renderer!.root)).toContain("Watch app not installed");
+
+    // Live event fires first: Watch app installed, not yet reachable
+    expect(capturedStateListener).not.toBeNull();
+    await act(async () => {
+      capturedStateListener!({
+        activationState: "activated",
+        isWatchAppInstalled: true,
+        isReachable: false,
+      });
+    });
+
+    expect(allTexts(renderer!.root)).toContain("Watch not reachable");
+    expect(allTexts(renderer!.root)).not.toContain("Watch app not installed");
+
+    // Now the slow initial snapshot resolves with the stale pre-launch state
+    await act(async () => {
+      resolveInitialSnapshot({
+        activationState: "notActivated",
+        isWatchAppInstalled: false,
+        isReachable: false,
+      });
+    });
+    await flushAsync();
+
+    // The badge must NOT flicker back — the stale snapshot is discarded
+    expect(allTexts(renderer!.root)).toContain("Watch not reachable");
+    expect(allTexts(renderer!.root)).not.toContain("Watch app not installed");
+    await act(async () => {
+      renderer!.unmount();
+    });
+  });
+
   it("removes the onWatchStateChange listener on unmount (no stale subscriptions)", async () => {
     let renderer: ReturnType<typeof create>;
     act(() => {
