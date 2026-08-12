@@ -170,9 +170,204 @@ private final class LaunchSession {
     }
 }
 
+// MARK: - Force-quit models
+
+/// Models the OS-owned durable outbound queue behind `WCSession.transferUserInfo(_:)`.
+///
+/// Crucial property being locked in: this queue lives in the WatchConnectivity
+/// daemon, OUTSIDE the app process.  A force-quit of the Watch app destroys the
+/// app's in-memory state (including `WatchSessionManager`), but payloads already
+/// handed to `transferUserInfo` remain queued by the OS and are still delivered
+/// once the phone becomes reachable.  Tests share ONE instance of this class
+/// across two `WatchSessionManager` instances to model "same OS, app relaunched".
+private final class OSDurableTransferQueue {
+    private(set) var items: [[String: Any]] = []
+
+    func enqueue(_ payload: [String: Any]) {
+        items.append(payload)
+    }
+
+    /// Delivers every queued payload, in order, to the phone-side handler —
+    /// mirrors `session(_:didReceiveUserInfo:)` firing once per transfer.
+    func drain(handler: ([String: Any]) -> Void) {
+        for item in items { handler(item) }
+    }
+}
+
+/// Models the OS-owned application-context slot behind
+/// `WCSession.updateApplicationContext(_:)`.  Like the transfer queue it lives
+/// outside the app process — but it is a SINGLE last-write-wins dictionary, so
+/// even though the slot itself survives a force-quit, every update replaces the
+/// previous content.  Two records sent through it (with or without a force-quit
+/// in between) collapse to one delivery.
+private final class OSApplicationContextSlot {
+    private(set) var current: [String: Any] = [:]
+
+    func update(_ payload: [String: Any]) {
+        current = payload   // last-write-wins — previous payload is gone
+    }
+
+    func deliver(handler: ([String: Any]) -> Void) {
+        handler(current)
+    }
+}
+
+/// Fake `WatchConnectivityTransport` wired to a shared `OSDurableTransferQueue`.
+/// A fresh instance per app session (mirroring the real transport being recreated
+/// on relaunch) — but all instances hand payloads to the same OS-owned queue.
+private final class ForceQuitFakeTransport: WatchConnectivityTransport {
+    let osQueue: OSDurableTransferQueue
+    var isReachable: Bool
+
+    init(osQueue: OSDurableTransferQueue, isReachable: Bool = false) {
+        self.osQueue = osQueue
+        self.isReachable = isReachable
+    }
+
+    func sendMessage(
+        _ message: [String: Any],
+        replyHandler: (([String: Any]) -> Void)?,
+        errorHandler: ((Error) -> Void)?
+    ) {
+        // Offline force-quit scenario never uses the real-time channel.
+        XCTFail("sendMessage must not be used while the phone is unreachable")
+    }
+
+    func transferUserInfo(_ userInfo: [String: Any]) {
+        osQueue.enqueue(userInfo)
+    }
+}
+
 // MARK: - Tests
 
 final class WatchOfflineDeliveryTests: XCTestCase {
+
+    /// Creates a fresh, isolated UserDefaults suite for a force-quit test.
+    private func makeIsolatedDefaults(_ label: String) -> UserDefaults {
+        let suite = "com.test.WatchOfflineDelivery.\(name).\(label)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        return defaults
+    }
+
+    /// Builds a real `WatchSessionManager` bound to the shared OS queue via a
+    /// fresh transport instance — one call per simulated app session.
+    private func makeManager(
+        defaults: UserDefaults,
+        osQueue: OSDurableTransferQueue
+    ) -> WatchSessionManager {
+        WatchSessionManager(
+            userDefaults: defaults,
+            notificationCenter: NotificationCenter(),
+            activateSession: false,
+            transport: ForceQuitFakeTransport(osQueue: osQueue)
+        )
+    }
+
+    // MARK: Force-quit between two offline sends — transferUserInfo survives
+
+    /// THE scenario from the task: the user logs contraction #1 offline, the
+    /// Watch app is force-quit, the app relaunches (fresh WatchSessionManager),
+    /// and contraction #2 is logged offline.  Both payloads were handed to the
+    /// OS-owned transferUserInfo queue, which is not touched by the app's death,
+    /// so BOTH records reach the phone handler on reconnect — the second send
+    /// must not clobber the first.
+    func testForceQuitBetweenTwoOfflineSends_bothContractionsDeliveredOnReconnect() throws {
+        let now = Date(timeIntervalSinceReferenceDate: 800_000_000)
+        let record1 = makeContraction(start: now,       duration: 45)
+        let record2 = makeContraction(start: now + 300, duration: 50, interval: 300)
+
+        let osQueue = OSDurableTransferQueue()
+        let defaults = makeIsolatedDefaults("forceQuitBoth")
+
+        // App session 1: offline send of record1 through the REAL send path.
+        let session1 = makeManager(defaults: defaults, osQueue: osQueue)
+        session1.sendContractionUpdate(record: record1)
+        XCTAssertEqual(osQueue.items.count, 1,
+                       "Offline send must enqueue exactly one transferUserInfo payload")
+
+        // Force-quit: the manager (and its in-memory state) is destroyed.
+        // The OS queue keeps the already-enqueued payload.
+
+        // App session 2: fresh WatchSessionManager init, new transport instance.
+        let session2 = makeManager(defaults: defaults, osQueue: osQueue)
+        session2.sendContractionUpdate(record: record2)
+        XCTAssertEqual(osQueue.items.count, 2,
+                       "The pre-quit payload must still be in the OS queue alongside the new one")
+
+        // Reconnect: phone drains the queue via didReceiveUserInfo, in order.
+        var received: [[String: Any]] = []
+        osQueue.drain { if let d = phoneHandleContraction($0) { received.append(d) } }
+
+        XCTAssertEqual(received.count, 2,
+                       "Both offline contractions must survive the force-quit and be delivered")
+        let start1 = try XCTUnwrap(received[0]["startedAt"] as? String)
+        let start2 = try XCTUnwrap(received[1]["startedAt"] as? String)
+        XCTAssertNotEqual(start1, start2,
+                          "The two deliveries must be the two distinct records — no clobbering")
+        XCTAssertEqual([start1, start2], [start1, start2].sorted(),
+                       "Delivery must preserve send order across the force-quit boundary")
+    }
+
+    /// The pre-send UserDefaults retry queue provides a second safety net: after
+    /// the simulated force-quit, a fresh WatchSessionManager sees BOTH records in
+    /// its pending-acknowledgment queue, so even a hypothetical OS-queue loss
+    /// would be recovered by the reachability flush.
+    func testForceQuitBetweenTwoOfflineSends_retryQueueRestoredByFreshInit() {
+        let now = Date(timeIntervalSinceReferenceDate: 800_000_000)
+        let record1 = makeContraction(start: now,       duration: 45)
+        let record2 = makeContraction(start: now + 300, duration: 50, interval: 300)
+
+        let osQueue = OSDurableTransferQueue()
+        let defaults = makeIsolatedDefaults("forceQuitRetryQueue")
+
+        let session1 = makeManager(defaults: defaults, osQueue: osQueue)
+        session1.sendContractionUpdate(record: record1)
+
+        // Force-quit + relaunch, then the second offline send.
+        let session2 = makeManager(defaults: defaults, osQueue: osQueue)
+        session2.sendContractionUpdate(record: record2)
+
+        let restored = session2.loadPendingContractionQueue()
+        XCTAssertEqual(restored.map(\.id), [record1.id, record2.id],
+                       "Fresh init must see both unacknowledged records, in order — "
+                       + "the pre-quit record is not clobbered by the post-relaunch send")
+    }
+
+    // MARK: Contrast: applicationContext across a force-quit
+
+    /// Contrast test motivating the channel choice: had the Watch used
+    /// `updateApplicationContext` for offline records, the force-quit sequence
+    /// above would silently lose the first contraction — the context slot is
+    /// last-write-wins, so the post-relaunch update replaces the pre-quit one.
+    func testForceQuitBetweenTwoOfflineSends_applicationContextLosesFirstRecord() throws {
+        let now = Date(timeIntervalSinceReferenceDate: 800_000_000)
+        let record1 = makeContraction(start: now,       duration: 45)
+        let record2 = makeContraction(start: now + 300, duration: 50, interval: 300)
+
+        // App session 1 (hypothetical broken channel): context update for record1.
+        let slot = OSApplicationContextSlot()
+        slot.update(try XCTUnwrap(makeContractionPayload(record1)))
+
+        // Force-quit + relaunch: the OS keeps the slot, but the next update
+        // from the fresh app session replaces it wholesale.
+        slot.update(try XCTUnwrap(makeContractionPayload(record2)))
+
+        var received: [[String: Any]] = []
+        slot.deliver { if let d = phoneHandleContraction($0) { received.append(d) } }
+
+        XCTAssertEqual(received.count, 1,
+                       "applicationContext delivers only the surviving (last) payload")
+        let survivingStart = try XCTUnwrap(received[0]["startedAt"] as? String)
+        let record2Start = try XCTUnwrap(
+            (try XCTUnwrap(makeContractionPayload(record2))[WatchMessage.contractionUpdate] as? Data)
+                .flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }?["startedAt"] as? String
+        )
+        XCTAssertEqual(survivingStart, record2Start,
+                       "Only the post-relaunch record survives — the pre-quit record is silently lost, "
+                       + "which is exactly why transferUserInfo is the required channel")
+    }
+
 
     // MARK: Cold launch — didReceiveUserInfo fires immediately after activate()
 
