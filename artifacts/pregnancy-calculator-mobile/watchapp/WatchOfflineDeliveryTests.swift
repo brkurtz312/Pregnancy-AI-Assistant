@@ -130,9 +130,152 @@ private func makeKickSession(start: Date, count: Int) -> KickSessionSummary {
     )
 }
 
+// MARK: - Cold-launch session model
+
+/// Models the WCSession activation lifecycle on the receiving side during a
+/// cold launch.  The OS may have userInfo payloads (queued via
+/// `transferUserInfo` while the app was dead) ready to deliver the moment the
+/// session activates.  Whether they reach the app depends entirely on whether
+/// the delegate was assigned BEFORE `activate()` was called:
+///
+///   • delegate set → activate(): every pending payload is delivered through
+///     `session(_:didReceiveUserInfo:)` — nothing is lost.
+///   • activate() → delegate set later: WCSession has no delegate at delivery
+///     time, so activation-time payloads are silently dropped.
+///
+/// `WatchSessionManager.init` follows the safe ordering
+/// (`WCSession.default.delegate = self` on the line before
+/// `WCSession.default.activate()`), and these tests pin that property.
+private final class LaunchSession {
+    /// Payloads the OS queued while the app was not running.
+    private let pendingUserInfo: [[String: Any]]
+
+    /// Mirrors `WCSession.delegate` — the `didReceiveUserInfo` sink.
+    var delegateHandler: (([String: Any]) -> Void)?
+
+    private(set) var isActivated = false
+
+    init(pendingUserInfo: [[String: Any]]) {
+        self.pendingUserInfo = pendingUserInfo
+    }
+
+    /// Mirrors `WCSession.activate()`: activation-time payloads fire
+    /// immediately — before any UI exists.  If no delegate is set yet they are
+    /// dropped, exactly as WCSession drops callbacks with a nil delegate.
+    func activate() {
+        isActivated = true
+        for payload in pendingUserInfo {
+            delegateHandler?(payload)
+        }
+    }
+}
+
 // MARK: - Tests
 
 final class WatchOfflineDeliveryTests: XCTestCase {
+
+    // MARK: Cold launch — didReceiveUserInfo fires immediately after activate()
+
+    /// Contraction records queued while the app was dead must be processed even
+    /// when `didReceiveUserInfo` fires at activation time, before any UI is
+    /// ready.  This holds because the delegate is assigned before `activate()`
+    /// is called — the ordering used by `WatchSessionManager.init`.
+    func testContractionsArrivingDuringLaunch_areReceivedNotDropped() throws {
+        let now = Date(timeIntervalSinceReferenceDate: 800_000_000)
+        let record1 = makeContraction(start: now,       duration: 45)
+        let record2 = makeContraction(start: now + 300, duration: 50, interval: 300)
+
+        let session = LaunchSession(pendingUserInfo: [
+            try XCTUnwrap(makeContractionPayload(record1)),
+            try XCTUnwrap(makeContractionPayload(record2)),
+        ])
+
+        // Cold launch, safe ordering: delegate first, then activate().
+        var received: [[String: Any]] = []
+        session.delegateHandler = { payload in
+            if let decoded = phoneHandleContraction(payload) {
+                received.append(decoded)
+            }
+        }
+        session.activate()
+
+        XCTAssertTrue(session.isActivated)
+        XCTAssertEqual(received.count, 2,
+                       "Both contraction records delivered at activation time must be processed, not dropped")
+
+        let start1 = try XCTUnwrap(received[0]["startedAt"] as? String)
+        let start2 = try XCTUnwrap(received[1]["startedAt"] as? String)
+        XCTAssertNotEqual(start1, start2,
+                          "Launch-time delivery must preserve both distinct records")
+    }
+
+    /// Same coverage for kick-session-end summaries arriving at launch.
+    func testKickSessionEndsArrivingDuringLaunch_areReceivedNotDropped() throws {
+        let now = Date(timeIntervalSinceReferenceDate: 800_000_000)
+        let summary1 = makeKickSession(start: now,       count: 10)
+        let summary2 = makeKickSession(start: now + 700, count: 8)
+
+        let session = LaunchSession(pendingUserInfo: [
+            try XCTUnwrap(makeKickSessionEndPayload(summary1)),
+            try XCTUnwrap(makeKickSessionEndPayload(summary2)),
+        ])
+
+        var kickCounts: [Int] = []
+        session.delegateHandler = { payload in
+            if let json = phoneHandleKickSessionEnd(payload),
+               let count = json["kickCount"] as? Int {
+                kickCounts.append(count)
+            }
+        }
+        session.activate()
+
+        XCTAssertEqual(kickCounts, [10, 8],
+                       "Both kick-session-end summaries delivered at activation time must be processed, in order")
+    }
+
+    /// A mixed activation-time burst (contraction + kick-session-end) is fully
+    /// processed even though no UI exists yet.
+    func testMixedRecordsArrivingDuringLaunch_allProcessed() throws {
+        let now = Date(timeIntervalSinceReferenceDate: 800_000_000)
+
+        let session = LaunchSession(pendingUserInfo: [
+            try XCTUnwrap(makeContractionPayload(makeContraction(start: now, duration: 45))),
+            try XCTUnwrap(makeKickSessionEndPayload(makeKickSession(start: now + 60, count: 12))),
+        ])
+
+        var contractionCount = 0
+        var kickSessionCount = 0
+        session.delegateHandler = { payload in
+            if phoneHandleContraction(payload)    != nil { contractionCount += 1 }
+            if phoneHandleKickSessionEnd(payload) != nil { kickSessionCount += 1 }
+        }
+        session.activate()
+
+        XCTAssertEqual(contractionCount, 1, "Launch-time contraction must be processed")
+        XCTAssertEqual(kickSessionCount, 1, "Launch-time kick-session-end must be processed")
+    }
+
+    /// Contrast test documenting WHY the delegate-before-activate ordering in
+    /// `WatchSessionManager.init` matters: if `activate()` ran before the
+    /// delegate assignment, every activation-time record would be silently
+    /// dropped.
+    func testActivateBeforeDelegateAssignment_dropsLaunchRecords() throws {
+        let now = Date(timeIntervalSinceReferenceDate: 800_000_000)
+        let session = LaunchSession(pendingUserInfo: [
+            try XCTUnwrap(makeContractionPayload(makeContraction(start: now, duration: 45))),
+        ])
+
+        // Broken ordering: activate first, assign delegate afterwards.
+        var received = 0
+        session.activate()
+        session.delegateHandler = { payload in
+            if phoneHandleContraction(payload) != nil { received += 1 }
+        }
+
+        XCTAssertEqual(received, 0,
+                       "With no delegate at activation time the record is silently dropped — "
+                       + "this is the race WatchSessionManager.init avoids by assigning the delegate before activate()")
+    }
 
     // MARK: Contraction — transferUserInfo channel
 
