@@ -587,10 +587,15 @@ export function AccountSheet({
                       setIsSigningOut(true);
                       setSignOutError(null);
                       try {
-                        // Cancel appointment reminders before signing out so
-                        // they cannot fire for a different user on a shared device.
-                        cancelAllAppointmentReminders().catch(() => {});
                         await signOut();
+                        // Cancel appointment reminders only after sign-out
+                        // succeeds so a failed sign-out (e.g. offline) does not
+                        // silently wipe the still-signed-in user's reminders.
+                        // AuthTokenBridge's session-transition effect also
+                        // cancels these (covering the 401 auto-sign-out path),
+                        // so this call is a harmless duplicate if that fires
+                        // first.
+                        cancelAllAppointmentReminders().catch(() => {});
                         pass.refresh();
                         onClose();
                         // Notify the Watch only after Clerk has successfully

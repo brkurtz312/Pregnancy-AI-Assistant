@@ -63,6 +63,15 @@ jest.mock("@/modules/WatchConnectivity", () => ({
   __esModule: true,
   default: { signOut: jest.fn(async () => {}) },
 }));
+
+jest.mock("@/lib/appointment-reminders", () => ({
+  cancelAllAppointmentReminders: jest.fn(async () => {}),
+}));
+const mockCancelAllReminders = (
+  jest.requireMock("@/lib/appointment-reminders") as {
+    cancelAllAppointmentReminders: jest.Mock;
+  }
+).cancelAllAppointmentReminders;
 // Obtain the mock reference after the factory is registered so there is no
 // temporal-dead-zone issue with the factory closure.
 const mockWatchSignOut = (
@@ -264,6 +273,36 @@ describe("AccountSheet — sign-out error recovery", () => {
 
     expect(mockSignOut).toHaveBeenCalled();
     expect(mockWatchSignOut).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT cancel appointment reminders when signOut() rejects (reminders still fire)", async () => {
+    const mockSignOut = jest.fn().mockRejectedValue(new Error("Network error"));
+    mockUseAuth.mockReturnValue({ isSignedIn: true, signOut: mockSignOut });
+
+    const renderer = renderSheet();
+    await act(async () => {});
+
+    await act(async () => {
+      await findBtn(renderer.root, "Sign Out")!.props.onPress();
+    });
+
+    expect(mockSignOut).toHaveBeenCalled();
+    expect(mockCancelAllReminders).not.toHaveBeenCalled();
+  });
+
+  it("cancels appointment reminders only after signOut() succeeds", async () => {
+    const mockSignOut = jest.fn().mockResolvedValue(undefined);
+    mockUseAuth.mockReturnValue({ isSignedIn: true, signOut: mockSignOut });
+
+    const renderer = renderSheet();
+    await act(async () => {});
+
+    await act(async () => {
+      await findBtn(renderer.root, "Sign Out")!.props.onPress();
+    });
+
+    expect(mockSignOut).toHaveBeenCalled();
+    expect(mockCancelAllReminders).toHaveBeenCalledTimes(1);
   });
 
   it("clears the error and calls onClose when the user retries sign-out successfully after a prior failure", async () => {
