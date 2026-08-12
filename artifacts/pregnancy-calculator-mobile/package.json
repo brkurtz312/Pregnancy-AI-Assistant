@@ -15,10 +15,11 @@
     "ios": "expo run:ios",
     "validate:provisioning": "node scripts/validate-eas-provisioning.js",
     "validate:watch-icons": "node scripts/validate-watch-icon-format.js",
+    "validate:ios-icons": "node scripts/validate-ios-icon-format.js",
     "cancel-stale-builds": "node scripts/cancel-stale-eas-builds.js",
     "cancel-stale-builds:dry-run": "node scripts/cancel-stale-eas-builds.js --dry-run",
     "eas-build-pre-install": "node scripts/validate-eas-provisioning.js",
-    "eas-build-post-install": "node scripts/validate-watch-icon-format.js"
+    "eas-build-post-install": "node scripts/validate-watch-icon-format.js && node scripts/validate-ios-icon-format.js"
   },
   "jest": {
     "preset": "jest-expo",
