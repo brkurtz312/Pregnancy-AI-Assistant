@@ -36,7 +36,7 @@
  */
 
 import React, { useState } from "react";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 import { act, create } from "react-test-renderer";
 
 jest.mock("react-native-reanimated", () =>
@@ -626,6 +626,160 @@ describe("useWatchConnectivity — App Store update from 1.0.11 (no Watch) to 1.
     // Still exactly one call — the stale snapshot must not suppress future sends
     // and must not have triggered a second send
     expect(mockSendWeekAndTips).toHaveBeenCalledTimes(1);
+  });
+
+  // ── Mid-flight removal: sendWeekAndTips rejects ────────────────────────────
+  //
+  // The Watch companion can be removed while a sendWeekAndTips call is already
+  // in flight (e.g. during a background refresh). The native promise rejects.
+  // The hook must swallow-and-log the rejection — it must NOT enter an error
+  // state, crash the render tree, or suppress the next push when the Watch is
+  // reinstalled.
+
+  it("does not throw or enter an error state when sendWeekAndTips rejects mid-flight", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    mockGetSessionState.mockResolvedValue({
+      activationState: "activated",
+      isWatchAppInstalled: true,
+      isReachable: true,
+    });
+    mockSendWeekAndTips.mockRejectedValueOnce(
+      new Error("WCSession companion app not installed"),
+    );
+
+    await act(async () => {
+      create(<WatchHarness gestationalWeek={28} tips={makeTips(28)} />);
+    });
+
+    expect(mockSendWeekAndTips).toHaveBeenCalledTimes(1);
+    // The error is surfaced via logging, not swallowed silently
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("sendWeekAndTips failed"),
+      expect.any(Error),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("still pushes on reinstall after a mid-flight rejection (rejection does not suppress subsequent sends)", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    mockGetSessionState.mockResolvedValue({
+      activationState: "activated",
+      isWatchAppInstalled: true,
+      isReachable: true,
+    });
+    // First push fails: Watch removed while the transfer was in flight
+    mockSendWeekAndTips.mockRejectedValueOnce(
+      new Error("transfer interrupted"),
+    );
+
+    await act(async () => {
+      create(<WatchHarness gestationalWeek={28} tips={makeTips(28)} />);
+    });
+
+    expect(mockSendWeekAndTips).toHaveBeenCalledTimes(1);
+
+    // Native layer reports the removal
+    await act(async () => {
+      stateChangeListener?.({
+        activationState: "activated",
+        isWatchAppInstalled: false,
+        isReachable: false,
+      });
+    });
+
+    // No send attempts while the Watch is absent
+    expect(mockSendWeekAndTips).toHaveBeenCalledTimes(1);
+
+    // User reinstalls the Watch companion — the hook must re-push (mock now
+    // resolves again, since the rejection was one-shot)
+    await act(async () => {
+      stateChangeListener?.({
+        activationState: "activated",
+        isWatchAppInstalled: true,
+        isReachable: true,
+      });
+    });
+
+    expect(mockSendWeekAndTips).toHaveBeenCalledTimes(2);
+    expect(mockSendWeekAndTips).toHaveBeenLastCalledWith(28, makeTips(28));
+    warnSpy.mockRestore();
+  });
+
+  // ── Mid-flight removal during a background refresh (AppState path) ────────
+  //
+  // The Watch is removed while the foreground-resume re-push (the AppState
+  // "active" handler) is in flight. The rejection must be logged, must not
+  // break the hook, and a later resume/reinstall must push successfully.
+
+  it("logs and recovers when the AppState foreground re-push rejects because the Watch was removed mid-refresh", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const appStateListeners: ((state: string) => void)[] = [];
+    const appStateSpy = jest
+      .spyOn(AppState, "addEventListener")
+      .mockImplementation(((event: string, cb: (state: string) => void) => {
+        appStateListeners.push(cb);
+        return { remove: jest.fn() };
+      }) as unknown as typeof AppState.addEventListener);
+
+    mockGetSessionState.mockResolvedValue({
+      activationState: "activated",
+      isWatchAppInstalled: true,
+      isReachable: true,
+    });
+
+    await act(async () => {
+      create(<WatchHarness gestationalWeek={28} tips={makeTips(28)} />);
+    });
+
+    // Initial ready-state push on mount
+    expect(mockSendWeekAndTips).toHaveBeenCalledTimes(1);
+
+    // App returns to foreground → refresh re-push fires, but the Watch is
+    // removed while the transfer is in flight and the native call rejects.
+    mockSendWeekAndTips.mockRejectedValueOnce(
+      new Error("companion app removed mid-transfer"),
+    );
+    await act(async () => {
+      appStateListeners.forEach((cb) => cb("active"));
+    });
+
+    expect(mockSendWeekAndTips).toHaveBeenCalledTimes(2);
+    // The failure is surfaced via logging, not swallowed silently
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("foreground re-push sendWeekAndTips failed"),
+      expect.any(Error),
+    );
+
+    // Watch state settles to removed, then the user reinstalls the companion.
+    await act(async () => {
+      stateChangeListener?.({
+        activationState: "activated",
+        isWatchAppInstalled: false,
+        isReachable: false,
+      });
+    });
+    expect(mockSendWeekAndTips).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      stateChangeListener?.({
+        activationState: "activated",
+        isWatchAppInstalled: true,
+        isReachable: true,
+      });
+    });
+
+    // The earlier rejection must not suppress this push
+    expect(mockSendWeekAndTips).toHaveBeenCalledTimes(3);
+    expect(mockSendWeekAndTips).toHaveBeenLastCalledWith(28, makeTips(28));
+
+    // A subsequent foreground resume also pushes successfully again
+    await act(async () => {
+      appStateListeners.forEach((cb) => cb("active"));
+    });
+    expect(mockSendWeekAndTips).toHaveBeenCalledTimes(4);
+
+    appStateSpy.mockRestore();
+    warnSpy.mockRestore();
   });
 
   // ── Week change after Watch becomes available ───────────────────────────────

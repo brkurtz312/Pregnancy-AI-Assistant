@@ -29,3 +29,4 @@
 - [Xcode 26 Watch double-scheduling fix](xcode-watch-double-scheduling.md) — scheme+dep both required; buildForArchiving=NO on scheme entry; Expo withXcodeProject is LIFO so withWatchXcodeTarget must be applied last; ensureWatchTargetDependency must run unconditionally.
 - [watchOS unit-test target wiring](watch-test-target.md) — Watch XCTests must exercise real code via injected deps; sync script + plugin link WatchConnectivity into the test bundle.
 - [Watch transport injection](watch-transport-injection.md) — send paths use injected transport for real-code tests; every reachable sendMessage needs a transferUserInfo fallback errorHandler.
+- [Mobile jest suite flaky under load](mobile-jest-flaky-under-load.md) — full-suite runs time out on random suites; verify failing suites in isolation before debugging; typecheck also fails until check-watch-sync --fix re-syncs ios/ Swift copies.

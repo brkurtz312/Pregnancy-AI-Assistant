@@ -148,7 +148,13 @@ export function useWatchConnectivity({
   useEffect(() => {
     if (!mod || gestationalWeek == null || !tips?.length) return;
     if (!isSessionReady) return;
-    mod.sendWeekAndTips(gestationalWeek, tips).catch(() => {});
+    mod.sendWeekAndTips(gestationalWeek, tips).catch((err: unknown) => {
+      // The Watch may have been removed while the call was in flight
+      // (mid-refresh uninstall). Log for diagnostics but never let the
+      // rejection put the hook in an error state — the next ready
+      // transition (e.g. reinstall) re-runs this effect and re-pushes.
+      console.warn("[useWatchConnectivity] sendWeekAndTips failed:", err);
+    });
   }, [mod, gestationalWeek, tips, isSessionReady]);
 
   // Subscribe to watch events
@@ -223,7 +229,15 @@ export function useWatchConnectivity({
       if (state !== "active") return;
       const { gestationalWeek: week, tips: currentTips } = syncDataRef.current;
       if (week == null || !currentTips?.length) return;
-      mod.sendWeekAndTips(week, currentTips).catch(() => {});
+      mod.sendWeekAndTips(week, currentTips).catch((err: unknown) => {
+        // The Watch may have been removed while this refresh-triggered send
+        // was in flight. Log for diagnostics; never propagate — the next
+        // ready transition or foreground resume re-pushes automatically.
+        console.warn(
+          "[useWatchConnectivity] foreground re-push sendWeekAndTips failed:",
+          err,
+        );
+      });
     });
     return () => sub.remove();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -234,7 +248,13 @@ export function useWatchConnectivity({
     const sub = mod.addListener("onSyncRequest", () => {
       const { gestationalWeek: week, tips: currentTips } = syncDataRef.current;
       if (week == null || !currentTips?.length) return;
-      mod.sendWeekAndTips(week, currentTips).catch(() => {});
+      mod.sendWeekAndTips(week, currentTips).catch((err: unknown) => {
+        // Same mid-flight-removal handling as above: log, never throw.
+        console.warn(
+          "[useWatchConnectivity] sync-request sendWeekAndTips failed:",
+          err,
+        );
+      });
     });
     return () => sub.remove();
     // eslint-disable-next-line react-hooks/exhaustive-deps
