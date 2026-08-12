@@ -38,6 +38,16 @@ func isSessionStale(referenceDate: Date?, now: Date, threshold: TimeInterval = d
     return now.timeIntervalSince(ref) > threshold
 }
 
+/// Mirrors the reference-timestamp resolution in `restoreState()`'s staleness guard:
+/// prefer `lastEnd` when present (> 0); otherwise fall back to the newest saved
+/// record's `endedAt`. Returns nil when neither source yields a timestamp.
+func resolveStaleReferenceDate(lastEndRaw: Double, recordEndDates: [Date]) -> Date? {
+    if lastEndRaw > 0 {
+        return Date(timeIntervalSince1970: lastEndRaw)
+    }
+    return recordEndDates.max()
+}
+
 // MARK: - Tests
 
 final class ContractionTimerUrgencyTests: XCTestCase {
@@ -197,6 +207,79 @@ final class ContractionTimerStaleSessionTests: XCTestCase {
             isSessionStale(referenceDate: nil, now: Date(), threshold: threshold),
             "Absent reference date must never be considered stale"
         )
+    }
+
+    // MARK: Fallback path — lastEnd key absent (e.g. after an app-update UserDefaults migration)
+
+    /// Simulates an app update that reset `wk.contractionLastEnd` to 0 while the
+    /// record array survived with recent entries. The fallback must resolve the
+    /// newest record's `endedAt` and the guard must NOT wipe the live session.
+    func testLastEndAbsent_recentRecords_isNotStale() {
+        let now = Date()
+        let recordEnds = [
+            now.addingTimeInterval(-7200),  // 2 h ago
+            now.addingTimeInterval(-3600),  // 1 h ago (newest)
+            now.addingTimeInterval(-5400)   // 1.5 h ago
+        ]
+        let ref = resolveStaleReferenceDate(lastEndRaw: 0, recordEndDates: recordEnds)
+        XCTAssertEqual(ref!.timeIntervalSince1970,
+                       now.addingTimeInterval(-3600).timeIntervalSince1970,
+                       accuracy: 0.001,
+                       "Fallback must pick the newest record's endedAt")
+        XCTAssertFalse(
+            isSessionStale(referenceDate: ref, now: now, threshold: threshold),
+            "lastEnd == 0 with records from 1 h ago must NOT be treated as stale — wiping here would destroy a live session after an app update"
+        )
+    }
+
+    /// lastEnd == 0 with a single very recent record (just ended) — must survive.
+    func testLastEndAbsent_singleJustEndedRecord_isNotStale() {
+        let now = Date()
+        let ref = resolveStaleReferenceDate(lastEndRaw: 0,
+                                            recordEndDates: [now.addingTimeInterval(-30)])
+        XCTAssertFalse(
+            isSessionStale(referenceDate: ref, now: now, threshold: threshold),
+            "A record that ended 30 s ago must be restored even when lastEnd is absent"
+        )
+    }
+
+    /// lastEnd == 0 with records all older than 24 h — the fallback must still
+    /// classify the session as stale so yesterday's data is discarded.
+    func testLastEndAbsent_oldRecords_isStale() {
+        let now = Date()
+        let recordEnds = [
+            now.addingTimeInterval(-(30 * 3600)), // 30 h ago (newest)
+            now.addingTimeInterval(-(48 * 3600))  // 48 h ago
+        ]
+        let ref = resolveStaleReferenceDate(lastEndRaw: 0, recordEndDates: recordEnds)
+        XCTAssertTrue(
+            isSessionStale(referenceDate: ref, now: now, threshold: threshold),
+            "lastEnd == 0 with records >24 h old must be detected as stale via the fallback"
+        )
+    }
+
+    /// lastEnd == 0 and no records at all — nothing to reference, never stale.
+    func testLastEndAbsent_noRecords_isNeverStale() {
+        let ref = resolveStaleReferenceDate(lastEndRaw: 0, recordEndDates: [])
+        XCTAssertNil(ref, "No lastEnd and no records → no reference date")
+        XCTAssertFalse(
+            isSessionStale(referenceDate: ref, now: Date(), threshold: threshold),
+            "With no persisted data the staleness guard must not fire"
+        )
+    }
+
+    /// When lastEnd IS present it must take precedence over older record dates.
+    func testLastEndPresent_takesPrecedenceOverRecords() {
+        let now = Date()
+        let lastEnd = now.addingTimeInterval(-1800) // 30 min ago
+        let ref = resolveStaleReferenceDate(
+            lastEndRaw: lastEnd.timeIntervalSince1970,
+            recordEndDates: [now.addingTimeInterval(-(48 * 3600))] // 2 days ago
+        )
+        XCTAssertEqual(ref!.timeIntervalSince1970, lastEnd.timeIntervalSince1970,
+                       accuracy: 0.001,
+                       "lastEnd > 0 must be preferred over record timestamps")
+        XCTAssertFalse(isSessionStale(referenceDate: ref, now: now, threshold: threshold))
     }
 
     // MARK: Custom threshold
