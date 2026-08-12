@@ -137,6 +137,7 @@ import { clearBfCheckinCache } from "@/lib/breastfeeding";
 import { clearPpdCache } from "@/lib/postpartum-depression";
 import { clearLocationModeUserData } from "@/lib/location-mode";
 import { cancelAllAppointmentReminders } from "@/lib/appointment-reminders";
+import { cancelAllMilestoneNotifications } from "@/lib/milestone-notifications";
 import { AuthTokenBridge } from "../components/AuthTokenBridge";
 
 const mockUseSession = useSession as jest.Mock;
@@ -153,6 +154,8 @@ const mockClearPpd = clearPpdCache as jest.Mock;
 const mockClearLocationMode = clearLocationModeUserData as jest.Mock;
 const mockCancelAppointmentReminders =
   cancelAllAppointmentReminders as jest.Mock;
+const mockCancelMilestoneNotifications =
+  cancelAllMilestoneNotifications as jest.Mock;
 
 function makeSession(id: string) {
   return { getToken: jest.fn(async () => `token-${id}`) };
@@ -372,6 +375,28 @@ describe("AuthTokenBridge — session-switch isolation", () => {
     expect(mockClearPpd).toHaveBeenCalledTimes(1);
     expect(mockClearLocationMode).toHaveBeenCalledTimes(1);
     expect(mockCancelAppointmentReminders).toHaveBeenCalledTimes(1);
+    expect(mockCancelMilestoneNotifications).toHaveBeenCalledTimes(1);
+  });
+
+  it("cancels milestone notifications on sign-out so they can't fire for the next user", async () => {
+    const qc = new QueryClient();
+
+    const renderer = renderBridge(qc, makeSession("userA"));
+    await act(async () => {});
+    expect(mockCancelMilestoneNotifications).not.toHaveBeenCalled();
+
+    mockUseSession.mockReturnValue({ session: null });
+    await act(async () => {
+      renderer.update(
+        React.createElement(
+          QueryClientProvider,
+          { client: qc },
+          React.createElement(AuthTokenBridge),
+        ),
+      );
+    });
+
+    expect(mockCancelMilestoneNotifications).toHaveBeenCalledTimes(1);
   });
 
   it("does NOT clear tool caches on sign-in (only on sign-out)", async () => {
@@ -400,6 +425,7 @@ describe("AuthTokenBridge — session-switch isolation", () => {
     expect(mockClearBfCheckin).not.toHaveBeenCalled();
     expect(mockClearPpd).not.toHaveBeenCalled();
     expect(mockClearLocationMode).not.toHaveBeenCalled();
+    expect(mockCancelMilestoneNotifications).not.toHaveBeenCalled();
   });
 
   it("does not call invalidateQueries or clear when the same session re-renders without changing", async () => {
