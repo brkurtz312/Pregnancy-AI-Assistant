@@ -744,6 +744,116 @@ describe("useGlobalBackgroundSync — fires without tool screens mounted", () =>
     expect(mockInvalidateQueries).not.toHaveBeenCalled();
   });
 
+  it("keeps only the failed kick session queued when a reconnect flush partially fails", async () => {
+    // Regression guard: a partial-failure flush (e.g. one save hits a 429/5xx)
+    // must remove ONLY the successfully-saved item from the queue.  If a future
+    // refactor clears the whole queue on partial failure, the failed item's
+    // data is permanently lost.
+    const NetInfo = jest.requireMock("@react-native-community/netinfo").default;
+    (NetInfo.fetch as jest.Mock).mockResolvedValueOnce({
+      isConnected: false,
+      isInternetReachable: false,
+    });
+
+    const okSession = {
+      _clientId: "partial-ok-1",
+      kickCount: 4,
+      startedAt: "2026-08-04T09:00:00.000Z",
+      endedAt: "2026-08-04T09:10:00.000Z",
+    };
+    const failSession = {
+      _clientId: "partial-fail-1",
+      kickCount: 7,
+      startedAt: "2026-08-04T10:00:00.000Z",
+      endedAt: "2026-08-04T10:15:00.000Z",
+    };
+    mockReadWatchKickSessions.mockResolvedValue([okSession, failSession]);
+    mockApiSaveWatchKickSession.mockImplementation(
+      async (session: { _clientId: string }) => {
+        if (session._clientId === "partial-fail-1") {
+          throw new Error("HTTP 429 Too Many Requests");
+        }
+      },
+    );
+
+    await act(async () => {
+      create(React.createElement(SyncHost));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    await act(async () => {
+      goOfflineThenOnline();
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // Both items were attempted — a failure must not abort the rest of the flush
+    expect(mockApiSaveWatchKickSession).toHaveBeenCalledTimes(2);
+    // Only the successful item is removed from the queue…
+    expect(mockRemoveWatchKickSessionById).toHaveBeenCalledTimes(1);
+    expect(mockRemoveWatchKickSessionById).toHaveBeenCalledWith(
+      "user-test",
+      "partial-ok-1",
+    );
+    // …the failed item must remain queued so the next reconnect retries it
+    expect(mockRemoveWatchKickSessionById).not.toHaveBeenCalledWith(
+      "user-test",
+      "partial-fail-1",
+    );
+  });
+
+  it("keeps only the failed contraction queued when a reconnect flush partially fails", async () => {
+    const NetInfo = jest.requireMock("@react-native-community/netinfo").default;
+    (NetInfo.fetch as jest.Mock).mockResolvedValueOnce({
+      isConnected: false,
+      isInternetReachable: false,
+    });
+
+    const okContraction = {
+      _clientId: "partial-ok-c1",
+      startedAt: "2026-08-04T11:00:00.000Z",
+      durationSeconds: 50,
+    };
+    const failContraction = {
+      _clientId: "partial-fail-c1",
+      startedAt: "2026-08-04T11:05:00.000Z",
+      durationSeconds: 40,
+    };
+    mockReadWatchContractions.mockResolvedValue([
+      okContraction,
+      failContraction,
+    ]);
+    mockApiSaveWatchContraction.mockImplementation(
+      async (contraction: { _clientId: string }) => {
+        if (contraction._clientId === "partial-fail-c1") {
+          throw new Error("HTTP 503 Service Unavailable");
+        }
+      },
+    );
+
+    await act(async () => {
+      create(React.createElement(SyncHost));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    await act(async () => {
+      goOfflineThenOnline();
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(mockApiSaveWatchContraction).toHaveBeenCalledTimes(2);
+    expect(mockRemoveWatchContractionById).toHaveBeenCalledTimes(1);
+    expect(mockRemoveWatchContractionById).toHaveBeenCalledWith(
+      "user-test",
+      "partial-ok-c1",
+    );
+    expect(mockRemoveWatchContractionById).not.toHaveBeenCalledWith(
+      "user-test",
+      "partial-fail-c1",
+    );
+  });
+
   it("skips sync entirely when the user is not signed in", async () => {
     mockUseAuth.mockReturnValue({ isSignedIn: false, getToken: jest.fn() });
     mockHasPendingSync.mockResolvedValue(true);
