@@ -505,6 +505,83 @@ describe("useWatchConnectivity — App Store update from 1.0.11 (no Watch) to 1.
     expect(lastCall[1][0].week).toBe(30);
   });
 
+  // ── Due-date reset while Watch is absent ───────────────────────────────────
+  //
+  // Distinct from a week *advance*: the user changes their due date entirely,
+  // resetting the gestational week to a much earlier value (28 → 8). The tips
+  // array changes shape (different entries, different length), not just the
+  // week number. On reinstall the hook must push the week-8 snapshot, never a
+  // stale week-28 one.
+
+  it("sends the reset week+tips on reinstall when the due date changed while the Watch was removed", async () => {
+    let setWeekAndTips!: (week: number, tips: WatchTip[]) => void;
+
+    function DueDateResetHarness() {
+      const [state, setState] = useState<{ week: number; tips: WatchTip[] }>({
+        week: 28,
+        tips: makeTips(28),
+      });
+      setWeekAndTips = (week, tips) => setState({ week, tips });
+      useWatchConnectivity({ gestationalWeek: state.week, tips: state.tips });
+      return null;
+    }
+
+    mockGetSessionState.mockResolvedValue({
+      activationState: "activated",
+      isWatchAppInstalled: true,
+      isReachable: true,
+    });
+
+    await act(async () => {
+      create(<DueDateResetHarness />);
+    });
+
+    // Initial send with the original due date's week
+    expect(mockSendWeekAndTips).toHaveBeenCalledTimes(1);
+    expect(mockSendWeekAndTips).toHaveBeenCalledWith(28, makeTips(28));
+
+    // Watch companion is removed
+    await act(async () => {
+      stateChangeListener?.({
+        activationState: "activated",
+        isWatchAppInstalled: false,
+        isReachable: false,
+      });
+    });
+
+    // User changes their due date entirely — week resets to 8 and the tips
+    // array changes shape (three early-pregnancy tips instead of two).
+    const week8Tips: WatchTip[] = [
+      { week: 8, emoji: "👶", text: "Week 8 — baby development." },
+      { week: 8, emoji: "💕", text: "Week 8 — how you may feel." },
+      { week: 8, emoji: "🥦", text: "Week 8 — nutrition tip." },
+    ];
+    await act(async () => {
+      setWeekAndTips(8, week8Tips);
+    });
+
+    // Still only 1 call — no Watch to send to while it is absent
+    expect(mockSendWeekAndTips).toHaveBeenCalledTimes(1);
+
+    // User reinstalls the Watch companion
+    await act(async () => {
+      stateChangeListener?.({
+        activationState: "activated",
+        isWatchAppInstalled: true,
+        isReachable: true,
+      });
+    });
+
+    // Must send exactly one new snapshot with week 8 and the new-shape tips —
+    // never the stale week-28 payload.
+    expect(mockSendWeekAndTips).toHaveBeenCalledTimes(2);
+    const lastCall = mockSendWeekAndTips.mock.calls[1] as [number, WatchTip[]];
+    expect(lastCall[0]).toBe(8);
+    expect(lastCall[1]).toHaveLength(3);
+    expect(lastCall[1]).toEqual(week8Tips);
+    expect(lastCall[1].every((t) => t.week === 8)).toBe(true);
+  });
+
   // ── getSessionState race: live event wins ──────────────────────────────────
   //
   // If onWatchStateChange fires BEFORE getSessionState() resolves, the stale
