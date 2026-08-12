@@ -77,9 +77,11 @@ jest.mock("@/lib/birth-plan", () => ({
 
 // ─── React Query — useQueryClient is called by the hook; stub it out ─────────
 
+const mockInvalidateQueries = jest.fn().mockResolvedValue(undefined);
+
 jest.mock("@tanstack/react-query", () => ({
   useQueryClient: jest.fn(() => ({
-    invalidateQueries: jest.fn().mockResolvedValue(undefined),
+    invalidateQueries: mockInvalidateQueries,
     getQueryData: jest.fn().mockReturnValue(undefined),
   })),
 }));
@@ -125,10 +127,13 @@ import {
   apiSaveHospitalBag,
   apiSaveBirthPlanAnswers,
   apiSaveWatchKickSession,
+  apiSaveWatchContraction,
 } from "@/lib/sync-api";
 import {
   readWatchKickSessions,
   removeWatchKickSessionById,
+  readWatchContractions,
+  removeWatchContractionById,
 } from "@/lib/sync-queue";
 import { useGlobalBackgroundSync } from "@/hooks/useGlobalBackgroundSync";
 
@@ -145,8 +150,11 @@ const mockApiUpsertJournal = apiUpsertJournalEntry as jest.Mock;
 const mockApiSaveHospitalBag = apiSaveHospitalBag as jest.Mock;
 const mockApiSaveBirthPlan = apiSaveBirthPlanAnswers as jest.Mock;
 const mockApiSaveWatchKickSession = apiSaveWatchKickSession as jest.Mock;
+const mockApiSaveWatchContraction = apiSaveWatchContraction as jest.Mock;
 const mockReadWatchKickSessions = readWatchKickSessions as jest.Mock;
 const mockRemoveWatchKickSessionById = removeWatchKickSessionById as jest.Mock;
+const mockReadWatchContractions = readWatchContractions as jest.Mock;
+const mockRemoveWatchContractionById = removeWatchContractionById as jest.Mock;
 
 // ─── Minimal host component ───────────────────────────────────────────────────
 
@@ -180,6 +188,11 @@ describe("useGlobalBackgroundSync — fires without tool screens mounted", () =>
     // (clearAllMocks does NOT clear mockReturnValue overrides — only mockReset
     // does — so we must reset it explicitly).
     mockTryAcquireSyncLock.mockReturnValue(true);
+    // mockResolvedValue overrides also persist across tests; restore defaults.
+    mockReadWatchKickSessions.mockResolvedValue([]);
+    mockReadWatchContractions.mockResolvedValue([]);
+    mockApiSaveWatchKickSession.mockResolvedValue(undefined);
+    mockApiSaveWatchContraction.mockResolvedValue(undefined);
     mockUseAuth.mockReturnValue({
       isSignedIn: true,
       userId: "user-test",
@@ -531,6 +544,204 @@ describe("useGlobalBackgroundSync — fires without tool screens mounted", () =>
       "user-test",
       "local-kick-1",
     );
+  });
+
+  it("invalidates the kick-session list query after a queued Watch kick session is flushed", async () => {
+    const pendingSession = {
+      _clientId: "invalidate-kick-1",
+      kickCount: 3,
+      startedAt: "2026-08-02T09:00:00.000Z",
+      endedAt: "2026-08-02T09:10:00.000Z",
+    };
+    mockReadWatchKickSessions.mockResolvedValue([pendingSession]);
+
+    await act(async () => {
+      create(React.createElement(SyncHost));
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // The save must have succeeded…
+    expect(mockApiSaveWatchKickSession).toHaveBeenCalled();
+    // …and the Tools tab kick-session list cache must have been invalidated so
+    // the list refreshes without manual navigation.
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["kick-sessions", { limit: 10, offset: 0 }],
+    });
+  });
+
+  it("invalidates the contraction list query after a queued Watch contraction is flushed", async () => {
+    const pendingContraction = {
+      _clientId: "invalidate-contraction-1",
+      startedAt: "2026-08-02T12:00:00.000Z",
+      durationSeconds: 45,
+    };
+    mockReadWatchContractions.mockResolvedValue([pendingContraction]);
+
+    await act(async () => {
+      create(React.createElement(SyncHost));
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(mockApiSaveWatchContraction).toHaveBeenCalledWith(
+      pendingContraction,
+      expect.any(Function),
+    );
+    expect(mockRemoveWatchContractionById).toHaveBeenCalledWith(
+      "user-test",
+      "invalidate-contraction-1",
+    );
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      queryKey: [
+        "contractions",
+        { sessionDate: new Date().toISOString().slice(0, 10), limit: 50 },
+      ],
+    });
+  });
+
+  it("invalidates the kick-session list query when a queued Watch kick session is flushed by the reconnect handler", async () => {
+    // Force the initial-mount NetInfo.fetch() path to see the device offline
+    // so ONLY the offline → online reconnect handler performs the flush.
+    const NetInfo = jest.requireMock("@react-native-community/netinfo").default;
+    (NetInfo.fetch as jest.Mock).mockResolvedValueOnce({
+      isConnected: false,
+      isInternetReachable: false,
+    });
+
+    const pendingSession = {
+      _clientId: "reconnect-kick-1",
+      kickCount: 6,
+      startedAt: "2026-08-03T08:00:00.000Z",
+      endedAt: "2026-08-03T08:12:00.000Z",
+    };
+    mockReadWatchKickSessions.mockResolvedValue([pendingSession]);
+
+    await act(async () => {
+      create(React.createElement(SyncHost));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // Mount path saw offline → nothing flushed, nothing invalidated yet.
+    expect(mockApiSaveWatchKickSession).not.toHaveBeenCalled();
+    expect(mockInvalidateQueries).not.toHaveBeenCalled();
+
+    await act(async () => {
+      goOfflineThenOnline();
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(mockApiSaveWatchKickSession).toHaveBeenCalledWith(
+      pendingSession,
+      expect.any(Function),
+    );
+    expect(mockRemoveWatchKickSessionById).toHaveBeenCalledWith(
+      "user-test",
+      "reconnect-kick-1",
+    );
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["kick-sessions", { limit: 10, offset: 0 }],
+    });
+  });
+
+  it("invalidates the contraction list query when a queued Watch contraction is flushed by the reconnect handler", async () => {
+    const NetInfo = jest.requireMock("@react-native-community/netinfo").default;
+    (NetInfo.fetch as jest.Mock).mockResolvedValueOnce({
+      isConnected: false,
+      isInternetReachable: false,
+    });
+
+    const pendingContraction = {
+      _clientId: "reconnect-contraction-1",
+      startedAt: "2026-08-03T13:00:00.000Z",
+      durationSeconds: 60,
+    };
+    mockReadWatchContractions.mockResolvedValue([pendingContraction]);
+
+    await act(async () => {
+      create(React.createElement(SyncHost));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(mockApiSaveWatchContraction).not.toHaveBeenCalled();
+    expect(mockInvalidateQueries).not.toHaveBeenCalled();
+
+    await act(async () => {
+      goOfflineThenOnline();
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(mockApiSaveWatchContraction).toHaveBeenCalledWith(
+      pendingContraction,
+      expect.any(Function),
+    );
+    expect(mockRemoveWatchContractionById).toHaveBeenCalledWith(
+      "user-test",
+      "reconnect-contraction-1",
+    );
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      queryKey: [
+        "contractions",
+        { sessionDate: new Date().toISOString().slice(0, 10), limit: 50 },
+      ],
+    });
+  });
+
+  it("does not invalidate any query cache when the reconnect flush save fails", async () => {
+    const NetInfo = jest.requireMock("@react-native-community/netinfo").default;
+    (NetInfo.fetch as jest.Mock).mockResolvedValueOnce({
+      isConnected: false,
+      isInternetReachable: false,
+    });
+
+    const pendingSession = {
+      _clientId: "reconnect-fail-1",
+      kickCount: 1,
+      startedAt: "2026-08-03T15:00:00.000Z",
+      endedAt: "2026-08-03T15:03:00.000Z",
+    };
+    mockReadWatchKickSessions.mockResolvedValue([pendingSession]);
+    mockApiSaveWatchKickSession.mockRejectedValue(new Error("network error"));
+
+    await act(async () => {
+      create(React.createElement(SyncHost));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    await act(async () => {
+      goOfflineThenOnline();
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(mockApiSaveWatchKickSession).toHaveBeenCalled();
+    // Item stays queued for the next reconnect; no invalidation fires.
+    expect(mockRemoveWatchKickSessionById).not.toHaveBeenCalled();
+    expect(mockInvalidateQueries).not.toHaveBeenCalled();
+  });
+
+  it("does not invalidate any query cache when the flush save fails", async () => {
+    const pendingSession = {
+      _clientId: "fail-no-invalidate",
+      kickCount: 2,
+      startedAt: "2026-08-02T14:00:00.000Z",
+      endedAt: "2026-08-02T14:05:00.000Z",
+    };
+    mockReadWatchKickSessions.mockResolvedValue([pendingSession]);
+    mockApiSaveWatchKickSession.mockRejectedValue(new Error("network error"));
+
+    await act(async () => {
+      create(React.createElement(SyncHost));
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(mockApiSaveWatchKickSession).toHaveBeenCalled();
+    // Failed save: item stays queued and no invalidation fires.
+    expect(mockRemoveWatchKickSessionById).not.toHaveBeenCalled();
+    expect(mockInvalidateQueries).not.toHaveBeenCalled();
   });
 
   it("skips sync entirely when the user is not signed in", async () => {
