@@ -598,11 +598,11 @@ export function AccountSheet({
                         cancelAllAppointmentReminders().catch(() => {});
                         pass.refresh();
                         onClose();
-                        // Notify the Watch only after Clerk has successfully
-                        // signed out. AuthTokenBridge also handles this via the
-                        // session-transition effect, covering the 401 auto-sign-out
-                        // path; this call is harmless if that fires first.
-                        WatchConnectivity.signOut().catch(() => {});
+                        // Watch sign-out is handled centrally by AuthTokenBridge's
+                        // session-transition effect (fires whenever Clerk session
+                        // becomes null — covers both manual and 401 auto-sign-out).
+                        // A second call here would send a duplicate signal to the
+                        // Watch, so it has been removed.
                       } catch {
                         setIsSigningOut(false);
                         setSignOutError(

@@ -341,13 +341,37 @@ struct ContractionTimerView: View {
                     }
                     staleSummary = summary
                 }
-                // Wipe stale entries so they don't re-surface on subsequent launches.
+
+                // Check whether there is ALSO a fresh in-progress contraction
+                // that started AFTER the stale completed records. If so, preserve
+                // the active contraction — only the completed records are stale.
+                let activeFlag = ud.bool(forKey: ContractionDefaults.active)
+                let inProgressStartRaw = ud.double(forKey: ContractionDefaults.start)
+                let hasFreshActiveContraction: Bool
+                if activeFlag && inProgressStartRaw > 0 {
+                    let startAge = now.timeIntervalSince(
+                        Date(timeIntervalSince1970: inProgressStartRaw))
+                    hasFreshActiveContraction =
+                        startAge <= ContractionDefaults.staleSessionThreshold
+                } else {
+                    hasFreshActiveContraction = false
+                }
+
+                // Always wipe stale completed records, intervals, and end marker.
                 ud.removeObject(forKey: ContractionDefaults.records)
                 ud.removeObject(forKey: ContractionDefaults.lastEnd)
-                ud.removeObject(forKey: ContractionDefaults.start)
                 ud.set(0.0, forKey: ContractionDefaults.lastInterval)
-                ud.set(false, forKey: ContractionDefaults.active)
-                return
+
+                if hasFreshActiveContraction {
+                    // The in-progress contraction is fresh — leave its `active` and
+                    // `start` keys intact and fall through to the normal restore path,
+                    // which will resume the timer from where the user left off.
+                } else {
+                    // No fresh active contraction — wipe everything and bail.
+                    ud.removeObject(forKey: ContractionDefaults.start)
+                    ud.set(false, forKey: ContractionDefaults.active)
+                    return
+                }
             }
         }
 

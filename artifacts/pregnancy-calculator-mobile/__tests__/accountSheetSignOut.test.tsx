@@ -260,7 +260,13 @@ describe("AccountSheet — sign-out error recovery", () => {
     expect(mockWatchSignOut).not.toHaveBeenCalled();
   });
 
-  it("calls WatchConnectivity.signOut after Clerk signOut() succeeds", async () => {
+  it("does NOT call WatchConnectivity.signOut directly (AuthTokenBridge handles it centrally)", async () => {
+    // AccountSheet previously called WatchConnectivity.signOut() after Clerk
+    // signOut() resolved. That created a duplicate message: AuthTokenBridge
+    // fires on every session → null transition (covering both manual and 401
+    // auto-sign-out paths), so the second AccountSheet call was redundant.
+    // The call has been removed from AccountSheet; this test confirms it stays
+    // removed so the Watch never receives duplicate sign-out signals.
     const mockSignOut = jest.fn().mockResolvedValue(undefined);
     mockUseAuth.mockReturnValue({ isSignedIn: true, signOut: mockSignOut });
 
@@ -272,7 +278,7 @@ describe("AccountSheet — sign-out error recovery", () => {
     });
 
     expect(mockSignOut).toHaveBeenCalled();
-    expect(mockWatchSignOut).toHaveBeenCalledTimes(1);
+    expect(mockWatchSignOut).not.toHaveBeenCalled();
   });
 
   it("does NOT cancel appointment reminders when signOut() rejects (reminders still fire)", async () => {

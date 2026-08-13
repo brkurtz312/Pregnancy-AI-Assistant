@@ -638,4 +638,41 @@ describe("checkout.session.completed → Pass entitlement (integration)", () => 
     expect(res.status).toBe(200);
     expect(mockUsers.get(TEST_USER_ID)!.hasPass).toBe(true);
   });
+
+  // ---------------------------------------------------------------------------
+  // Stripe customer retrieval failure: user row exists + stripeCustomerId null,
+  // but customers.retrieve() throws (network error, rate limit, etc.).
+  //
+  // Pre-fix: the catch block logged the error and moved on — the pass was
+  // silently lost, with no backfill because stripeCustomerId stayed null.
+  //
+  // Post-fix: the catch block still calls grantPass() unconditionally because
+  // the webhook body is already HMAC-verified — the payment itself is
+  // authenticated. The customer link may be missing, but the entitlement is not.
+  // ---------------------------------------------------------------------------
+  it("grants pass even when customers.retrieve() throws (transient network/rate-limit error)", async () => {
+    const USER = "unlinked_retrieve_fails";
+    const CUS = "cus_retrieve_will_throw";
+
+    // Deliberately do NOT add CUS to mockStripeCustomers so that
+    // getUncachableStripeClient().customers.retrieve(CUS) throws "No such
+    // customer: cus_retrieve_will_throw", simulating a Stripe API error.
+    mockUsers.set(USER, { id: USER, stripeCustomerId: null, hasPass: false });
+
+    const res = await postPaidCheckout(CUS, USER);
+
+    // Webhook is still accepted — returning non-200 would cause Stripe to
+    // retry indefinitely which would hit the same error.
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ received: true });
+
+    // Despite the retrieval failure the pass MUST be granted, because the
+    // webhook HMAC verifies the payment is real.
+    const user = mockUsers.get(USER)!;
+    expect(user.hasPass).toBe(true);
+
+    // The customer↔user link cannot be persisted without a successful retrieve;
+    // that is expected — the link will be established on next sign-in.
+    expect(user.stripeCustomerId).toBeNull();
+  });
 });

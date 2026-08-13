@@ -132,6 +132,10 @@ export function AuthTokenBridge() {
     // device. Also wipe the AsyncStorage tool caches (journal, hospital bag,
     // birth plan) so a signed-out session never shows the previous user's data.
     if (wasSignedIn && isNowSignedOut) {
+      // Cancel in-flight queries first so they cannot repopulate the cache
+      // after clear() (race condition: query resolves between clear and the
+      // component that issued it being unmounted).
+      queryClient.cancelQueries().catch(() => {});
       queryClient.clear();
       clearJournalCache().catch(() => {});
       clearHospitalBagCache().catch(() => {});

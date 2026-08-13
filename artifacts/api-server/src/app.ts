@@ -144,8 +144,22 @@ app.post(
               } catch (verifyErr) {
                 req.log.error(
                   { err: verifyErr, userId, customerId },
-                  "Could not verify Stripe customer for early-webhook grant; entitlement backfill will retry",
+                  "Could not verify Stripe customer link (network/rate-limit); granting pass from HMAC-authenticated webhook",
                 );
+                // The webhook body is already HMAC-verified — the payment is
+                // authenticated. Customer retrieval failed (transient network
+                // error, rate limit), but we must not silently lose the pass.
+                // Grant without persisting the customer↔user link; the link
+                // will be established on the user's next sign-in via the
+                // /billing/checkout flow or a successful webhook retry.
+                try {
+                  await grantPass(userId);
+                } catch (grantErr) {
+                  req.log.error(
+                    { err: grantErr, userId, customerId },
+                    "Fallback grantPass also failed; entitlement backfill will retry on next sign-in",
+                  );
+                }
               }
             }
           }
