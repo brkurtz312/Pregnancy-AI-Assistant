@@ -347,15 +347,12 @@ struct ContractionTimerView: View {
                 // the active contraction — only the completed records are stale.
                 let activeFlag = ud.bool(forKey: ContractionDefaults.active)
                 let inProgressStartRaw = ud.double(forKey: ContractionDefaults.start)
-                let hasFreshActiveContraction: Bool
-                if activeFlag && inProgressStartRaw > 0 {
-                    let startAge = now.timeIntervalSince(
-                        Date(timeIntervalSince1970: inProgressStartRaw))
-                    hasFreshActiveContraction =
-                        startAge <= ContractionDefaults.staleSessionThreshold
-                } else {
-                    hasFreshActiveContraction = false
-                }
+                let hasFreshActiveContraction = contractionHasFreshActiveSession(
+                    activeFlag: activeFlag,
+                    startRaw: inProgressStartRaw,
+                    now: now,
+                    threshold: ContractionDefaults.staleSessionThreshold
+                )
 
                 // Always wipe stale completed records, intervals, and end marker.
                 ud.removeObject(forKey: ContractionDefaults.records)
@@ -422,4 +419,32 @@ struct ContractionTimerView: View {
         let s = Int(seconds) % 60
         return String(format: "%d:%02d", m, s)
     }
+}
+
+// MARK: - Active-contraction preservation helper
+
+/// Returns `true` when the persisted state indicates that a contraction is
+/// actively in progress AND its start time is recent enough to be trusted.
+///
+/// Used by the staleness guard in `restoreState()` to decide whether an
+/// in-progress timer should survive a stale-completed-records wipe: if the
+/// user started timing a new contraction while yesterday's history still
+/// existed, the history is stale but the active timer is not.
+///
+/// - Parameters:
+///   - activeFlag:  The value of `ContractionDefaults.active` in UserDefaults.
+///   - startRaw:    The `timeIntervalSince1970` from `ContractionDefaults.start`.
+///   - now:         Current date; injected so the function is trivially testable.
+///   - threshold:   Staleness threshold in seconds (defaults to 24 h).
+/// - Returns: `true` only when `activeFlag` is set, `startRaw > 0`, and the
+///            start age is within `threshold`.
+func contractionHasFreshActiveSession(
+    activeFlag: Bool,
+    startRaw: Double,
+    now: Date,
+    threshold: TimeInterval = ContractionDefaults.staleSessionThreshold
+) -> Bool {
+    guard activeFlag, startRaw > 0 else { return false }
+    let startAge = now.timeIntervalSince(Date(timeIntervalSince1970: startRaw))
+    return startAge <= threshold
 }

@@ -48,6 +48,134 @@ func resolveStaleReferenceDate(lastEndRaw: Double, recordEndDates: [Date]) -> Da
     return recordEndDates.max()
 }
 
+// MARK: - Active-contraction preservation helper tests
+
+/// Tests for `contractionHasFreshActiveSession(_:startRaw:now:threshold:)`.
+///
+/// This function gates the stale-wipe path in `restoreState()`: when stale
+/// completed records coexist with a fresh in-progress contraction, only the
+/// completed records must be discarded — the active timer must survive.
+final class ContractionHasFreshActiveSessionTests: XCTestCase {
+
+    private let threshold: TimeInterval = 24 * 3600
+
+    // MARK: Active + fresh start
+
+    func testActiveAndFreshStart_returnsTrue() {
+        let now = Date()
+        let recentStart = now.addingTimeInterval(-300) // 5 min ago
+        XCTAssertTrue(
+            contractionHasFreshActiveSession(
+                activeFlag: true,
+                startRaw: recentStart.timeIntervalSince1970,
+                now: now,
+                threshold: threshold
+            ),
+            "An active contraction that started 5 min ago must be preserved"
+        )
+    }
+
+    func testActiveAndStartExactlyAtThreshold_returnsTrue() {
+        // age == threshold is NOT stale (uses <=, not <)
+        let now = Date()
+        let atBoundary = now.addingTimeInterval(-threshold)
+        XCTAssertTrue(
+            contractionHasFreshActiveSession(
+                activeFlag: true,
+                startRaw: atBoundary.timeIntervalSince1970,
+                now: now,
+                threshold: threshold
+            ),
+            "An active contraction exactly at the threshold must still be preserved (>= threshold is NOT stale)"
+        )
+    }
+
+    // MARK: Active + stale start (should NOT be preserved)
+
+    func testActiveButStaleStart_returnsFalse() {
+        let now = Date()
+        let oldStart = now.addingTimeInterval(-(threshold + 1)) // 1 second past threshold
+        XCTAssertFalse(
+            contractionHasFreshActiveSession(
+                activeFlag: true,
+                startRaw: oldStart.timeIntervalSince1970,
+                now: now,
+                threshold: threshold
+            ),
+            "An active contraction with a stale start time must not be preserved"
+        )
+    }
+
+    // MARK: Inactive (activeFlag = false)
+
+    func testNotActive_freshStart_returnsFalse() {
+        let now = Date()
+        let recentStart = now.addingTimeInterval(-60)
+        XCTAssertFalse(
+            contractionHasFreshActiveSession(
+                activeFlag: false,
+                startRaw: recentStart.timeIntervalSince1970,
+                now: now,
+                threshold: threshold
+            ),
+            "When the active flag is false, the session must not be preserved even if start is recent"
+        )
+    }
+
+    // MARK: Missing / corrupt start timestamp
+
+    func testActiveButZeroStartRaw_returnsFalse() {
+        XCTAssertFalse(
+            contractionHasFreshActiveSession(
+                activeFlag: true,
+                startRaw: 0,
+                now: Date(),
+                threshold: threshold
+            ),
+            "A zero startRaw (corrupt or absent) must not be treated as a fresh active contraction"
+        )
+    }
+
+    func testNotActiveAndZeroStartRaw_returnsFalse() {
+        XCTAssertFalse(
+            contractionHasFreshActiveSession(
+                activeFlag: false,
+                startRaw: 0,
+                now: Date(),
+                threshold: threshold
+            ),
+            "Both flags absent must return false"
+        )
+    }
+
+    // MARK: Stale-completed-records + fresh-active scenario (the core bug scenario)
+
+    /// Simulates the exact scenario that prompted the fix: yesterday's completed
+    /// contraction records coexist with a contraction that the user just started
+    /// (e.g. phone force-quit mid-session). The active timer must survive; the
+    /// old completed records must be discarded.
+    func testStaleCompletedSessionWithFreshActiveContraction_activePreserved() {
+        let now = Date()
+
+        // Completed records reference (simulates lastEnd = yesterday)
+        let staleReference = now.addingTimeInterval(-(28 * 3600)) // 28 h ago
+        let completedRecordsAreStale = isSessionStale(
+            referenceDate: staleReference, now: now, threshold: threshold)
+        XCTAssertTrue(completedRecordsAreStale, "Setup: completed records must be stale")
+
+        // Active contraction that started 8 min ago (well within threshold)
+        let freshStart = now.addingTimeInterval(-480)
+        let preserveActive = contractionHasFreshActiveSession(
+            activeFlag: true,
+            startRaw: freshStart.timeIntervalSince1970,
+            now: now,
+            threshold: threshold
+        )
+        XCTAssertTrue(preserveActive,
+            "Fresh active contraction must survive even when the completed-records reference is stale")
+    }
+}
+
 // MARK: - Tests
 
 final class ContractionTimerUrgencyTests: XCTestCase {
