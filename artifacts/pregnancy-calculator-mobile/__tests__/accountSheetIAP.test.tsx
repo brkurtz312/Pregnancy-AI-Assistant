@@ -351,7 +351,11 @@ describe("AccountSheet — RevenueCat in-app purchase (native)", () => {
     expect(allText).toContain("free AI questions left this week");
   });
 
-  it("calls WatchConnectivity.signOut exactly once when Sign Out is pressed", async () => {
+  it("does NOT call WatchConnectivity.signOut directly when Sign Out is pressed (AuthTokenBridge handles it centrally)", async () => {
+    // AccountSheet previously called WatchConnectivity.signOut() after Clerk
+    // signOut() resolved.  That created a duplicate signal to the Watch because
+    // AuthTokenBridge already fires on every session → null transition.  The
+    // call was removed from AccountSheet; this test confirms it stays removed.
     const mockClerkSignOut = jest.fn(async () => {});
     mockUseAuth.mockReturnValue({
       isSignedIn: true,
@@ -369,7 +373,7 @@ describe("AccountSheet — RevenueCat in-app purchase (native)", () => {
     });
 
     expect(mockClerkSignOut).toHaveBeenCalledTimes(1);
-    expect(mockWatchSignOut).toHaveBeenCalledTimes(1);
+    expect(mockWatchSignOut).not.toHaveBeenCalled();
   });
 
   it("does NOT call WatchConnectivity.signOut when Clerk signOut fails", async () => {

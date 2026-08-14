@@ -227,6 +227,14 @@ export function WatchBackgroundListener() {
     setLiveKickCount(count);
   }, []);
 
+  // Reset the live-count banner whenever the user signs out so a stale
+  // mid-session count is never visible to the next user on a shared device.
+  useEffect(() => {
+    if (!isSignedIn) {
+      setLiveKickCount(null);
+    }
+  }, [isSignedIn]);
+
   const [toast, setToast] = useState<WatchToastState>({
     message: "",
     visible: false,

@@ -26,7 +26,6 @@ import {
   isUserCancelledError,
   useSubscription,
 } from "@/lib/revenuecat";
-import WatchConnectivity from "@/modules/WatchConnectivity";
 import { cancelAllAppointmentReminders } from "@/lib/appointment-reminders";
 
 const PASS_PRICE = "$14.99";

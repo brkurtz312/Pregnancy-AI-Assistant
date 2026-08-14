@@ -2313,6 +2313,55 @@ describe("WatchBackgroundListener — signed-out guard", () => {
     expect(renderedTexts).not.toMatch(/saved/i);
     expect(renderedTexts).not.toMatch(/recorded/i);
   });
+
+  it("hides the live kick-count banner when the user signs out mid-session", () => {
+    // Step 1: render signed-in so the kick-count callbacks are registered.
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      userId: "user-123",
+      getToken: jest.fn().mockResolvedValue("token-user-123"),
+    });
+    act(() => {
+      listenerRenderer = create(React.createElement(WatchBackgroundListener));
+    });
+    act(() => {});
+
+    // Step 2: simulate several Watch taps to drive liveKickCount > 0.
+    expect(capturedOnKickUpdate).toBeDefined();
+    act(() => {
+      capturedOnKickUpdate!(1);
+    });
+    act(() => {
+      capturedOnKickUpdate!(2);
+    });
+    act(() => {
+      capturedOnKickUpdate!(3);
+    });
+
+    // Verify the banner is visible before sign-out.
+    const textsBefore = listenerRenderer!.root
+      .findAllByType(Text)
+      .map((n) => String(n.props.children ?? ""))
+      .join(" ");
+    expect(textsBefore).toMatch(/Watch session in progress/);
+
+    // Step 3: simulate sign-out by updating the mock and re-rendering.
+    mockUseAuth.mockReturnValue({
+      isSignedIn: false,
+      userId: undefined,
+      getToken: jest.fn().mockResolvedValue(null),
+    });
+    act(() => {
+      listenerRenderer!.update(React.createElement(WatchBackgroundListener));
+    });
+
+    // Step 4: the banner must no longer appear.
+    const textsAfter = listenerRenderer!.root
+      .findAllByType(Text)
+      .map((n) => String(n.props.children ?? ""))
+      .join(" ");
+    expect(textsAfter).not.toMatch(/Watch session in progress/);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
