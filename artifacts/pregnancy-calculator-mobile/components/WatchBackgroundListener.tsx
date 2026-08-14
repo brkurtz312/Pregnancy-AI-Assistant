@@ -339,8 +339,13 @@ export function WatchBackgroundListener() {
         } catch {
           // Non-fatal: dedup falls back to the server idempotency key.
         }
+        // Invalidate the base kick-session key so every variant is refreshed:
+        // – KickCounterSection in tools.tsx   (limit:10, offset:0)
+        // – KickHistoryTab in session-history.tsx (limit:50, offset:0)
+        // React Query treats the base key as a prefix and invalidates every
+        // matching query, so both screens update without a manual pull-to-refresh.
         queryClient.invalidateQueries({
-          queryKey: getListKickSessionsQueryKey({ limit: 10, offset: 0 }),
+          queryKey: getListKickSessionsQueryKey(),
         });
         showToast("Kick session saved");
       } catch {

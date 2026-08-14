@@ -150,7 +150,9 @@ jest.mock("@workspace/api-client-react", () => ({
     isLoading: false,
   })),
   getGetProfileQueryKey: jest.fn(() => ["profile"]),
-  getListKickSessionsQueryKey: jest.fn((p) => ["kick-sessions", p]),
+  getListKickSessionsQueryKey: jest.fn((p) =>
+    p !== undefined ? ["kick-sessions", p] : ["kick-sessions"],
+  ),
   getListContractionsQueryKey: jest.fn((p) => ["contractions", p]),
 }));
 
@@ -1479,33 +1481,22 @@ describe("WatchBackgroundListener — invalidateQueries key must match Tools tab
     jest.clearAllMocks();
   });
 
-  it("invalidates the exact key KickCounterSection passes to useListKickSessions", async () => {
-    // Step 1 — render KickCounterSection and capture the params it passes to
-    // useListKickSessions.  The mock spies on every call so we can extract the
-    // argument without duplicating the literal in this test.
+  it("invalidates using the base kick-session key so both the tools tab and the history screen refresh", async () => {
+    // WatchBackgroundListener.handleKickSessionEnd invalidates with
+    // getListKickSessionsQueryKey() — no params.  This resolves to the base
+    // path prefix which React Query matches as a prefix against every cached
+    // kick-session query, including:
+    //   • KickCounterSection: { limit: 10, offset: 0 }
+    //   • KickHistoryTab:     { limit: 50, offset: 0 }
+    //
+    // Using the narrow tools-tab key here (the old behaviour) would leave the
+    // history screen stale until the user manually pulled to refresh.
     const apiMock = require("@workspace/api-client-react");
-    let capturedKickListParams: unknown;
-    apiMock.useListKickSessions.mockImplementation((params: unknown) => {
-      capturedKickListParams = params;
-      return { data: { items: [] }, isLoading: false, refetch: jest.fn() };
-    });
 
-    act(() => {
-      toolsRenderer = create(React.createElement(KickCounterSection));
-    });
-    await act(async () => {});
+    // Derive the expected base key (no params).
+    const expectedBaseKey = apiMock.getListKickSessionsQueryKey();
 
-    // The section must have called the hook with some params
-    expect(capturedKickListParams).toBeDefined();
-
-    // Step 2 — derive the expected invalidation key from those exact params.
-    // If KickCounterSection ever changes its hook params the next line also
-    // changes, and the assertion below will catch any listener mismatch.
-    const expectedKey = apiMock.getListKickSessionsQueryKey(
-      capturedKickListParams,
-    );
-
-    // Step 3 — render the listener and fire a Watch kick event
+    // Render the listener and fire a Watch kick event.
     act(() => {
       listenerRenderer = create(React.createElement(WatchBackgroundListener));
     });
@@ -1519,10 +1510,38 @@ describe("WatchBackgroundListener — invalidateQueries key must match Tools tab
       });
     });
 
-    // Step 4 — the invalidation key must equal the key KickCounterSection uses
+    // The invalidation key must be the base key (no params) so every
+    // kick-session query — including the history screen's limit:50 query — is
+    // marked stale and re-fetched automatically.
     expect(mockInvalidateQueries).toHaveBeenCalledWith({
-      queryKey: expectedKey,
+      queryKey: expectedBaseKey,
     });
+  });
+
+  it("base kick-session key covers both the tools-tab key (limit:10) and the history key (limit:50)", () => {
+    // This test confirms that the base key returned by getListKickSessionsQueryKey()
+    // is a prefix of the keys returned with params, so React Query's prefix
+    // invalidation will mark BOTH variants stale when the listener fires.
+    const apiMock = require("@workspace/api-client-react");
+
+    const baseKey = apiMock.getListKickSessionsQueryKey();
+    const toolsKey = apiMock.getListKickSessionsQueryKey({
+      limit: 10,
+      offset: 0,
+    });
+    const historyKey = apiMock.getListKickSessionsQueryKey({
+      limit: 50,
+      offset: 0,
+    });
+
+    // The base key must be a non-empty prefix shared by both parameterised keys.
+    expect(baseKey.length).toBeGreaterThan(0);
+    expect(toolsKey.slice(0, baseKey.length)).toEqual(baseKey);
+    expect(historyKey.slice(0, baseKey.length)).toEqual(baseKey);
+
+    // And the two parameterised keys must differ from each other (so we know
+    // they really are distinct queries that needed to be covered).
+    expect(toolsKey).not.toEqual(historyKey);
   });
 
   it("invalidates using the base contraction key so both the tools tab and the history screen refresh", async () => {
