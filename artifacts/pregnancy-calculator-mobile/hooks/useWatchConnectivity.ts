@@ -9,7 +9,7 @@
  * On Android / when the native module is absent it is a no-op.
  */
 
-import { useEffect, useCallback, useState, useRef } from "react";
+import { useEffect, useCallback, useState, useRef, useMemo } from "react";
 import { AppState, Platform } from "react-native";
 import type { WatchSessionState } from "../modules/WatchConnectivity";
 
@@ -81,6 +81,39 @@ export function useWatchConnectivity({
     isWatchAppInstalled: false,
     activationState: "notActivated",
   });
+
+  // ── Watch-app presence confirmed by message receipt ──────────────────────
+  //
+  // WCSession.isWatchAppInstalled can remain false for an extended period (or
+  // permanently) even when the companion app IS installed and running, due to
+  // a known iOS behaviour: the property is populated asynchronously via
+  // Bluetooth sync and may never update if the Watch is out of range at launch.
+  //
+  // When the Watch app sends us ANY message — onSyncRequest, onKickSessionEnd,
+  // onKickUpdate, or onContractionUpdate — that is definitive proof the Watch
+  // app is installed and communicating.  We track this separately and OR it
+  // into isWatchAppInstalled so the badge never shows "not installed" when the
+  // Watch is actively talking to us.
+  const [watchConfirmedByMessage, setWatchConfirmedByMessage] = useState(false);
+  const watchConfirmedRef = useRef(false); // ref copy for use inside callbacks
+
+  const confirmWatchPresence = useCallback(() => {
+    if (!watchConfirmedRef.current) {
+      watchConfirmedRef.current = true;
+      setWatchConfirmedByMessage(true);
+    }
+  }, []);
+
+  // Derived status: treat the Watch as installed when either WCSession says so
+  // OR we have confirmed it via a received message.
+  const effectiveWatchStatus = useMemo<WatchConnectivityStatus>(
+    () => ({
+      ...watchStatus,
+      isWatchAppInstalled:
+        watchStatus.isWatchAppInstalled || watchConfirmedByMessage,
+    }),
+    [watchStatus, watchConfirmedByMessage],
+  );
 
   // Shared generation counter for all getSessionState() snapshot calls.
   // Incremented before every new call (mount-time, foreground-resume) AND
@@ -240,8 +273,8 @@ export function useWatchConnectivity({
   // coherent snapshot — never a state where week and tips belong to different
   // due dates.
   const isSessionReady =
-    watchStatus.isWatchAppInstalled &&
-    watchStatus.activationState === "activated";
+    effectiveWatchStatus.isWatchAppInstalled &&
+    effectiveWatchStatus.activationState === "activated";
   useEffect(() => {
     if (!mod || gestationalWeek == null || !tips?.length) return;
     if (!isSessionReady) return;
@@ -261,16 +294,30 @@ export function useWatchConnectivity({
     const subs: ReturnType<typeof mod.addListener>[] = [];
 
     if (onKickSessionEnd) {
-      subs.push(mod.addListener("onKickSessionEnd", onKickSessionEnd));
+      subs.push(
+        mod.addListener("onKickSessionEnd", (session: KickSessionSummary) => {
+          confirmWatchPresence();
+          onKickSessionEnd(session);
+        }),
+      );
     }
     if (onContractionUpdate) {
-      subs.push(mod.addListener("onContractionUpdate", onContractionUpdate));
+      subs.push(
+        mod.addListener(
+          "onContractionUpdate",
+          (record: ContractionRecord) => {
+            confirmWatchPresence();
+            onContractionUpdate(record);
+          },
+        ),
+      );
     }
     if (onKickUpdate) {
       subs.push(
-        mod.addListener("onKickUpdate", ({ count }: { count: number }) =>
-          onKickUpdate(count),
-        ),
+        mod.addListener("onKickUpdate", ({ count }: { count: number }) => {
+          confirmWatchPresence();
+          onKickUpdate(count);
+        }),
       );
     }
 
@@ -343,6 +390,8 @@ export function useWatchConnectivity({
   useEffect(() => {
     if (!mod) return;
     const sub = mod.addListener("onSyncRequest", () => {
+      // onSyncRequest is sent by the Watch app — definitive proof it's installed.
+      confirmWatchPresence();
       const { gestationalWeek: week, tips: currentTips } = syncDataRef.current;
       if (week == null || !currentTips?.length) return;
       mod.sendWeekAndTips(week, currentTips).catch((err: unknown) => {
@@ -366,5 +415,5 @@ export function useWatchConnectivity({
     [mod],
   );
 
-  return { pushTips, isSupported: !!mod, watchStatus };
+  return { pushTips, isSupported: !!mod, watchStatus: effectiveWatchStatus };
 }
