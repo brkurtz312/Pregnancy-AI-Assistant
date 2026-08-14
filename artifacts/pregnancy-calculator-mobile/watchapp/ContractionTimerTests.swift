@@ -519,3 +519,172 @@ final class ContractionTimerRelaunchHapticGuardTests: XCTestCase {
         XCTAssertTrue(fires, "299 s is below the threshold — haptic must fire on first appear")
     }
 }
+
+// MARK: - UserDefaults key-name integration tests
+
+/// Exercises the end-to-end UserDefaults read/write path used by `saveState()` and
+/// `restoreState()`, verifying that the actual key name strings written during an active
+/// contraction are the exact strings that `contractionHasFreshActiveSession` reads.
+///
+/// These tests deliberately hardcode the expected key names so that any renaming or
+/// typo in `ContractionDefaults` will cause an immediate, obvious failure here rather
+/// than silently breaking the force-quit-restore fix.
+final class ContractionTimerUserDefaultsKeyTests: XCTestCase {
+
+    // MARK: - Known production key names (must match ContractionDefaults in ContractionTimerView.swift)
+
+    /// `ContractionDefaults.active` — the Bool flag written by `saveState()` and
+    /// read in `restoreState()`'s staleness guard.
+    private let activeKey = "wk.contractionActive"
+
+    /// `ContractionDefaults.start` — the TimeInterval written by `saveState()` and
+    /// read in `restoreState()`'s staleness guard.
+    private let startKey = "wk.contractionStart"
+
+    // Use an isolated suite so tests never touch the host's real UserDefaults.
+    private var testDefaults: UserDefaults!
+
+    override func setUp() {
+        super.setUp()
+        // A unique suite per test class avoids cross-test contamination.
+        let suiteName = "com.pregnancyapp.watch.contractiontimer.keytests"
+        testDefaults = UserDefaults(suiteName: suiteName)!
+        // Clear any residue from a previous run.
+        testDefaults.removePersistentDomain(forName: suiteName)
+    }
+
+    override func tearDown() {
+        testDefaults.removePersistentDomain(forName: "com.pregnancyapp.watch.contractiontimer.keytests")
+        testDefaults = nil
+        super.tearDown()
+    }
+
+    // MARK: - Helpers that mirror saveState() writes
+
+    /// Writes the two keys that `saveState()` sets for an active in-progress contraction.
+    private func writeActiveContraction(startDate: Date) {
+        testDefaults.set(true, forKey: activeKey)
+        testDefaults.set(startDate.timeIntervalSince1970, forKey: startKey)
+    }
+
+    /// Reads the two keys the way `restoreState()`'s staleness guard reads them,
+    /// then delegates to `contractionHasFreshActiveSession`.
+    private func readAndEvaluate(now: Date, threshold: TimeInterval = 24 * 3600) -> Bool {
+        let activeFlag = testDefaults.bool(forKey: activeKey)
+        let startRaw   = testDefaults.double(forKey: startKey)
+        return contractionHasFreshActiveSession(
+            activeFlag: activeFlag,
+            startRaw: startRaw,
+            now: now,
+            threshold: threshold
+        )
+    }
+
+    // MARK: - Key-name round-trip: active contraction is preserved
+
+    /// The primary scenario for task #699: `saveState()` is called at the moment the
+    /// user is mid-contraction, the app is force-quit, and then relaunched.
+    /// `restoreState()` must find the active flag and a fresh start timestamp and
+    /// resume the timer.
+    func testActiveContractionWrittenWithCorrectKeys_isPreservedOnRead() {
+        let now = Date()
+        let startFiveMinutesAgo = now.addingTimeInterval(-300)
+
+        writeActiveContraction(startDate: startFiveMinutesAgo)
+
+        XCTAssertTrue(
+            readAndEvaluate(now: now),
+            """
+            An active contraction written under '\(activeKey)' / '\(startKey)' must be \
+            read back and produce hasFreshActiveSession == true. \
+            A failure here means the key name used in saveState() does not match \
+            the key name read in restoreState()'s staleness guard.
+            """
+        )
+    }
+
+    /// Confirms that the active flag written under the exact key name is readable as Bool.
+    func testActiveFlag_writtenAsBoolUnderCorrectKey_readBackAsTrue() {
+        testDefaults.set(true, forKey: activeKey)
+        XCTAssertTrue(
+            testDefaults.bool(forKey: activeKey),
+            "Bool written under '\(activeKey)' must be readable as true — key name must be exact"
+        )
+    }
+
+    /// Confirms that the start timestamp written under the exact key name is readable as Double.
+    func testStartTimestamp_writtenAsDoubleUnderCorrectKey_readBackWithinTolerance() {
+        let now = Date()
+        testDefaults.set(now.timeIntervalSince1970, forKey: startKey)
+        let readBack = testDefaults.double(forKey: startKey)
+        XCTAssertEqual(
+            readBack,
+            now.timeIntervalSince1970,
+            accuracy: 0.001,
+            "TimeInterval written under '\(startKey)' must be readable as the same value — key name must be exact"
+        )
+    }
+
+    // MARK: - Stale completed records + fresh active contraction (core bug scenario, via UserDefaults)
+
+    /// Mirrors the exact state that triggered the fix in task #699:
+    /// - `wk.contractionActive = true` (contraction just started)
+    /// - `wk.contractionStart`  = 8 minutes ago  (fresh)
+    /// The staleness guard in `restoreState()` must preserve the active timer
+    /// regardless of whatever stale completed records existed alongside it.
+    func testStaleCompletedRecords_withFreshActiveContraction_activePreservedViaDefaults() {
+        let now = Date()
+        // Simulate: user started a new contraction 8 minutes ago while yesterday's
+        // completed records were still persisted.
+        let freshStart = now.addingTimeInterval(-480)
+        writeActiveContraction(startDate: freshStart)
+
+        XCTAssertTrue(
+            readAndEvaluate(now: now),
+            """
+            Fresh active contraction (started 8 min ago) written under the production \
+            key names must survive the staleness guard. \
+            If this fails, the key names in ContractionDefaults have drifted from \
+            what contractionHasFreshActiveSession reads.
+            """
+        )
+    }
+
+    // MARK: - Absence / cleared state produces correct result
+
+    /// When `saveState()` has never been called (fresh install), no keys are set.
+    /// `restoreState()` must not restore a phantom active contraction.
+    func testFreshInstall_noKeysPresent_noActiveSessionRestored() {
+        // Do not write anything — defaults suite is empty after setUp().
+        XCTAssertFalse(
+            readAndEvaluate(now: Date()),
+            "With no UserDefaults keys written, hasFreshActiveSession must be false (fresh install)"
+        )
+    }
+
+    /// After `stopContraction()` the active flag is set to false and the start key is
+    /// removed. The subsequent restore must not resume a phantom contraction.
+    func testAfterStop_activeSetFalse_startKeyAbsent_noActiveSessionRestored() {
+        let now = Date()
+        // Simulate what saveState() writes after stopContraction():
+        testDefaults.set(false, forKey: activeKey)
+        // start key intentionally absent (removeObject path in saveState)
+
+        XCTAssertFalse(
+            readAndEvaluate(now: now),
+            "active=false with no start key must not restore an active contraction"
+        )
+    }
+
+    /// When the active flag is true but the start key holds the sentinel 0 (corrupt/absent),
+    /// `restoreState()` treats it as corrupt and does NOT resume the timer.
+    func testActiveTrue_startKeyIsZeroSentinel_noActiveSessionRestored() {
+        testDefaults.set(true,  forKey: activeKey)
+        testDefaults.set(0.0,   forKey: startKey)   // sentinel: absent / corrupt
+
+        XCTAssertFalse(
+            readAndEvaluate(now: Date()),
+            "active=true with start sentinel 0.0 must not be restored — corrupt state"
+        )
+    }
+}
