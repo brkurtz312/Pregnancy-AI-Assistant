@@ -628,6 +628,19 @@ export function KickCounterSection() {
       textAlign: "center",
       paddingVertical: 16,
     },
+    historyBtn: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      gap: 5,
+      paddingVertical: 10,
+      marginTop: 4,
+    },
+    historyBtnText: {
+      fontSize: 13,
+      fontFamily: "Inter_500Medium",
+      color: colors.primary,
+    },
   });
 
   const showInstructions = useCallback(() => {
@@ -707,6 +720,13 @@ export function KickCounterSection() {
           </View>
         );
       })}
+      <TouchableOpacity
+        style={s.historyBtn}
+        onPress={() => router.push("/session-history")}
+      >
+        <Ionicons name="time-outline" size={15} color={colors.primary} />
+        <Text style={s.historyBtnText}>View Full History</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -941,6 +961,19 @@ export function ContractionTimerSection() {
       textAlign: "center",
       paddingVertical: 16,
     },
+    historyBtn: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      gap: 5,
+      paddingVertical: 10,
+      marginTop: 4,
+    },
+    historyBtnText: {
+      fontSize: 13,
+      fontFamily: "Inter_500Medium",
+      color: colors.primary,
+    },
   });
 
   const showInstructions = useCallback(() => {
@@ -1043,6 +1076,13 @@ export function ContractionTimerSection() {
           </TouchableOpacity>
         </View>
       ))}
+      <TouchableOpacity
+        style={s.historyBtn}
+        onPress={() => router.push("/session-history")}
+      >
+        <Ionicons name="time-outline" size={15} color={colors.primary} />
+        <Text style={s.historyBtnText}>View Full History</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -2355,5 +2395,17 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
+  },
+  historyBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  historyBtnText: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
   },
 });

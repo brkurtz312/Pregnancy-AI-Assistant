@@ -550,7 +550,7 @@ export type ListKickSessionsParams = {
 
 export type ListContractionsParams = {
   /**
-   * Filter by session date (YYYY-MM-DD). Defaults to today.
+   * Filter by session date (YYYY-MM-DD). When omitted, all dates are returned (use offset for pagination).
    */
   sessionDate?: string;
   /**
@@ -558,6 +558,10 @@ export type ListContractionsParams = {
    * @maximum 200
    */
   limit?: number;
+  /**
+   * @minimum 0
+   */
+  offset?: number;
 };
 
 export type ListPrenatalVisitsParams = {

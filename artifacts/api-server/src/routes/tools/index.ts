@@ -300,30 +300,31 @@ router.get(
   async (req: AuthedRequest, res) => {
     const userId = req.userId!;
     const limit = Math.min(Number(req.query.limit) || 100, 200);
-    const today = new Date().toISOString().slice(0, 10);
-    const sessionDate = (req.query.sessionDate as string) || today;
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const sessionDate = req.query.sessionDate as string | undefined;
+
+    const whereClause = sessionDate
+      ? and(
+          eq(contractionLogsTable.userId, userId),
+          eq(contractionLogsTable.sessionDate, sessionDate),
+        )
+      : eq(contractionLogsTable.userId, userId);
 
     const [items, totalResult] = await Promise.all([
       db
         .select()
         .from(contractionLogsTable)
-        .where(
-          and(
-            eq(contractionLogsTable.userId, userId),
-            eq(contractionLogsTable.sessionDate, sessionDate),
-          ),
+        .where(whereClause)
+        .orderBy(
+          desc(contractionLogsTable.sessionDate),
+          desc(contractionLogsTable.startedAt),
         )
-        .orderBy(desc(contractionLogsTable.startedAt))
-        .limit(limit),
+        .limit(limit)
+        .offset(offset),
       db
         .select({ count: count() })
         .from(contractionLogsTable)
-        .where(
-          and(
-            eq(contractionLogsTable.userId, userId),
-            eq(contractionLogsTable.sessionDate, sessionDate),
-          ),
-        ),
+        .where(whereClause),
     ]);
 
     res.json({

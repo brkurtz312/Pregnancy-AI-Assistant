@@ -274,16 +274,25 @@ export const DeleteKickSessionParams = zod.object({
 export const listContractionsQueryLimitDefault = 100;
 export const listContractionsQueryLimitMax = 200;
 
+export const listContractionsQueryOffsetDefault = 0;
+export const listContractionsQueryOffsetMin = 0;
+
 export const ListContractionsQueryParams = zod.object({
   sessionDate: zod.coerce
     .string()
     .optional()
-    .describe("Filter by session date (YYYY-MM-DD). Defaults to today."),
+    .describe(
+      "Filter by session date (YYYY-MM-DD). When omitted, all dates are returned (use offset for pagination).",
+    ),
   limit: zod.coerce
     .number()
     .min(1)
     .max(listContractionsQueryLimitMax)
     .default(listContractionsQueryLimitDefault),
+  offset: zod.coerce
+    .number()
+    .min(listContractionsQueryOffsetMin)
+    .default(listContractionsQueryOffsetDefault),
 });
 
 export const ListContractionsResponse = zod.object({
