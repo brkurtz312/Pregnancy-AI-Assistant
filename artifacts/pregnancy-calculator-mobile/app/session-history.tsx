@@ -311,6 +311,14 @@ function KickHistoryTab({ onShareReady }: KickHistoryTabProps) {
     null,
   );
 
+  // Refresh whenever the screen comes back into focus so kicks logged in
+  // the counter (tools.tsx) appear immediately without a manual pull-to-refresh.
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch]),
+  );
+
   // Register share builder whenever sessions change
   const shareRef = useRef<() => string>(() => buildKickShareText(sessions));
   shareRef.current = () => buildKickShareText(sessions);
@@ -405,14 +413,17 @@ function KickHistoryTab({ onShareReady }: KickHistoryTabProps) {
   if (isFetching) {
     return (
       <View style={ts.center}>
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator
+          testID="kick-history-spinner"
+          color={colors.primary}
+        />
       </View>
     );
   }
 
   if (!sessions.length) {
     return (
-      <View style={ts.center}>
+      <View style={ts.center} testID="kick-history-empty">
         <Ionicons
           name="heart-outline"
           size={40}
