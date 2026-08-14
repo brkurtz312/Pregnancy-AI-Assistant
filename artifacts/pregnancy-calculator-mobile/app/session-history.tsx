@@ -541,14 +541,17 @@ function ContractionHistoryTab({ onShareReady }: ContractionHistoryTabProps) {
   if (isFetching) {
     return (
       <View style={ts.center}>
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator
+          testID="contraction-history-spinner"
+          color={colors.primary}
+        />
       </View>
     );
   }
 
   if (!groups.length) {
     return (
-      <View style={ts.center}>
+      <View style={ts.center} testID="contraction-history-empty">
         <Ionicons
           name="timer-outline"
           size={40}
@@ -646,6 +649,7 @@ export default function SessionHistoryScreen() {
         {(["kicks", "contractions"] as ActiveTab[]).map((tab) => (
           <TouchableOpacity
             key={tab}
+            testID={`tab-btn-${tab}`}
             style={[ss.tabBtn, activeTab === tab && ss.tabBtnActive]}
             onPress={() => setActiveTab(tab)}
           >
