@@ -1540,6 +1540,90 @@ export const useCreateContraction = <
 };
 
 /**
+ * @summary Delete all contraction log entries for a session date
+ */
+export const getDeleteContractionSessionUrl = (date: string) => {
+  return `/api/tools/contractions/session/${date}`;
+};
+
+export const deleteContractionSession = async (
+  date: string,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteContractionSessionUrl(date), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteContractionSessionMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteContractionSession>>,
+    TError,
+    { date: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteContractionSession>>,
+  TError,
+  { date: string },
+  TContext
+> => {
+  const mutationKey = ["deleteContractionSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteContractionSession>>,
+    { date: string }
+  > = (props) => {
+    const { date } = props ?? {};
+
+    return deleteContractionSession(date, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteContractionSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteContractionSession>>
+>;
+
+export type DeleteContractionSessionMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Delete all contraction log entries for a session date
+ */
+export const useDeleteContractionSession = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteContractionSession>>,
+    TError,
+    { date: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteContractionSession>>,
+  TError,
+  { date: string },
+  TContext
+> => {
+  return useMutation(getDeleteContractionSessionMutationOptions(options));
+};
+
+/**
  * @summary Delete a contraction log entry
  */
 export const getDeleteContractionUrl = (id: number) => {

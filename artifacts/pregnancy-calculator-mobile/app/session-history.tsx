@@ -26,7 +26,7 @@ import {
   useListKickSessions,
   useListContractions,
   useDeleteKickSession,
-  useDeleteContraction,
+  useDeleteContractionSession,
   useUpdateKickSession,
 } from "@workspace/api-client-react";
 import type { KickSession, Contraction } from "@workspace/api-client-react";
@@ -478,7 +478,7 @@ function ContractionHistoryTab({ onShareReady }: ContractionHistoryTabProps) {
     }, [refetch]),
   );
 
-  const deleteMutation = useDeleteContraction();
+  const deleteMutation = useDeleteContractionSession();
 
   const shareRef = useRef<() => string>(() =>
     buildContractionShareText(groups),
@@ -489,19 +489,23 @@ function ContractionHistoryTab({ onShareReady }: ContractionHistoryTabProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleDeleteContraction = useCallback(
-    (id: number) => {
-      Alert.alert("Delete Contraction", "Remove this contraction entry?", [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            await deleteMutation.mutateAsync({ id });
-            refetch();
+  const handleDeleteSession = useCallback(
+    (date: string) => {
+      Alert.alert(
+        "Delete Session",
+        "Remove all contractions from this session?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              await deleteMutation.mutateAsync({ date });
+              refetch();
+            },
           },
-        },
-      ]);
+        ],
+      );
     },
     [deleteMutation, refetch],
   );
@@ -511,12 +515,25 @@ function ContractionHistoryTab({ onShareReady }: ContractionHistoryTabProps) {
       <View style={ts.groupCard}>
         <View style={ts.groupHeader}>
           <Text style={ts.groupDate}>{formatLongDate(g.sessionDate)}</Text>
-          {g.rule511 && (
-            <View style={ts.badge511}>
-              <Ionicons name="warning-outline" size={12} color="#92400e" />
-              <Text style={ts.badge511Text}>5-1-1</Text>
-            </View>
-          )}
+          <View style={ts.groupHeaderRight}>
+            {g.rule511 && (
+              <View style={ts.badge511}>
+                <Ionicons name="warning-outline" size={12} color="#92400e" />
+                <Text style={ts.badge511Text}>5-1-1</Text>
+              </View>
+            )}
+            <TouchableOpacity
+              onPress={() => handleDeleteSession(g.sessionDate)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel="Delete session"
+            >
+              <Ionicons
+                name="trash-outline"
+                size={16}
+                color={colors.destructive}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
         <Text style={ts.groupSummary}>
           {g.count} contraction{g.count !== 1 ? "s" : ""}
@@ -538,23 +555,11 @@ function ContractionHistoryTab({ onShareReady }: ContractionHistoryTabProps) {
                 interval {formatSeconds(c.intervalSeconds)}
               </Text>
             ) : null}
-            <TouchableOpacity
-              onPress={() => handleDeleteContraction(c.id)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={ts.contractionDeleteBtn}
-              accessibilityLabel="Delete contraction"
-            >
-              <Ionicons
-                name="trash-outline"
-                size={15}
-                color={colors.destructive}
-              />
-            </TouchableOpacity>
           </View>
         ))}
       </View>
     ),
-    [ts, colors, handleDeleteContraction],
+    [ts, colors, handleDeleteSession],
   );
 
   if (isFetching) {
@@ -834,6 +839,11 @@ function useTabStyles(colors: ReturnType<typeof useColors>) {
       alignItems: "center",
       gap: 8,
     },
+    groupHeaderRight: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
     groupDate: {
       flex: 1,
       fontSize: 15,
@@ -881,10 +891,6 @@ function useTabStyles(colors: ReturnType<typeof useColors>) {
       fontSize: 12,
       color: colors.mutedForeground,
       flex: 1,
-    },
-    contractionDeleteBtn: {
-      padding: 4,
-      marginLeft: "auto",
     },
   });
 }

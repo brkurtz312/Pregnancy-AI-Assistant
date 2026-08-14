@@ -340,6 +340,13 @@ export const CreateContractionBody = zod.object({
 });
 
 /**
+ * @summary Delete all contraction log entries for a session date
+ */
+export const DeleteContractionSessionParams = zod.object({
+  date: zod.coerce.string().describe("Session date in YYYY-MM-DD format"),
+});
+
+/**
  * @summary Delete a contraction log entry
  */
 export const DeleteContractionParams = zod.object({

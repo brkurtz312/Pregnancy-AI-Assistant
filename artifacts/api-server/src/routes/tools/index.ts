@@ -422,6 +422,29 @@ router.post(
   },
 );
 
+// Must be registered before /:id so Express doesn't treat "session" as an id.
+router.delete(
+  "/tools/contractions/session/:date",
+  requireAuth,
+  async (req: AuthedRequest, res) => {
+    const { date } = req.params;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      res.status(400).json({ error: "date must be YYYY-MM-DD" });
+      return;
+    }
+    const userId = req.userId!;
+    await db
+      .delete(contractionLogsTable)
+      .where(
+        and(
+          eq(contractionLogsTable.userId, userId),
+          eq(contractionLogsTable.sessionDate, date),
+        ),
+      );
+    res.status(204).end();
+  },
+);
+
 router.delete(
   "/tools/contractions/:id",
   requireAuth,

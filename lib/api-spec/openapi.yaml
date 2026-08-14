@@ -581,6 +581,33 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /tools/contractions/session/{date}:
+    delete:
+      operationId: deleteContractionSession
+      tags: [tools]
+      summary: Delete all contraction log entries for a session date
+      parameters:
+        - name: date
+          in: path
+          required: true
+          description: Session date in YYYY-MM-DD format
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          description: Invalid date format
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /tools/contractions/{id}:
     delete:
       operationId: deleteContraction
