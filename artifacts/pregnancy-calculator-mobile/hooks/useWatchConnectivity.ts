@@ -109,19 +109,28 @@ export function useWatchConnectivity({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!mod]);
 
-  // Subscribe to real-time state changes, then poll with retries until
-  // WCSession activation is confirmed.
+  // Subscribe to real-time state changes, then poll with retries until both
+  // WCSession activation AND Watch app install are confirmed.
   //
-  // WHY a retry loop (not just a single post-subscribe poll):
-  // WCSession.activate() is called in the native OnCreate hook (before JS
-  // renders).  activationDidCompleteWith fires asynchronously and calls
-  // onSessionStateChange — but that callback is only wired in OnStartObserving,
-  // which Expo dispatches across the JS bridge when addListener() is first
-  // called.  There is a narrow window where activationDidCompleteWith fires
-  // BEFORE the bridge has finished setting onSessionStateChange, so the event
-  // is silently dropped.  A single post-subscribe poll can land in the same gap.
-  // Retrying on a short interval ensures we eventually read the activated state
-  // regardless of bridge latency.
+  // WHY a two-phase retry loop:
+  //
+  // Phase 1 — fast polls every 500 ms for up to ~5 s:
+  //   WCSession.activate() runs in the native OnCreate hook before JS renders.
+  //   activationDidCompleteWith fires asynchronously and calls onSessionStateChange —
+  //   but that callback is only wired in OnStartObserving (triggered by addListener()).
+  //   There is a narrow window where the activation event fires before the bridge sets
+  //   onSessionStateChange, silently dropping it.  A fast retry loop covers this gap.
+  //
+  // Phase 2 — slow polls every 3 s for up to ~30 s:
+  //   Even after activationState === "activated", isWatchAppInstalled can still be
+  //   false because the phone hasn't yet received the Watch's pairing state over
+  //   Bluetooth.  That state arrives via sessionWatchStateDidChange — but only when
+  //   the Watch comes into range.  If the watch is out of range at launch, the live
+  //   event never fires and the UI stays stuck.  The slow loop keeps checking until
+  //   the Watch is confirmed installed (or we give up after ~30 s).
+  //
+  // If a live onWatchStateChange event fires while a poll is in flight, the
+  // generation guard discards the stale result and the live event value wins.
   useEffect(() => {
     if (!mod) return;
     const sub = mod.addListener(
@@ -136,16 +145,23 @@ export function useWatchConnectivity({
       },
     );
 
-    // Retry polling every 500 ms until activationState === "activated" or we
-    // have tried MAX_POLLS times (~3 s).  If a live onWatchStateChange event
-    // fires while a poll is in flight the generation guard discards the stale
-    // result and the event value wins.
-    const MAX_POLLS = 6;
-    const POLL_INTERVAL_MS = 500;
-    let retries = 0;
+    // Phase 1: fast polls — every 500 ms, up to 10 attempts (~5 s).
+    // Stops early only when BOTH activated AND Watch app confirmed installed.
+    const FAST_POLLS = 10;
+    const FAST_INTERVAL_MS = 500;
+    // Phase 2: slow polls — every 3 s, up to 10 attempts (~30 s).
+    const SLOW_POLLS = 10;
+    const SLOW_INTERVAL_MS = 3000;
+
+    let fastRetries = 0;
+    let slowRetries = 0;
     let cancelled = false;
 
-    const doPoll = () => {
+    const isFullyReady = (s: WatchSessionState) =>
+      s.activationState === "activated" && s.isWatchAppInstalled;
+
+    const doSlowPoll = () => {
+      if (cancelled || slowRetries >= SLOW_POLLS) return;
       const gen = ++fetchGenRef.current;
       mod
         .getSessionState()
@@ -156,20 +172,52 @@ export function useWatchConnectivity({
             isWatchAppInstalled: s.isWatchAppInstalled,
             activationState: s.activationState,
           });
-          if (s.activationState !== "activated" && retries < MAX_POLLS) {
-            retries++;
-            setTimeout(doPoll, POLL_INTERVAL_MS);
+          if (!isFullyReady(s)) {
+            slowRetries++;
+            setTimeout(doSlowPoll, SLOW_INTERVAL_MS);
           }
         })
         .catch(() => {
-          if (!cancelled && retries < MAX_POLLS) {
-            retries++;
-            setTimeout(doPoll, POLL_INTERVAL_MS);
+          if (!cancelled) {
+            slowRetries++;
+            setTimeout(doSlowPoll, SLOW_INTERVAL_MS);
           }
         });
     };
 
-    doPoll(); // first poll immediately after subscribing
+    const doFastPoll = () => {
+      const gen = ++fetchGenRef.current;
+      mod
+        .getSessionState()
+        .then((s: WatchSessionState) => {
+          if (cancelled || fetchGenRef.current !== gen) return;
+          setWatchStatus({
+            isReachable: s.isReachable,
+            isWatchAppInstalled: s.isWatchAppInstalled,
+            activationState: s.activationState,
+          });
+          if (isFullyReady(s)) return; // done — live events will handle any further changes
+          if (fastRetries < FAST_POLLS) {
+            fastRetries++;
+            setTimeout(doFastPoll, FAST_INTERVAL_MS);
+          } else {
+            // Fast phase exhausted — hand off to slow phase
+            doSlowPoll();
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            if (fastRetries < FAST_POLLS) {
+              fastRetries++;
+              setTimeout(doFastPoll, FAST_INTERVAL_MS);
+            } else {
+              doSlowPoll();
+            }
+          }
+        });
+    };
+
+    doFastPoll(); // first poll immediately after subscribing
 
     return () => {
       cancelled = true;
