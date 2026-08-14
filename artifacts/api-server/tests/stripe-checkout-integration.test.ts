@@ -675,4 +675,103 @@ describe("checkout.session.completed → Pass entitlement (integration)", () => 
     // that is expected — the link will be established on next sign-in.
     expect(user.stripeCustomerId).toBeNull();
   });
+
+  // ---------------------------------------------------------------------------
+  // Stripe retry idempotency: the same checkout fires twice.
+  //
+  // Stripe retries webhooks for up to 3 days whenever the endpoint does not
+  // respond with 2xx. In the fallback-grant path the endpoint does return 200,
+  // so a strict retry would not occur — but Stripe also delivers the same event
+  // more than once under normal operation (at-least-once delivery). The handler
+  // must be idempotent: a second delivery of the same checkout event must leave
+  // the user in the same valid state as after the first delivery.
+  //
+  // Scenario modelled here:
+  //   • First delivery: user row exists, stripeCustomerId is null,
+  //     customers.retrieve() throws (simulated by omitting the customer from
+  //     mockStripeCustomers). Fallback: grantPass() called → hasPass=true,
+  //     stripeCustomerId stays null.
+  //   • Second delivery (same checkout, new event ID): same conditions still
+  //     hold (retrieve still throws). The handler must return 200 and hasPass
+  //     must remain true — it must not throw, toggle the flag, or lose the
+  //     entitlement.
+  // ---------------------------------------------------------------------------
+  it("is idempotent when the same checkout event is delivered twice and retrieve() keeps failing", async () => {
+    const { userHasPass } = await import("../src/lib/entitlement");
+
+    const USER = "retry_idempotent_user";
+    const CUS = "cus_retry_retrieve_still_fails";
+
+    // Deliberately do NOT register CUS in mockStripeCustomers so that
+    // customers.retrieve() throws on every call, simulating a persistent
+    // network/rate-limit error across both deliveries.
+    mockUsers.set(USER, { id: USER, stripeCustomerId: null, hasPass: false });
+
+    // ── First delivery ──────────────────────────────────────────────────────
+    const payload1 = JSON.stringify({
+      id: "evt_retry_idem_1",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          object: "checkout.session",
+          id: "cs_retry_idem_1",
+          payment_status: "paid",
+          customer: CUS,
+          metadata: { userId: USER },
+        },
+      },
+    });
+
+    const res1 = await request(app)
+      .post("/api/stripe/webhook")
+      .set("stripe-signature", makeStripeHeader(payload1))
+      .set("Content-Type", "application/json")
+      .send(payload1);
+
+    expect(res1.status).toBe(200);
+    expect(res1.body).toEqual({ received: true });
+
+    // After the first delivery the fallback must have granted the pass.
+    const userAfterFirst = mockUsers.get(USER)!;
+    expect(userAfterFirst.hasPass).toBe(true);
+    expect(await userHasPass(USER)).toBe(true);
+
+    // ── Second delivery (Stripe retry / duplicate) ──────────────────────────
+    // Use a different event ID to mirror a real duplicate delivery; the
+    // checkout session ID and all payment data are identical.
+    const payload2 = JSON.stringify({
+      id: "evt_retry_idem_2",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          object: "checkout.session",
+          id: "cs_retry_idem_1", // same session
+          payment_status: "paid",
+          customer: CUS,
+          metadata: { userId: USER },
+        },
+      },
+    });
+
+    const res2 = await request(app)
+      .post("/api/stripe/webhook")
+      .set("stripe-signature", makeStripeHeader(payload2))
+      .set("Content-Type", "application/json")
+      .send(payload2);
+
+    // Second delivery must also return 200 — returning 4xx/5xx would trigger
+    // further Stripe retries unnecessarily.
+    expect(res2.status).toBe(200);
+    expect(res2.body).toEqual({ received: true });
+
+    // hasPass must remain true after the retry — it must not be toggled,
+    // cleared, or thrown away.
+    const userAfterRetry = mockUsers.get(USER)!;
+    expect(userAfterRetry.hasPass).toBe(true);
+    expect(await userHasPass(USER)).toBe(true);
+
+    // The customer link is still absent (retrieve kept failing), which is the
+    // expected state — it will be established on next sign-in.
+    expect(userAfterRetry.stripeCustomerId).toBeNull();
+  });
 });
