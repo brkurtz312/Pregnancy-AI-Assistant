@@ -31,6 +31,7 @@ jest.mock("@clerk/expo", () => ({
 // ── Navigation ────────────────────────────────────────────────────────────────
 jest.mock("expo-router", () => ({
   useRouter: jest.fn(() => ({ back: jest.fn(), push: jest.fn() })),
+  useFocusEffect: jest.fn(),
 }));
 
 // ── Icons ─────────────────────────────────────────────────────────────────────

@@ -6,7 +6,7 @@
  * Supports delete and edit-notes directly from each row.
  */
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -458,6 +458,14 @@ function ContractionHistoryTab({ onShareReady }: ContractionHistoryTabProps) {
   // Omit sessionDate → API returns all dates
   const { data, isFetching, refetch } = useListContractions({ limit: 200 });
   const groups = useMemo(() => groupByDate(data?.items ?? []), [data]);
+
+  // Refresh whenever the screen comes back into focus so contractions logged in
+  // the timer (tools.tsx) appear immediately without a manual pull-to-refresh.
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch]),
+  );
 
   const deleteMutation = useDeleteContraction();
 
