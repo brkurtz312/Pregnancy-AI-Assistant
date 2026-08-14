@@ -11,6 +11,7 @@ import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   FlatList,
   Modal,
   Platform,
@@ -319,6 +320,15 @@ function KickHistoryTab({ onShareReady }: KickHistoryTabProps) {
     }, [refetch]),
   );
 
+  // Also refetch when the app returns from background while this tab is active
+  // (useFocusEffect does not fire for AppState transitions).
+  React.useEffect(() => {
+    const sub = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") refetch();
+    });
+    return () => sub.remove();
+  }, [refetch]);
+
   // Register share builder whenever sessions change
   const shareRef = useRef<() => string>(() => buildKickShareText(sessions));
   shareRef.current = () => buildKickShareText(sessions);
@@ -477,6 +487,15 @@ function ContractionHistoryTab({ onShareReady }: ContractionHistoryTabProps) {
       refetch();
     }, [refetch]),
   );
+
+  // Also refetch when the app returns from background while this tab is active
+  // (useFocusEffect does not fire for AppState transitions).
+  React.useEffect(() => {
+    const sub = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") refetch();
+    });
+    return () => sub.remove();
+  }, [refetch]);
 
   const deleteMutation = useDeleteContractionSession();
 
