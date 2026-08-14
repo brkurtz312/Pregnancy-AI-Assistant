@@ -109,9 +109,18 @@ export function useWatchConnectivity({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!mod]);
 
-  // Subscribe to real-time state changes.
-  // Bumping fetchGenRef invalidates any in-flight getSessionState() call
-  // (mount-time or foreground-resume) so the live value always wins.
+  // Subscribe to real-time state changes, then immediately re-poll state.
+  //
+  // WHY the post-subscribe poll is critical:
+  // WCSession.activate() fires inside native OnCreate (before JS renders).
+  // The activation-complete state-change event is emitted in the gap between
+  // OnCreate and this listener registration — so it is always missed.  The
+  // mount-time getSessionState() snapshot above was dispatched before
+  // activation completed, returning {notActivated, isWatchAppInstalled:false}.
+  // Without the post-subscribe re-poll there is nothing to correct it, the
+  // isSessionReady gate stays false, and sendWeekAndTips is never called.
+  // The poll runs AFTER the listener is live, so any concurrent event beats it
+  // via the generation guard and the correct value always wins.
   useEffect(() => {
     if (!mod) return;
     const sub = mod.addListener(
@@ -125,6 +134,22 @@ export function useWatchConnectivity({
         });
       },
     );
+
+    // Poll immediately after subscribing so we catch any activation event that
+    // fired before the listener was registered (the common case on real devices).
+    const gen = ++fetchGenRef.current;
+    mod
+      .getSessionState()
+      .then((s: WatchSessionState) => {
+        if (fetchGenRef.current !== gen) return; // superseded by a live event
+        setWatchStatus({
+          isReachable: s.isReachable,
+          isWatchAppInstalled: s.isWatchAppInstalled,
+          activationState: s.activationState,
+        });
+      })
+      .catch(() => {});
+
     return () => sub.remove();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!mod]);
