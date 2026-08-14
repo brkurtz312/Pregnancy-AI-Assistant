@@ -109,18 +109,19 @@ export function useWatchConnectivity({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!mod]);
 
-  // Subscribe to real-time state changes, then immediately re-poll state.
+  // Subscribe to real-time state changes, then poll with retries until
+  // WCSession activation is confirmed.
   //
-  // WHY the post-subscribe poll is critical:
-  // WCSession.activate() fires inside native OnCreate (before JS renders).
-  // The activation-complete state-change event is emitted in the gap between
-  // OnCreate and this listener registration — so it is always missed.  The
-  // mount-time getSessionState() snapshot above was dispatched before
-  // activation completed, returning {notActivated, isWatchAppInstalled:false}.
-  // Without the post-subscribe re-poll there is nothing to correct it, the
-  // isSessionReady gate stays false, and sendWeekAndTips is never called.
-  // The poll runs AFTER the listener is live, so any concurrent event beats it
-  // via the generation guard and the correct value always wins.
+  // WHY a retry loop (not just a single post-subscribe poll):
+  // WCSession.activate() is called in the native OnCreate hook (before JS
+  // renders).  activationDidCompleteWith fires asynchronously and calls
+  // onSessionStateChange — but that callback is only wired in OnStartObserving,
+  // which Expo dispatches across the JS bridge when addListener() is first
+  // called.  There is a narrow window where activationDidCompleteWith fires
+  // BEFORE the bridge has finished setting onSessionStateChange, so the event
+  // is silently dropped.  A single post-subscribe poll can land in the same gap.
+  // Retrying on a short interval ensures we eventually read the activated state
+  // regardless of bridge latency.
   useEffect(() => {
     if (!mod) return;
     const sub = mod.addListener(
@@ -135,22 +136,45 @@ export function useWatchConnectivity({
       },
     );
 
-    // Poll immediately after subscribing so we catch any activation event that
-    // fired before the listener was registered (the common case on real devices).
-    const gen = ++fetchGenRef.current;
-    mod
-      .getSessionState()
-      .then((s: WatchSessionState) => {
-        if (fetchGenRef.current !== gen) return; // superseded by a live event
-        setWatchStatus({
-          isReachable: s.isReachable,
-          isWatchAppInstalled: s.isWatchAppInstalled,
-          activationState: s.activationState,
-        });
-      })
-      .catch(() => {});
+    // Retry polling every 500 ms until activationState === "activated" or we
+    // have tried MAX_POLLS times (~3 s).  If a live onWatchStateChange event
+    // fires while a poll is in flight the generation guard discards the stale
+    // result and the event value wins.
+    const MAX_POLLS = 6;
+    const POLL_INTERVAL_MS = 500;
+    let retries = 0;
+    let cancelled = false;
 
-    return () => sub.remove();
+    const doPoll = () => {
+      const gen = ++fetchGenRef.current;
+      mod
+        .getSessionState()
+        .then((s: WatchSessionState) => {
+          if (cancelled || fetchGenRef.current !== gen) return;
+          setWatchStatus({
+            isReachable: s.isReachable,
+            isWatchAppInstalled: s.isWatchAppInstalled,
+            activationState: s.activationState,
+          });
+          if (s.activationState !== "activated" && retries < MAX_POLLS) {
+            retries++;
+            setTimeout(doPoll, POLL_INTERVAL_MS);
+          }
+        })
+        .catch(() => {
+          if (!cancelled && retries < MAX_POLLS) {
+            retries++;
+            setTimeout(doPoll, POLL_INTERVAL_MS);
+          }
+        });
+    };
+
+    doPoll(); // first poll immediately after subscribing
+
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!mod]);
 
