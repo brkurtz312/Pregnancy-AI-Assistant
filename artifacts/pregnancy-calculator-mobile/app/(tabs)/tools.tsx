@@ -1684,9 +1684,14 @@ function WatchStatusBadge({
 
   const connected = isReachable;
   const dotColor = connected ? "#22c55e" : colors.mutedForeground;
+  // When the WCSession is activated, a paired Watch is present — showing
+  // "Watch app not installed" is always misleading in that state because iOS
+  // sometimes delays updating isWatchAppInstalled over Bluetooth.  Treat any
+  // activated-but-not-reachable state as "not reachable" instead.
+  const sessionActivated = activationState === "activated";
   const label = connected
     ? "Apple Watch connected"
-    : isWatchAppInstalled
+    : isWatchAppInstalled || sessionActivated
       ? "Watch not reachable"
       : "Watch app not installed";
 
@@ -1882,7 +1887,7 @@ function WatchStatusBadge({
               </TouchableOpacity>
             )}
 
-            {!isWatchAppInstalled && (
+            {!isWatchAppInstalled && !sessionActivated && (
               <View
                 style={[
                   watchSheetStyles.infoBox,
