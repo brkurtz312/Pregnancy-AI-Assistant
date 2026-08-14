@@ -2,17 +2,22 @@
  * Session History — all kick count and contraction timer sessions across
  * every device (phone, iPad, Apple Watch), browsable and shareable with
  * a provider via the system share sheet.
+ *
+ * Supports delete and edit-notes directly from each row.
  */
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
+  Modal,
   Platform,
   Share,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -20,6 +25,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   useListKickSessions,
   useListContractions,
+  useDeleteKickSession,
+  useDeleteContraction,
+  useUpdateKickSession,
 } from "@workspace/api-client-react";
 import type { KickSession, Contraction } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
@@ -49,10 +57,130 @@ function formatShortTime(iso: string): string {
   });
 }
 
-function sessionDurMin(startedAt: string, endedAt?: string | null): number | null {
+function sessionDurMin(
+  startedAt: string,
+  endedAt?: string | null,
+): number | null {
   if (!endedAt) return null;
   return Math.round(
     (new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 60000,
+  );
+}
+
+// ─── Cross-platform note edit modal ──────────────────────────────────────────
+
+interface EditNoteModalProps {
+  visible: boolean;
+  initialNote: string;
+  onSave: (note: string) => void;
+  onCancel: () => void;
+}
+
+function EditNoteModal({
+  visible,
+  initialNote,
+  onSave,
+  onCancel,
+}: EditNoteModalProps) {
+  const colors = useColors();
+  const [text, setText] = useState(initialNote);
+
+  // Sync when a new item is opened
+  React.useEffect(() => {
+    if (visible) setText(initialNote);
+  }, [visible, initialNote]);
+
+  const ms = StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.45)",
+      justifyContent: "center",
+      padding: 24,
+    },
+    card: {
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      padding: 20,
+      gap: 16,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    title: {
+      fontSize: 17,
+      fontWeight: "600",
+      color: colors.foreground,
+    },
+    input: {
+      backgroundColor: colors.background,
+      borderRadius: 10,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      padding: 12,
+      fontSize: 15,
+      color: colors.foreground,
+      minHeight: 80,
+      textAlignVertical: "top",
+    },
+    actions: {
+      flexDirection: "row",
+      gap: 10,
+    },
+    cancelBtn: {
+      flex: 1,
+      paddingVertical: 11,
+      borderRadius: 10,
+      alignItems: "center",
+      backgroundColor: colors.muted,
+    },
+    cancelLabel: {
+      fontSize: 15,
+      fontWeight: "500",
+      color: colors.mutedForeground,
+    },
+    saveBtn: {
+      flex: 1,
+      paddingVertical: 11,
+      borderRadius: 10,
+      alignItems: "center",
+      backgroundColor: colors.primary,
+    },
+    saveLabel: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: "#ffffff",
+    },
+  });
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onCancel}
+    >
+      <View style={ms.overlay}>
+        <View style={ms.card}>
+          <Text style={ms.title}>Edit Note</Text>
+          <TextInput
+            style={ms.input}
+            value={text}
+            onChangeText={setText}
+            placeholder="Add a note…"
+            placeholderTextColor={colors.mutedForeground}
+            multiline
+            autoFocus
+          />
+          <View style={ms.actions}>
+            <TouchableOpacity style={ms.cancelBtn} onPress={onCancel}>
+              <Text style={ms.cancelLabel}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={ms.saveBtn} onPress={() => onSave(text)}>
+              <Text style={ms.saveLabel}>Save</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -81,20 +209,35 @@ function groupByDate(contractions: Contraction[]): ContractionGroup[] {
 
     const avgDurationSec =
       withDur.length > 0
-        ? Math.round(withDur.reduce((s, c) => s + c.durationSeconds!, 0) / withDur.length)
+        ? Math.round(
+            withDur.reduce((s, c) => s + c.durationSeconds!, 0) /
+              withDur.length,
+          )
         : null;
 
     const avgIntervalSec =
       withInt.length > 0
-        ? Math.round(withInt.reduce((s, c) => s + c.intervalSeconds!, 0) / withInt.length)
+        ? Math.round(
+            withInt.reduce((s, c) => s + c.intervalSeconds!, 0) /
+              withInt.length,
+          )
         : null;
 
     const rule511 =
       items.length >= 6 &&
-      avgDurationSec != null && avgDurationSec >= 60 &&
-      avgIntervalSec != null && avgIntervalSec <= 300;
+      avgDurationSec != null &&
+      avgDurationSec >= 60 &&
+      avgIntervalSec != null &&
+      avgIntervalSec <= 300;
 
-    groups.push({ sessionDate, items, count: items.length, avgDurationSec, avgIntervalSec, rule511 });
+    groups.push({
+      sessionDate,
+      items,
+      count: items.length,
+      avgDurationSec,
+      avgIntervalSec,
+      rule511,
+    });
   }
   // API returns sessionDate DESC so map iteration preserves insertion order (newest first)
   return groups;
@@ -107,8 +250,12 @@ function buildKickShareText(sessions: KickSession[]): string {
   const lines = ["KICK COUNT HISTORY", ""];
   for (const s of sessions) {
     const dur = sessionDurMin(s.startedAt, s.endedAt);
-    lines.push(`${formatLongDate(s.startedAt)} at ${formatShortTime(s.startedAt)}`);
-    lines.push(`  ${s.kickCount} kick${s.kickCount !== 1 ? "s" : ""}${dur !== null ? ` · ${dur} min` : ""}`);
+    lines.push(
+      `${formatLongDate(s.startedAt)} at ${formatShortTime(s.startedAt)}`,
+    );
+    lines.push(
+      `  ${s.kickCount} kick${s.kickCount !== 1 ? "s" : ""}${dur !== null ? ` · ${dur} min` : ""}`,
+    );
     if (s.notes) lines.push(`  Note: ${s.notes}`);
     lines.push("");
   }
@@ -129,7 +276,9 @@ function buildContractionShareText(groups: ContractionGroup[]): string {
     for (const c of g.items) {
       lines.push(
         `    ${formatShortTime(c.startedAt)} — ${formatSeconds(c.durationSeconds)}` +
-          (c.intervalSeconds ? ` (interval ${formatSeconds(c.intervalSeconds)})` : ""),
+          (c.intervalSeconds
+            ? ` (interval ${formatSeconds(c.intervalSeconds)})`
+            : ""),
       );
     }
     lines.push("");
@@ -148,8 +297,19 @@ function KickHistoryTab({ onShareReady }: KickHistoryTabProps) {
   const ts = useTabStyles(colors);
 
   // Fetch up to 50 most-recent sessions (per-user history)
-  const { data, isFetching } = useListKickSessions({ limit: 50, offset: 0 });
+  const { data, isFetching, refetch } = useListKickSessions({
+    limit: 50,
+    offset: 0,
+  });
   const sessions = data?.items ?? [];
+
+  const deleteMutation = useDeleteKickSession();
+  const updateMutation = useUpdateKickSession();
+
+  // Edit-note modal state (cross-platform)
+  const [editingSession, setEditingSession] = useState<KickSession | null>(
+    null,
+  );
 
   // Register share builder whenever sessions change
   const shareRef = useRef<() => string>(() => buildKickShareText(sessions));
@@ -158,6 +318,40 @@ function KickHistoryTab({ onShareReady }: KickHistoryTabProps) {
     onShareReady(() => shareRef.current());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleDelete = useCallback(
+    (id: number) => {
+      Alert.alert("Delete Session", "Remove this kick count session?", [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            await deleteMutation.mutateAsync({ id });
+            refetch();
+          },
+        },
+      ]);
+    },
+    [deleteMutation, refetch],
+  );
+
+  const handleOpenEditNote = useCallback((item: KickSession) => {
+    setEditingSession(item);
+  }, []);
+
+  const handleSaveNote = useCallback(
+    async (note: string) => {
+      if (!editingSession) return;
+      await updateMutation.mutateAsync({
+        id: editingSession.id,
+        data: { notes: note },
+      });
+      setEditingSession(null);
+      refetch();
+    },
+    [editingSession, updateMutation, refetch],
+  );
 
   const renderItem = useCallback(
     ({ item }: { item: KickSession }) => {
@@ -170,15 +364,42 @@ function KickHistoryTab({ onShareReady }: KickHistoryTabProps) {
           <View style={ts.rowBody}>
             <Text style={ts.rowTitle}>{item.kickCount} kicks</Text>
             <Text style={ts.rowMeta}>
-              {formatLongDate(item.startedAt)} · {formatShortTime(item.startedAt)}
+              {formatLongDate(item.startedAt)} ·{" "}
+              {formatShortTime(item.startedAt)}
               {dur !== null ? ` · ${dur} min` : ""}
             </Text>
             {item.notes ? <Text style={ts.rowNote}>{item.notes}</Text> : null}
           </View>
+          <View style={ts.rowActions}>
+            <TouchableOpacity
+              onPress={() => handleOpenEditNote(item)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={ts.actionBtn}
+              accessibilityLabel="Edit note"
+            >
+              <Ionicons
+                name="create-outline"
+                size={18}
+                color={colors.mutedForeground}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => handleDelete(item.id)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={ts.actionBtn}
+              accessibilityLabel="Delete session"
+            >
+              <Ionicons
+                name="trash-outline"
+                size={18}
+                color={colors.destructive}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
       );
     },
-    [colors, ts],
+    [colors, ts, handleDelete, handleOpenEditNote],
   );
 
   if (isFetching) {
@@ -192,22 +413,35 @@ function KickHistoryTab({ onShareReady }: KickHistoryTabProps) {
   if (!sessions.length) {
     return (
       <View style={ts.center}>
-        <Ionicons name="heart-outline" size={40} color={colors.mutedForeground} />
+        <Ionicons
+          name="heart-outline"
+          size={40}
+          color={colors.mutedForeground}
+        />
         <Text style={ts.emptyTitle}>No sessions yet</Text>
         <Text style={ts.emptySub}>
-          Sessions from this phone, your iPad, and your Apple Watch all appear here.
+          Sessions from this phone, your iPad, and your Apple Watch all appear
+          here.
         </Text>
       </View>
     );
   }
 
   return (
-    <FlatList
-      data={sessions}
-      keyExtractor={(item) => String(item.id)}
-      renderItem={renderItem}
-      contentContainerStyle={ts.list}
-    />
+    <>
+      <FlatList
+        data={sessions}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={renderItem}
+        contentContainerStyle={ts.list}
+      />
+      <EditNoteModal
+        visible={editingSession !== null}
+        initialNote={editingSession?.notes ?? ""}
+        onSave={handleSaveNote}
+        onCancel={() => setEditingSession(null)}
+      />
+    </>
   );
 }
 
@@ -221,16 +455,37 @@ function ContractionHistoryTab({ onShareReady }: ContractionHistoryTabProps) {
   const colors = useColors();
   const ts = useTabStyles(colors);
 
-  // Omit sessionDate → API returns all dates (API updated this session)
-  const { data, isFetching } = useListContractions({ limit: 200 });
+  // Omit sessionDate → API returns all dates
+  const { data, isFetching, refetch } = useListContractions({ limit: 200 });
   const groups = useMemo(() => groupByDate(data?.items ?? []), [data]);
 
-  const shareRef = useRef<() => string>(() => buildContractionShareText(groups));
+  const deleteMutation = useDeleteContraction();
+
+  const shareRef = useRef<() => string>(() =>
+    buildContractionShareText(groups),
+  );
   shareRef.current = () => buildContractionShareText(groups);
   React.useEffect(() => {
     onShareReady(() => shareRef.current());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleDeleteContraction = useCallback(
+    (id: number) => {
+      Alert.alert("Delete Contraction", "Remove this contraction entry?", [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            await deleteMutation.mutateAsync({ id });
+            refetch();
+          },
+        },
+      ]);
+    },
+    [deleteMutation, refetch],
+  );
 
   const renderGroup = useCallback(
     ({ item: g }: { item: ContractionGroup }) => (
@@ -247,22 +502,40 @@ function ContractionHistoryTab({ onShareReady }: ContractionHistoryTabProps) {
         <Text style={ts.groupSummary}>
           {g.count} contraction{g.count !== 1 ? "s" : ""}
           {g.avgDurationSec ? ` · avg ${formatSeconds(g.avgDurationSec)}` : ""}
-          {g.avgIntervalSec ? ` · every ${formatSeconds(g.avgIntervalSec)}` : ""}
+          {g.avgIntervalSec
+            ? ` · every ${formatSeconds(g.avgIntervalSec)}`
+            : ""}
         </Text>
         {g.items.map((c) => (
           <View key={c.id} style={ts.contractionRow}>
-            <Text style={ts.contractionTime}>{formatShortTime(c.startedAt)}</Text>
-            <Text style={ts.contractionDur}>{formatSeconds(c.durationSeconds)}</Text>
+            <Text style={ts.contractionTime}>
+              {formatShortTime(c.startedAt)}
+            </Text>
+            <Text style={ts.contractionDur}>
+              {formatSeconds(c.durationSeconds)}
+            </Text>
             {c.intervalSeconds ? (
               <Text style={ts.contractionInterval}>
                 interval {formatSeconds(c.intervalSeconds)}
               </Text>
             ) : null}
+            <TouchableOpacity
+              onPress={() => handleDeleteContraction(c.id)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={ts.contractionDeleteBtn}
+              accessibilityLabel="Delete contraction"
+            >
+              <Ionicons
+                name="trash-outline"
+                size={15}
+                color={colors.destructive}
+              />
+            </TouchableOpacity>
           </View>
         ))}
       </View>
     ),
-    [ts],
+    [ts, colors, handleDeleteContraction],
   );
 
   if (isFetching) {
@@ -276,10 +549,15 @@ function ContractionHistoryTab({ onShareReady }: ContractionHistoryTabProps) {
   if (!groups.length) {
     return (
       <View style={ts.center}>
-        <Ionicons name="timer-outline" size={40} color={colors.mutedForeground} />
+        <Ionicons
+          name="timer-outline"
+          size={40}
+          color={colors.mutedForeground}
+        />
         <Text style={ts.emptyTitle}>No sessions yet</Text>
         <Text style={ts.emptySub}>
-          Sessions from this phone, your iPad, and your Apple Watch all appear here.
+          Sessions from this phone, your iPad, and your Apple Watch all appear
+          here.
         </Text>
       </View>
     );
@@ -306,8 +584,12 @@ export default function SessionHistoryScreen() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("kicks");
 
   // Each tab registers a share-text builder when it mounts
-  const kickShareFn = useRef<() => string>(() => "No kick count sessions recorded.");
-  const contractionShareFn = useRef<() => string>(() => "No contraction sessions recorded.");
+  const kickShareFn = useRef<() => string>(
+    () => "No kick count sessions recorded.",
+  );
+  const contractionShareFn = useRef<() => string>(
+    () => "No contraction sessions recorded.",
+  );
 
   const handleKickShareReady = useCallback((fn: () => string) => {
     kickShareFn.current = fn;
@@ -318,7 +600,9 @@ export default function SessionHistoryScreen() {
 
   const handleShare = useCallback(async () => {
     const text =
-      activeTab === "kicks" ? kickShareFn.current() : contractionShareFn.current();
+      activeTab === "kicks"
+        ? kickShareFn.current()
+        : contractionShareFn.current();
     const title =
       activeTab === "kicks" ? "Kick Count History" : "Contraction History";
     try {
@@ -348,7 +632,9 @@ export default function SessionHistoryScreen() {
           style={ss.headerSide}
         >
           <Ionicons
-            name={Platform.OS === "ios" ? "share-outline" : "share-social-outline"}
+            name={
+              Platform.OS === "ios" ? "share-outline" : "share-social-outline"
+            }
             size={22}
             color={colors.primary}
           />
@@ -502,6 +788,15 @@ function useTabStyles(colors: ReturnType<typeof useColors>) {
       fontStyle: "italic",
       marginTop: 2,
     },
+    rowActions: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      marginTop: 1,
+    },
+    actionBtn: {
+      padding: 4,
+    },
     // Contraction group cards
     groupCard: {
       backgroundColor: colors.card,
@@ -563,6 +858,10 @@ function useTabStyles(colors: ReturnType<typeof useColors>) {
       fontSize: 12,
       color: colors.mutedForeground,
       flex: 1,
+    },
+    contractionDeleteBtn: {
+      padding: 4,
+      marginLeft: "auto",
     },
   });
 }
