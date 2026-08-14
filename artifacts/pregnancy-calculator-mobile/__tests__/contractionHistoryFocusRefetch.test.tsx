@@ -88,7 +88,7 @@ const mockUseListKickSessions = jest.fn();
 jest.mock("@workspace/api-client-react", () => ({
   useListContractions: (...args: unknown[]) => mockUseListContractions(...args),
   useListKickSessions: (...args: unknown[]) => mockUseListKickSessions(...args),
-  useDeleteContraction: jest.fn(() => ({
+  useDeleteContractionSession: jest.fn(() => ({
     mutateAsync: jest.fn().mockResolvedValue(undefined),
     isPending: false,
   })),
@@ -380,6 +380,136 @@ describe("ContractionHistoryTab — shows newly logged contraction after focus r
     expect(
       findByTestId(renderer.root, "contraction-history-spinner"),
     ).toBeDefined();
+    expect(
+      findByTestId(renderer.root, "contraction-history-empty"),
+    ).toBeUndefined();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// D) Gesture-back and system back fire the same useFocusEffect callback
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// expo-router's useFocusEffect fires via React Navigation's focus event, which
+// is emitted whenever the screen transitions into the "focused" state regardless
+// of what caused the back navigation:
+//
+//   • In-app back button  (router.back() / hardware back button via BackHandler)
+//   • iOS edge-swipe gesture  (interactivePopGestureRecognizer)
+//   • Android system back button or back gesture
+//
+// Because our mock captures the raw useFocusEffect callback — not the gesture
+// mechanism itself — firing the callback here is equivalent to any of those
+// paths arriving at the same screen-focus event.
+//
+// The navigator-config check in gestureBackNavConfig.test.ts provides the
+// complementary static guarantee: session-history.tsx has no gestureEnabled:false
+// or fullScreenModal option that could prevent gesture-back from firing the
+// focus event in the first place.
+
+describe("ContractionHistoryTab — gesture-back and system back trigger the same focus refetch", () => {
+  it("simulates iOS swipe-back: focus callback fires refetch when returning from the contraction timer", async () => {
+    mockUseListContractions.mockReturnValue({
+      data: { items: [] },
+      isFetching: false,
+      refetch: mockRefetch,
+    });
+
+    let renderer!: ReturnType<typeof create>;
+    await act(async () => {
+      renderer = create(React.createElement(SessionHistoryScreen));
+    });
+
+    await renderContractionTab(renderer);
+
+    expect(capturedFocusCallbacks.length).toBeGreaterThan(0);
+
+    // Simulate the iOS edge-swipe completing: React Navigation emits the focus
+    // event → expo-router invokes the useFocusEffect callback.
+    const gestureBackCallback =
+      capturedFocusCallbacks[capturedFocusCallbacks.length - 1];
+
+    await act(async () => {
+      gestureBackCallback();
+    });
+
+    // refetch must be called — same outcome as the in-app back button path.
+    expect(mockRefetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("simulates Android system back: focus callback fires refetch when returning from the contraction timer", async () => {
+    mockUseListContractions.mockReturnValue({
+      data: { items: [] },
+      isFetching: false,
+      refetch: mockRefetch,
+    });
+
+    let renderer!: ReturnType<typeof create>;
+    await act(async () => {
+      renderer = create(React.createElement(SessionHistoryScreen));
+    });
+
+    await renderContractionTab(renderer);
+
+    expect(capturedFocusCallbacks.length).toBeGreaterThan(0);
+
+    // Simulate the Android system back button / back gesture completing: the
+    // same React Navigation focus event path fires the same callback.
+    const systemBackCallback =
+      capturedFocusCallbacks[capturedFocusCallbacks.length - 1];
+
+    await act(async () => {
+      systemBackCallback();
+    });
+
+    // refetch must be called — same outcome as the iOS swipe-back path.
+    expect(mockRefetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the newly logged contraction after a gesture-back focus refresh", async () => {
+    // Phase 1: stale empty cache (before the contraction timer ran).
+    mockUseListContractions.mockReturnValue({
+      data: { items: [] },
+      isFetching: false,
+      refetch: mockRefetch,
+    });
+
+    let renderer!: ReturnType<typeof create>;
+    await act(async () => {
+      renderer = create(React.createElement(SessionHistoryScreen));
+    });
+
+    await renderContractionTab(renderer);
+
+    expect(
+      findByTestId(renderer.root, "contraction-history-empty"),
+    ).toBeDefined();
+
+    // Phase 2: gesture-back focus fires — simulate the iOS edge-swipe or
+    // Android back gesture completing and the screen regaining focus.
+    const gestureBackCallback =
+      capturedFocusCallbacks[capturedFocusCallbacks.length - 1];
+
+    await act(async () => {
+      gestureBackCallback();
+    });
+
+    expect(mockRefetch).toHaveBeenCalledTimes(1);
+
+    // Phase 3: React Query resolves with the fresh server data.
+    mockUseListContractions.mockReturnValue({
+      data: { items: [LOGGED_CONTRACTION] },
+      isFetching: false,
+      refetch: mockRefetch,
+    });
+
+    await act(async () => {
+      renderer.update(React.createElement(SessionHistoryScreen));
+    });
+
+    // The newly logged contraction from the timer must appear.
+    const leafTexts = allLeafText(renderer.root);
+    expect(leafTexts.some((t) => t.includes("contraction"))).toBe(true);
     expect(
       findByTestId(renderer.root, "contraction-history-empty"),
     ).toBeUndefined();

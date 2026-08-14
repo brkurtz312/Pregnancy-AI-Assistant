@@ -115,7 +115,7 @@ const mockUseListKickSessions = jest.fn();
 jest.mock("@workspace/api-client-react", () => ({
   useListContractions: (...args: unknown[]) => mockUseListContractions(...args),
   useListKickSessions: (...args: unknown[]) => mockUseListKickSessions(...args),
-  useDeleteContraction: jest.fn(() => ({
+  useDeleteContractionSession: jest.fn(() => ({
     mutateAsync: jest.fn().mockResolvedValue(undefined),
     isPending: false,
   })),

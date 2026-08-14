@@ -427,7 +427,7 @@ router.delete(
   "/tools/contractions/session/:date",
   requireAuth,
   async (req: AuthedRequest, res) => {
-    const { date } = req.params;
+    const date = req.params.date as string;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       res.status(400).json({ error: "date must be YYYY-MM-DD" });
       return;
