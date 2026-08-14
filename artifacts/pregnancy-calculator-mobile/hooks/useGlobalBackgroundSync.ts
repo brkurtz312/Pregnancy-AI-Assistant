@@ -30,10 +30,6 @@ import {
 import { loadHospitalBagChecklist } from "@/lib/hospital-bag";
 import { loadBirthPlanAnswers } from "@/lib/birth-plan";
 
-function todayDate() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 type TokenGetter = () => Promise<string | null>;
 type UserIdGetter = () => string | null | undefined;
 
@@ -308,11 +304,12 @@ export function useGlobalBackgroundSync(): void {
             () => getTokenRef.current(),
             () => userIdRef.current,
             () => {
+              // Use the base key (no params) so React Query invalidates every
+              // contraction query by prefix match, including the all-dates view
+              // in Session History ({ limit: 200 }), not just the tools-tab
+              // single-date view ({ sessionDate, limit: 50 }).
               queryClientRef.current.invalidateQueries({
-                queryKey: getListContractionsQueryKey({
-                  sessionDate: todayDate(),
-                  limit: 50,
-                }),
+                queryKey: getListContractionsQueryKey(),
               });
             },
           ),
@@ -336,11 +333,12 @@ export function useGlobalBackgroundSync(): void {
         });
       },
       () => {
+        // Use the base key (no params) so React Query invalidates every
+        // contraction query by prefix match, including the all-dates view
+        // in Session History ({ limit: 200 }), not just the tools-tab
+        // single-date view ({ sessionDate, limit: 50 }).
         queryClientRef.current.invalidateQueries({
-          queryKey: getListContractionsQueryKey({
-            sessionDate: todayDate(),
-            limit: 50,
-          }),
+          queryKey: getListContractionsQueryKey(),
         });
       },
     ).catch(() => {});

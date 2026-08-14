@@ -7,7 +7,8 @@
  *
  * Two scenarios are verified:
  *   1. A queued kick session → invalidated with getListKickSessionsQueryKey({ limit: 10, offset: 0 })
- *   2. A queued contraction  → invalidated with getListContractionsQueryKey({ sessionDate: today, limit: 50 })
+ *   2. A queued contraction  → invalidated with getListContractionsQueryKey() (base key, no params) so every
+ *      contraction query is refreshed — including the all-dates view used by Session History.
  */
 
 import React from "react";
@@ -212,9 +213,9 @@ describe("useGlobalBackgroundSync — invalidateQueries after Watch queue flush"
     );
   });
 
-  // ── 2. Contraction flush → invalidates with today's sessionDate key ───────────
+  // ── 2. Contraction flush → invalidates with the base key (prefix match) ─────────
 
-  it("calls invalidateQueries with getListContractionsQueryKey({ sessionDate: today, limit: 50 }) after flushing a queued contraction", async () => {
+  it("calls invalidateQueries with getListContractionsQueryKey() (base key) after flushing a queued contraction", async () => {
     const today = new Date().toISOString().slice(0, 10);
     const queuedContraction = {
       _clientId: "contraction-inv-1",
@@ -238,12 +239,11 @@ describe("useGlobalBackgroundSync — invalidateQueries after Watch queue flush"
     // The API save must have completed first
     expect(mockApiSaveWatchContraction).toHaveBeenCalledTimes(1);
 
-    // invalidateQueries must have been called with today's sessionDate so the
-    // Tools list reflects contractions logged during the current session
-    const expectedKey = mockGetListContractionsQueryKey({
-      sessionDate: today,
-      limit: 50,
-    });
+    // invalidateQueries must use the base key (no params) so React Query
+    // prefix-matches ALL contraction queries — the tools-tab single-date view
+    // ({ sessionDate, limit:50 }) AND the Session History all-dates view
+    // ({ limit:200 }) — without requiring a manual refresh.
+    const expectedKey = mockGetListContractionsQueryKey();
     expect(mockInvalidateQueries).toHaveBeenCalledWith(
       expect.objectContaining({ queryKey: expectedKey }),
     );
@@ -325,12 +325,11 @@ describe("useGlobalBackgroundSync — invalidateQueries after Watch queue flush"
     });
 
     expect(mockApiSaveWatchContraction).toHaveBeenCalledTimes(1);
-    const contractionKey = mockGetListContractionsQueryKey({
-      sessionDate: today,
-      limit: 50,
-    });
+    // The base contraction key must NOT be invalidated when the save fails —
+    // the item stays in the queue for the next retry.
+    const baseContractionKey = mockGetListContractionsQueryKey();
     expect(mockInvalidateQueries).not.toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: contractionKey }),
+      expect.objectContaining({ queryKey: baseContractionKey }),
     );
   });
 
@@ -367,11 +366,11 @@ describe("useGlobalBackgroundSync — invalidateQueries after Watch queue flush"
     expect(mockApiSaveWatchKickSession).toHaveBeenCalledTimes(1);
     expect(mockApiSaveWatchContraction).toHaveBeenCalledTimes(1);
 
+    // Kick session still uses the specific { limit:10, offset:0 } key.
     const kickKey = mockGetListKickSessionsQueryKey({ limit: 10, offset: 0 });
-    const contractionKey = mockGetListContractionsQueryKey({
-      sessionDate: today,
-      limit: 50,
-    });
+    // Contraction uses the base key (no params) so every cached variant is
+    // refreshed — tools-tab single-date AND Session History all-dates.
+    const contractionKey = mockGetListContractionsQueryKey();
 
     expect(mockInvalidateQueries).toHaveBeenCalledWith(
       expect.objectContaining({ queryKey: kickKey }),

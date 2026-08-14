@@ -592,11 +592,10 @@ describe("useGlobalBackgroundSync — fires without tool screens mounted", () =>
       "user-test",
       "invalidate-contraction-1",
     );
+    // The base key (no params) must be used so React Query invalidates every
+    // contraction query by prefix, including Session History's all-dates key.
     expect(mockInvalidateQueries).toHaveBeenCalledWith({
-      queryKey: [
-        "contractions",
-        { sessionDate: new Date().toISOString().slice(0, 10), limit: 50 },
-      ],
+      queryKey: ["contractions", undefined],
     });
   });
 
@@ -681,11 +680,10 @@ describe("useGlobalBackgroundSync — fires without tool screens mounted", () =>
       "user-test",
       "reconnect-contraction-1",
     );
+    // The base key (no params) must be used so React Query invalidates every
+    // contraction query by prefix, including Session History's all-dates key.
     expect(mockInvalidateQueries).toHaveBeenCalledWith({
-      queryKey: [
-        "contractions",
-        { sessionDate: new Date().toISOString().slice(0, 10), limit: 50 },
-      ],
+      queryKey: ["contractions", undefined],
     });
   });
 

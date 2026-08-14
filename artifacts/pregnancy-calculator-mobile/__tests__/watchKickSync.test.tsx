@@ -1525,31 +1525,22 @@ describe("WatchBackgroundListener — invalidateQueries key must match Tools tab
     });
   });
 
-  it("invalidates the exact key ContractionTimerSection passes to useListContractions", async () => {
-    // Step 1 — render ContractionTimerSection with a fixed system clock so
-    // todayDate() returns a deterministic value, and capture the hook params.
+  it("invalidates using the base contraction key so both the tools tab and the history screen refresh", async () => {
+    // WatchBackgroundListener.handleContractionUpdate invalidates with
+    // getListContractionsQueryKey() — no params.  This resolves to the base
+    // path prefix ["/api/tools/contractions"] which React Query matches as a
+    // prefix against every cached contraction query, including:
+    //   • ContractionTimerSection: { sessionDate, limit: 50 }
+    //   • ContractionHistoryTab:   { limit: 200 }   ← all-dates, no sessionDate
+    //
+    // Using the narrow single-date key here (the old behaviour) would leave the
+    // history screen stale until the user manually pulled to refresh.
     const apiMock = require("@workspace/api-client-react");
-    let capturedContractionListParams: unknown;
-    apiMock.useListContractions.mockImplementation((params: unknown) => {
-      capturedContractionListParams = params;
-      return { data: { items: [] }, isLoading: false, refetch: jest.fn() };
-    });
 
-    act(() => {
-      toolsRenderer = create(React.createElement(ContractionTimerSection));
-    });
-    await act(async () => {});
+    // Derive the expected base key.
+    const expectedBaseKey = apiMock.getListContractionsQueryKey();
 
-    expect(capturedContractionListParams).toBeDefined();
-
-    // Step 2 — derive expected key from the captured params
-    const expectedKey = apiMock.getListContractionsQueryKey(
-      capturedContractionListParams,
-    );
-
-    // Step 3 — render the listener and fire a Watch contraction event.
-    // The same fixed system clock ensures todayDate() in the listener and in
-    // the section produce the same ISO date string.
+    // Render the listener and fire a Watch contraction event.
     act(() => {
       listenerRenderer = create(React.createElement(WatchBackgroundListener));
     });
@@ -1563,9 +1554,11 @@ describe("WatchBackgroundListener — invalidateQueries key must match Tools tab
       });
     });
 
-    // Step 4 — the invalidation key must equal the key ContractionTimerSection uses
+    // The invalidation key must be the base key (no params) so every
+    // contraction query — including the history screen's all-dates query — is
+    // marked stale and re-fetched automatically.
     expect(mockInvalidateQueries).toHaveBeenCalledWith({
-      queryKey: expectedKey,
+      queryKey: expectedBaseKey,
     });
   });
 });

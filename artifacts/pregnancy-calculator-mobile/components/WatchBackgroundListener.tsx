@@ -419,11 +419,13 @@ export function WatchBackgroundListener() {
             ?.acknowledgeContractionReceipt(nativeId)
             ?.catch(() => {});
         }
+        // Invalidate the base contraction key so every variant is refreshed:
+        // – the single-date view in tools.tsx (sessionDate + limit:50)
+        // – the all-dates view in session-history.tsx (limit:200, no sessionDate)
+        // React Query treats the base key as a prefix and invalidates every
+        // matching query, so both screens update without a manual pull-to-refresh.
         queryClient.invalidateQueries({
-          queryKey: getListContractionsQueryKey({
-            sessionDate: todayDate(),
-            limit: 50,
-          }),
+          queryKey: getListContractionsQueryKey(),
         });
         showToast("Contraction recorded");
       } catch {
