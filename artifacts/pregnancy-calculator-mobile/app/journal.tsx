@@ -48,6 +48,7 @@ import { exportJournalPdf } from "@/lib/journal-pdf";
 import { usePass } from "@/hooks/usePass";
 import { PassGate } from "@/components/PassGate";
 import { FREE_JOURNAL_ENTRY_LIMIT } from "@/constants/free-limits";
+import { MediaViewerModal } from "@/components/MediaViewerModal";
 
 const GRID_GAP = 4;
 const GRID_PADDING = 16;
@@ -72,10 +73,12 @@ function getMoodEmoji(mood: JournalEntry["mood"]): string {
 function EntryCard({
   entry,
   onPress,
+  onPressMedia,
   colors,
 }: {
   entry: JournalEntry;
   onPress: () => void;
+  onPressMedia: (media: JournalMedia) => void;
   colors: ReturnType<typeof useColors>;
 }) {
   const ageLabel = getAgeLabel(entry);
@@ -150,11 +153,16 @@ function EntryCard({
           )}
         </View>
         {firstPhoto ? (
-          <Image
-            source={{ uri: firstPhoto.uri }}
-            style={styles.entryThumb}
-            contentFit="cover"
-          />
+          <TouchableOpacity
+            onPress={() => onPressMedia(firstPhoto)}
+            activeOpacity={0.85}
+          >
+            <Image
+              source={{ uri: firstPhoto.uri }}
+              style={styles.entryThumb}
+              contentFit="cover"
+            />
+          </TouchableOpacity>
         ) : null}
       </View>
     </TouchableOpacity>
@@ -163,14 +171,16 @@ function EntryCard({
 
 function PhotoGrid({
   items,
-  onPress,
+  onPressMedia,
+  onLongPress,
   emptyIcon,
   emptyText,
   colors,
   cellSize,
 }: {
   items: { media: JournalMedia; entry: JournalEntry }[];
-  onPress: (entry: JournalEntry) => void;
+  onPressMedia: (media: JournalMedia) => void;
+  onLongPress: (entry: JournalEntry) => void;
   emptyIcon: keyof typeof Ionicons.glyphMap;
   emptyText: string;
   colors: ReturnType<typeof useColors>;
@@ -209,7 +219,8 @@ function PhotoGrid({
                     width: cellSize,
                   },
                 ]}
-                onPress={() => onPress(entry)}
+                onPress={() => onPressMedia(media)}
+                onLongPress={() => onLongPress(entry)}
                 activeOpacity={0.85}
               >
                 {media.type === "photo" ? (
@@ -263,7 +274,6 @@ function PhotoGrid({
     </View>
   );
 }
-
 export default function JournalScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -276,6 +286,7 @@ export default function JournalScreen() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("journal");
   const [showGate, setShowGate] = useState(false);
+  const [viewerMedia, setViewerMedia] = useState<JournalMedia | null>(null);
   const [exporting, setExporting] = useState(false);
   const [syncFailed, setSyncFailed] = useState(false);
   const [syncSucceeded, setSyncSucceeded] = useState(false);
@@ -745,6 +756,7 @@ export default function JournalScreen() {
                           params: { entryId: entry.id },
                         })
                       }
+                      onPressMedia={(media) => setViewerMedia(media)}
                     />
                   ))
                 )}
@@ -763,7 +775,8 @@ export default function JournalScreen() {
                 </Text>
                 <PhotoGrid
                   items={bumpMedia}
-                  onPress={(entry) =>
+                  onPressMedia={(media) => setViewerMedia(media)}
+                  onLongPress={(entry) =>
                     router.push({
                       pathname: "/journal-entry",
                       params: { entryId: entry.id },
@@ -791,7 +804,8 @@ export default function JournalScreen() {
                 </Text>
                 <PhotoGrid
                   items={ultrasoundMedia}
-                  onPress={(entry) =>
+                  onPressMedia={(media) => setViewerMedia(media)}
+                  onLongPress={(entry) =>
                     router.push({
                       pathname: "/journal-entry",
                       params: { entryId: entry.id },
@@ -815,6 +829,12 @@ export default function JournalScreen() {
         onClose={() => setShowGate(false)}
         title="Journal Full"
         description="You've used your 5 free journal entries. Upgrade to the Full Pregnancy Pass to write unlimited entries throughout your pregnancy."
+      />
+
+      <MediaViewerModal
+        visible={viewerMedia !== null}
+        media={viewerMedia}
+        onClose={() => setViewerMedia(null)}
       />
     </View>
   );
