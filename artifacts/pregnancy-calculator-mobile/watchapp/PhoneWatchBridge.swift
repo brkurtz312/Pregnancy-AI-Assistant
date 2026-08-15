@@ -183,16 +183,10 @@ enum WatchMessage {
         let supported = WCSession.isSupported()
         let session = WCSession.default
 
-        // Re-trigger activation when it has never completed so that JS polling
-        // eventually sees "activated" without requiring an app restart.
-        // activate() MUST be called on the main thread per Apple docs.
-        if supported && session.activationState == .notActivated {
-            NSLog("[WatchBridge] sessionState: re-activating stuck notActivated session")
-            session.delegate = self
-            DispatchQueue.main.async {
-                session.activate()
-            }
-        }
+        // NOTE: activate() is intentionally NOT called here. Apple docs say call
+        // it only once (from init). Repeated calls during polling suppress the
+        // activationDidCompleteWith delegate callback and keep the session
+        // permanently at notActivated.
 
         let stateStr: String
         switch session.activationState {

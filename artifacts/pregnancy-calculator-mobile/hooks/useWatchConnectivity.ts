@@ -73,6 +73,7 @@ export interface WatchConnectivityStatus {
 function buildSessionDiagnostic(s: WatchSessionState): string {
   const parts = [
     `activation=${s.activationState}`,
+    `supported=${s.isSupported ?? "?"}`,
     `installed=${s.isWatchAppInstalled}`,
     `reachable=${s.isReachable}`,
   ];
