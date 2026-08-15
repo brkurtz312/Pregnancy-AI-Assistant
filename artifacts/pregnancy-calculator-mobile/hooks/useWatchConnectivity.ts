@@ -66,6 +66,20 @@ export interface WatchConnectivityStatus {
   activationState: string;
 }
 
+/** Always returns a non-empty diagnostic string from the known-working session
+ *  state fields, appending the Swift delegate result when it makes it through
+ *  the bridge.  This ensures the Tools badge always shows something useful
+ *  even if activationDiagnostic is absent from the native response. */
+function buildSessionDiagnostic(s: WatchSessionState): string {
+  const parts = [
+    `activation=${s.activationState}`,
+    `installed=${s.isWatchAppInstalled}`,
+    `reachable=${s.isReachable}`,
+  ];
+  if (s.activationDiagnostic) parts.push(`delegate: ${s.activationDiagnostic}`);
+  return parts.join(" | ");
+}
+
 export function useWatchConnectivity({
   gestationalWeek,
   tips,
@@ -76,9 +90,9 @@ export function useWatchConnectivity({
   const mod = getModule();
 
   // ── Activation diagnostic ────────────────────────────────────────────────
-  // Piggybacks on getSessionState() (confirmed working) rather than the
-  // separate getActivationDiagnostic() AsyncFunction, which can fail to appear
-  // on NativeModulesProxy in some binary/bridge configurations.
+  // Always built from the known-working session state fields so we always have
+  // something readable in the UI. activationDiagnostic (Swift delegate result)
+  // is appended if it makes it through the bridge.
   const [watchDiagnostic, setWatchDiagnostic] = useState<string>("");
 
   // ── Real-time session state ──────────────────────────────────────────────
@@ -211,7 +225,7 @@ export function useWatchConnectivity({
           isWatchAppInstalled: s.isWatchAppInstalled,
           activationState: s.activationState,
         });
-        if (s.activationDiagnostic) setWatchDiagnostic(s.activationDiagnostic);
+        setWatchDiagnostic(buildSessionDiagnostic(s));
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -250,7 +264,7 @@ export function useWatchConnectivity({
           isWatchAppInstalled: s.isWatchAppInstalled,
           activationState: s.activationState,
         });
-        if (s.activationDiagnostic) setWatchDiagnostic(s.activationDiagnostic);
+        setWatchDiagnostic(buildSessionDiagnostic(s));
       },
     );
 
@@ -282,7 +296,7 @@ export function useWatchConnectivity({
             isWatchAppInstalled: s.isWatchAppInstalled,
             activationState: s.activationState,
           });
-          if (s.activationDiagnostic) setWatchDiagnostic(s.activationDiagnostic);
+          setWatchDiagnostic(buildSessionDiagnostic(s));
           if (!isFullyReady(s)) {
             setTimeout(doSlowPoll, SLOW_INTERVAL_MS);
           }
@@ -305,7 +319,7 @@ export function useWatchConnectivity({
             isWatchAppInstalled: s.isWatchAppInstalled,
             activationState: s.activationState,
           });
-          if (s.activationDiagnostic) setWatchDiagnostic(s.activationDiagnostic);
+          setWatchDiagnostic(buildSessionDiagnostic(s));
           if (isFullyReady(s)) return; // done — live events will handle any further changes
           if (fastRetries < FAST_POLLS) {
             fastRetries++;
@@ -436,7 +450,7 @@ export function useWatchConnectivity({
             isWatchAppInstalled: s.isWatchAppInstalled,
             activationState: s.activationState,
           });
-          if (s.activationDiagnostic) setWatchDiagnostic(s.activationDiagnostic);
+          setWatchDiagnostic(buildSessionDiagnostic(s));
         })
         .catch(() => {});
     });
