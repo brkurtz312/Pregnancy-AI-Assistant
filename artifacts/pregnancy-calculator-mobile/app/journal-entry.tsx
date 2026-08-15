@@ -23,7 +23,6 @@ import {
 } from "@workspace/api-client-react";
 import { useAuth } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
-import { MediaViewerModal } from "@/components/MediaViewerModal";
 import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 import { usePass } from "@/hooks/usePass";
 import { PassGate } from "@/components/PassGate";
@@ -88,7 +87,6 @@ export default function JournalEntryScreen() {
   const [showPrompts, setShowPrompts] = useState(isNew);
   const [saving, setSaving] = useState(false);
   const [showPhotoGate, setShowPhotoGate] = useState(false);
-  const [viewerMedia, setViewerMedia] = useState<JournalMedia | null>(null);
   const { hasPass } = usePass();
   const scrollRef = useRef<ScrollView>(null);
 
@@ -507,35 +505,26 @@ export default function JournalEntryScreen() {
               <View style={styles.mediaGrid}>
                 {entry.media.map((m) => (
                   <View key={m.id} style={styles.mediaItem}>
-                    <TouchableOpacity
-                      onPress={() => setViewerMedia(m)}
-                      activeOpacity={0.85}
-                    >
-                      {m.type === "photo" ? (
-                        <Image
-                          source={{ uri: m.uri }}
-                          style={styles.mediaThumb}
-                          contentFit="cover"
-                        />
-                      ) : (
-                        <View
-                          style={[
-                            styles.mediaThumb,
-                            {
-                              backgroundColor: colors.muted,
-                              alignItems: "center",
-                              justifyContent: "center",
-                            },
-                          ]}
-                        >
-                          <Ionicons
-                            name="play-circle"
-                            size={32}
-                            color={ACCENT}
-                          />
-                        </View>
-                      )}
-                    </TouchableOpacity>
+                    {m.type === "photo" ? (
+                      <Image
+                        source={{ uri: m.uri }}
+                        style={styles.mediaThumb}
+                        contentFit="cover"
+                      />
+                    ) : (
+                      <View
+                        style={[
+                          styles.mediaThumb,
+                          {
+                            backgroundColor: colors.muted,
+                            alignItems: "center",
+                            justifyContent: "center",
+                          },
+                        ]}
+                      >
+                        <Ionicons name="play-circle" size={32} color={ACCENT} />
+                      </View>
+                    )}
                     <View
                       style={[
                         styles.mediaCategoryBadge,
@@ -595,11 +584,6 @@ export default function JournalEntryScreen() {
         onClose={() => setShowPhotoGate(false)}
         title="Photo Limit Reached"
         description="Free accounts can store up to 3 bump and ultrasound photos. Upgrade to the Full Pregnancy Pass to save unlimited photos throughout your journey."
-      />
-      <MediaViewerModal
-        visible={viewerMedia !== null}
-        media={viewerMedia}
-        onClose={() => setViewerMedia(null)}
       />
     </KeyboardAvoidingView>
   );
