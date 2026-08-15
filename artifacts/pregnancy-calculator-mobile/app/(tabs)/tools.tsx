@@ -1672,12 +1672,10 @@ function WatchStatusBadge({
   isReachable,
   isWatchAppInstalled,
   activationState,
-  isSupported,
 }: {
   isReachable: boolean;
   isWatchAppInstalled: boolean;
   activationState: string;
-  isSupported: boolean;
 }) {
   const colors = useColors();
   const [sheetVisible, setSheetVisible] = useState(false);
@@ -1696,7 +1694,7 @@ function WatchStatusBadge({
     : isWatchAppInstalled
       ? "Watch not reachable"
       : activationState === "notActivated"
-        ? `Connecting… sup:${isSupported} st:${activationState.slice(0, 4)} inst:${isWatchAppInstalled}`
+        ? "Connecting to Watch\u2026"
         : "Watch app not installed";
 
   // Show the Watch app deep-link when the companion app is installed but the
@@ -2218,7 +2216,6 @@ export default function ToolsScreen() {
                 isReachable={watchStatus.isReachable}
                 isWatchAppInstalled={watchStatus.isWatchAppInstalled}
                 activationState={watchStatus.activationState}
-                isSupported={watchStatus.isSupported}
               />
             </Animated.View>
           )}

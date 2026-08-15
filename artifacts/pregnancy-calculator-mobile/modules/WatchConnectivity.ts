@@ -23,7 +23,7 @@ export interface WatchSessionState {
   /** true if the Watch is currently reachable */
   isReachable: boolean;
   /** true if WCSession.isSupported() — false means Watch Connectivity is unavailable on this device */
-  isSupported: boolean;
+  isSupported?: boolean;
 }
 
 interface WatchConnectivityInterface {
@@ -78,7 +78,6 @@ const stub: WatchConnectivityInterface = {
     activationState: "notActivated",
     isWatchAppInstalled: false,
     isReachable: false,
-    isSupported: false,
   }),
   addListener: () => ({ remove: () => {} }),
   signOut: async () => {},

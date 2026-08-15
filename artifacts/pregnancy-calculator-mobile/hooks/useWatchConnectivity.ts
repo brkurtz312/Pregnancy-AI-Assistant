@@ -64,8 +64,6 @@ export interface WatchConnectivityStatus {
   isWatchAppInstalled: boolean;
   /** "activated" | "inactive" | "notActivated" | "unknown" */
   activationState: string;
-  /** true if WCSession.isSupported() — false on Android or unsupported devices */
-  isSupported: boolean;
 }
 
 export function useWatchConnectivity({
@@ -82,7 +80,6 @@ export function useWatchConnectivity({
     isReachable: false,
     isWatchAppInstalled: false,
     activationState: "notActivated",
-    isSupported: false,
   });
 
   // ── Watch-app presence confirmed by message receipt ──────────────────────
@@ -207,7 +204,6 @@ export function useWatchConnectivity({
           isReachable: s.isReachable,
           isWatchAppInstalled: s.isWatchAppInstalled,
           activationState: s.activationState,
-          isSupported: s.isSupported ?? false,
         });
       })
       .catch(() => {});
@@ -246,7 +242,6 @@ export function useWatchConnectivity({
           isReachable: s.isReachable,
           isWatchAppInstalled: s.isWatchAppInstalled,
           activationState: s.activationState,
-          isSupported: s.isSupported ?? false,
         });
       },
     );
@@ -277,7 +272,6 @@ export function useWatchConnectivity({
             isReachable: s.isReachable,
             isWatchAppInstalled: s.isWatchAppInstalled,
             activationState: s.activationState,
-            isSupported: s.isSupported ?? false,
           });
           if (!isFullyReady(s)) {
             slowRetries++;
@@ -302,7 +296,6 @@ export function useWatchConnectivity({
             isReachable: s.isReachable,
             isWatchAppInstalled: s.isWatchAppInstalled,
             activationState: s.activationState,
-            isSupported: s.isSupported ?? false,
           });
           if (isFullyReady(s)) return; // done — live events will handle any further changes
           if (fastRetries < FAST_POLLS) {
@@ -433,7 +426,6 @@ export function useWatchConnectivity({
             isReachable: s.isReachable,
             isWatchAppInstalled: s.isWatchAppInstalled,
             activationState: s.activationState,
-            isSupported: s.isSupported ?? false,
           });
         })
         .catch(() => {});
