@@ -1672,10 +1672,12 @@ function WatchStatusBadge({
   isReachable,
   isWatchAppInstalled,
   activationState,
+  isSupported,
 }: {
   isReachable: boolean;
   isWatchAppInstalled: boolean;
   activationState: string;
+  isSupported: boolean;
 }) {
   const colors = useColors();
   const [sheetVisible, setSheetVisible] = useState(false);
@@ -1728,6 +1730,18 @@ function WatchStatusBadge({
         }}
       >
         {label}
+        {activationState === "notActivated" && !connected && (
+          <Text
+            style={{
+              fontSize: 10,
+              fontFamily: "Inter_400Regular",
+              color: colors.mutedForeground,
+              opacity: 0.7,
+            }}
+          >
+            {`\nsupported:${isSupported} state:${activationState} installed:${isWatchAppInstalled}`}
+          </Text>
+        )}
       </Text>
       {!connected && (
         <Ionicons
@@ -2216,6 +2230,7 @@ export default function ToolsScreen() {
                 isReachable={watchStatus.isReachable}
                 isWatchAppInstalled={watchStatus.isWatchAppInstalled}
                 activationState={watchStatus.activationState}
+                isSupported={watchStatus.isSupported}
               />
             </Animated.View>
           )}
