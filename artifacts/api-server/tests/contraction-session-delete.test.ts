@@ -803,3 +803,143 @@ describe("POST /api/tools/contractions — retry-storm deduplication", () => {
     setAuthedUserId("user_A");
   });
 });
+
+// ─── Delete-then-replay: deduplication index behaviour ────────────────────────
+//
+// The unique index on (user_id, watch_record_id) is a PARTIAL index
+// (WHERE watch_record_id IS NOT NULL).  It prevents duplicate inserts within
+// the same session's lifetime, but it does NOT persist across a session delete:
+// once the session rows are removed the index has no surviving entry to block a
+// later replay carrying the same watchRecordId.
+//
+// Consequence (intentional): a stale Watch retry that arrives after the user
+// deletes the session — e.g. while immediately starting a new session — will
+// be ACCEPTED and will insert a new row.  This is expected behaviour; the
+// application layer is responsible for deciding whether that ghost row should
+// be tolerated or rejected with an additional guard.
+//
+// These tests document that behaviour so the decision is explicit and visible.
+
+describe("POST /api/tools/contractions — delete-then-replay deduplication", () => {
+  it("accepts a replay of the same watchRecordId after the session is deleted (index no longer blocks it)", async () => {
+    const WATCH_ID = "watch-delete-replay-001";
+    const payload = {
+      startedAt: `${SESSION_DATE}T10:00:00Z`,
+      endedAt: `${SESSION_DATE}T10:01:00Z`,
+      durationSeconds: 60,
+      sessionDate: SESSION_DATE,
+      watchRecordId: WATCH_ID,
+    };
+
+    // Step 1: POST — first arrival stores the contraction.
+    const firstPost = await request(app)
+      .post("/api/tools/contractions")
+      .send(payload);
+    expect(firstPost.status).toBe(201);
+    expect(getStore()).toHaveLength(1);
+
+    // Step 2: DELETE the session — simulates the user resetting their timer.
+    const delRes = await request(app).delete(
+      `/api/tools/contractions/session/${SESSION_DATE}`,
+    );
+    expect(delRes.status).toBe(204);
+    expect(getStore()).toHaveLength(0);
+
+    // Step 3: Replay with the same watchRecordId — the Watch hadn't received an
+    // acknowledgement yet, so it retries.  Because the index entry was removed
+    // with the session rows, this replay is ACCEPTED (not deduplicated).
+    const replayPost = await request(app)
+      .post("/api/tools/contractions")
+      .send(payload);
+    expect(replayPost.status).toBeGreaterThanOrEqual(200);
+    expect(replayPost.status).toBeLessThan(300);
+
+    // Exactly one row exists — the replay's new row; no ghost duplicates.
+    const storeRows = getStore().filter((r) => r.watchRecordId === WATCH_ID);
+    expect(storeRows).toHaveLength(1);
+  });
+
+  it("replay after delete lands in the new session, not a ghost of the old one", async () => {
+    const WATCH_ID = "watch-delete-replay-002";
+    const NEW_DATE = "2024-07-01";
+
+    // Original session on SESSION_DATE.
+    await request(app)
+      .post("/api/tools/contractions")
+      .send({
+        startedAt: `${SESSION_DATE}T09:00:00Z`,
+        durationSeconds: 55,
+        sessionDate: SESSION_DATE,
+        watchRecordId: WATCH_ID,
+      });
+    expect(getStore()).toHaveLength(1);
+
+    // Delete the original session.
+    await request(app).delete(
+      `/api/tools/contractions/session/${SESSION_DATE}`,
+    );
+    expect(getStore()).toHaveLength(0);
+
+    // Replay arrives claiming a new sessionDate (the user started a fresh
+    // session the same day or the next).
+    const replayRes = await request(app)
+      .post("/api/tools/contractions")
+      .send({
+        startedAt: `${NEW_DATE}T10:00:00Z`,
+        durationSeconds: 60,
+        sessionDate: NEW_DATE,
+        watchRecordId: WATCH_ID,
+      });
+    expect(replayRes.status).toBeGreaterThanOrEqual(200);
+    expect(replayRes.status).toBeLessThan(300);
+
+    // One row in the store, belonging to the new session date.
+    expect(getStore()).toHaveLength(1);
+    expect(getStore()[0].sessionDate).toBe(NEW_DATE);
+    expect(getStore()[0].watchRecordId).toBe(WATCH_ID);
+  });
+
+  it("within a single new session after delete, duplicate replays are still deduplicated", async () => {
+    const WATCH_ID = "watch-delete-replay-003";
+    const payload = {
+      startedAt: `${SESSION_DATE}T11:00:00Z`,
+      endedAt: `${SESSION_DATE}T11:01:00Z`,
+      durationSeconds: 60,
+      sessionDate: SESSION_DATE,
+      watchRecordId: WATCH_ID,
+    };
+
+    // Original insert.
+    await request(app).post("/api/tools/contractions").send(payload);
+    expect(getStore()).toHaveLength(1);
+
+    // Delete the session.
+    await request(app).delete(
+      `/api/tools/contractions/session/${SESSION_DATE}`,
+    );
+    expect(getStore()).toHaveLength(0);
+
+    // First replay after deletion — accepted (index had no surviving entry).
+    const firstReplay = await request(app)
+      .post("/api/tools/contractions")
+      .send(payload);
+    expect(firstReplay.status).toBeGreaterThanOrEqual(200);
+    expect(firstReplay.status).toBeLessThan(300);
+    expect(getStore()).toHaveLength(1);
+
+    // Second and third replays — these are duplicates within the NEW session
+    // so the index now blocks them again (ON CONFLICT DO NOTHING).
+    const [secondReplay, thirdReplay] = await Promise.all([
+      request(app).post("/api/tools/contractions").send(payload),
+      request(app).post("/api/tools/contractions").send(payload),
+    ]);
+    expect(secondReplay.status).toBeGreaterThanOrEqual(200);
+    expect(secondReplay.status).toBeLessThan(300);
+    expect(thirdReplay.status).toBeGreaterThanOrEqual(200);
+    expect(thirdReplay.status).toBeLessThan(300);
+
+    // Still exactly one row — deduplication is active within the new session.
+    const storeRows = getStore().filter((r) => r.watchRecordId === WATCH_ID);
+    expect(storeRows).toHaveLength(1);
+  });
+});
