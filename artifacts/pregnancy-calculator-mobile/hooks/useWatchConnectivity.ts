@@ -97,11 +97,79 @@ export function useWatchConnectivity({
   const [watchConfirmedByMessage, setWatchConfirmedByMessage] = useState(false);
   const watchConfirmedRef = useRef(false); // ref copy for use inside callbacks
 
+  // Ref that always mirrors the latest native watchStatus so that callbacks
+  // registered once (e.g. event listeners) can read the current value without
+  // stale-closure issues.
+  const watchStatusRef = useRef(watchStatus);
+  useEffect(() => {
+    watchStatusRef.current = watchStatus;
+  });
+
+  // Pending expiry timer: if the Watch stops sending messages while native
+  // isWatchAppInstalled is still false (stale), this fires after 30 s and
+  // clears the message-confirmation latch so the badge correctly shows
+  // "Watch app not installed".
+  const confirmationExpiryRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
+  // Cancel current timer and start a fresh 30-second countdown.
+  // Only called when native installation state is false (stale) so that the
+  // latch expiry is not needed when native is already authoritative.
+  const scheduleConfirmationExpiry = useCallback(() => {
+    if (confirmationExpiryRef.current)
+      clearTimeout(confirmationExpiryRef.current);
+    confirmationExpiryRef.current = setTimeout(() => {
+      watchConfirmedRef.current = false;
+      setWatchConfirmedByMessage(false);
+      confirmationExpiryRef.current = null;
+    }, 30_000);
+  }, []);
+
   const confirmWatchPresence = useCallback(() => {
-    if (!watchConfirmedRef.current) {
-      watchConfirmedRef.current = true;
-      setWatchConfirmedByMessage(true);
+    // When native already reports the Watch as installed, the message-
+    // confirmation latch is not needed.  Skip the state update to avoid a
+    // spurious re-render (which could retrigger the sendWeekAndTips effect via
+    // an unstable tips prop reference and produce a redundant send).
+    if (watchStatusRef.current.isWatchAppInstalled) {
+      if (confirmationExpiryRef.current) {
+        clearTimeout(confirmationExpiryRef.current);
+        confirmationExpiryRef.current = null;
+      }
+      return;
     }
+    // Native state is stale-false: set the latch and start the 30-second expiry
+    // clock.  Each subsequent message resets the deadline; if the Watch is
+    // uninstalled it stops sending and the timer clears the latch.
+    watchConfirmedRef.current = true;
+    setWatchConfirmedByMessage(true);
+    scheduleConfirmationExpiry();
+  }, [scheduleConfirmationExpiry]);
+
+  // Also schedule expiry when native transitions to not-installed while the
+  // Watch was already confirmed by message (handles the native true→false
+  // uninstall case where confirmWatchPresence never scheduled a timer because
+  // native was authoritative at the time).  Cancel the timer when native goes
+  // back to true.
+  useEffect(() => {
+    if (!watchStatus.isWatchAppInstalled && watchConfirmedRef.current) {
+      scheduleConfirmationExpiry();
+    } else if (
+      watchStatus.isWatchAppInstalled &&
+      confirmationExpiryRef.current
+    ) {
+      clearTimeout(confirmationExpiryRef.current);
+      confirmationExpiryRef.current = null;
+    }
+  }, [watchStatus.isWatchAppInstalled, scheduleConfirmationExpiry]);
+
+  // Clear the expiry timer on unmount so it can never fire against an
+  // already-unmounted component.
+  useEffect(() => {
+    return () => {
+      if (confirmationExpiryRef.current)
+        clearTimeout(confirmationExpiryRef.current);
+    };
   }, []);
 
   // Derived status: treat the Watch as installed when either WCSession says so
@@ -393,12 +461,8 @@ export function useWatchConnectivity({
   useEffect(() => {
     if (!mod) return;
     const sub = mod.addListener("onSyncRequest", () => {
-      // onSyncRequest is sent by the Watch app — proof it's installed.
-      // We do NOT call confirmWatchPresence() here because that would trigger a
-      // state update → re-render → new tips array reference → the isSessionReady
-      // effect would fire a redundant sendWeekAndTips.  The direct send below is
-      // sufficient; the badge can be updated via the other event handlers that
-      // don't immediately call sendWeekAndTips themselves.
+      // onSyncRequest is sent by the Watch app — definitive proof it's installed.
+      confirmWatchPresence();
       const { gestationalWeek: week, tips: currentTips } = syncDataRef.current;
       if (week == null || !currentTips?.length) return;
       mod.sendWeekAndTips(week, currentTips).catch((err: unknown) => {
@@ -411,7 +475,7 @@ export function useWatchConnectivity({
     });
     return () => sub.remove();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [!!mod]);
+  }, [!!mod, confirmWatchPresence]);
 
   /** Manually push tips (call this after a week change is confirmed) */
   const pushTips = useCallback(

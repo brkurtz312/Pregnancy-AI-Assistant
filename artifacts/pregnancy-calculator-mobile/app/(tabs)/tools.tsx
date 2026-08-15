@@ -1684,17 +1684,18 @@ function WatchStatusBadge({
 
   const connected = isReachable;
   const dotColor = connected ? "#22c55e" : colors.mutedForeground;
-  const sessionActivated = activationState === "activated";
-  // "notActivated" means the session handshake is still in progress —
-  // "Watch app not installed" is misleading here. Use a neutral label until
-  // the activation completes (or times out after the polling window).
+  // isWatchAppInstalled already incorporates the message-confirmation latch
+  // from useWatchConnectivity (Watch presence confirmed by receiving any Watch
+  // message), so we never need to treat activation state as an installation
+  // proxy.  "Connecting to Watch…" is shown while the WCSession handshake is
+  // still in progress (notActivated) and the app hasn't been confirmed present.
   const label = connected
     ? "Apple Watch connected"
-    : sessionActivated
+    : isWatchAppInstalled
       ? "Watch not reachable"
       : activationState === "notActivated"
         ? "Connecting to Watch\u2026"
-        : "Watch not reachable";
+        : "Watch app not installed";
 
   // Show the Watch app deep-link when the companion app is installed but the
   // session is not active (out of range, Bluetooth off, etc.)
@@ -1888,7 +1889,7 @@ function WatchStatusBadge({
               </TouchableOpacity>
             )}
 
-            {!isWatchAppInstalled && !sessionActivated && (
+            {!isWatchAppInstalled && activationState !== "activated" && (
               <View
                 style={[
                   watchSheetStyles.infoBox,

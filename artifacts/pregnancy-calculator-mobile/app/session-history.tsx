@@ -15,6 +15,7 @@ import {
   FlatList,
   Modal,
   Platform,
+  RefreshControl,
   Share,
   StyleSheet,
   Text,
@@ -420,34 +421,6 @@ function KickHistoryTab({ onShareReady }: KickHistoryTabProps) {
     [colors, ts, handleDelete, handleOpenEditNote],
   );
 
-  if (isFetching) {
-    return (
-      <View style={ts.center}>
-        <ActivityIndicator
-          testID="kick-history-spinner"
-          color={colors.primary}
-        />
-      </View>
-    );
-  }
-
-  if (!sessions.length) {
-    return (
-      <View style={ts.center} testID="kick-history-empty">
-        <Ionicons
-          name="heart-outline"
-          size={40}
-          color={colors.mutedForeground}
-        />
-        <Text style={ts.emptyTitle}>No sessions yet</Text>
-        <Text style={ts.emptySub}>
-          Sessions from this phone, your iPad, and your Apple Watch all appear
-          here.
-        </Text>
-      </View>
-    );
-  }
-
   return (
     <>
       <FlatList
@@ -455,6 +428,36 @@ function KickHistoryTab({ onShareReady }: KickHistoryTabProps) {
         keyExtractor={(item) => String(item.id)}
         renderItem={renderItem}
         contentContainerStyle={ts.list}
+        ListEmptyComponent={
+          isFetching ? (
+            <View style={ts.center}>
+              <ActivityIndicator
+                testID="kick-history-spinner"
+                color={colors.primary}
+              />
+            </View>
+          ) : (
+            <View style={ts.center} testID="kick-history-empty">
+              <Ionicons
+                name="heart-outline"
+                size={40}
+                color={colors.mutedForeground}
+              />
+              <Text style={ts.emptyTitle}>No sessions yet</Text>
+              <Text style={ts.emptySub}>
+                Sessions from this phone, your iPad, and your Apple Watch all
+                appear here.
+              </Text>
+            </View>
+          )
+        }
+        refreshControl={
+          <RefreshControl
+            refreshing={isFetching}
+            onRefresh={refetch}
+            testID="kick-history-refresh-control"
+          />
+        }
       />
       <EditNoteModal
         visible={editingSession !== null}
@@ -581,40 +584,42 @@ function ContractionHistoryTab({ onShareReady }: ContractionHistoryTabProps) {
     [ts, colors, handleDeleteSession],
   );
 
-  if (isFetching) {
-    return (
-      <View style={ts.center}>
-        <ActivityIndicator
-          testID="contraction-history-spinner"
-          color={colors.primary}
-        />
-      </View>
-    );
-  }
-
-  if (!groups.length) {
-    return (
-      <View style={ts.center} testID="contraction-history-empty">
-        <Ionicons
-          name="timer-outline"
-          size={40}
-          color={colors.mutedForeground}
-        />
-        <Text style={ts.emptyTitle}>No sessions yet</Text>
-        <Text style={ts.emptySub}>
-          Sessions from this phone, your iPad, and your Apple Watch all appear
-          here.
-        </Text>
-      </View>
-    );
-  }
-
   return (
     <FlatList
       data={groups}
       keyExtractor={(g) => g.sessionDate}
       renderItem={renderGroup}
       contentContainerStyle={ts.list}
+      ListEmptyComponent={
+        isFetching ? (
+          <View style={ts.center}>
+            <ActivityIndicator
+              testID="contraction-history-spinner"
+              color={colors.primary}
+            />
+          </View>
+        ) : (
+          <View style={ts.center} testID="contraction-history-empty">
+            <Ionicons
+              name="timer-outline"
+              size={40}
+              color={colors.mutedForeground}
+            />
+            <Text style={ts.emptyTitle}>No sessions yet</Text>
+            <Text style={ts.emptySub}>
+              Sessions from this phone, your iPad, and your Apple Watch all
+              appear here.
+            </Text>
+          </View>
+        )
+      }
+      refreshControl={
+        <RefreshControl
+          refreshing={isFetching}
+          onRefresh={refetch}
+          testID="contraction-history-refresh-control"
+        />
+      }
     />
   );
 }
