@@ -26,6 +26,7 @@
 - [EAS runtimeVersion bare workflow](eas-runtime-version-bare.md) — runtimeVersion policy:"appVersion" rejected by EAS when bare workflow detected; must be a static string matching app version.
 - [Expo config plugin xcode addFile null crash](expo-config-plugin-xcode-addfile-crash.md) — addFile(path,null,opts) silently unwinds whole withXcodeProject modifier; debug via local prebuild + Node.js; Watch target needs appExtensions in app.json extra.eas.build.experimental.ios.
 - [GitHub sync token](github-sync-token.md) — GITHUB_TOKEN needs repo AND workflow scopes (repo has .github/workflows); wrapper "PUSH_REJECTED" is opaque, use git CLI to see the real reason.
+- [WCSession activate must run on main thread](wcsession-main-thread.md) — Expo AsyncFunction + OnCreate run on background queues; activate() off-main is silently ignored (state stays notActivated forever).
 - [Xcode 26 Watch double-scheduling fix](xcode-watch-double-scheduling.md) — scheme+dep both required; buildForArchiving=NO on scheme entry; Expo withXcodeProject is LIFO so withWatchXcodeTarget must be applied last; ensureWatchTargetDependency must run unconditionally.
 - [watchOS unit-test target wiring](watch-test-target.md) — Watch XCTests must exercise real code via injected deps; sync script + plugin link WatchConnectivity into the test bundle.
 - [Watch transport injection](watch-transport-injection.md) — send paths use injected transport for real-code tests; every reachable sendMessage needs a transferUserInfo fallback errorHandler.
