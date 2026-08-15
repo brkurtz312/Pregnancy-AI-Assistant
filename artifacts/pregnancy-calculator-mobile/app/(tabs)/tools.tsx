@@ -1694,7 +1694,7 @@ function WatchStatusBadge({
     : isWatchAppInstalled
       ? "Watch not reachable"
       : activationState === "notActivated"
-        ? "Connecting to Watch\u2026"
+        ? `Connecting\u2026 [st:${activationState.slice(0, 4)} inst:${isWatchAppInstalled} reach:${isReachable}]`
         : "Watch app not installed";
 
   // Show the Watch app deep-link when the companion app is installed but the
