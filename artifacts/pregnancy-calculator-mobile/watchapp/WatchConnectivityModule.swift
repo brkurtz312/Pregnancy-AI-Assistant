@@ -34,6 +34,14 @@ public class WatchConnectivityModule: Module {
             PhoneWatchBridge.shared.sessionState()
         }
 
+        // Returns the last result from WCSession activationDidCompleteWith as a
+        // human-readable string (e.g. "OK state=2" or "ERROR state=0 err=...").
+        // Falls back to the UserDefaults value persisted from a previous launch.
+        // Returns "activationDidCompleteWith not yet called" if it has never fired.
+        AsyncFunction("getActivationDiagnostic") { () -> String in
+            PhoneWatchBridge.shared.getActivationDiagnostic()
+        }
+
         // Called from JavaScript when the user signs out so the Watch can clear its session.
         AsyncFunction("signOut") {
             PhoneWatchBridge.shared.sendSignOut()
