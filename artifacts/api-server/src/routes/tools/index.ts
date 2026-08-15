@@ -88,6 +88,20 @@ router.post("/tools/symptoms", requireAuth, async (req: AuthedRequest, res) => {
   });
 });
 
+// Account-level wipe — removes every symptom log row for the authenticated user.
+// Must be registered before /:id so Express matches this exact path first.
+router.delete(
+  "/tools/symptoms",
+  requireAuth,
+  async (req: AuthedRequest, res) => {
+    const userId = req.userId!;
+    await db
+      .delete(symptomLogsTable)
+      .where(eq(symptomLogsTable.userId, userId));
+    res.status(204).end();
+  },
+);
+
 router.delete(
   "/tools/symptoms/:id",
   requireAuth,
@@ -629,6 +643,20 @@ router.patch(
       notes: row.notes,
       createdAt: row.createdAt.toISOString(),
     });
+  },
+);
+
+// Account-level wipe — removes every prenatal visit row for the authenticated user.
+// Must be registered before /:id so Express matches this exact path first.
+router.delete(
+  "/tools/prenatal-visits",
+  requireAuth,
+  async (req: AuthedRequest, res) => {
+    const userId = req.userId!;
+    await db
+      .delete(prenatalVisitsTable)
+      .where(eq(prenatalVisitsTable.userId, userId));
+    res.status(204).end();
   },
 );
 
