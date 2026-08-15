@@ -303,13 +303,10 @@ export function useWatchConnectivity({
     }
     if (onContractionUpdate) {
       subs.push(
-        mod.addListener(
-          "onContractionUpdate",
-          (record: ContractionRecord) => {
-            confirmWatchPresence();
-            onContractionUpdate(record);
-          },
-        ),
+        mod.addListener("onContractionUpdate", (record: ContractionRecord) => {
+          confirmWatchPresence();
+          onContractionUpdate(record);
+        }),
       );
     }
     if (onKickUpdate) {
@@ -322,7 +319,13 @@ export function useWatchConnectivity({
     }
 
     return () => subs.forEach((s) => s.remove());
-  }, [mod, onKickSessionEnd, onContractionUpdate, onKickUpdate]);
+  }, [
+    mod,
+    onKickSessionEnd,
+    onContractionUpdate,
+    onKickUpdate,
+    confirmWatchPresence,
+  ]);
 
   // When the Watch requests a sync (e.g. fresh install with empty tips),
   // push the current week and tips without waiting for a data change.
@@ -390,8 +393,12 @@ export function useWatchConnectivity({
   useEffect(() => {
     if (!mod) return;
     const sub = mod.addListener("onSyncRequest", () => {
-      // onSyncRequest is sent by the Watch app — definitive proof it's installed.
-      confirmWatchPresence();
+      // onSyncRequest is sent by the Watch app — proof it's installed.
+      // We do NOT call confirmWatchPresence() here because that would trigger a
+      // state update → re-render → new tips array reference → the isSessionReady
+      // effect would fire a redundant sendWeekAndTips.  The direct send below is
+      // sufficient; the badge can be updated via the other event handlers that
+      // don't immediately call sendWeekAndTips themselves.
       const { gestationalWeek: week, tips: currentTips } = syncDataRef.current;
       if (week == null || !currentTips?.length) return;
       mod.sendWeekAndTips(week, currentTips).catch((err: unknown) => {

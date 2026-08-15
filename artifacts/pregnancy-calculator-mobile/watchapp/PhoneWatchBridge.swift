@@ -159,19 +159,41 @@ enum WatchMessage {
     // MARK: - Session state
 
     /// Returns a snapshot of the current WCSession connectivity state.
+    ///
+    /// Self-healing: if the session is still `notActivated` when JS polls, we
+    /// call `activate()` again.  The initial call fires in `init()` before the
+    /// JS bridge is ready; in rare cases the system drops that first attempt
+    /// silently (e.g. app launched before Bluetooth is fully ready).  Retrying
+    /// here ensures the activation eventually completes without a binary change.
     func sessionState() -> [String: Any] {
+        let supported = WCSession.isSupported()
         let session = WCSession.default
+
+        // Re-trigger activation when it has never completed so that JS polling
+        // eventually sees "activated" without requiring an app restart.
+        if supported && session.activationState == .notActivated {
+            NSLog("[WatchBridge] sessionState: re-activating stuck notActivated session")
+            session.delegate = self
+            session.activate()
+        }
+
         let stateStr: String
         switch session.activationState {
-        case .activated:   stateStr = "activated"
-        case .inactive:    stateStr = "inactive"
+        case .activated:    stateStr = "activated"
+        case .inactive:     stateStr = "inactive"
         case .notActivated: stateStr = "notActivated"
-        @unknown default:  stateStr = "unknown"
+        @unknown default:   stateStr = "unknown"
         }
+        NSLog("[WatchBridge] sessionState: state=%@ installed=%@ reachable=%@ supported=%@",
+              stateStr,
+              String(supported && session.isWatchAppInstalled),
+              String(supported && session.isReachable),
+              String(supported))
         return [
             "activationState": stateStr,
-            "isWatchAppInstalled": WCSession.isSupported() && session.isWatchAppInstalled,
-            "isReachable": WCSession.isSupported() && session.isReachable,
+            "isWatchAppInstalled": supported && session.isWatchAppInstalled,
+            "isReachable": supported && session.isReachable,
+            "isSupported": supported,
         ]
     }
 
