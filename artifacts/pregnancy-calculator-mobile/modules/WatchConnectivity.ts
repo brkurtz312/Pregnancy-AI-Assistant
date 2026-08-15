@@ -85,6 +85,7 @@ const stub: WatchConnectivityInterface = {
     activationState: "notActivated",
     isWatchAppInstalled: false,
     isReachable: false,
+    isSupported: false,
   }),
   getActivationDiagnostic: async () => "not supported on this platform",
   addListener: () => ({ remove: () => {} }),

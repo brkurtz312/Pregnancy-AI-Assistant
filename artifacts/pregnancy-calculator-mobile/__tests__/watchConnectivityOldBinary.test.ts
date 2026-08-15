@@ -62,6 +62,7 @@ describe("WatchConnectivity on an older binary (native methods missing)", () => 
       activationState: "notActivated",
       isWatchAppInstalled: false,
       isReachable: false,
+      isSupported: false,
     });
   });
 
