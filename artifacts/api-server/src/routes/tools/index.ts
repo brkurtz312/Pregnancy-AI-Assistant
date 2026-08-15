@@ -267,6 +267,20 @@ router.patch(
   },
 );
 
+// Account-level wipe — must be registered before /:id so Express doesn't
+// treat the literal path "kick-sessions" as an id segment.
+router.delete(
+  "/tools/kick-sessions",
+  requireAuth,
+  async (req: AuthedRequest, res) => {
+    const userId = req.userId!;
+    await db
+      .delete(kickSessionsTable)
+      .where(eq(kickSessionsTable.userId, userId));
+    res.status(204).end();
+  },
+);
+
 router.delete(
   "/tools/kick-sessions/:id",
   requireAuth,
