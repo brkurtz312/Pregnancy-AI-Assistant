@@ -522,8 +522,15 @@ function ContractionHistoryTab({ onShareReady }: ContractionHistoryTabProps) {
             text: "Delete",
             style: "destructive",
             onPress: async () => {
-              await deleteMutation.mutateAsync({ date });
-              refetch();
+              try {
+                await deleteMutation.mutateAsync({ date });
+                refetch();
+              } catch {
+                Alert.alert(
+                  "Delete failed",
+                  "Could not remove this session. Please check your connection and try again.",
+                );
+              }
             },
           },
         ],

@@ -505,5 +505,10 @@ export function useWatchConnectivity({
     [mod],
   );
 
-  return { pushTips, isSupported: !!mod, watchStatus: effectiveWatchStatus, watchDiagnostic };
+  return {
+    pushTips,
+    isSupported: !!mod,
+    watchStatus: effectiveWatchStatus,
+    watchDiagnostic,
+  };
 }
