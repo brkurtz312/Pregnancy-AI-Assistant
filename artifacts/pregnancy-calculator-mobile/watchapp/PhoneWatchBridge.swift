@@ -211,6 +211,7 @@ enum WatchMessage {
             "isWatchAppInstalled": supported && session.isWatchAppInstalled,
             "isReachable": supported && session.isReachable,
             "isSupported": supported,
+            "activationDiagnostic": getActivationDiagnostic(),
         ]
     }
 

@@ -24,6 +24,8 @@ export interface WatchSessionState {
   isReachable: boolean;
   /** true if WCSession.isSupported() — false means Watch Connectivity is unavailable on this device */
   isSupported?: boolean;
+  /** Last result from activationDidCompleteWith, e.g. "OK state=2" or "ERROR state=0 err=..." */
+  activationDiagnostic?: string;
 }
 
 interface WatchConnectivityInterface {

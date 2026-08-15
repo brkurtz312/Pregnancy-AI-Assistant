@@ -75,25 +75,11 @@ export function useWatchConnectivity({
 }: UseWatchConnectivityOptions = {}) {
   const mod = getModule();
 
-  // ── Activation diagnostic (read once at mount, surfaces WCSession errors) ─
+  // ── Activation diagnostic ────────────────────────────────────────────────
+  // Piggybacks on getSessionState() (confirmed working) rather than the
+  // separate getActivationDiagnostic() AsyncFunction, which can fail to appear
+  // on NativeModulesProxy in some binary/bridge configurations.
   const [watchDiagnostic, setWatchDiagnostic] = useState<string>("");
-  useEffect(() => {
-    if (!mod) return;
-    mod
-      .getActivationDiagnostic()
-      .then((d: string) => setWatchDiagnostic(d))
-      .catch(() => {});
-    // Re-read 3 s after mount in case activationDidCompleteWith fires just
-    // after the first call returns.
-    const t = setTimeout(() => {
-      mod
-        .getActivationDiagnostic()
-        .then((d: string) => setWatchDiagnostic(d))
-        .catch(() => {});
-    }, 3000);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [!!mod]);
 
   // ── Real-time session state ──────────────────────────────────────────────
   const [watchStatus, setWatchStatus] = useState<WatchConnectivityStatus>({
@@ -225,6 +211,7 @@ export function useWatchConnectivity({
           isWatchAppInstalled: s.isWatchAppInstalled,
           activationState: s.activationState,
         });
+        if (s.activationDiagnostic) setWatchDiagnostic(s.activationDiagnostic);
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -263,6 +250,7 @@ export function useWatchConnectivity({
           isWatchAppInstalled: s.isWatchAppInstalled,
           activationState: s.activationState,
         });
+        if (s.activationDiagnostic) setWatchDiagnostic(s.activationDiagnostic);
       },
     );
 
@@ -294,6 +282,7 @@ export function useWatchConnectivity({
             isWatchAppInstalled: s.isWatchAppInstalled,
             activationState: s.activationState,
           });
+          if (s.activationDiagnostic) setWatchDiagnostic(s.activationDiagnostic);
           if (!isFullyReady(s)) {
             setTimeout(doSlowPoll, SLOW_INTERVAL_MS);
           }
@@ -316,6 +305,7 @@ export function useWatchConnectivity({
             isWatchAppInstalled: s.isWatchAppInstalled,
             activationState: s.activationState,
           });
+          if (s.activationDiagnostic) setWatchDiagnostic(s.activationDiagnostic);
           if (isFullyReady(s)) return; // done — live events will handle any further changes
           if (fastRetries < FAST_POLLS) {
             fastRetries++;
@@ -446,6 +436,7 @@ export function useWatchConnectivity({
             isWatchAppInstalled: s.isWatchAppInstalled,
             activationState: s.activationState,
           });
+          if (s.activationDiagnostic) setWatchDiagnostic(s.activationDiagnostic);
         })
         .catch(() => {});
     });
