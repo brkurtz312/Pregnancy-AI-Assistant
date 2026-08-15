@@ -1694,7 +1694,7 @@ function WatchStatusBadge({
     : isWatchAppInstalled
       ? "Watch not reachable"
       : activationState === "notActivated"
-        ? `Connecting\u2026 [st:${activationState.slice(0, 4)} inst:${isWatchAppInstalled} reach:${isReachable}]`
+        ? "Connecting to Watch\u2026"
         : "Watch app not installed";
 
   // Show the Watch app deep-link when the companion app is installed but the
@@ -2042,7 +2042,7 @@ export default function ToolsScreen() {
   // Push gestational-week tips to the Watch; actual event handling (kick session
   // end, contraction update) is done by WatchBackgroundListener in the root
   // layout so data is saved regardless of which tab is active.
-  const { watchStatus } = useWatchConnectivity({
+  const { watchStatus, watchDiagnostic } = useWatchConnectivity({
     gestationalWeek,
     tips: watchTips,
   });
@@ -2217,6 +2217,21 @@ export default function ToolsScreen() {
                 isWatchAppInstalled={watchStatus.isWatchAppInstalled}
                 activationState={watchStatus.activationState}
               />
+              {watchStatus.activationState === "notActivated" &&
+                watchDiagnostic !== "" && (
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      fontFamily: "Inter_400Regular",
+                      color: colors.mutedForeground,
+                      opacity: 0.6,
+                      marginTop: -4,
+                      marginBottom: 4,
+                    }}
+                  >
+                    {watchDiagnostic}
+                  </Text>
+                )}
             </Animated.View>
           )}
 

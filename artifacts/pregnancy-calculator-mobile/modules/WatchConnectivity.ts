@@ -36,6 +36,13 @@ interface WatchConnectivityInterface {
    */
   sendWeekAndTips: (week: number, tips: object[]) => Promise<void>;
   getSessionState: () => Promise<WatchSessionState>;
+  /**
+   * Returns the last result from WCSession activationDidCompleteWith as a
+   * human-readable string (e.g. "OK state=2" or "ERROR state=0 err=...").
+   * Falls back to the UserDefaults value from a previous launch.
+   * Returns "activationDidCompleteWith not yet called" if it has never fired.
+   */
+  getActivationDiagnostic: () => Promise<string>;
   addListener: (event: string, cb: Listener) => Subscription;
   /**
    * Sends a sign-out notification to the Watch so it clears its persisted
@@ -79,6 +86,7 @@ const stub: WatchConnectivityInterface = {
     isWatchAppInstalled: false,
     isReachable: false,
   }),
+  getActivationDiagnostic: async () => "not supported on this platform",
   addListener: () => ({ remove: () => {} }),
   signOut: async () => {},
   getPendingContractionReceipts: async () => [],
@@ -129,6 +137,11 @@ function buildModule(): WatchConnectivityInterface {
       ),
       sendWeekAndTips: guarded(native, "sendWeekAndTips", stub.sendWeekAndTips),
       getSessionState: guarded(native, "getSessionState", stub.getSessionState),
+      getActivationDiagnostic: guarded(
+        native,
+        "getActivationDiagnostic",
+        stub.getActivationDiagnostic,
+      ),
       addListener: (event: string, cb: Listener) => {
         try {
           return emitter.addListener(event, cb);

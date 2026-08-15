@@ -75,6 +75,26 @@ export function useWatchConnectivity({
 }: UseWatchConnectivityOptions = {}) {
   const mod = getModule();
 
+  // ── Activation diagnostic (read once at mount, surfaces WCSession errors) ─
+  const [watchDiagnostic, setWatchDiagnostic] = useState<string>("");
+  useEffect(() => {
+    if (!mod) return;
+    mod
+      .getActivationDiagnostic()
+      .then((d: string) => setWatchDiagnostic(d))
+      .catch(() => {});
+    // Re-read 3 s after mount in case activationDidCompleteWith fires just
+    // after the first call returns.
+    const t = setTimeout(() => {
+      mod
+        .getActivationDiagnostic()
+        .then((d: string) => setWatchDiagnostic(d))
+        .catch(() => {});
+    }, 3000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!mod]);
+
   // ── Real-time session state ──────────────────────────────────────────────
   const [watchStatus, setWatchStatus] = useState<WatchConnectivityStatus>({
     isReachable: false,
@@ -250,19 +270,20 @@ export function useWatchConnectivity({
     // Stops early only when BOTH activated AND Watch app confirmed installed.
     const FAST_POLLS = 10;
     const FAST_INTERVAL_MS = 500;
-    // Phase 2: slow polls — every 3 s, up to 10 attempts (~30 s).
-    const SLOW_POLLS = 10;
-    const SLOW_INTERVAL_MS = 3000;
+    // Phase 2: slow polls — every 30 s, indefinitely until fully ready or unmount.
+    // WCSession can take longer than the old 30 s window to activate when the
+    // Watch is out of Bluetooth range at launch; the open-ended loop ensures the
+    // badge updates whenever the Watch eventually comes into range.
+    const SLOW_INTERVAL_MS = 30_000;
 
     let fastRetries = 0;
-    let slowRetries = 0;
     let cancelled = false;
 
     const isFullyReady = (s: WatchSessionState) =>
       s.activationState === "activated" && s.isWatchAppInstalled;
 
     const doSlowPoll = () => {
-      if (cancelled || slowRetries >= SLOW_POLLS) return;
+      if (cancelled) return;
       const gen = ++fetchGenRef.current;
       mod
         .getSessionState()
@@ -274,13 +295,11 @@ export function useWatchConnectivity({
             activationState: s.activationState,
           });
           if (!isFullyReady(s)) {
-            slowRetries++;
             setTimeout(doSlowPoll, SLOW_INTERVAL_MS);
           }
         })
         .catch(() => {
           if (!cancelled) {
-            slowRetries++;
             setTimeout(doSlowPoll, SLOW_INTERVAL_MS);
           }
         });
@@ -486,5 +505,5 @@ export function useWatchConnectivity({
     [mod],
   );
 
-  return { pushTips, isSupported: !!mod, watchStatus: effectiveWatchStatus };
+  return { pushTips, isSupported: !!mod, watchStatus: effectiveWatchStatus, watchDiagnostic };
 }

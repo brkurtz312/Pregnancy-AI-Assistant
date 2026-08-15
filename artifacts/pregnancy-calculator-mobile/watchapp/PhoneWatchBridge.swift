@@ -46,6 +46,13 @@ enum WatchMessage {
     private var lastKnownWeek: Int?
     private var lastKnownTipsData: Data?
 
+    // MARK: - Activation diagnostic
+    //
+    // Stores the last result from activationDidCompleteWith so JS can surface it
+    // without requiring Xcode console access.  Also persisted to UserDefaults so
+    // it survives force-quits and is readable on next launch.
+    private var lastActivationDiagnostic: String = "activationDidCompleteWith not yet called"
+
     private override init() {
         super.init()
         encoder.dateEncodingStrategy = .iso8601
@@ -402,12 +409,28 @@ enum WatchMessage {
 
 extension PhoneWatchBridge: WCSessionDelegate {
     func session(_ session: WCSession, activationDidCompleteWith state: WCSessionActivationState, error: Error?) {
+        let diag: String
         if let error = error {
-            NSLog("[WatchBridge] activationDidCompleteWith: ERROR state=%d error=%@", state.rawValue, error.localizedDescription)
+            diag = "ERROR state=\(state.rawValue) err=\(error.localizedDescription)"
         } else {
-            NSLog("[WatchBridge] activationDidCompleteWith: state=%d (0=notActivated 1=inactive 2=activated)", state.rawValue)
+            diag = "OK state=\(state.rawValue) (0=notActivated 1=inactive 2=activated)"
         }
+        NSLog("[WatchBridge] activationDidCompleteWith: %@", diag)
+        lastActivationDiagnostic = diag
+        UserDefaults.standard.set(diag, forKey: "ph.watchActivationDiagnostic")
         notifyStateChange()
+    }
+
+    /// Returns the last result from activationDidCompleteWith, or the UserDefaults
+    /// value from a previous launch if activationDidCompleteWith has not fired yet
+    /// in this session.  Lets JS surface the activation error without Xcode access.
+    func getActivationDiagnostic() -> String {
+        if lastActivationDiagnostic != "activationDidCompleteWith not yet called" {
+            return lastActivationDiagnostic
+        }
+        // Fall back to persisted value from a previous launch.
+        return UserDefaults.standard.string(forKey: "ph.watchActivationDiagnostic")
+            ?? "activationDidCompleteWith not yet called"
     }
 
     func sessionDidBecomeInactive(_ session: WCSession) {
