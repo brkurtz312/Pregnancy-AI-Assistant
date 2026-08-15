@@ -59,8 +59,15 @@ enum WatchMessage {
         }
 
         if WCSession.isSupported() {
+            // delegate must be set before activate(); setting it here is safe on
+            // any thread.  activate() itself MUST be called on the main thread per
+            // Apple docs — dispatch to be safe regardless of which queue OnCreate
+            // (and therefore this init) runs on.
             WCSession.default.delegate = self
-            WCSession.default.activate()
+            DispatchQueue.main.async {
+                NSLog("[WatchBridge] init: calling activate() on main thread")
+                WCSession.default.activate()
+            }
         }
     }
 
@@ -171,10 +178,13 @@ enum WatchMessage {
 
         // Re-trigger activation when it has never completed so that JS polling
         // eventually sees "activated" without requiring an app restart.
+        // activate() MUST be called on the main thread per Apple docs.
         if supported && session.activationState == .notActivated {
             NSLog("[WatchBridge] sessionState: re-activating stuck notActivated session")
             session.delegate = self
-            session.activate()
+            DispatchQueue.main.async {
+                session.activate()
+            }
         }
 
         let stateStr: String
@@ -392,6 +402,11 @@ enum WatchMessage {
 
 extension PhoneWatchBridge: WCSessionDelegate {
     func session(_ session: WCSession, activationDidCompleteWith state: WCSessionActivationState, error: Error?) {
+        if let error = error {
+            NSLog("[WatchBridge] activationDidCompleteWith: ERROR state=%d error=%@", state.rawValue, error.localizedDescription)
+        } else {
+            NSLog("[WatchBridge] activationDidCompleteWith: state=%d (0=notActivated 1=inactive 2=activated)", state.rawValue)
+        }
         notifyStateChange()
     }
 
