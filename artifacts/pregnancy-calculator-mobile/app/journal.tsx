@@ -44,6 +44,7 @@ import {
 } from "@/lib/sync-queue";
 import { useNetReconnect } from "@/hooks/useNetReconnect";
 import { SyncBanner } from "@/components/SyncBanner";
+import { MediaViewerModal } from "@/components/MediaViewerModal";
 import { exportJournalPdf } from "@/lib/journal-pdf";
 import { usePass } from "@/hooks/usePass";
 import { PassGate } from "@/components/PassGate";
@@ -72,10 +73,12 @@ function getMoodEmoji(mood: JournalEntry["mood"]): string {
 function EntryCard({
   entry,
   onPress,
+  onPressMedia,
   colors,
 }: {
   entry: JournalEntry;
   onPress: () => void;
+  onPressMedia: (media: JournalMedia) => void;
   colors: ReturnType<typeof useColors>;
 }) {
   const ageLabel = getAgeLabel(entry);
@@ -150,11 +153,17 @@ function EntryCard({
           )}
         </View>
         {firstPhoto ? (
-          <Image
-            source={{ uri: firstPhoto.uri }}
-            style={styles.entryThumb}
-            contentFit="cover"
-          />
+          <TouchableOpacity
+            onPress={() => onPressMedia(firstPhoto)}
+            activeOpacity={0.85}
+            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+          >
+            <Image
+              source={{ uri: firstPhoto.uri }}
+              style={styles.entryThumb}
+              contentFit="cover"
+            />
+          </TouchableOpacity>
         ) : null}
       </View>
     </TouchableOpacity>
@@ -164,6 +173,7 @@ function EntryCard({
 function PhotoGrid({
   items,
   onPress,
+  onPressMedia,
   emptyIcon,
   emptyText,
   colors,
@@ -171,6 +181,7 @@ function PhotoGrid({
 }: {
   items: { media: JournalMedia; entry: JournalEntry }[];
   onPress: (entry: JournalEntry) => void;
+  onPressMedia: (media: JournalMedia) => void;
   emptyIcon: keyof typeof Ionicons.glyphMap;
   emptyText: string;
   colors: ReturnType<typeof useColors>;
@@ -209,7 +220,8 @@ function PhotoGrid({
                     width: cellSize,
                   },
                 ]}
-                onPress={() => onPress(entry)}
+                onPress={() => onPressMedia(media)}
+                onLongPress={() => onPress(entry)}
                 activeOpacity={0.85}
               >
                 {media.type === "photo" ? (
@@ -280,6 +292,7 @@ export default function JournalScreen() {
   const [syncFailed, setSyncFailed] = useState(false);
   const [syncSucceeded, setSyncSucceeded] = useState(false);
   const [showStorageWarning, setShowStorageWarning] = useState(false);
+  const [viewerMedia, setViewerMedia] = useState<JournalMedia | null>(null);
   const syncFailedRef = useRef(false);
   const wasReconnectPendingRef = useRef(false);
   const { hasPass } = usePass();
@@ -745,6 +758,7 @@ export default function JournalScreen() {
                           params: { entryId: entry.id },
                         })
                       }
+                      onPressMedia={setViewerMedia}
                     />
                   ))
                 )}
@@ -769,6 +783,7 @@ export default function JournalScreen() {
                       params: { entryId: entry.id },
                     })
                   }
+                  onPressMedia={setViewerMedia}
                   emptyIcon="camera-outline"
                   emptyText={
                     "No bump photos yet.\nAdd them when creating a journal entry."
@@ -797,6 +812,7 @@ export default function JournalScreen() {
                       params: { entryId: entry.id },
                     })
                   }
+                  onPressMedia={setViewerMedia}
                   emptyIcon="scan-outline"
                   emptyText={
                     "No ultrasound images yet.\nAdd them when creating a journal entry."
@@ -815,6 +831,11 @@ export default function JournalScreen() {
         onClose={() => setShowGate(false)}
         title="Journal Full"
         description="You've used your 5 free journal entries. Upgrade to the Full Pregnancy Pass to write unlimited entries throughout your pregnancy."
+      />
+      <MediaViewerModal
+        visible={viewerMedia !== null}
+        media={viewerMedia}
+        onClose={() => setViewerMedia(null)}
       />
     </View>
   );
