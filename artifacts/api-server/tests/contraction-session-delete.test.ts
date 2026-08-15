@@ -429,6 +429,103 @@ describe("DELETE /api/tools/contractions/session/:date — isolation", () => {
   });
 });
 
+// ─── Account-level delete ─────────────────────────────────────────────────────
+//
+// DELETE /api/tools/contractions (no path segment) wipes every contraction row
+// for the authenticated user, regardless of sessionDate or watchRecordId.
+
+describe("DELETE /api/tools/contractions — account-level wipe", () => {
+  it("returns 401 when not signed in", async () => {
+    setAuthedUserId(null);
+    const res = await request(app).delete("/api/tools/contractions");
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 204 and removes all phone-sourced contractions for the user", async () => {
+    seedPhone("user_A", SESSION_DATE, 1);
+    seedPhone("user_A", OTHER_DATE, 2);
+
+    expect(getStore()).toHaveLength(2);
+
+    const res = await request(app).delete("/api/tools/contractions");
+    expect(res.status).toBe(204);
+    expect(getStore()).toHaveLength(0);
+  });
+
+  it("returns 204 and removes all Watch-sourced contractions for the user", async () => {
+    seedWatch("user_A", SESSION_DATE, 1, "watch-acct-1");
+    seedWatch("user_A", OTHER_DATE, 2, "watch-acct-2");
+
+    expect(getStore()).toHaveLength(2);
+
+    const res = await request(app).delete("/api/tools/contractions");
+    expect(res.status).toBe(204);
+    expect(getStore()).toHaveLength(0);
+  });
+
+  it("removes both phone-sourced and Watch-sourced contractions across multiple dates", async () => {
+    // Two dates, each with a phone row and a Watch row
+    seedPhone("user_A", SESSION_DATE, 1);
+    seedWatch("user_A", SESSION_DATE, 2, "watch-multi-1");
+    seedPhone("user_A", OTHER_DATE, 3);
+    seedWatch("user_A", OTHER_DATE, 4, "watch-multi-2");
+
+    expect(getStore()).toHaveLength(4);
+
+    const res = await request(app).delete("/api/tools/contractions");
+    expect(res.status).toBe(204);
+    expect(getStore()).toHaveLength(0);
+  });
+
+  it("returns 204 even when the user has no contractions (idempotent)", async () => {
+    const res = await request(app).delete("/api/tools/contractions");
+    expect(res.status).toBe(204);
+    expect(getStore()).toHaveLength(0);
+  });
+
+  it("does not remove contractions belonging to a different user", async () => {
+    // user_A — phone + Watch
+    seedPhone("user_A", SESSION_DATE, 1);
+    seedWatch("user_A", SESSION_DATE, 2, "watch-a-acct");
+    // user_B — phone + Watch
+    seedPhone("user_B", SESSION_DATE, 3);
+    seedWatch("user_B", SESSION_DATE, 4, "watch-b-acct");
+
+    // Signed in as user_A
+    const res = await request(app).delete("/api/tools/contractions");
+    expect(res.status).toBe(204);
+
+    const remaining = getStore();
+    expect(remaining).toHaveLength(2);
+    expect(remaining.every((r) => r.userId === "user_B")).toBe(true);
+  });
+
+  it("leaves user_B's Watch rows intact after user_A's full account wipe", async () => {
+    seedWatch("user_A", SESSION_DATE, 1, "watch-a-1");
+    seedWatch("user_A", OTHER_DATE, 2, "watch-a-2");
+    seedWatch("user_B", SESSION_DATE, 3, "watch-b-1");
+
+    await request(app).delete("/api/tools/contractions");
+
+    const remaining = getStore();
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].userId).toBe("user_B");
+    expect(remaining[0].watchRecordId).toBe("watch-b-1");
+  });
+
+  it("GET returns an empty list for the user after account-level wipe", async () => {
+    seedPhone("user_A", SESSION_DATE, 1);
+    seedWatch("user_A", SESSION_DATE, 2, "watch-get-check");
+
+    await request(app).delete("/api/tools/contractions");
+
+    const getRes = await request(app).get("/api/tools/contractions");
+    expect(getRes.status).toBe(200);
+    expect(getRes.body.items).toHaveLength(0);
+    expect(getRes.body.total).toBe(0);
+  });
+});
+
 // ─── Via POST then DELETE (end-to-end flow) ───────────────────────────────────
 
 describe("DELETE /api/tools/contractions/session/:date — end-to-end via POST", () => {

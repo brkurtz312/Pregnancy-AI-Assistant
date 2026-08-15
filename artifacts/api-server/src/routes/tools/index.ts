@@ -422,6 +422,21 @@ router.post(
   },
 );
 
+// Account-level wipe — removes every contraction row for the authenticated user.
+// Must be registered before /session/:date and /:id so Express matches this
+// exact path first.
+router.delete(
+  "/tools/contractions",
+  requireAuth,
+  async (req: AuthedRequest, res) => {
+    const userId = req.userId!;
+    await db
+      .delete(contractionLogsTable)
+      .where(eq(contractionLogsTable.userId, userId));
+    res.status(204).end();
+  },
+);
+
 // Must be registered before /:id so Express doesn't treat "session" as an id.
 router.delete(
   "/tools/contractions/session/:date",
