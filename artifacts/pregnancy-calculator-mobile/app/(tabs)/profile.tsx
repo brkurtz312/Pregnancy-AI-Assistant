@@ -18,10 +18,26 @@ import {
   useColorScheme,
   View,
 } from "react-native";
-import DateTimePicker, {
-  type DateTimePickerEvent,
-} from "@react-native-community/datetimepicker";
+import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+// Safe-require DateTimePicker — a static ES import is evaluated when the OTA
+// bundle loads (expo-router evaluates every route module at startup), so it
+// crashes the ENTIRE app at launch if the native module is absent from the
+// installed binary (see datetimepicker-safe-require.md).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const DateTimePicker: React.ComponentType<any> | null = (() => {
+  try {
+    return (
+      require("@react-native-community/datetimepicker") as {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        default: React.ComponentType<any>;
+      }
+    ).default;
+  } catch {
+    return null;
+  }
+})();
 import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetProfileQueryKey,
@@ -684,7 +700,7 @@ export default function ProfileScreen() {
                     </View>
 
                     {/* DateTimePicker — Android inline */}
-                    {isAndroid && showDeliveryPicker && (
+                    {isAndroid && showDeliveryPicker && DateTimePicker && (
                       <DateTimePicker
                         value={deliveryDate ?? new Date()}
                         mode="date"
@@ -744,18 +760,20 @@ export default function ProfileScreen() {
                                 </Text>
                               </TouchableOpacity>
                             </View>
-                            <DateTimePicker
-                              value={deliveryDate ?? new Date()}
-                              mode="date"
-                              display="spinner"
-                              maximumDate={new Date()}
-                              onChange={(
-                                _event: DateTimePickerEvent,
-                                date?: Date,
-                              ) => {
-                                if (date) setDeliveryDate(date);
-                              }}
-                            />
+                            {DateTimePicker && (
+                              <DateTimePicker
+                                value={deliveryDate ?? new Date()}
+                                mode="date"
+                                display="spinner"
+                                maximumDate={new Date()}
+                                onChange={(
+                                  _event: DateTimePickerEvent,
+                                  date?: Date,
+                                ) => {
+                                  if (date) setDeliveryDate(date);
+                                }}
+                              />
+                            )}
                           </Pressable>
                         </Pressable>
                       </Modal>

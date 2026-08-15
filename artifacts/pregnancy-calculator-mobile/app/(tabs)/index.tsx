@@ -1,7 +1,23 @@
-import DateTimePicker, {
-  DateTimePickerEvent,
-} from "@react-native-community/datetimepicker";
+import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
+
+// Safe-require DateTimePicker — a static ES import is evaluated when the OTA
+// bundle loads (expo-router evaluates every route module at startup), so it
+// crashes the ENTIRE app at launch if the native module is absent from the
+// installed binary (see datetimepicker-safe-require.md).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const DateTimePicker: React.ComponentType<any> | null = (() => {
+  try {
+    return (
+      require("@react-native-community/datetimepicker") as {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        default: React.ComponentType<any>;
+      }
+    ).default;
+  } catch {
+    return null;
+  }
+})();
 import { useAuth } from "@clerk/expo";
 import * as Haptics from "expo-haptics";
 import * as haptics from "@/lib/haptics";
@@ -167,7 +183,7 @@ function DatePickerField({
         />
       </TouchableOpacity>
 
-      {isAndroid && showPicker && (
+      {isAndroid && showPicker && DateTimePicker && (
         <DateTimePicker
           value={value ?? new Date()}
           mode="date"
@@ -205,15 +221,17 @@ function DatePickerField({
                   </Text>
                 </TouchableOpacity>
               </View>
-              <DateTimePicker
-                value={value ?? new Date()}
-                mode="date"
-                display="spinner"
-                onChange={(_event: DateTimePickerEvent, date?: Date) => {
-                  if (date) onChange(date);
-                }}
-                style={{ height: 200 }}
-              />
+              {DateTimePicker && (
+                <DateTimePicker
+                  value={value ?? new Date()}
+                  mode="date"
+                  display="spinner"
+                  onChange={(_event: DateTimePickerEvent, date?: Date) => {
+                    if (date) onChange(date);
+                  }}
+                  style={{ height: 200 }}
+                />
+              )}
             </Pressable>
           </Pressable>
         </Modal>

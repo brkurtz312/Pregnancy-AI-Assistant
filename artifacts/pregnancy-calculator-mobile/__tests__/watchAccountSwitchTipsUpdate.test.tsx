@@ -55,6 +55,7 @@ jest.mock("../modules/WatchConnectivity", () => ({
     sendTips: mockSendTips,
     addListener: mockAddListener,
     getSessionState: mockGetSessionState,
+    getActivationDiagnostic: jest.fn().mockResolvedValue("OK state=2"),
   },
 }));
 

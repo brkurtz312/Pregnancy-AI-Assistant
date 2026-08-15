@@ -61,6 +61,7 @@ jest.mock("../modules/WatchConnectivity", () => ({
   __esModule: true,
   default: {
     getSessionState: mockGetSessionState,
+    getActivationDiagnostic: jest.fn().mockResolvedValue("OK state=2"),
     sendWeekAndTips: mockSendWeekAndTips,
     sendTips: jest.fn(async () => {}),
     sendGestationalWeek: jest.fn(async () => {}),
