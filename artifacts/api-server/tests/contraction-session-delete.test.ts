@@ -613,3 +613,193 @@ describe("DELETE /api/tools/contractions/session/:date — end-to-end via POST",
     expect(getRes.body.total).toBe(0);
   });
 });
+
+// ─── Retry-storm / duplicate watchRecordId ────────────────────────────────────
+//
+// The Watch replays unacknowledged records until the phone confirms receipt.
+// If the phone is killed or the network is intermittent the same watchRecordId
+// can arrive several times concurrently.  ON CONFLICT DO NOTHING on the
+// (user_id, watch_record_id) partial unique index must guarantee that only one
+// row ever lands in the DB regardless of how many concurrent POSTs race.
+
+describe("POST /api/tools/contractions — retry-storm deduplication", () => {
+  it("stores exactly one row when 3 concurrent POSTs share the same watchRecordId", async () => {
+    const WATCH_ID = "watch-retry-storm-001";
+
+    const payload = {
+      startedAt: `${SESSION_DATE}T10:00:00Z`,
+      endedAt: `${SESSION_DATE}T10:01:00Z`,
+      durationSeconds: 60,
+      sessionDate: SESSION_DATE,
+      watchRecordId: WATCH_ID,
+    };
+
+    // Fire all 3 requests concurrently — simulates a Watch retry storm.
+    const responses = await Promise.all([
+      request(app).post("/api/tools/contractions").send(payload),
+      request(app).post("/api/tools/contractions").send(payload),
+      request(app).post("/api/tools/contractions").send(payload),
+    ]);
+
+    // Every response must be successful (201 for the winner, 200 for retries
+    // that hit ON CONFLICT DO NOTHING and return the existing row).
+    for (const res of responses) {
+      expect(res.status).toBeGreaterThanOrEqual(200);
+      expect(res.status).toBeLessThan(300);
+    }
+
+    // The in-memory store must contain exactly one row for this watchRecordId.
+    const storeRows = getStore().filter((r) => r.watchRecordId === WATCH_ID);
+    expect(storeRows).toHaveLength(1);
+  });
+
+  it("GET history shows exactly one item for the watchRecordId after 5 duplicate POSTs", async () => {
+    const WATCH_ID = "watch-retry-storm-002";
+
+    const payload = {
+      startedAt: `${SESSION_DATE}T11:00:00Z`,
+      endedAt: `${SESSION_DATE}T11:01:00Z`,
+      durationSeconds: 60,
+      sessionDate: SESSION_DATE,
+      watchRecordId: WATCH_ID,
+    };
+
+    // Simulate 5 retries (sequential is fine here — what matters is the final state).
+    for (let i = 0; i < 5; i++) {
+      const res = await request(app)
+        .post("/api/tools/contractions")
+        .send(payload);
+      expect(res.status).toBeGreaterThanOrEqual(200);
+      expect(res.status).toBeLessThan(300);
+    }
+
+    const getRes = await request(app)
+      .get("/api/tools/contractions")
+      .query({ sessionDate: SESSION_DATE });
+
+    expect(getRes.status).toBe(200);
+
+    // Only one contraction should appear in history.
+    expect(getRes.body.items).toHaveLength(1);
+    expect(getRes.body.total).toBe(1);
+  });
+
+  it("total count is correct when duplicates and unique Watch contractions are mixed", async () => {
+    // Unique Watch contraction A — arrives once.
+    await request(app)
+      .post("/api/tools/contractions")
+      .send({
+        startedAt: `${SESSION_DATE}T08:00:00Z`,
+        durationSeconds: 45,
+        sessionDate: SESSION_DATE,
+        watchRecordId: "watch-unique-A",
+      });
+
+    // Watch contraction B — replayed 3 times (retry storm).
+    const stormPayload = {
+      startedAt: `${SESSION_DATE}T08:10:00Z`,
+      durationSeconds: 50,
+      sessionDate: SESSION_DATE,
+      watchRecordId: "watch-storm-B",
+    };
+    await Promise.all([
+      request(app).post("/api/tools/contractions").send(stormPayload),
+      request(app).post("/api/tools/contractions").send(stormPayload),
+      request(app).post("/api/tools/contractions").send(stormPayload),
+    ]);
+
+    // Unique phone contraction — no watchRecordId.
+    await request(app)
+      .post("/api/tools/contractions")
+      .send({
+        startedAt: `${SESSION_DATE}T08:20:00Z`,
+        durationSeconds: 55,
+        sessionDate: SESSION_DATE,
+      });
+
+    const getRes = await request(app)
+      .get("/api/tools/contractions")
+      .query({ sessionDate: SESSION_DATE });
+
+    expect(getRes.status).toBe(200);
+
+    // 3 distinct records: watch-unique-A, watch-storm-B (once), phone.
+    expect(getRes.body.items).toHaveLength(3);
+    expect(getRes.body.total).toBe(3);
+
+    // Confirm watch-storm-B appears exactly once in the returned items.
+    const stormItems = getRes.body.items.filter(
+      (_item: unknown) =>
+        getStore().find(
+          (r) =>
+            r.watchRecordId === "watch-storm-B" &&
+            r.id === (_item as { id: number }).id,
+        ) !== undefined,
+    );
+    expect(stormItems).toHaveLength(1);
+  });
+
+  it("all concurrent responses return the same contraction id (idempotent)", async () => {
+    const WATCH_ID = "watch-retry-storm-idempotent";
+
+    const payload = {
+      startedAt: `${SESSION_DATE}T12:00:00Z`,
+      endedAt: `${SESSION_DATE}T12:01:00Z`,
+      durationSeconds: 60,
+      sessionDate: SESSION_DATE,
+      watchRecordId: WATCH_ID,
+    };
+
+    const responses = await Promise.all([
+      request(app).post("/api/tools/contractions").send(payload),
+      request(app).post("/api/tools/contractions").send(payload),
+      request(app).post("/api/tools/contractions").send(payload),
+      request(app).post("/api/tools/contractions").send(payload),
+    ]);
+
+    // All responses must carry the same id — they all refer to the same row.
+    const ids = responses.map((r) => r.body.id);
+    expect(new Set(ids).size).toBe(1);
+  });
+
+  it("cross-user isolation: same watchRecordId for different users creates one row per user", async () => {
+    const SHARED_WATCH_ID = "watch-cross-user-001";
+
+    const payload = {
+      startedAt: `${SESSION_DATE}T13:00:00Z`,
+      durationSeconds: 60,
+      sessionDate: SESSION_DATE,
+      watchRecordId: SHARED_WATCH_ID,
+    };
+
+    // user_A sends 3 concurrent POSTs.
+    setAuthedUserId("user_A");
+    await Promise.all([
+      request(app).post("/api/tools/contractions").send(payload),
+      request(app).post("/api/tools/contractions").send(payload),
+      request(app).post("/api/tools/contractions").send(payload),
+    ]);
+
+    // user_B sends 3 concurrent POSTs with the same watchRecordId.
+    setAuthedUserId("user_B");
+    await Promise.all([
+      request(app).post("/api/tools/contractions").send(payload),
+      request(app).post("/api/tools/contractions").send(payload),
+      request(app).post("/api/tools/contractions").send(payload),
+    ]);
+
+    // Exactly one row per user — the unique index is scoped to (userId, watchRecordId).
+    const userARows = getStore().filter(
+      (r) => r.userId === "user_A" && r.watchRecordId === SHARED_WATCH_ID,
+    );
+    const userBRows = getStore().filter(
+      (r) => r.userId === "user_B" && r.watchRecordId === SHARED_WATCH_ID,
+    );
+
+    expect(userARows).toHaveLength(1);
+    expect(userBRows).toHaveLength(1);
+
+    // Restore default for subsequent tests.
+    setAuthedUserId("user_A");
+  });
+});
