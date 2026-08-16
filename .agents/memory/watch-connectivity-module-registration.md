@@ -18,11 +18,14 @@ The correct fix: make autolinking itself generate the provider with the module i
 1. Create `packages/<module-name>/` with:
    - `package.json` (private: true, name, version)
    - `index.js` (stub — JS not needed)
-   - `expo-module.config.json` with `"ios": { "modules": ["SwiftClassName"], "swiftModuleName": "" }`
+   - `expo-module.config.json` with `"ios": { "modules": ["SwiftClassName"], "swiftModuleName": "", "podspecPath": "<module-name>.podspec" }`
    - `<module-name>.podspec` (valid podspec, no `source_files` — the Swift file is already in the main target)
 2. Add `packages/*` to `pnpm-workspace.yaml`
 3. Add `"<module-name>": "workspace:*"` to the mobile app's `package.json`
 4. Run `pnpm install`
+
+### `podspecPath` is REQUIRED
+`findPodspecFiles` uses `listFilesInDirectories`, which only searches **subdirectories** of the package root — it never looks at files in the root itself. Without `podspecPath`, `resolveModuleAsync` returns `null` (no podspec found → nothing registered). `podspecPath` bypasses `listFilesInDirectories` entirely, returning the config-provided path directly. Confirmed: builds 1.0.47–1.0.48 silently failed because `resolveModuleAsync` returned `null`.
 
 ### The `swiftModuleName: ""` trick
 `appleSwiftModuleNames()` calls `arrayize(config.ios.swiftModuleName)`. `arrayize("")` = `[""]`.  
