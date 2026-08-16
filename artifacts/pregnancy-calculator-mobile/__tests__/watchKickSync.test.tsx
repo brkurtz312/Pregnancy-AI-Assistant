@@ -2192,6 +2192,83 @@ describe("WatchBackgroundListener — offline delivery persistence (transferUser
     expect(payload.intervalSeconds).toBe(360);
     expect(mockInvalidateQueries).toHaveBeenCalledTimes(1);
   });
+
+  // ── Durable dedup — replayed transferUserInfo payload ────────────────────
+  //
+  // The OS may replay a transferUserInfo payload that was already processed on
+  // an earlier reconnect (e.g. if the phone was killed mid-ack before the OS
+  // marked the transfer as delivered).  The in-process Set is empty on a fresh
+  // mount, so the only guard is the durable isKickSessionRecentlySaved marker
+  // written by markKickSessionSaved on the first successful save.
+  //
+  // This test mounts a fresh WatchBackgroundListener (empty in-process dedup
+  // Set) and fires the same session twice, with isKickSessionRecentlySaved
+  // returning false on the first call (first delivery) and true on the second
+  // (OS replay after reconnect).  Only one save must be issued.
+
+  it("suppresses a replayed kick session when isKickSessionRecentlySaved returns true (durable dedup after reconnect)", async () => {
+    // Models the force-quit/relaunch scenario:
+    //   1. Watch fires onKickSessionEnd offline → phone is unreachable →
+    //      OS queues the payload via transferUserInfo.
+    //   2. On reconnect the phone delivers the payload, WatchBackgroundListener
+    //      saves the session and calls markKickSessionSaved.
+    //   3. The phone process is killed before the OS marks the transfer
+    //      delivered.  On relaunch the OS replays the same transferUserInfo
+    //      payload.  A FRESH component instance has an empty in-process dedup
+    //      Set, so the only guard is the durable isKickSessionRecentlySaved
+    //      marker written in step 2.
+
+    const syncQueueMock = require("@/lib/sync-queue");
+
+    // Phase 1: initial delivery — normal save.
+    renderWatchListener();
+    await act(async () => {});
+
+    expect(capturedOnKickSessionEnd).toBeDefined();
+
+    const session = {
+      kickCount: 10,
+      startedAt: "2026-08-04T09:00:00.000Z",
+      endedAt: "2026-08-04T09:40:00.000Z",
+    };
+
+    // isKickSessionRecentlySaved defaults to false (not yet saved) — save
+    // proceeds normally and markKickSessionSaved is called.
+    await act(async () => {
+      await capturedOnKickSessionEnd!(session);
+    });
+
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(1);
+    expect(mockInvalidateQueries).toHaveBeenCalledTimes(1);
+
+    // Simulate force-quit: unmount the component (in-process dedup Set is
+    // destroyed with it).  The durable marker written by markKickSessionSaved
+    // is the only guard that survives.
+    act(() => {
+      listenerRenderer!.unmount();
+    });
+    listenerRenderer = null;
+
+    // Configure the durable marker to report the session as already saved,
+    // mirroring what markKickSessionSaved would have written on real storage.
+    syncQueueMock.isKickSessionRecentlySaved.mockResolvedValue(true);
+
+    // Phase 2: OS replays the same transferUserInfo payload after app relaunch.
+    // Fresh component instance → empty in-process Set; only durable guard active.
+    renderWatchListener();
+    await act(async () => {});
+
+    await act(async () => {
+      await capturedOnKickSessionEnd!(session);
+    });
+
+    // Still only one save — durable dedup blocked the OS replay.
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(1);
+    expect(mockInvalidateQueries).toHaveBeenCalledTimes(1);
+
+    // Restore the default so subsequent describe blocks are not affected.
+    syncQueueMock.isKickSessionRecentlySaved.mockResolvedValue(false);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -67,6 +67,8 @@ const WATCH_TEST_SOURCES = [
   "WatchSessionManagerContractionCountTests.swift",
   "WatchSessionManagerKickCountTests.swift",
   "WatchSessionManagerClearSessionTests.swift",
+  "WatchSessionManagerSendTests.swift",
+  "WatchContractionSignOutTests.swift",
   "WatchFreshInstallSyncTests.swift",
   "WatchTipDecodingTests.swift",
 ];

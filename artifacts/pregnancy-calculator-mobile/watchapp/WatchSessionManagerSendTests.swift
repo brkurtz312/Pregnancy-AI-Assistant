@@ -292,6 +292,130 @@ final class WatchSessionManagerSendTests: XCTestCase {
                        summary.endedAt.timeIntervalSince1970, accuracy: 0.001)
     }
 
+    // MARK: - sendKickSessionEnd — offline path + reachable-then-failed fallback
+
+    /// Offline: sendKickSessionEnd must route through transferUserInfo when the
+    /// phone is not reachable.  The OS delivers the summary once connectivity
+    /// returns; no sendMessage attempt must be made.
+    func testSendKickSessionEnd_offline_usesTransferUserInfo() {
+        transport.isReachable = false
+        let manager = makeManager()
+
+        manager.sendKickSessionEnd(summary: makeSummary(count: 12))
+
+        XCTAssertTrue(transport.sentMessages.isEmpty,
+                      "sendKickSessionEnd offline: no sendMessage attempt must be made")
+        XCTAssertEqual(transport.userInfoTransfers.count, 1,
+                       "sendKickSessionEnd offline: exactly one transferUserInfo enqueue expected")
+        XCTAssertNotNil(
+            transport.userInfoTransfers[0][WatchMessage.kickSessionEnd] as? Data,
+            "The transferUserInfo payload must carry the encoded summary under kickSessionEnd"
+        )
+    }
+
+    /// The encoded payload inside userInfoTransfers must round-trip through
+    /// Codable so the phone can reconstruct the full KickSessionSummary after
+    /// connectivity is restored.
+    func testSendKickSessionEnd_offline_payloadDecodesCorrectly() throws {
+        transport.isReachable = false
+        let manager = makeManager()
+        let summary = makeSummary(count: 7)
+
+        manager.sendKickSessionEnd(summary: summary)
+
+        let data = try XCTUnwrap(
+            transport.userInfoTransfers[0][WatchMessage.kickSessionEnd] as? Data,
+            "kickSessionEnd offline payload must be Data"
+        )
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(KickSessionSummary.self, from: data)
+
+        XCTAssertEqual(decoded.kickCount, summary.kickCount)
+        XCTAssertEqual(decoded.startedAt.timeIntervalSince1970,
+                       summary.startedAt.timeIntervalSince1970, accuracy: 0.001)
+        XCTAssertEqual(decoded.endedAt.timeIntervalSince1970,
+                       summary.endedAt.timeIntervalSince1970, accuracy: 0.001)
+    }
+
+    /// Offline: sendKickSessionEnd still updates lastKickCount and persists it
+    /// even when the phone is not reachable.  The Watch idle screen must show
+    /// the correct count from the most recently completed session regardless of
+    /// connectivity state.
+    func testSendKickSessionEnd_offline_updatesLastKickCountAndPersists() {
+        transport.isReachable = false
+        let manager = makeManager()
+
+        manager.sendKickSessionEnd(summary: makeSummary(count: 14))
+
+        XCTAssertEqual(manager.lastKickCount, 14,
+                       "sendKickSessionEnd offline: lastKickCount must be updated")
+        XCTAssertEqual(
+            defaults.integer(forKey: WatchSessionPersistence.lastKickCountKey), 14,
+            "sendKickSessionEnd offline: lastKickCount must be persisted to UserDefaults"
+        )
+    }
+
+    /// Reachable→offline (sendMessage fails): sendKickSessionEnd falls back to
+    /// transferUserInfo via the errorHandler so the summary survives even if the
+    /// phone is force-quit between the reachability check and actual delivery.
+    func testSendKickSessionEnd_sendFails_fallsBackToTransferUserInfo() {
+        transport.isReachable = true
+        transport.failNextSend = true
+        let manager = makeManager()
+
+        manager.sendKickSessionEnd(summary: makeSummary(count: 9))
+
+        // sendMessage was attempted first (reachability check passed).
+        XCTAssertEqual(transport.sentMessages.count, 1,
+                       "sendKickSessionEnd reachable-then-failed: one sendMessage attempt must be made")
+        // The errorHandler must fall back to the durable OS queue.
+        XCTAssertEqual(transport.userInfoTransfers.count, 1,
+                       "sendKickSessionEnd errorHandler must fall back to transferUserInfo")
+        XCTAssertNotNil(
+            transport.userInfoTransfers[0][WatchMessage.kickSessionEnd] as? Data,
+            "The fallback transferUserInfo payload must carry the encoded summary"
+        )
+    }
+
+    /// Offline→reachable: when the phone reconnects, flushPendingContractionUpdates
+    /// resends queued contraction records via sendMessage.  Kick session summaries
+    /// are NOT re-sent here — they are already in the OS-managed transferUserInfo
+    /// queue and will be delivered automatically without any Watch-side retry.
+    ///
+    /// This test pins the boundary: a reconnect must not generate extra
+    /// transferUserInfo calls for a kick session that was already queued offline.
+    func testOnReconnect_flushesContractions_doesNotAddExtraTransferUserInfoForKickSessions() {
+        transport.isReachable = false
+        let manager = makeManager()
+
+        // Offline kick session end — payload enters the OS transferUserInfo queue.
+        manager.sendKickSessionEnd(summary: makeSummary(count: 5))
+        let transferCountAfterOfflineSend = transport.userInfoTransfers.count
+        XCTAssertEqual(transferCountAfterOfflineSend, 1,
+                       "Precondition: one transferUserInfo entry after the offline kick-session send")
+
+        // Seed a pending contraction so the flush has work to do.
+        let record = makeRecord()
+        manager.enqueuePendingContractionUpdate(record)
+
+        // Phone becomes reachable — run the reconnect flush.
+        transport.isReachable = true
+        manager.flushPendingContractionUpdates()
+
+        // The contraction flush used sendMessage (phone is now reachable).
+        XCTAssertEqual(
+            transport.sentMessages.count, 1,
+            "flushPendingContractionUpdates must resend queued contractions via sendMessage on reconnect"
+        )
+        // No additional transferUserInfo calls — the kick session summary was
+        // already enqueued by the OS before the reconnect.
+        XCTAssertEqual(
+            transport.userInfoTransfers.count, transferCountAfterOfflineSend,
+            "Reconnect flush must not add extra transferUserInfo calls for kick sessions"
+        )
+    }
+
     // MARK: - sendContractionUpdate — reachable ack paths
 
     /// Reachable + matching ack UUID: the record must be removed from the retry
