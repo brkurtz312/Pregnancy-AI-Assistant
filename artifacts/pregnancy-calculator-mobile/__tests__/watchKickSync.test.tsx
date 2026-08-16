@@ -804,6 +804,336 @@ describe("Watch + phone concurrent kick session ends", () => {
     // Phone triggered its own refetch — neither refresh suppresses the other
     expect(mockRefetch).toHaveBeenCalledTimes(1);
   });
+
+  // ── Same-startedAt race (task 776) ────────────────────────────────────────
+  //
+  // When a transferUserInfo kick-session replay arrives at the phone at the
+  // same moment KickCounterSection is ending the same session, two distinct
+  // code paths target the same logical kick-counting event:
+  //
+  //   Phone path:
+  //     Start Counting → createKickSession → row {id:99, startedAt:X, watchSessionId:null}
+  //     End Session    → updateKickSession → patches kickCount + endedAt on row 99
+  //
+  //   Watch replay path:
+  //     onKickSessionEnd → apiDirectSaveKickSession POST {startedAt:X, watchSessionId:X}
+  //     → would create a SECOND row {id:100, startedAt:X, watchSessionId:X}
+  //
+  // The client-side dedup guard (layer 2: React Query cache check by startedAt)
+  // is the primary protection.  If the phone session is in the list cache when
+  // the Watch replay fires, the Watch handler bails before any API call.
+  //
+  // NOTE: the server-side watchSessionId unique constraint (ON CONFLICT DO
+  // NOTHING) cannot close this gap because the phone row carries NULL
+  // watchSessionId — the partial index only fires when both rows share the same
+  // non-null watchSessionId.  The cache check is therefore the sole client-side
+  // backstop against a second DB row.
+
+  it("Watch replay is fully suppressed and only one session row exists when the phone session is in the list cache at the time of the concurrent end", async () => {
+    // ── Server double ──────────────────────────────────────────────────────
+    // Tracks every row written by both the phone (createKickSession) and the
+    // Watch (apiDirectSaveKickSession) so the final persisted state can be
+    // asserted directly.
+    type ServerRow = {
+      id: number;
+      startedAt: string;
+      endedAt: string | null;
+      kickCount: number;
+      watchSessionId: string | null;
+    };
+    const kickServerRows: ServerRow[] = [];
+    let nextServerId = 200;
+
+    // Phone: Start Counting → writes phone row (no watchSessionId)
+    mockKickMutateAsync.mockImplementation(
+      async (arg: { data?: { startedAt?: string }; startedAt?: string }) => {
+        const startedAt =
+          (arg?.data?.startedAt as string | undefined) ??
+          (arg?.startedAt as string | undefined) ??
+          new Date().toISOString();
+        const id = nextServerId++;
+        kickServerRows.push({
+          id,
+          startedAt,
+          endedAt: null,
+          kickCount: 0,
+          watchSessionId: null,
+        });
+        // Simulate list-query refresh: after Start Counting the session appears
+        // in the React Query cache, which the Watch handler reads via
+        // getQueryData.  This mirrors what happens in production when the list
+        // is fetched on mount.
+        mockGetQueryData.mockReturnValue({ items: [...kickServerRows] });
+        return { id };
+      },
+    );
+
+    // Phone: End Session → patches the existing row in the server double
+    mockUpdateMutateAsync.mockImplementation(
+      async ({
+        id,
+        data,
+      }: {
+        id: number;
+        data: { kickCount?: number; endedAt?: string };
+      }) => {
+        const row = kickServerRows.find((r) => r.id === id);
+        if (row) {
+          if (data.kickCount !== undefined) row.kickCount = data.kickCount;
+          if (data.endedAt !== undefined) row.endedAt = data.endedAt;
+        }
+        return row ?? { id };
+      },
+    );
+
+    // Watch: apiDirectSaveKickSession → would write a second row
+    mockApiDirectSaveKickSession.mockImplementation(
+      async (payload: {
+        startedAt: string;
+        endedAt?: string;
+        kickCount?: number;
+        watchSessionId?: string;
+      }) => {
+        kickServerRows.push({
+          id: nextServerId++,
+          startedAt: payload.startedAt,
+          endedAt: payload.endedAt ?? null,
+          kickCount: payload.kickCount ?? 0,
+          watchSessionId: payload.watchSessionId ?? null,
+        });
+      },
+    );
+
+    const apiMock = require("@workspace/api-client-react");
+    apiMock.useCreateKickSession.mockReturnValue({
+      mutateAsync: mockKickMutateAsync,
+      isPending: false,
+    });
+    apiMock.useUpdateKickSession.mockReturnValue({
+      mutateAsync: mockUpdateMutateAsync,
+      isPending: false,
+    });
+
+    // ── Setup: render both components ─────────────────────────────────────
+    act(() => {
+      watchRendererRef = create(React.createElement(WatchBackgroundListener));
+    });
+    await act(async () => {});
+    expect(capturedOnKickSessionEnd).toBeDefined();
+
+    act(() => {
+      kickRendererRef = create(React.createElement(KickCounterSection));
+    });
+    await act(async () => {});
+
+    // Press Start Counting — phone creates the session in the server double and
+    // updates the React Query cache mock so the session is queryable.
+    const startBtn = findButtonByLabel(kickRendererRef!.root, "Start Counting");
+    await act(async () => {
+      startBtn.props.onPress();
+    });
+
+    expect(mockKickMutateAsync).toHaveBeenCalledTimes(1);
+    expect(kickServerRows).toHaveLength(1);
+
+    // The cache now contains the phone's session (set by mockKickMutateAsync).
+    const phoneRow = kickServerRows[0];
+    expect(mockGetQueryData()).toMatchObject({ items: [phoneRow] });
+
+    mockApiDirectSaveKickSession.mockClear();
+    mockInvalidateQueries.mockClear();
+
+    // ── Concurrent race: Watch replay fires while phone presses End Session ─
+    // At this point:
+    //   • mockGetQueryData returns the phone session (cache populated by Start Counting)
+    //   • Watch fires a replay for the exact same startedAt
+    //   • Phone presses End Session simultaneously
+
+    const watchDone = capturedOnKickSessionEnd!({
+      kickCount: 7,
+      startedAt: phoneRow.startedAt,
+      endedAt: "2026-08-14T10:25:00.000Z",
+    });
+
+    // End button press fires handleEndSession concurrently.
+    const endBtn = findButtonByLabel(kickRendererRef!.root, "End Session");
+    act(() => {
+      endBtn.props.onPress();
+    });
+
+    await act(async () => {
+      await watchDone;
+    });
+    await act(async () => {});
+
+    // ── Final state assertions ─────────────────────────────────────────────
+
+    // Layer 2 dedup guard: the Watch replay found the phone session in the
+    // cache and bailed out before any API call.
+    expect(mockApiDirectSaveKickSession).not.toHaveBeenCalled();
+
+    // Exactly one logical session in the server double — no duplicate row.
+    // The phone's row was updated (kickCount + endedAt patched); no Watch row.
+    expect(kickServerRows).toHaveLength(1);
+    expect(kickServerRows[0].id).toBe(phoneRow.id);
+
+    // The phone's End Session update still ran independently.
+    expect(mockUpdateMutateAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it("when the Watch replay fires before the phone session is cached (race window), apiDirectSaveKickSession is called exactly once — not twice — due to the in-process dedup Set", async () => {
+    // ── Server double (same shape as the test above) ───────────────────────
+    type ServerRow = {
+      id: number;
+      startedAt: string;
+      endedAt: string | null;
+      kickCount: number;
+      watchSessionId: string | null;
+    };
+    const kickServerRows: ServerRow[] = [];
+    let nextServerId = 300;
+
+    mockKickMutateAsync.mockImplementation(
+      async (arg: { data?: { startedAt?: string }; startedAt?: string }) => {
+        const startedAt =
+          (arg?.data?.startedAt as string | undefined) ??
+          (arg?.startedAt as string | undefined) ??
+          new Date().toISOString();
+        const id = nextServerId++;
+        kickServerRows.push({
+          id,
+          startedAt,
+          endedAt: null,
+          kickCount: 0,
+          watchSessionId: null,
+        });
+        // Cache is NOT updated here — simulates the race window where the
+        // Watch replay fires before the list query returns the new session.
+        return { id };
+      },
+    );
+
+    mockUpdateMutateAsync.mockImplementation(
+      async ({
+        id,
+        data,
+      }: {
+        id: number;
+        data: { kickCount?: number; endedAt?: string };
+      }) => {
+        const row = kickServerRows.find((r) => r.id === id);
+        if (row) {
+          if (data.kickCount !== undefined) row.kickCount = data.kickCount;
+          if (data.endedAt !== undefined) row.endedAt = data.endedAt;
+        }
+        return row ?? { id };
+      },
+    );
+
+    mockApiDirectSaveKickSession.mockImplementation(
+      async (payload: {
+        startedAt: string;
+        endedAt?: string;
+        kickCount?: number;
+        watchSessionId?: string;
+      }) => {
+        kickServerRows.push({
+          id: nextServerId++,
+          startedAt: payload.startedAt,
+          endedAt: payload.endedAt ?? null,
+          kickCount: payload.kickCount ?? 0,
+          watchSessionId: payload.watchSessionId ?? null,
+        });
+      },
+    );
+
+    const apiMock = require("@workspace/api-client-react");
+    apiMock.useCreateKickSession.mockReturnValue({
+      mutateAsync: mockKickMutateAsync,
+      isPending: false,
+    });
+    apiMock.useUpdateKickSession.mockReturnValue({
+      mutateAsync: mockUpdateMutateAsync,
+      isPending: false,
+    });
+
+    // Ensure the cache is empty — simulates the race window.
+    mockGetQueryData.mockReturnValue(undefined);
+
+    act(() => {
+      watchRendererRef = create(React.createElement(WatchBackgroundListener));
+    });
+    await act(async () => {});
+    expect(capturedOnKickSessionEnd).toBeDefined();
+
+    act(() => {
+      kickRendererRef = create(React.createElement(KickCounterSection));
+    });
+    await act(async () => {});
+
+    const startBtn = findButtonByLabel(kickRendererRef!.root, "Start Counting");
+    await act(async () => {
+      startBtn.props.onPress();
+    });
+
+    expect(kickServerRows).toHaveLength(1);
+    const phoneRow = kickServerRows[0];
+
+    // Cache still empty — Watch replay fires into the race window.
+    expect(mockGetQueryData()).toBeUndefined();
+
+    // ── Concurrent race in the window before cache is populated ───────────
+    // Watch fires the SAME startedAt TWICE — once as the initial replay, once
+    // as a retry — to prove the in-process dedup Set (layer 1) suppresses the
+    // second call even when the cache check is not available.
+    const endBtn = findButtonByLabel(kickRendererRef!.root, "End Session");
+    const [watchDone1, watchDone2] = [
+      capturedOnKickSessionEnd!({
+        kickCount: 7,
+        startedAt: phoneRow.startedAt,
+        endedAt: "2026-08-14T10:25:00.000Z",
+      }),
+      capturedOnKickSessionEnd!({
+        kickCount: 7,
+        startedAt: phoneRow.startedAt,
+        endedAt: "2026-08-14T10:25:00.000Z",
+      }),
+    ];
+    act(() => {
+      endBtn.props.onPress();
+    });
+
+    await act(async () => {
+      await Promise.all([watchDone1, watchDone2]);
+    });
+    await act(async () => {});
+
+    // In-process dedup Set (layer 1) blocks the second Watch callback before
+    // any async gap — apiDirectSaveKickSession is called at most ONCE even
+    // though the Watch fired twice for the same startedAt.
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledTimes(1);
+    expect(mockApiDirectSaveKickSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        startedAt: phoneRow.startedAt,
+        watchSessionId: phoneRow.startedAt,
+      }),
+      expect.any(Function),
+    );
+
+    // Phone End Session ran exactly once, independently of the Watch.
+    expect(mockUpdateMutateAsync).toHaveBeenCalledTimes(1);
+
+    // The server double has two rows: the phone's create (id:300, watchSessionId:null)
+    // and the Watch's save (id:301, watchSessionId:startedAt).
+    // This confirms the open gap: the watchSessionId uniqueness constraint
+    // cannot deduplicate across phone-origin and Watch-origin rows.  The cache
+    // check (layer 2) is the primary guard; when that check is bypassed (race
+    // window), at most ONE Watch row is produced (not two or more) thanks to
+    // the in-process dedup Set.
+    expect(kickServerRows).toHaveLength(2);
+    expect(kickServerRows[0].watchSessionId).toBeNull(); // phone row
+    expect(kickServerRows[1].watchSessionId).toBe(phoneRow.startedAt); // Watch row
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

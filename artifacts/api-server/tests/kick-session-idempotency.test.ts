@@ -238,4 +238,39 @@ describe("POST /tools/kick-sessions — watchSessionId idempotency", () => {
     expect(retry.status).toBe(200);
     expect(retry.body.kickCount).toBe(first.body.kickCount);
   });
+
+  it("two concurrent Watch POST requests with the same watchSessionId produce exactly one DB row — Watch+Watch retry idempotency", async () => {
+    // Models the Watch offline-retry race: the Watch replays the same session
+    // twice (e.g. two WCSession reconnects in quick succession) and both
+    // requests reach the server before either response returns.
+    //
+    // NOTE: this is Watch+Watch concurrency, NOT phone+Watch concurrency.
+    // A phone-origin row has NULL watchSessionId, so the (userId,
+    // watchSessionId) partial unique index cannot suppress a duplicate between
+    // a phone row and a Watch row for the same startedAt.  The client-side
+    // React Query cache check (layer 2 in WatchBackgroundListener) is the
+    // primary guard for that phone+Watch race; the watchSessionId constraint
+    // closes only the Watch+Watch retry window tested here.
+    const app = makeApp();
+
+    // Fire both requests without serializing them — Promise.all sends them in
+    // the same event-loop turn so the route processes them back-to-back without
+    // an explicit retry gap, mirroring the Watch force-quit + replay window.
+    const [first, second] = await Promise.all([
+      request(app).post("/tools/kick-sessions").send(WATCH_SESSION),
+      request(app).post("/tools/kick-sessions").send(WATCH_SESSION),
+    ]);
+
+    // One request creates the row (201); the other hits ON CONFLICT DO NOTHING
+    // and falls through to the SELECT path, returning the existing row (200).
+    const statuses = [first.status, second.status].sort();
+    expect(statuses).toEqual([200, 201]);
+
+    // Both responses must refer to the SAME row — no duplicate was created.
+    expect(first.body.id).toBe(second.body.id);
+
+    // The DB must contain exactly one row for this watchSessionId.
+    const list = await request(app).get("/tools/kick-sessions");
+    expect(list.body.total).toBe(1);
+  });
 });

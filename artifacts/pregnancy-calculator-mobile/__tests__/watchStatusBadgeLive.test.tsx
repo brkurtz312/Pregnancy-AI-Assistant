@@ -516,7 +516,12 @@ describe("WatchStatusBadge — foreground-resume re-fetch via AppState", () => {
     });
     await flushAsync();
 
-    const callsBefore = mockGetSessionState.mock.calls.length;
+    // Clear any in-flight getSessionState calls from the initial mount fetch
+    // (and from any still-settling async work from previous tests) so the
+    // subsequent assertion counts only calls triggered by the background /
+    // inactive events below.  Using mockClear() is more robust than capturing
+    // an absolute call count that can be inflated by concurrent workers.
+    mockGetSessionState.mockClear();
 
     await act(async () => {
       capturedAppStateHandlers.forEach((h) => h("background"));
@@ -525,7 +530,7 @@ describe("WatchStatusBadge — foreground-resume re-fetch via AppState", () => {
     await flushAsync();
 
     // No additional getSessionState calls for non-active transitions
-    expect(mockGetSessionState.mock.calls.length).toBe(callsBefore);
+    expect(mockGetSessionState).not.toHaveBeenCalled();
     renderer!.unmount();
   });
 
