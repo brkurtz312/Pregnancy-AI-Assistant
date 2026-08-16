@@ -1854,6 +1854,7 @@ module.exports._internals = {
   ensureWatchTestTarget,
   ensureWatchSourcesInWatchTarget,
   addPhoneBridgeToMainTarget,
+  _withWatchXcodeTargetInner,
   WATCH_TEST_TARGET_NAME,
   WATCH_TEST_SOURCES,
   WATCH_TEST_PRODUCTION_SOURCES,
