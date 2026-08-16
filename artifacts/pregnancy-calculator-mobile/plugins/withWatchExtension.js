@@ -121,6 +121,53 @@ const PHONE_TEST_PRODUCTION_SOURCES = [
 // PHONE_TEST_PRODUCTION_SOURCES. Matches config.modRequest.projectName.
 const PHONE_APP_DIR = "PregnancyAIAssistant";
 
+// ─── Embed Watch App shell script ────────────────────────────────────────────
+//
+// The shell script injected as a PBXShellScriptBuildPhase on the iOS app target.
+// Intentionally avoids double-quotes in the script body to prevent escaping
+// issues in the pbxproj string format. Bash variables expand correctly without
+// surrounding quotes for path components.
+//
+// SKIP_INSTALL=YES (standard for Watch extensions) means the Watch app lands in
+// $OBJROOT/UninstalledProducts/watchos/ during an archive build, not in the
+// normal BUILT_PRODUCTS_DIR. Falls back to find(1) if the path changes.
+//
+// Exported via module.exports._internals so tests can inspect the exact content
+// without needing the xcode library.
+const EMBED_WATCH_SHELL_SCRIPT_LINES = [
+  "#!/bin/bash",
+  "set -e",
+  "WATCH_APP_NAME=PregnancyWatchApp",
+  "WATCH_DEST=${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}/Watch",
+  "WATCH_SRC=${OBJROOT}/UninstalledProducts/watchos/${WATCH_APP_NAME}.app",
+  "if [ ! -d ${WATCH_SRC} ]; then",
+  "  WATCH_SRC=$(find $(dirname ${OBJROOT}) -maxdepth 6 -name ${WATCH_APP_NAME}.app -not -path '*/${WRAPPER_NAME}/*' 2>/dev/null | head -1)",
+  "fi",
+  "if [ -z ${WATCH_SRC} ] || [ ! -d ${WATCH_SRC} ]; then",
+  "  echo error: Cannot locate ${WATCH_APP_NAME}.app to embed >&2",
+  "  exit 1",
+  "fi",
+  "echo note: Embedding ${WATCH_APP_NAME}.app from ${WATCH_SRC}",
+  "mkdir -p ${WATCH_DEST}",
+  "cp -R ${WATCH_SRC} ${WATCH_DEST}/",
+  // Inject icon PNGs directly into the embedded Watch bundle.
+  // Apple ITMS-90391 validator checks for actual PNG files listed in
+  // CFBundleIconFiles — it does NOT inspect Assets.car for icons.
+  // The Xcode CopyBundleResources phase may not run for the Watch target
+  // (watchOS + SKIP_INSTALL interaction), so we inject here instead.
+  // $SRCROOT/PregnancyWatchApp/ is where withWatchFiles copies them at prebuild.
+  "ICON_SRC=${SRCROOT}/PregnancyWatchApp",
+  "ICON_DEST=${WATCH_DEST}/${WATCH_APP_NAME}.app",
+  "for ICON in AppIcon-58.png AppIcon-80.png AppIcon-87.png AppIcon-88.png AppIcon-100.png AppIcon-102.png AppIcon-108.png AppIcon-172.png AppIcon-196.png AppIcon-216.png AppIcon-234.png AppIcon-1024.png; do",
+  "  if [ -f ${ICON_SRC}/${ICON} ]; then",
+  "    cp ${ICON_SRC}/${ICON} ${ICON_DEST}/",
+  "    echo note: Injected ${ICON} into Watch bundle",
+  "  else",
+  "    echo warning: Watch icon not found: ${ICON_SRC}/${ICON} >&2",
+  "  fi",
+  "done",
+];
+
 // ─── Step 1: copy source files ────────────────────────────────────────────────
 
 function withWatchFiles(config) {
@@ -832,46 +879,7 @@ function addEmbedWatchShellScript(project) {
 
   const phaseUuid = project.generateUuid();
 
-  // The shell script — intentionally avoids double-quotes in the script body
-  // to prevent escaping issues in the pbxproj string format. Bash variables
-  // expand correctly without surrounding quotes for path components.
-  //
-  // SKIP_INSTALL=YES (standard for Watch extensions) means the Watch app lands
-  // in $OBJROOT/UninstalledProducts/watchos/ during an archive build, not in
-  // the normal BUILT_PRODUCTS_DIR. Falls back to find(1) if the path changes.
-  const scriptLines = [
-    "#!/bin/bash",
-    "set -e",
-    "WATCH_APP_NAME=PregnancyWatchApp",
-    "WATCH_DEST=${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}/Watch",
-    "WATCH_SRC=${OBJROOT}/UninstalledProducts/watchos/${WATCH_APP_NAME}.app",
-    "if [ ! -d ${WATCH_SRC} ]; then",
-    "  WATCH_SRC=$(find $(dirname ${OBJROOT}) -maxdepth 6 -name ${WATCH_APP_NAME}.app -not -path '*/${WRAPPER_NAME}/*' 2>/dev/null | head -1)",
-    "fi",
-    "if [ -z ${WATCH_SRC} ] || [ ! -d ${WATCH_SRC} ]; then",
-    "  echo error: Cannot locate ${WATCH_APP_NAME}.app to embed >&2",
-    "  exit 1",
-    "fi",
-    "echo note: Embedding ${WATCH_APP_NAME}.app from ${WATCH_SRC}",
-    "mkdir -p ${WATCH_DEST}",
-    "cp -R ${WATCH_SRC} ${WATCH_DEST}/",
-    // Inject icon PNGs directly into the embedded Watch bundle.
-    // Apple ITMS-90391 validator checks for actual PNG files listed in
-    // CFBundleIconFiles — it does NOT inspect Assets.car for icons.
-    // The Xcode CopyBundleResources phase may not run for the Watch target
-    // (watchOS + SKIP_INSTALL interaction), so we inject here instead.
-    // $SRCROOT/PregnancyWatchApp/ is where withWatchFiles copies them at prebuild.
-    "ICON_SRC=${SRCROOT}/PregnancyWatchApp",
-    "ICON_DEST=${WATCH_DEST}/${WATCH_APP_NAME}.app",
-    "for ICON in AppIcon-58.png AppIcon-80.png AppIcon-87.png AppIcon-88.png AppIcon-100.png AppIcon-102.png AppIcon-108.png AppIcon-172.png AppIcon-196.png AppIcon-216.png AppIcon-234.png AppIcon-1024.png; do",
-    "  if [ -f ${ICON_SRC}/${ICON} ]; then",
-    "    cp ${ICON_SRC}/${ICON} ${ICON_DEST}/",
-    "    echo note: Injected ${ICON} into Watch bundle",
-    "  else",
-    "    echo warning: Watch icon not found: ${ICON_SRC}/${ICON} >&2",
-    "  fi",
-    "done",
-  ];
+  const scriptLines = EMBED_WATCH_SHELL_SCRIPT_LINES;
   // Join with \n (2-char sequence) — the pbxproj string format uses \n for newlines.
   const shellScriptContent = scriptLines.join("\\n");
   // Wrap in pbxproj string quotes. No " inside the script body so no escaping needed.
@@ -1863,4 +1871,5 @@ module.exports._internals = {
   PHONE_BRIDGE_SOURCES,
   PHONE_APP_DIR,
   WATCH_TARGET_NAME,
+  EMBED_WATCH_SHELL_SCRIPT_LINES,
 };
