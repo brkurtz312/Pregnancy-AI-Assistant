@@ -154,13 +154,22 @@ struct KickCounterView: View {
 
     /// Resets all in-memory state to idle after a sign-out.
     /// UserDefaults keys are already cleared by `WatchSessionManager.clearPersistedSession()`.
+    /// Delegates field assignments to `KickCounterSessionState.reset()` so the
+    /// canonical idle values are defined in one place and unit-testable.
     private func resetSession() {
         timer?.invalidate()
         timer = nil
-        kickCount = 0
-        sessionActive = false
-        sessionStart = nil
-        elapsed = 0
+        var state = KickCounterSessionState(
+            kickCount: kickCount,
+            sessionActive: sessionActive,
+            sessionStart: sessionStart,
+            elapsed: elapsed
+        )
+        state.reset()
+        kickCount = state.kickCount
+        sessionActive = state.sessionActive
+        sessionStart = state.sessionStart
+        elapsed = state.elapsed
     }
 
     private func restoreSession() {

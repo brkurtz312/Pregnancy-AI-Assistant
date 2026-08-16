@@ -42,6 +42,7 @@ const WATCH_SWIFT_SOURCES = [
   "ContentView.swift",
   "KickCounterView.swift",
   "KickSessionRestorePolicy.swift",
+  "KickCounterSessionState.swift",
   "ContractionTimerView.swift",
   "TipsView.swift",
   "WatchSessionManager.swift",
@@ -69,6 +70,7 @@ const WATCH_TEST_SOURCES = [
   "WatchSessionManagerClearSessionTests.swift",
   "WatchSessionManagerSendTests.swift",
   "WatchContractionSignOutTests.swift",
+  "WatchKickCounterSignOutTests.swift",
   "WatchFreshInstallSyncTests.swift",
   "WatchTipDecodingTests.swift",
 ];
@@ -81,6 +83,7 @@ const WATCH_TEST_PRODUCTION_SOURCES = [
   "WatchSessionPersistence.swift",
   "WatchSessionManager.swift",
   "KickSessionRestorePolicy.swift",
+  "KickCounterSessionState.swift",
 ];
 
 // Standalone icon PNGs copied directly into the Watch bundle root.
