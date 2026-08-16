@@ -1,0 +1,8 @@
+{
+  "name": "watch-connectivity",
+  "version": "1.0.0",
+  "description": "Expo module registration shim for WatchConnectivityModule. The Swift source is compiled directly into the main app target by the withWatchExtension config plugin; this package exists to satisfy expo-modules-autolinking so WatchConnectivityModule.self appears in ExpoModulesProvider.getModuleClasses().",
+  "main": "index.js",
+  "license": "MIT",
+  "private": true
+}
