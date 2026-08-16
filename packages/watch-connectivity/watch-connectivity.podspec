@@ -13,7 +13,12 @@ Pod::Spec.new do |s|
   s.license      = { :type => 'MIT' }
   s.author       = { 'Replit' => 'support@replit.com' }
   s.platform     = :ios, '13.0'
-  s.source       = { :path => '.' }
+  # CocoaPods requires a git/http/svn/hg source key on the podspec even for
+  # local :path pods. The Podfile's :path => '...' entry overrides this at
+  # install time; the value here is only used by `pod spec lint`.
+  s.source       = { :git => 'https://github.com/example/watch-connectivity.git', :tag => s.version.to_s }
   # No source_files: WatchConnectivityModule is already in the main app target.
-  # No imports will be generated (swiftModuleName: "" in expo-module.config.json).
+  # ExpoModulesCore is declared as a dependency so the pod is non-empty
+  # (CocoaPods rejects specs with no files, resources, or dependencies).
+  s.dependency 'ExpoModulesCore'
 end
