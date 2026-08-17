@@ -31,7 +31,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
-    "@clerk/expo": "^3.3.0",
+    "@clerk/expo": "^4.3.0",
     "@expo-google-fonts/inter": "^0.4.0",
     "@expo/cli": "54.0.23",
     "@expo/config-plugins": "~54.0.4",
