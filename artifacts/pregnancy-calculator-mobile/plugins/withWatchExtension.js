@@ -891,11 +891,10 @@ function addEmbedWatchShellScript(project) {
   if (!objects["PBXShellScriptBuildPhase"]) objects["PBXShellScriptBuildPhase"] = {};
   objects["PBXShellScriptBuildPhase"][phaseUuid] = {
     isa: "PBXShellScriptBuildPhase",
-    alwaysOutOfDate: 1,
     buildActionMask: 2147483647,
     files: [],
     inputFileListPaths: [],
-    inputPaths: [],
+    inputPaths: ['"$(OBJROOT)/UninstalledProducts/watchos/PregnancyWatchApp.app"'],
     outputFileListPaths: [],
     outputPaths: ['"$(BUILT_PRODUCTS_DIR)/$(WRAPPER_NAME)/Watch/PregnancyWatchApp.app"'],
     runOnlyForDeploymentPostprocessing: 0,
@@ -1867,6 +1866,7 @@ module.exports._internals = {
   ensureWatchTestTarget,
   ensureWatchSourcesInWatchTarget,
   addPhoneBridgeToMainTarget,
+  addEmbedWatchShellScript,
   _withWatchXcodeTargetInner,
   WATCH_TEST_TARGET_NAME,
   WATCH_TEST_SOURCES,

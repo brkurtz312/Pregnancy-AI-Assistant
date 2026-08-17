@@ -33,9 +33,58 @@ jest.setTimeout(180_000);
 // ─── Plugin under test ───────────────────────────────────────────────────────
 
 const plugin = require("../withWatchExtension");
-const { EMBED_WATCH_SHELL_SCRIPT_LINES } = plugin._internals as {
+const {
+  EMBED_WATCH_SHELL_SCRIPT_LINES,
+  addEmbedWatchShellScript,
+} = plugin._internals as {
   EMBED_WATCH_SHELL_SCRIPT_LINES: string[];
+  addEmbedWatchShellScript: (project: MinimalProject) => void;
 };
+
+// ─── Minimal project fixture type ────────────────────────────────────────────
+
+/**
+ * Minimal shape that addEmbedWatchShellScript() accesses.
+ * Mirrors the xcode library's PBXProject interface at the call sites used
+ * by the function, without depending on a real .xcodeproj file.
+ */
+interface MinimalTarget {
+  productType: string;
+  name: string;
+  buildPhases: Array<{ value: string; comment: string }>;
+}
+
+interface MinimalProject {
+  pbxNativeTargetSection: () => Record<string, MinimalTarget | string>;
+  hash: { project: { objects: Record<string, unknown> } };
+  generateUuid: () => string;
+}
+
+/**
+ * Build a minimal project fixture that satisfies addEmbedWatchShellScript.
+ * The main app target is identified by its productType, matching the real
+ * findMainAppTargetUuid() logic inside withWatchExtension.js.
+ */
+function makeMinimalProject(): MinimalProject {
+  let counter = 0;
+  const objects: Record<string, unknown> = {};
+  const mainTargetUuid = "AAAA000000000001";
+  const mainTarget: MinimalTarget = {
+    productType: '"com.apple.product-type.application"',
+    name: '"TestApp"',
+    buildPhases: [],
+  };
+  // NativeTargetSection must include both the target and its _comment entry.
+  const nts: Record<string, MinimalTarget | string> = {
+    [mainTargetUuid]: mainTarget,
+    [`${mainTargetUuid}_comment`]: "TestApp",
+  };
+  return {
+    pbxNativeTargetSection: () => nts,
+    hash: { project: { objects } },
+    generateUuid: () => `FIXTURE${String(++counter).padStart(10, "0")}`,
+  };
+}
 
 // ─── Paths ───────────────────────────────────────────────────────────────────
 
@@ -372,6 +421,82 @@ describe("simulation — error path (Watch app not found)", () => {
   });
 });
 
+// ─── 3b. Plugin unit — generated phase fields (deterministic, no ios/ needed) ─
+
+describe("addEmbedWatchShellScript — generated phase fields", () => {
+  let project: MinimalProject;
+  let generatedPhase: Record<string, unknown> | undefined;
+
+  beforeAll(() => {
+    project = makeMinimalProject();
+    addEmbedWatchShellScript(project);
+    const section = project.hash.project.objects[
+      "PBXShellScriptBuildPhase"
+    ] as Record<string, Record<string, unknown>> | undefined;
+    // Find the Embed Watch App phase (first non-comment entry).
+    generatedPhase = section
+      ? Object.entries(section)
+          .filter(([k]) => !k.endsWith("_comment"))
+          .map(([, v]) => v)[0]
+      : undefined;
+  });
+
+  it("addEmbedWatchShellScript is exported from _internals", () => {
+    expect(typeof addEmbedWatchShellScript).toBe("function");
+  });
+
+  it("creates a PBXShellScriptBuildPhase on the project", () => {
+    expect(generatedPhase).toBeDefined();
+  });
+
+  it("phase name is 'Embed Watch App'", () => {
+    expect(generatedPhase?.name).toBe('"Embed Watch App"');
+  });
+
+  it("inputPaths contains the Watch app's OBJROOT/UninstalledProducts/watchos/ location", () => {
+    // This entry lets Xcode skip the phase on incremental builds when
+    // the Watch app hasn't changed.
+    const inputPaths = generatedPhase?.inputPaths as string[] | undefined;
+    expect(Array.isArray(inputPaths)).toBe(true);
+    expect(inputPaths).toContain(
+      '"$(OBJROOT)/UninstalledProducts/watchos/PregnancyWatchApp.app"',
+    );
+  });
+
+  it("outputPaths contains the embedded Watch app destination", () => {
+    const outputPaths = generatedPhase?.outputPaths as string[] | undefined;
+    expect(Array.isArray(outputPaths)).toBe(true);
+    expect(outputPaths).toContain(
+      '"$(BUILT_PRODUCTS_DIR)/$(WRAPPER_NAME)/Watch/PregnancyWatchApp.app"',
+    );
+  });
+
+  it("does not set alwaysOutOfDate (omitted means Xcode uses dependency tracking)", () => {
+    // alwaysOutOfDate = 1 would force the phase to re-run on every build,
+    // defeating the inputPaths/outputPaths optimisation.
+    expect(Object.prototype.hasOwnProperty.call(generatedPhase, "alwaysOutOfDate")).toBe(false);
+  });
+
+  it("shellPath is /bin/bash", () => {
+    expect(generatedPhase?.shellPath).toBe("/bin/bash");
+  });
+
+  it("phase is registered on the main app target's buildPhases", () => {
+    // The main app target must reference the phase uuid so Xcode runs it.
+    const nts = project.pbxNativeTargetSection();
+    const mainTarget = Object.values(nts).find(
+      (v): v is MinimalTarget =>
+        typeof v === "object" &&
+        (v as MinimalTarget).productType ===
+          '"com.apple.product-type.application"',
+    )!;
+    expect(mainTarget.buildPhases.length).toBeGreaterThan(0);
+    expect(
+      mainTarget.buildPhases.some((ref) => ref.comment === "Embed Watch App"),
+    ).toBe(true);
+  });
+});
+
 // ─── 4. Static pbxproj check ─────────────────────────────────────────────────
 
 describe("committed ios/ pbxproj — Embed Watch App phase", () => {
@@ -440,9 +565,27 @@ describe("committed ios/ pbxproj — Embed Watch App phase", () => {
     expect(pbxprojContent).toMatch(/shellPath = \/bin\/bash;/);
   });
 
-  it("alwaysOutOfDate = 1 (ensures script runs on every archive, not skipped)", () => {
+  it("declares the Watch app source as an inputPath so Xcode can skip the phase when unchanged", () => {
     if (!pbxprojExists) { expect(true).toBe(true); return; }
-    expect(pbxprojContent).toMatch(/alwaysOutOfDate = 1/);
+    // inputPaths + outputPaths let Xcode's dependency tracker skip the phase
+    // on incremental builds when the Watch app hasn't changed.
+    expect(pbxprojContent).toContain(
+      "$(OBJROOT)/UninstalledProducts/watchos/PregnancyWatchApp.app",
+    );
+  });
+
+  it("does not set alwaysOutOfDate = 1 on the Embed Watch App phase (would force the phase to run on every build)", () => {
+    if (!pbxprojExists) { expect(true).toBe(true); return; }
+    // alwaysOutOfDate = 1 defeats the inputPaths/outputPaths optimisation.
+    // The phase must rely on Xcode's normal dependency tracking instead.
+    // Scope the check to the Embed Watch App phase block only, since other
+    // phases (e.g. Bundle React Native) legitimately use alwaysOutOfDate = 1.
+    const embedBlockMatch = pbxprojContent.match(
+      /\/\* Embed Watch App \*\/ = \{[\s\S]*?\};/,
+    );
+    expect(embedBlockMatch).not.toBeNull();
+    const embedBlock = embedBlockMatch![0];
+    expect(embedBlock).not.toMatch(/alwaysOutOfDate = 1/);
   });
 });
 
