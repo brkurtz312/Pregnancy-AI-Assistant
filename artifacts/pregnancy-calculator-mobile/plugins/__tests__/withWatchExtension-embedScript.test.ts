@@ -140,7 +140,10 @@ describe("EMBED_WATCH_SHELL_SCRIPT_LINES — content checks", () => {
   });
 
   it("fallback find excludes paths inside the main app bundle (avoids re-embedding)", () => {
-    expect(script).toContain("-not -path '*/${WRAPPER_NAME}/*'");
+    // Shell concatenation '*/'${WRAPPER_NAME}'/*' lets bash expand ${WRAPPER_NAME}
+    // while keeping the glob characters literal — single-quoting '*/${WRAPPER_NAME}/*'
+    // would prevent expansion and the exclusion would never fire.
+    expect(script).toContain("-not -path '*/'${WRAPPER_NAME}'/*'");
   });
 
   it("exits with error if Watch app cannot be located", () => {
@@ -368,6 +371,104 @@ describe("simulation — fallback find path", () => {
   });
 });
 
+describe("simulation — fallback find exclusion (re-embed prevention)", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "eas-archive-sim-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("copies from the original source, not from the already-embedded copy inside WRAPPER_NAME", () => {
+    // Simulate a second build where the Watch app was already embedded in the
+    // iOS app bundle from the first build.  The fallback find must NOT pick up
+    // the already-embedded copy (which lives under WRAPPER_NAME/) and must
+    // always use the real build-product source instead.
+
+    const objroot = path.join(tmpDir, "OBJROOT");
+    fs.mkdirSync(objroot, { recursive: true }); // exists, but no UninstalledProducts/
+
+    // Real source — Xcode put the Watch app here for this build.
+    const realSrc = path.join(
+      tmpDir,
+      "OBJROOT/Build/Products/Release-watchos/PregnancyWatchApp.app",
+    );
+    fs.mkdirSync(realSrc, { recursive: true });
+    fs.writeFileSync(path.join(realSrc, "Info.plist"), "REAL-SOURCE");
+
+    const builtProductsDir = path.join(tmpDir, "BUILT_PRODUCTS_DIR");
+    const wrapperName = "PregnancyAIAssistant.app";
+    const srcroot = path.join(tmpDir, "SRCROOT");
+    fs.mkdirSync(srcroot, { recursive: true });
+
+    // Pre-existing embedded copy from the first build — lives under WRAPPER_NAME/.
+    // The -not -path '*/${WRAPPER_NAME}/*' exclusion must prevent find from
+    // returning this path.  If it did, cp would overwrite the destination with
+    // itself (or fail with a self-copy error).
+    const embeddedCopy = path.join(
+      builtProductsDir,
+      wrapperName,
+      "Watch",
+      "PregnancyWatchApp.app",
+    );
+    fs.mkdirSync(embeddedCopy, { recursive: true });
+    fs.writeFileSync(path.join(embeddedCopy, "Info.plist"), "ALREADY-EMBEDDED");
+
+    const result = runScript(tmpDir, {
+      OBJROOT: objroot,
+      BUILT_PRODUCTS_DIR: builtProductsDir,
+      WRAPPER_NAME: wrapperName,
+      SRCROOT: srcroot,
+    });
+
+    expect(result.exitCode).toBe(0);
+
+    // The Info.plist in the final destination must come from the real source,
+    // not from the stale already-embedded copy.
+    const destInfoPlist = path.join(embeddedCopy, "Info.plist");
+    expect(fs.readFileSync(destInfoPlist, "utf8")).toBe("REAL-SOURCE");
+  });
+
+  it("exits with code 1 when only the already-embedded copy exists under WRAPPER_NAME (exclusion fires, no valid source found)", () => {
+    // If the real source is gone but the already-embedded copy is still present,
+    // the -not -path exclusion should filter it out entirely — leaving find
+    // with zero matches — so the script bails out with exit 1 rather than
+    // accidentally re-embedding from the already-embedded copy.
+
+    const objroot = path.join(tmpDir, "OBJROOT");
+    fs.mkdirSync(objroot, { recursive: true }); // no UninstalledProducts/
+
+    const builtProductsDir = path.join(tmpDir, "BUILT_PRODUCTS_DIR");
+    const wrapperName = "PregnancyAIAssistant.app";
+    const srcroot = path.join(tmpDir, "SRCROOT");
+    fs.mkdirSync(srcroot, { recursive: true });
+
+    // Seed ONLY the already-embedded copy — the real source does not exist.
+    const embeddedCopy = path.join(
+      builtProductsDir,
+      wrapperName,
+      "Watch",
+      "PregnancyWatchApp.app",
+    );
+    fs.mkdirSync(embeddedCopy, { recursive: true });
+    fs.writeFileSync(path.join(embeddedCopy, "Info.plist"), "ALREADY-EMBEDDED");
+
+    const result = runScript(tmpDir, {
+      OBJROOT: objroot,
+      BUILT_PRODUCTS_DIR: builtProductsDir,
+      WRAPPER_NAME: wrapperName,
+      SRCROOT: srcroot,
+    });
+
+    // The exclusion must filter out the embedded copy — no valid source found.
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Cannot locate PregnancyWatchApp.app");
+  });
+});
+
 describe("simulation — error path (Watch app not found)", () => {
   let tmpDir: string;
 
@@ -551,6 +652,16 @@ describe("committed ios/ pbxproj — Embed Watch App phase", () => {
     if (!pbxprojExists) { expect(true).toBe(true); return; }
     expect(pbxprojContent).toMatch(
       /find \$\(dirname \$\{OBJROOT\}\).*-name \$\{WATCH_APP_NAME\}\.app/,
+    );
+  });
+
+  it("fallback find uses shell concatenation so WRAPPER_NAME expands and the exclusion actually fires", () => {
+    if (!pbxprojExists) { expect(true).toBe(true); return; }
+    // The exclusion '*/'${WRAPPER_NAME}'/*' lets bash expand ${WRAPPER_NAME}
+    // at runtime.  The old form '*/${WRAPPER_NAME}/*' (fully single-quoted)
+    // kept WRAPPER_NAME as a literal and the exclusion never matched anything.
+    expect(pbxprojContent).toContain(
+      "-not -path '*/'${WRAPPER_NAME}'/*'",
     );
   });
 

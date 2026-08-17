@@ -144,7 +144,7 @@ const EMBED_WATCH_SHELL_SCRIPT_LINES = [
   "WATCH_DEST=${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}/Watch",
   "WATCH_SRC=${OBJROOT}/UninstalledProducts/watchos/${WATCH_APP_NAME}.app",
   "if [ ! -d ${WATCH_SRC} ]; then",
-  "  WATCH_SRC=$(find $(dirname ${OBJROOT}) -maxdepth 6 -name ${WATCH_APP_NAME}.app -not -path '*/${WRAPPER_NAME}/*' 2>/dev/null | head -1)",
+  "  WATCH_SRC=$(find $(dirname ${OBJROOT}) -maxdepth 6 -name ${WATCH_APP_NAME}.app -not -path '*/'${WRAPPER_NAME}'/*' 2>/dev/null | head -1)",
   "fi",
   "if [ -z ${WATCH_SRC} ] || [ ! -d ${WATCH_SRC} ]; then",
   "  echo error: Cannot locate ${WATCH_APP_NAME}.app to embed >&2",
