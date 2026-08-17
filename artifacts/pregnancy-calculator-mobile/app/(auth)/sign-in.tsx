@@ -96,14 +96,22 @@ export default function SignInScreen() {
       });
       if (error) return;
 
-      // Activate the session. Mark the flag BEFORE dismissAll so the catch
-      // block knows not to surface an error if Clerk's background cleanup
-      // fires a 400 after we've already navigated away.
+      // Activate the session only when Clerk has fully completed the sign-in
+      // (status === "complete" and a session ID was issued). If neither
+      // condition holds — e.g. the account requires email verification or a
+      // second factor — show an actionable message instead of silently
+      // dismissing the screen and leaving the user in a signed-out state.
       if (setActive && signIn.createdSessionId) {
         await setActive({ session: signIn.createdSessionId });
+        sessionActivated.current = true;
+        router.dismissAll();
+      } else {
+        setNotice(
+          "Sign-in could not be completed. " +
+            "If your account requires email verification, check your inbox and verify before signing in.",
+        );
       }
-      sessionActivated.current = true;
-      router.dismissAll();
+      return;
     } catch (err: unknown) {
       // Clerk's background state management sometimes fires a second sign-in
       // request after setActive succeeds, returning 400. If we already
