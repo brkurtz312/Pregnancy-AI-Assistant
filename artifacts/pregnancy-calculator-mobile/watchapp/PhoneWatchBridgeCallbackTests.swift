@@ -218,6 +218,61 @@ final class PhoneWatchBridgeCallbackTests: XCTestCase {
 
     // MARK: onKickSessionEnd — same coverage
 
+    /// THE scenario from task 777: the phone receives a kick-session-end summary
+    /// via `didReceiveUserInfo` (a `transferUserInfo` delivery that the OS
+    /// considers complete once the delegate method returns).  If the app is
+    /// killed the instant the delegate returns, the OS will NOT replay the
+    /// delivery — it already marked it complete.
+    ///
+    /// Safety therefore requires `onKickSessionEnd` to fire SYNCHRONOUSLY
+    /// inside `dispatch(_:)` — before `didReceiveUserInfo` returns — so the
+    /// event has already reached the JS layer before the process can exit.
+    ///
+    /// This test calls `dispatch` directly (no async hop, mirroring the fact
+    /// that `PhoneWatchBridge.handleMessage` dispatches to the main queue and
+    /// then calls `dispatcher.dispatch` synchronously) and asserts the closure
+    /// has fired by the time `dispatch` returns.
+    func testKickSessionEnd_callbackFiresSynchronouslyWithinDispatch() throws {
+        let summary = makeKickSession(start: base, count: 7)
+        let payload = try kickSessionEndPayload(summary)
+
+        let dispatcher = makeDispatcher()
+        var firedSynchronously = false
+        dispatcher.onKickSessionEnd = { _ in firedSynchronously = true }
+
+        dispatcher.dispatch(payload)   // direct call — no async hop
+
+        XCTAssertTrue(firedSynchronously,
+                      "onKickSessionEnd must fire synchronously within dispatch(_:). "
+                      + "PhoneWatchBridge calls dispatch() inside didReceiveUserInfo; "
+                      + "if the callback were deferred to another async hop, a phone "
+                      + "killed immediately after didReceiveUserInfo returns would lose "
+                      + "the kick-session summary because the OS considers delivery "
+                      + "complete the moment the delegate method returns.")
+    }
+
+    /// Companion check: the synchronous callback also delivers the correct
+    /// payload fields (kickCount, startedAt, endedAt) — not just that it fires.
+    func testKickSessionEnd_synchronousCallbackCarriesCorrectPayload() throws {
+        let summary = makeKickSession(start: base, count: 5)
+        let payload = try kickSessionEndPayload(summary)
+
+        let dispatcher = makeDispatcher()
+        var received: [String: Any]?
+        dispatcher.onKickSessionEnd = { received = $0 }
+
+        dispatcher.dispatch(payload)   // direct call
+
+        let r = try XCTUnwrap(received,
+                               "onKickSessionEnd must fire synchronously and supply a non-nil payload")
+        XCTAssertEqual(r["kickCount"] as? Int, 5,
+                       "kickCount must match the summary that was dispatched")
+        XCTAssertNotNil(r["startedAt"],
+                        "startedAt must be present in the synchronously-fired payload")
+        XCTAssertNotNil(r["endedAt"],
+                        "endedAt must be present in the synchronously-fired payload")
+    }
+
     /// Two offline kick-session-end summaries drained through the handler must
     /// fire `onKickSessionEnd` twice, each with its own distinct summary.
     func testTwoOfflineKickSessionEnds_callbackFiredTwiceWithDistinctPayloads() throws {
