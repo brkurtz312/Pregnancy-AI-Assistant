@@ -329,3 +329,24 @@ id = "xWDr2SLsEbyUFA4D1Qheg"
 uri = "file://screenshots/app-store-1260x2736.zip"
 type = "unspecified"
 title = "1260 × 2736 px — iPhone 16 Plus / 15 Plus (6.7\")"
+
+[[outputs]]
+id = "JkjRvSR8pqX7yhPqJCvou"
+uri = "file://exports/app-store-submission-screenshots.zip"
+type = "unspecified"
+title = "App Store submission screenshots"
+description = "Upload-ready bundle: 3 iPhone 6.9-inch screenshots, 3 iPad 13-inch screenshots, and 3 Apple Watch 45 mm screenshots, with a README showing dimensions and recommended upload order."
+
+[[outputs]]
+id = "gmYbeU5XPxyeEiSf9Ib3L"
+uri = "file://exports/app-store-submission-screenshots/apple-watch-45mm/01-home.png"
+type = "image"
+title = "Apple Watch — home screen"
+description = "396 × 484 px Watch screenshot preview."
+
+[[outputs]]
+id = "Gzvi8LtYMyfT__jQX2oft"
+uri = "file://exports/app-store-submission-screenshots/ipad-13/01-home.jpg"
+type = "image"
+title = "iPad — home screen"
+description = "2064 × 2752 px iPad screenshot preview."
