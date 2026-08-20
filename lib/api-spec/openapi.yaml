@@ -815,6 +815,32 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /account:
+    delete:
+      operationId: deleteAccount
+      tags: [profile]
+      summary: Permanently delete the authenticated account and its app data
+      description: >
+        Permanently removes the current user's Clerk account and all
+        user-associated data stored by the application. Purchase records managed
+        by payment providers are not changed.
+      security:
+        - clerkAuth: []
+      responses:
+        "204":
+          description: Account deleted
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Account deletion could not be completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /profile/contacts:
     get:
       operationId: listContacts

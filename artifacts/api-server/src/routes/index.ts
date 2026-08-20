@@ -6,6 +6,7 @@ import toolsRouter from "./tools";
 import profileRouter from "./profile";
 import adminRouter from "./admin";
 import scribeRouter from "./scribe";
+import accountRouter from "./account";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(toolsRouter);
 router.use(profileRouter);
 router.use(adminRouter);
 router.use(scribeRouter);
+router.use(accountRouter);
 
 export default router;

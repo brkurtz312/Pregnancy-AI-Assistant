@@ -2,20 +2,7 @@ import { useClerk, useSession } from "@clerk/expo";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError, setAuthTokenGetter } from "@workspace/api-client-react";
 import { useEffect, useRef } from "react";
-import { clearJournalCache } from "@/lib/journal";
-import { clearHospitalBagCache } from "@/lib/hospital-bag";
-import { clearBirthPlanCache } from "@/lib/birth-plan";
-import { clearVisitQuestionsCache } from "@/lib/visit-questions";
-import { clearFhrCache } from "@/lib/fetal-heart-rate";
-import { clearScribeNoteCache } from "@/lib/scribe-note";
-import { clearBfCheckinCache } from "@/lib/breastfeeding";
-import { clearPpdCache } from "@/lib/postpartum-depression";
-import { clearLocationModeUserData } from "@/lib/location-mode";
-import { cancelAllAppointmentReminders } from "@/lib/appointment-reminders";
-import { cancelAllMilestoneNotifications } from "@/lib/milestone-notifications";
-import { clearAllCustomReminders } from "@/lib/custom-reminders";
-import { invalidateWatchQueueSession } from "@/lib/sync-queue";
-import WatchConnectivity from "@/modules/WatchConnectivity";
+import { clearSignedOutUserData } from "@/lib/session-cleanup";
 
 /**
  * Bridges the Clerk session token into the generated API client and keeps the
@@ -132,34 +119,7 @@ export function AuthTokenBridge() {
     // device. Also wipe the AsyncStorage tool caches (journal, hospital bag,
     // birth plan) so a signed-out session never shows the previous user's data.
     if (wasSignedIn && isNowSignedOut) {
-      // Cancel in-flight queries first so they cannot repopulate the cache
-      // after clear() (race condition: query resolves between clear and the
-      // component that issued it being unmounted).
-      queryClient.cancelQueries().catch(() => {});
-      queryClient.clear();
-      clearJournalCache().catch(() => {});
-      clearHospitalBagCache().catch(() => {});
-      clearBirthPlanCache().catch(() => {});
-      clearVisitQuestionsCache().catch(() => {});
-      clearFhrCache().catch(() => {});
-      clearScribeNoteCache().catch(() => {});
-      clearBfCheckinCache().catch(() => {});
-      clearPpdCache().catch(() => {});
-      clearLocationModeUserData().catch(() => {});
-      cancelAllAppointmentReminders().catch(() => {});
-      cancelAllMilestoneNotifications().catch(() => {});
-      clearAllCustomReminders().catch(() => {});
-      // Notify the Watch to clear its persisted session data (kick counter,
-      // contraction timer). Fire-and-forget: the native module is a no-op when
-      // the Watch app is not installed or WCSession is not activated.
-      WatchConnectivity.signOut().catch(() => {});
-      // Invalidate the per-user Watch event queues: bumps the session generation
-      // so post-sign-out enqueue calls are rejected, then clears the stored data.
-      // Both steps are serialized through the queue chains so no stale Write can
-      // slip in after the clear.
-      if (outgoingUserId) {
-        invalidateWatchQueueSession(outgoingUserId).catch(() => {});
-      }
+      clearSignedOutUserData(queryClient, outgoingUserId);
     }
   }, [session, queryClient]);
 

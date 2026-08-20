@@ -2225,6 +2225,87 @@ export const useUpdateProfile = <
 };
 
 /**
+ * Permanently removes the current user's Clerk account and all user-associated data stored by the application. Purchase records managed by payment providers are not changed.
+
+ * @summary Permanently delete the authenticated account and its app data
+ */
+export const getDeleteAccountUrl = () => {
+  return `/api/account`;
+};
+
+export const deleteAccount = async (options?: RequestInit): Promise<void> => {
+  return customFetch<void>(getDeleteAccountUrl(), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteAccountMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAccount>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAccount>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["deleteAccount"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAccount>>,
+    void
+  > = () => {
+    return deleteAccount(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAccountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAccount>>
+>;
+
+export type DeleteAccountMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Permanently delete the authenticated account and its app data
+ */
+export const useDeleteAccount = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAccount>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAccount>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getDeleteAccountMutationOptions(options));
+};
+
+/**
  * Returns the authenticated user's support calling list.
  * @summary List support contacts
  */

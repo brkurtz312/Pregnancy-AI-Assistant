@@ -1,5 +1,6 @@
 import { useAuth, useUser } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import React from "react";
 import {
@@ -17,7 +18,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { ApiError } from "@workspace/api-client-react";
+import { ApiError, useDeleteAccount } from "@workspace/api-client-react";
 
 import { useColors } from "@/hooks/useColors";
 import { usePass } from "@/hooks/usePass";
@@ -27,6 +28,7 @@ import {
   useSubscription,
 } from "@/lib/revenuecat";
 import { cancelAllAppointmentReminders } from "@/lib/appointment-reminders";
+import { clearSignedOutUserData } from "@/lib/session-cleanup";
 
 const PASS_PRICE = "$14.99";
 
@@ -54,8 +56,10 @@ export function AccountSheet({
   const router = useRouter();
   const { isSignedIn, signOut } = useAuth();
   const { user } = useUser();
+  const queryClient = useQueryClient();
   const pass = usePass();
   const subscription = useSubscription();
+  const deleteAccountMutation = useDeleteAccount();
 
   const [showRedeem, setShowRedeem] = React.useState(false);
   const [code, setCode] = React.useState("");
@@ -65,6 +69,11 @@ export function AccountSheet({
   const [purchaseSuccess, setPurchaseSuccess] = React.useState(false);
   const [isSigningOut, setIsSigningOut] = React.useState(false);
   const [signOutError, setSignOutError] = React.useState<string | null>(null);
+  const [confirmAccountDeletion, setConfirmAccountDeletion] =
+    React.useState(false);
+  const [deleteAccountError, setDeleteAccountError] = React.useState<
+    string | null
+  >(null);
 
   // iOS/Android must use the in-app purchase (App Store/Play rules); web keeps
   // the existing Stripe checkout. Price is read from the live RevenueCat
@@ -122,6 +131,26 @@ export function AccountSheet({
       setCode("");
     } catch (err) {
       setRedeemError(redeemErrorMessage(err));
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleteAccountError(null);
+    let accountDeleted = false;
+    try {
+      await deleteAccountMutation.mutateAsync();
+      accountDeleted = true;
+      await signOut();
+      onClose();
+    } catch {
+      if (accountDeleted) {
+        clearSignedOutUserData(queryClient, user?.id ?? null);
+      }
+      setDeleteAccountError(
+        accountDeleted
+          ? "Your account was deleted and this device's data was cleared, but we couldn't finish signing out. Please use Sign Out below to finish."
+          : "We couldn't delete your account. Please check your connection and try again.",
+      );
     }
   };
 
@@ -633,6 +662,104 @@ export function AccountSheet({
                       </>
                     )}
                   </TouchableOpacity>
+
+                  {confirmAccountDeletion ? (
+                    <View
+                      style={[
+                        styles.deleteAccountCard,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: colors.destructive,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.statusTitle,
+                          { color: colors.foreground },
+                        ]}
+                      >
+                        Permanently delete your account?
+                      </Text>
+                      <Text
+                        style={[
+                          styles.statusBody,
+                          { color: colors.mutedForeground },
+                        ]}
+                      >
+                        This permanently deletes your profile, journal, tool
+                        history, support contacts, and other app data. This
+                        cannot be undone. Payment-provider purchase records may
+                        be retained for legal and financial obligations.
+                      </Text>
+                      {deleteAccountError ? (
+                        <Text
+                          style={[
+                            styles.redeemError,
+                            { color: colors.destructive },
+                          ]}
+                        >
+                          {deleteAccountError}
+                        </Text>
+                      ) : null}
+                      <TouchableOpacity
+                        testID="confirm-delete-account"
+                        style={[
+                          styles.deleteAccountConfirmBtn,
+                          { backgroundColor: colors.destructive },
+                        ]}
+                        disabled={deleteAccountMutation.isPending}
+                        onPress={handleDeleteAccount}
+                      >
+                        {deleteAccountMutation.isPending ? (
+                          <ActivityIndicator color="#fff" />
+                        ) : (
+                          <Text style={styles.primaryBtnText}>
+                            Permanently Delete Account
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        disabled={deleteAccountMutation.isPending}
+                        onPress={() => {
+                          setConfirmAccountDeletion(false);
+                          setDeleteAccountError(null);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.redeemLink,
+                            { color: colors.mutedForeground },
+                          ]}
+                        >
+                          Cancel
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      testID="delete-account"
+                      style={styles.deleteAccountBtn}
+                      onPress={() => {
+                        setDeleteAccountError(null);
+                        setConfirmAccountDeletion(true);
+                      }}
+                    >
+                      <Ionicons
+                        name="trash-outline"
+                        size={18}
+                        color={colors.destructive}
+                      />
+                      <Text
+                        style={[
+                          styles.deleteAccountText,
+                          { color: colors.destructive },
+                        ]}
+                      >
+                        Delete Account
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
             </ScrollView>
@@ -727,4 +854,23 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   signOutText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  deleteAccountCard: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 16,
+    gap: 10,
+  },
+  deleteAccountConfirmBtn: {
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  deleteAccountBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 8,
+  },
+  deleteAccountText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
 });

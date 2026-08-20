@@ -31,6 +31,11 @@ jest.mock("@workspace/api-client-react", () => ({
       this.status = status;
     }
   },
+  useDeleteAccount: jest.fn(),
+}));
+
+jest.mock("@tanstack/react-query", () => ({
+  useQueryClient: jest.fn(),
 }));
 
 jest.mock("@/hooks/useColors", () => ({
@@ -67,6 +72,9 @@ jest.mock("@/modules/WatchConnectivity", () => ({
 jest.mock("@/lib/appointment-reminders", () => ({
   cancelAllAppointmentReminders: jest.fn(async () => {}),
 }));
+jest.mock("@/lib/session-cleanup", () => ({
+  clearSignedOutUserData: jest.fn(),
+}));
 const mockCancelAllReminders = (
   jest.requireMock("@/lib/appointment-reminders") as {
     cancelAllAppointmentReminders: jest.Mock;
@@ -82,8 +90,11 @@ const mockWatchSignOut = (
 
 import { useAuth, useUser } from "@clerk/expo";
 import { useRouter } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { usePass } from "@/hooks/usePass";
 import { useSubscription } from "@/lib/revenuecat";
+import { useDeleteAccount } from "@workspace/api-client-react";
+import { clearSignedOutUserData } from "@/lib/session-cleanup";
 
 import { AccountSheet } from "../components/AccountSheet";
 
@@ -92,6 +103,14 @@ const mockUseUser = useUser as jest.Mock;
 const mockUseRouter = useRouter as jest.Mock;
 const mockUsePass = usePass as jest.Mock;
 const mockUseSubscription = useSubscription as jest.Mock;
+const mockUseDeleteAccount = useDeleteAccount as jest.Mock;
+const mockUseQueryClient = useQueryClient as jest.Mock;
+const mockClearSignedOutUserData = clearSignedOutUserData as jest.Mock;
+
+const mockQueryClient = {
+  cancelQueries: jest.fn(() => Promise.resolve()),
+  clear: jest.fn(),
+};
 
 function makePassMock(overrides: Partial<ReturnType<typeof usePass>> = {}) {
   return {
@@ -181,6 +200,11 @@ describe("AccountSheet — sign-out error recovery", () => {
     mockUseRouter.mockReturnValue({ push: jest.fn() });
     mockUsePass.mockReturnValue(makePassMock());
     mockUseSubscription.mockReturnValue(makeSubscriptionMock());
+    mockUseQueryClient.mockReturnValue(mockQueryClient);
+    mockUseDeleteAccount.mockReturnValue({
+      mutateAsync: jest.fn(async () => {}),
+      isPending: false,
+    });
   });
 
   afterEach(() => {
@@ -407,5 +431,130 @@ describe("AccountSheet — sign-out error recovery", () => {
     });
     expect(mockOnClose).toHaveBeenCalledTimes(1);
     expect(mockRefresh).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("AccountSheet — permanent account deletion", () => {
+  beforeEach(() => {
+    mockUseUser.mockReturnValue({
+      user: { primaryEmailAddress: { emailAddress: "test@example.com" } },
+    });
+    mockUseRouter.mockReturnValue({ push: jest.fn() });
+    mockUsePass.mockReturnValue(makePassMock());
+    mockUseSubscription.mockReturnValue(makeSubscriptionMock());
+    mockUseQueryClient.mockReturnValue(mockQueryClient);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("requires a second, clearly destructive confirmation before deleting", async () => {
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      signOut: jest.fn(async () => {}),
+    });
+    mockUseDeleteAccount.mockReturnValue({
+      mutateAsync: jest.fn(async () => {}),
+      isPending: false,
+    });
+
+    const renderer = renderSheet();
+    await act(async () => {});
+
+    expect(
+      findBtn(renderer.root, "Permanently Delete Account"),
+    ).toBeUndefined();
+
+    await act(async () => {
+      findBtn(renderer.root, "Delete Account")!.props.onPress();
+    });
+
+    const text = renderer.root
+      .findAllByType(Text)
+      .map((t) => flatText(t.props.children))
+      .join(" ");
+    expect(text).toContain("This permanently deletes your profile");
+    expect(findBtn(renderer.root, "Permanently Delete Account")).toBeDefined();
+  });
+
+  it("deletes the authenticated account, then signs out and closes the sheet", async () => {
+    const mutateAsync = jest.fn(async () => {});
+    const signOut = jest.fn(async () => {});
+    mockUseAuth.mockReturnValue({ isSignedIn: true, signOut });
+    mockUseDeleteAccount.mockReturnValue({ mutateAsync, isPending: false });
+
+    const renderer = renderSheet();
+    await act(async () => {});
+    await act(async () => {
+      findBtn(renderer.root, "Delete Account")!.props.onPress();
+    });
+    await act(async () => {
+      await findBtn(
+        renderer.root,
+        "Permanently Delete Account",
+      )!.props.onPress();
+    });
+
+    expect(mutateAsync).toHaveBeenCalledTimes(1);
+    expect(signOut).toHaveBeenCalledTimes(1);
+    expect(mockOnClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the user signed in and explains the failure when deletion is rejected", async () => {
+    const mutateAsync = jest.fn().mockRejectedValue(new Error("offline"));
+    const signOut = jest.fn(async () => {});
+    mockUseAuth.mockReturnValue({ isSignedIn: true, signOut });
+    mockUseDeleteAccount.mockReturnValue({ mutateAsync, isPending: false });
+
+    const renderer = renderSheet();
+    await act(async () => {});
+    await act(async () => {
+      findBtn(renderer.root, "Delete Account")!.props.onPress();
+    });
+    await act(async () => {
+      await findBtn(
+        renderer.root,
+        "Permanently Delete Account",
+      )!.props.onPress();
+    });
+
+    expect(signOut).not.toHaveBeenCalled();
+    expect(mockOnClose).not.toHaveBeenCalled();
+    const text = renderer.root
+      .findAllByType(Text)
+      .map((t) => flatText(t.props.children))
+      .join(" ");
+    expect(text).toContain("We couldn't delete your account");
+  });
+
+  it("clears local data if deletion succeeds but client sign-out fails", async () => {
+    const mutateAsync = jest.fn(async () => {});
+    const signOut = jest.fn().mockRejectedValue(new Error("offline"));
+    mockUseAuth.mockReturnValue({ isSignedIn: true, signOut });
+    mockUseDeleteAccount.mockReturnValue({ mutateAsync, isPending: false });
+
+    const renderer = renderSheet();
+    await act(async () => {});
+    await act(async () => {
+      findBtn(renderer.root, "Delete Account")!.props.onPress();
+    });
+    await act(async () => {
+      await findBtn(
+        renderer.root,
+        "Permanently Delete Account",
+      )!.props.onPress();
+    });
+
+    expect(mockClearSignedOutUserData).toHaveBeenCalledWith(
+      mockQueryClient,
+      null,
+    );
+    expect(mockOnClose).not.toHaveBeenCalled();
+    const text = renderer.root
+      .findAllByType(Text)
+      .map((t) => flatText(t.props.children))
+      .join(" ");
+    expect(text).toContain("device's data was cleared");
   });
 });
