@@ -1,15 +1,17 @@
 /**
- * Health check: verifies that the reviewer sign-in system is fully operational.
+ * Health check: verifies that the reviewer pass-unlock system is operational.
  *
- * Since each reviewer sign-in now creates a unique isolated Clerk account,
- * there is no single "demo user" to monitor. Instead this script checks the
- * three things that must be true for a reviewer to sign in successfully:
+ * The reviewer access code unlocks a pass only after a user signs in. This
+ * script checks the three things required for that post-sign-in redemption:
  *
  *   1. A reviewer access code is configured (DB app_config or env var)
  *   2. CLERK_SECRET_KEY is present
  *   3. The Clerk API is reachable with that key
  *
- * If any check fails the script exits non-zero so the calling workflow's
+ * This does not validate the App Store demo account password. That account
+ * must be created and tested in the Production Clerk environment before
+ * resubmission. If any check here fails the script exits non-zero so the
+ * calling workflow's
  * console shows a visible failure. Configure alert channels with:
  *
  *   alert_slack_webhook_url (app_config row) or ALERT_SLACK_WEBHOOK_URL (env)
@@ -23,7 +25,7 @@
  *
  * Requires:
  *   DATABASE_URL     — provided automatically by Replit
- *   CLERK_SECRET_KEY — must be set for reviewer sign-in to work
+ *   CLERK_SECRET_KEY — must be set for reviewer pass redemption to work
  */
 
 import { db, appConfigTable } from "@workspace/db";
@@ -51,14 +53,14 @@ export async function sendAlert(payload: AlertPayload): Promise<void> {
     reason === "no_access_code"
       ? "❌ Reviewer access code not configured"
       : reason === "no_clerk_key"
-        ? "❌ CLERK_SECRET_KEY missing — reviewer sign-in will fail"
-        : "❌ Clerk API unreachable — reviewer sign-in will fail";
+        ? "❌ CLERK_SECRET_KEY missing — reviewer pass redemption will fail"
+        : "❌ Clerk API unreachable — reviewer pass redemption will fail";
 
   const body = [
     title,
     `UTC timestamp : ${timestamp}`,
     `Reason        : ${reason}`,
-    `Impact        : Reviewers and developers cannot sign in with the access code.`,
+    `Impact        : Reviewers cannot unlock the Full Pregnancy Pass after sign-in.`,
     `Next steps    : Check Clerk configuration and environment secrets.`,
   ].join("\n");
 
@@ -89,7 +91,7 @@ export async function sendAlert(payload: AlertPayload): Promise<void> {
                 `*${title}*`,
                 `• *UTC timestamp:* ${timestamp}`,
                 `• *Reason:* \`${reason}\``,
-                `• *Impact:* Reviewers and developers cannot sign in with the access code.`,
+                `• *Impact:* Reviewers cannot unlock the Full Pregnancy Pass after sign-in.`,
                 `• *Next steps:* Check Clerk configuration and environment secrets.`,
               ].join("\n"),
             },
@@ -187,7 +189,7 @@ export async function main() {
       "\n❌ ALERT: No reviewer access code configured (checked app_config.reviewer_access_code,",
     );
     console.error(
-      "   REVIEWER_ACCESS_CODE, and DEV_ACCESS_CODE). Reviewers cannot sign in.",
+      "   REVIEWER_ACCESS_CODE, and DEV_ACCESS_CODE). Reviewers cannot unlock the pass.",
     );
     await sendAlert({ timestamp, reason: "no_access_code" });
     process.exit(1);
@@ -199,7 +201,7 @@ export async function main() {
   const clerkKey = process.env.CLERK_SECRET_KEY;
   if (!clerkKey) {
     console.error(
-      "\n❌ ALERT: CLERK_SECRET_KEY is not set. Reviewer sign-in will fail.",
+      "\n❌ ALERT: CLERK_SECRET_KEY is not set. Reviewer pass unlock will fail.",
     );
     await sendAlert({ timestamp, reason: "no_clerk_key" });
     process.exit(1);
@@ -215,7 +217,7 @@ export async function main() {
 
     if (!res.ok) {
       console.error(
-        `\n❌ ALERT: Clerk API returned ${res.status}. Reviewer sign-in will fail.`,
+        `\n❌ ALERT: Clerk API returned ${res.status}. Reviewer pass unlock will fail.`,
       );
       await sendAlert({ timestamp, reason: "clerk_unreachable" });
       process.exit(1);
@@ -228,9 +230,9 @@ export async function main() {
     process.exit(1);
   }
 
-  console.log("   ✅ Clerk API reachable — reviewer sign-in should work.");
+  console.log("   ✅ Clerk API reachable — reviewer pass unlock should work.");
   console.log(
-    "   ℹ️  Each sign-in creates a unique isolated account (no shared demo user).\n",
+    "   ℹ️  This does not replace testing the Production App Review account.\n",
   );
   process.exit(0);
 }

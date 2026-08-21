@@ -57,12 +57,6 @@ jest.mock("expo-auth-session", () => ({
   makeRedirectUri: jest.fn(({ scheme }: { scheme: string }) => `${scheme}://`),
 }));
 
-// sign-in.tsx gates the Apple button behind isAvailableAsync(); resolve true
-// so the button renders in every test that exercises the sign-in screen.
-jest.mock("expo-apple-authentication", () => ({
-  isAvailableAsync: jest.fn().mockResolvedValue(true),
-}));
-
 // ─── sign-in: @clerk/expo/apple (native Apple auth sheet) ────────────────────
 const mockStartAppleAuthFlow = jest.fn();
 jest.mock("@clerk/expo/apple", () => ({
@@ -130,14 +124,14 @@ import SignUpScreen from "../app/(auth)/sign-up";
 function findAppleButton(root: ReactTestInstance): ReactTestInstance {
   const label = root
     .findAllByType(Text)
-    .find((t) => t.props.children === "Continue with Apple");
-  if (!label) throw new Error('"Continue with Apple" label not found');
+    .find((t) => t.props.children === "Sign in with Apple");
+  if (!label) throw new Error('"Sign in with Apple" label not found');
   let node: ReactTestInstance | null | undefined = label;
   while (node?.parent) {
     node = node.parent;
     if (node.type === TouchableOpacity) return node;
   }
-  throw new Error("TouchableOpacity wrapping Continue with Apple not found");
+  throw new Error("TouchableOpacity wrapping Sign in with Apple not found");
 }
 
 // ─── helpers: set Platform.OS to "ios" so the button renders ─────────────────

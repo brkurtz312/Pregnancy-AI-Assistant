@@ -1,4 +1,5 @@
 import React from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Platform, Text, TouchableOpacity } from "react-native";
 import { act, create, type ReactTestInstance } from "react-test-renderer";
 
@@ -31,6 +32,7 @@ jest.mock("@workspace/api-client-react", () => ({
       this.status = status;
     }
   },
+  useDeleteAccount: jest.fn(),
 }));
 
 jest.mock("@/hooks/useColors", () => ({
@@ -88,6 +90,7 @@ jest.mock("@/lib/revenuecat", () => ({
 
 import { useAuth, useUser } from "@clerk/expo";
 import { useRouter } from "expo-router";
+import { useDeleteAccount } from "@workspace/api-client-react";
 import { usePass } from "@/hooks/usePass";
 import { useSubscription } from "@/lib/revenuecat";
 
@@ -96,6 +99,7 @@ import { AccountSheet } from "../components/AccountSheet";
 const mockUseAuth = useAuth as jest.Mock;
 const mockUseUser = useUser as jest.Mock;
 const mockUseRouter = useRouter as jest.Mock;
+const mockUseDeleteAccount = useDeleteAccount as jest.Mock;
 const mockUsePass = usePass as jest.Mock;
 const mockUseSubscription = useSubscription as jest.Mock;
 
@@ -142,10 +146,20 @@ function makeSubscriptionMock(
 const mockOnClose = jest.fn();
 
 function renderSheet(visible = true) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
   let renderer!: ReturnType<typeof create>;
   act(() => {
     renderer = create(
-      React.createElement(AccountSheet, { visible, onClose: mockOnClose }),
+      React.createElement(
+        QueryClientProvider,
+        { client: queryClient },
+        React.createElement(AccountSheet, { visible, onClose: mockOnClose }),
+      ),
     );
   });
   return renderer;
@@ -213,6 +227,10 @@ describe("AccountSheet — RevenueCat in-app purchase (native)", () => {
       user: { primaryEmailAddress: { emailAddress: "test@example.com" } },
     });
     mockUseRouter.mockReturnValue({ push: jest.fn() });
+    mockUseDeleteAccount.mockReturnValue({
+      mutateAsync: jest.fn(),
+      isPending: false,
+    });
     mockUsePass.mockReturnValue(makePassMock());
     mockUseSubscription.mockReturnValue(makeSubscriptionMock());
   });

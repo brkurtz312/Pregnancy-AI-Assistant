@@ -1,13 +1,12 @@
 /**
- * This script is no longer needed.
+ * This script is no longer a replacement for a Production reviewer account.
  *
- * The reviewer system previously used a single shared demo account whose pass
- * sometimes needed manual resetting. That account has been replaced with a
- * per-session model: each reviewer or developer who enters the access code
- * receives a brand-new isolated Clerk account with the pass granted
- * automatically at sign-in time.
+ * The reviewer access code only unlocks the pass after a user has signed in.
+ * App Review therefore needs a real Production Clerk account with a password;
+ * this command cannot create or reset that account.
  *
- * There is nothing to reset — every session starts fresh.
+ * The API service's reviewer health check monitors the configured demo
+ * account's pass independently.
  *
  * If you need to verify the reviewer system is operational, run:
  *   pnpm --filter @workspace/scripts run check-reviewer-pass
@@ -16,13 +15,15 @@
  *   pnpm --filter @workspace/scripts run rotate-reviewer-code
  */
 
-console.log(`\n── reset-reviewer-pass: no longer needed ──\n`);
+console.log(`\n── reset-reviewer-pass: reviewer account required ──\n`);
 console.log(
-  "Each reviewer sign-in now creates its own isolated account with the pass",
+  "The access code is not a Clerk password. App Review must first sign in",
 );
-console.log("granted automatically. There is no shared demo account to reset.");
+console.log(
+  "to a verified Production Clerk demo account, then redeem the code.",
+);
 console.log();
-console.log("To verify the system is healthy:");
+console.log("To verify the code-redemption service is healthy:");
 console.log("  pnpm --filter @workspace/scripts run check-reviewer-pass");
 console.log();
 process.exit(0);

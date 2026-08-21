@@ -1,16 +1,47 @@
 # Ops Runbook
 
-## Reviewer Pass Health Check Scheduler
+## App Review Access Preflight
+
+App Review needs a genuine **Production Clerk** email/password account. The
+reviewer access code is not a password: it unlocks the Full Pregnancy Pass only
+after that account has signed in.
+
+Before every App Store resubmission:
+
+1. In Replit’s Auth settings, choose the **Production** environment and verify
+   the Apple provider is configured with the Apple Developer Services ID and
+   private key. This requires access to the managed Clerk configuration.
+2. Install the exact TestFlight candidate on a clean iPhone or iPad.
+3. Create or reset a dedicated Production reviewer account, complete any
+   required email verification, then record its Clerk user ID as
+   `reviewer_demo_user_id` in `app_config` (or `REVIEWER_DEMO_USER_ID` in the
+   production API environment).
+4. Sign in with the reviewer account’s email and password, then redeem the
+   reviewer access code from **Profile → Redeem access code** and
+   confirm the Full Pregnancy Pass is active.
+5. Sign out, reinstall, and repeat the email/password sign-in. Confirm the
+   pass remains active without another purchase.
+6. Sign out, then verify **Sign in with Apple** is visible and completes the
+   native Apple sheet. Test “Hide My Email” if available.
+7. Put only the tested Production email/password in App Store Connect. Put the
+   post-sign-in redemption step and access code in the reviewer notes, never in
+   the password field.
+
+## Scheduled reviewer-account pass repair
 
 ### What it does
 
 On every production deploy the API server starts a background scheduler that
-verifies the Apple reviewer sign-in system is fully operational:
+checks the configured reviewer account’s local pass record:
 
-1. A reviewer access code is configured (checked in `app_config` table, then
-   env vars `REVIEWER_ACCESS_CODE` / `DEV_ACCESS_CODE`).
-2. `CLERK_SECRET_KEY` is present.
-3. The Clerk API is reachable and responds 2xx to an authenticated probe.
+1. It resolves the account ID from `app_config.reviewer_demo_user_id`, falling
+   back to `REVIEWER_DEMO_USER_ID`.
+2. It verifies that user’s `hasPass` flag in the production database.
+3. If the row is absent or the pass was revoked, it restores `hasPass=true`.
+
+This job does **not** verify the reviewer’s Clerk password, the Apple provider,
+the reviewer access code, or Clerk API connectivity. Those are separate
+preflight checks.
 
 The first run fires **30 seconds after boot**. Subsequent runs fire every
 **60 minutes** (overridable via `REVIEWER_CHECK_INTERVAL_MS` env var).
@@ -20,15 +51,15 @@ The first run fires **30 seconds after boot**. Subsequent runs fire every
 Use the Replit deployment log viewer (or the `fetch_deployment_logs` agent
 tool) and filter for these strings:
 
-| Event                         | Log message                                                  | Severity |
-| ----------------------------- | ------------------------------------------------------------ | -------- |
-| Scheduler started at boot     | `Reviewer pass health check scheduler started`               | info     |
-| Check passed (system healthy) | `Reviewer pass check passed`                                 | info     |
-| Check failed (non-fatal)      | `Scheduled reviewer pass check failed`                       | warn     |
-| Check crashed                 | `Scheduled reviewer pass check crashed`                      | error    |
-| Access code missing           | `Reviewer access code not configured`                        | error    |
-| Clerk key missing             | `CLERK_SECRET_KEY missing`                                   | error    |
-| Clerk unreachable             | `Clerk API returned non-OK status` / `Clerk API unreachable` | error    |
+| Event                         | Log message                                            | Severity |
+| ----------------------------- | ------------------------------------------------------ | -------- |
+| Scheduler started at boot     | `Reviewer pass health check scheduler started`         | info     |
+| Check passed (system healthy) | `Reviewer pass check passed`                           | info     |
+| Check failed (non-fatal)      | `Scheduled reviewer pass check failed`                 | warn     |
+| Check crashed                 | `Scheduled reviewer pass check crashed`                | error    |
+| Demo user ID missing          | `Demo user ID not configured`                          | error    |
+| Demo user row restored        | `Demo user row was missing; created with hasPass=true` | warn     |
+| Revoked pass restored         | `Demo user hasPass was false; healed to true`          | warn     |
 
 **Confirmed healthy in production** (verified 2026-07-12): the startup log and
 the 30-second initial "Reviewer pass check passed" entry both appear consistently
@@ -87,8 +118,23 @@ curl -s \
   https://<your-domain>/api/admin/reviewer-check/status | jq .
 ```
 
-This endpoint reflects in-memory state — it resets to all-`null` on a server
-restart. Use the log-search approach above if you need the historical record.
+The service persists the most recent status in `app_config`, so it survives a
+server restart when the database is available. Before the scheduler has ever
+run, or when that storage is unavailable, the fields can be `null`.
+
+## Code-redemption configuration check
+
+The `Reviewer Pass Health Check` workflow runs the separate command below. It
+checks that a pass-unlock code is configured, `CLERK_SECRET_KEY` is present,
+and the Clerk API accepts that key:
+
+```sh
+pnpm --filter @workspace/scripts run check-reviewer-pass
+```
+
+This command does **not** verify the reviewer demo user’s `hasPass` row or
+authenticate the App Store account email/password. Run the clean-device
+TestFlight preflight above to test those credentials and the native Apple flow.
 
 ### Source files
 

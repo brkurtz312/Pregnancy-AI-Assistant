@@ -55,23 +55,6 @@ export default function SignInScreen() {
   const [notice, setNotice] = useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
-  // Hidden until confirmed available — hides the button on old binaries that
-  // don't have expo-apple-authentication linked as a native module.
-  const [isAppleAvailable, setIsAppleAvailable] = useState(false);
-
-  useEffect(() => {
-    if (Platform.OS !== "ios") return;
-    (async () => {
-      try {
-        // Safe-require: throws if the native module isn't in this binary.
-        const AppleAuth = require("expo-apple-authentication");
-        const available = await AppleAuth.isAvailableAsync();
-        setIsAppleAvailable(available);
-      } catch {
-        setIsAppleAvailable(false);
-      }
-    })();
-  }, []);
 
   const fetching = fetchStatus === "fetching";
   const errorText =
@@ -274,19 +257,26 @@ export default function SignInScreen() {
             )}
           </TouchableOpacity>
 
-          {/* Apple SSO — shown on iOS only when native module is linked */}
-          {isAppleAvailable && (
+          {/* Apple SSO is an equivalent option to Google on every iOS auth screen.
+              Do not hide it behind a runtime module probe: a mismatched old binary
+              made App Review miss this required option entirely. The release build
+              includes the matching native module; an invalid build now fails visibly
+              in the native flow instead of silently removing the provider. */}
+          {Platform.OS === "ios" && (
             <TouchableOpacity
               style={[styles.appleBtn, { opacity: appleLoading ? 0.7 : 1 }]}
               onPress={onApplePress}
               disabled={appleLoading}
+              testID="sign-in-with-apple"
+              accessibilityRole="button"
+              accessibilityLabel="Sign in with Apple"
             >
               {appleLoading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
                 <>
                   <Ionicons name="logo-apple" size={20} color="#fff" />
-                  <Text style={styles.appleBtnText}>Continue with Apple</Text>
+                  <Text style={styles.appleBtnText}>Sign in with Apple</Text>
                 </>
               )}
             </TouchableOpacity>

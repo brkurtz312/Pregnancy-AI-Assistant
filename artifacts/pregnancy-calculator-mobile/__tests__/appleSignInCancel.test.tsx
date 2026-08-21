@@ -24,12 +24,6 @@ const mockStartSSOFlow = jest.fn();
 const mockDismissAll = jest.fn();
 const mockReplace = jest.fn();
 
-// sign-in.tsx gates the Apple button behind isAvailableAsync(); resolve true
-// so the button renders in every test that exercises the sign-in screen.
-jest.mock("expo-apple-authentication", () => ({
-  isAvailableAsync: jest.fn().mockResolvedValue(true),
-}));
-
 // sign-in.tsx uses the native Apple auth sheet via @clerk/expo/apple
 jest.mock("@clerk/expo/apple", () => ({
   useSignInWithApple: jest.fn(() => ({
@@ -161,7 +155,7 @@ function findAppleButton(
         .findAllByType(RNText)
         .map((t) => String(t.props.children))
         .join(" ");
-      return labels.includes("Continue with Apple");
+      return labels.includes("Sign in with Apple");
     } catch {
       return false;
     }

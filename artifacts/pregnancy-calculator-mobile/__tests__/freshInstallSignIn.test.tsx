@@ -54,12 +54,6 @@ jest.mock("@clerk/expo/apple", () => ({
   })),
 }));
 
-// isAvailableAsync returns false so the Apple button stays hidden — these
-// tests focus on the email/password path.
-jest.mock("expo-apple-authentication", () => ({
-  isAvailableAsync: jest.fn().mockResolvedValue(false),
-}));
-
 const mockSetActive = jest.fn();
 const mockPasswordFn = jest.fn();
 const mockSignInObj = {

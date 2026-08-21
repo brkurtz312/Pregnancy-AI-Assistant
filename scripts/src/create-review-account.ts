@@ -1,10 +1,8 @@
 /**
- * Displays the current reviewer sign-in configuration status.
+ * Displays the current reviewer pass-unlock configuration status.
  *
- * The reviewer system no longer uses a single shared demo account. Each
- * time a reviewer or developer enters the access code, the API creates a
- * unique isolated Clerk account for that session — so every person sees
- * their own data and changes don't bleed across sessions.
+ * The reviewer access code is not a sign-in password. It unlocks the pass
+ * after a reviewer has signed in to their own Production Clerk account.
  *
  * What this script does now:
  *   - Checks whether a reviewer access code is configured
@@ -19,7 +17,7 @@
  *
  * Requires:
  *   DATABASE_URL      — provided automatically by Replit
- *   CLERK_SECRET_KEY  — must be set for reviewer sign-in to work
+ *   CLERK_SECRET_KEY  — must be set for reviewer pass redemption to work
  */
 
 import { db } from "@workspace/db";
@@ -39,12 +37,12 @@ async function getConfig(key: string): Promise<string | null> {
 }
 
 async function main() {
-  console.log(`\n── Reviewer Sign-In System Status ──\n`);
+  console.log(`\n── Reviewer Pass-Unlock System Status ──\n`);
   console.log(
-    "Each sign-in now creates a unique isolated Clerk account per session.",
+    "A reviewer must sign in first, then redeem the access code to unlock the pass.",
   );
   console.log(
-    "Reviewers and developers each see their own data — nothing is shared.\n",
+    "Use a separate verified Production Clerk demo account for App Review.\n",
   );
 
   // Check access code
@@ -77,10 +75,10 @@ async function main() {
 
   if (accessCode && process.env.CLERK_SECRET_KEY) {
     console.log(
-      "✅ Reviewer sign-in is ready. Share the access code with reviewers.",
+      "✅ Reviewer pass unlock is ready. Share the access code only after sign-in.",
     );
     console.log(
-      "   Each person who enters the code gets their own isolated account.",
+      "   Do not use it as an App Store Connect demo-account password.",
     );
   } else {
     console.log("⚠️  Resolve the issues above before distributing the code.");

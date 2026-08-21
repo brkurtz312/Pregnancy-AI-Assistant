@@ -11,8 +11,9 @@
  *   2. Save it in Replit Secrets as REVIEWER_ACCESS_CODE — this is the
  *      authoritative record and the safe location outside the codebase.
  *      (Tools → Secrets in the Replit workspace sidebar.)
- *   3. Update App Store Connect → Your App → App Review Information →
- *      Demo Account Password with this code.
+ *   3. Give the code only as a post-sign-in Full Pregnancy Pass unlock code.
+ *      It is not a Clerk password and must not be entered in App Store Connect
+ *      as a demo-account password.
  *
  * Requires:
  *   DATABASE_URL  — provided automatically by Replit
@@ -46,10 +47,13 @@ async function main() {
     "      Open the workspace sidebar → Tools → Secrets → add REVIEWER_ACCESS_CODE.",
   );
   console.log(
-    "   2. Update App Store Connect → Your App → App Review Information →",
+    "   2. Never use this as an App Store Connect demo-account password.",
   );
   console.log(
-    "      Demo Account Password with this code so the reviewer can sign in.",
+    "      A reviewer must first sign in with the separate Production demo account,",
+  );
+  console.log(
+    "      then enter this code from Profile → Redeem access code to unlock the pass.",
   );
   console.log("   ─────────────────────────────────────────────────────────\n");
 

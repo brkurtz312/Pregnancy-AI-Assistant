@@ -54,23 +54,6 @@ export default function SignUpScreen() {
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [appleLoading, setAppleLoading] = useState(false);
   const [appleError, setAppleError] = useState<string | null>(null);
-  // Hidden until confirmed available — hides the button on old binaries that
-  // don't have expo-apple-authentication linked as a native module.
-  const [isAppleAvailable, setIsAppleAvailable] = useState(false);
-
-  useEffect(() => {
-    if (Platform.OS !== "ios") return;
-    (async () => {
-      try {
-        // Safe-require: throws if the native module isn't in this binary.
-        const AppleAuth = require("expo-apple-authentication");
-        const available = await AppleAuth.isAvailableAsync();
-        setIsAppleAvailable(available);
-      } catch {
-        setIsAppleAvailable(false);
-      }
-    })();
-  }, []);
 
   const fetching = fetchStatus === "fetching";
   const showVerify =
@@ -259,12 +242,17 @@ export default function SignUpScreen() {
                 </Text>
               )}
 
-              {/* Apple SSO — shown on iOS only when native module is linked */}
-              {isAppleAvailable && (
+              {/* Apple SSO must remain visible as an equivalent iOS sign-in option.
+                  The next archive includes the matching native module, while an
+                  invalid archive fails visibly instead of silently hiding Apple. */}
+              {Platform.OS === "ios" && (
                 <TouchableOpacity
                   style={[styles.appleBtn, { opacity: appleLoading ? 0.7 : 1 }]}
                   onPress={onApplePress}
                   disabled={appleLoading}
+                  testID="sign-up-with-apple"
+                  accessibilityRole="button"
+                  accessibilityLabel="Sign in with Apple"
                 >
                   {appleLoading ? (
                     <ActivityIndicator color="#fff" />
@@ -272,7 +260,7 @@ export default function SignUpScreen() {
                     <>
                       <Ionicons name="logo-apple" size={20} color="#fff" />
                       <Text style={styles.appleBtnText}>
-                        Continue with Apple
+                        Sign in with Apple
                       </Text>
                     </>
                   )}

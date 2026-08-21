@@ -1,7 +1,7 @@
 /**
  * appleSSOFlow.test.tsx
  *
- * Verifies the "Continue with Apple" button in the sign-in and sign-up
+ * Verifies the visible "Sign in with Apple" button in the sign-in and sign-up
  * screens correctly wires up Clerk's Apple hooks and handles cancellation
  * gracefully.  The Apple button is iOS-only, so these tests temporarily
  * set Platform.OS to "ios".
@@ -47,12 +47,6 @@ jest.mock("expo-constants", () => ({
 
 jest.mock("expo-auth-session", () => ({
   makeRedirectUri: jest.fn(({ scheme }: { scheme: string }) => `${scheme}://`),
-}));
-
-// sign-in.tsx gates the Apple button behind isAvailableAsync(); resolve true
-// so the button renders in every test that exercises the sign-in screen.
-jest.mock("expo-apple-authentication", () => ({
-  isAvailableAsync: jest.fn().mockResolvedValue(true),
 }));
 
 // ─── sign-in: mock @clerk/expo/apple (native Apple auth sheet) ───────────────
@@ -129,7 +123,7 @@ const mockUseRouter = useRouter as jest.Mock;
 function findAppleButton(root: ReactTestInstance): ReactTestInstance {
   const label = root
     .findAllByType(Text)
-    .find((t) => t.props.children === "Continue with Apple");
+    .find((t) => t.props.children === "Sign in with Apple");
   expect(label).toBeDefined();
 
   let node: ReactTestInstance | null | undefined = label;
@@ -138,7 +132,7 @@ function findAppleButton(root: ReactTestInstance): ReactTestInstance {
     if (node.type === TouchableOpacity) return node;
   }
   throw new Error(
-    "Could not find TouchableOpacity wrapping 'Continue with Apple'",
+    "Could not find TouchableOpacity wrapping 'Sign in with Apple'",
   );
 }
 
@@ -178,7 +172,7 @@ describe("SignInScreen — Apple SSO", () => {
     jest.clearAllMocks();
   });
 
-  it('renders the "Continue with Apple" button on iOS', async () => {
+  it('renders the "Sign in with Apple" button on iOS', async () => {
     mockStartAppleAuthFlow.mockResolvedValue({});
 
     let renderer!: ReturnType<typeof create>;
@@ -188,7 +182,7 @@ describe("SignInScreen — Apple SSO", () => {
     await act(async () => {});
 
     const json = JSON.stringify(renderer.toJSON());
-    expect(json).toContain("Continue with Apple");
+    expect(json).toContain("Sign in with Apple");
   });
 
   it("calls startAppleAuthenticationFlow with no arguments", async () => {
@@ -343,7 +337,7 @@ describe("SignUpScreen — Apple SSO", () => {
     jest.clearAllMocks();
   });
 
-  it('renders the "Continue with Apple" button on iOS', async () => {
+  it('renders the "Sign in with Apple" button on iOS', async () => {
     mockStartAppleAuthFlow.mockResolvedValue({});
 
     let renderer!: ReturnType<typeof create>;
@@ -353,7 +347,7 @@ describe("SignUpScreen — Apple SSO", () => {
     await act(async () => {});
 
     const json = JSON.stringify(renderer.toJSON());
-    expect(json).toContain("Continue with Apple");
+    expect(json).toContain("Sign in with Apple");
   });
 
   it("calls startAppleAuthenticationFlow with no arguments", async () => {

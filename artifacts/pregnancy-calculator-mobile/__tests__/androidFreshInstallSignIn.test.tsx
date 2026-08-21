@@ -61,12 +61,6 @@ jest.mock("@clerk/expo/apple", () => ({
   })),
 }));
 
-// On Android the Apple authentication module is absent; isAvailableAsync must
-// return false so the Apple button stays hidden.
-jest.mock("expo-apple-authentication", () => ({
-  isAvailableAsync: jest.fn().mockResolvedValue(false),
-}));
-
 const mockSetActive = jest.fn();
 const mockPasswordFn = jest.fn();
 const mockStartSSOFlow = jest.fn();
@@ -342,7 +336,7 @@ describe("Android fresh install — email/password sign-in", () => {
     });
 
     const json = JSON.stringify(renderer.toJSON());
-    expect(json).not.toContain("Continue with Apple");
+    expect(json).not.toContain("Sign in with Apple");
   });
 });
 

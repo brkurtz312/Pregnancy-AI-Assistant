@@ -29,7 +29,7 @@ This verifies the `isCancelError` helper's `ERR_CANCELED` branch in the
 ### TC-1 — Dismiss Apple sheet from Sign-In (no error expected)
 
 1. Open the app and navigate to **Sign In** (`/(auth)/sign-in`).
-2. Tap **Continue with Apple**.
+2. Tap **Sign in with Apple**.
 3. When the native Apple Sign-In sheet appears, tap **Cancel** (top-left corner)
    or swipe the sheet down to dismiss it.
 4. **Expected:** The sheet closes and you are returned to the Sign-In screen.
@@ -39,7 +39,7 @@ This verifies the `isCancelError` helper's `ERR_CANCELED` branch in the
 ### TC-2 — Dismiss Apple sheet from Sign-Up (no error expected)
 
 1. Navigate to **Create Account** (`/(auth)/sign-up`).
-2. Tap **Continue with Apple**.
+2. Tap **Sign in with Apple**.
 3. Dismiss the Apple Sign-In sheet by tapping **Cancel** or swiping it down.
 4. **Expected:** Returned to the Sign-Up screen silently — no error message.
 5. **Pass/Fail:** \_\_\_
@@ -52,7 +52,7 @@ This verifies the `isCancelError` helper's `ERR_CANCELED` branch in the
 > [App Name] → Stop Using Apple ID**, then attempting sign-in.
 
 1. Revoke the app's Apple ID permission as described above.
-2. Return to the app and tap **Continue with Apple** on Sign-In or Sign-Up.
+2. Return to the app and tap **Sign in with Apple** on Sign-In or Sign-Up.
 3. Attempt to complete the sign-in flow.
 4. **Expected:** An error message is shown, e.g. _"Apple sign-in failed. Please
    try again."_
