@@ -59,6 +59,19 @@
         "expo-build-properties",
         {
           "ios": {
+            "useFrameworks": "dynamic",
+            "forceStaticLinking": [
+              "RNCAsyncStorage",
+              "RNDateTimePicker",
+              "RNGestureHandler",
+              "RNPurchases",
+              "RNReanimated",
+              "RNScreens",
+              "RNWorklets",
+              "react-native-keyboard-controller",
+              "react-native-netinfo",
+              "react-native-safe-area-context"
+            ],
             "extraPods": [
               {
                 "name": "AppCheckCore",
@@ -74,6 +87,12 @@
               }
             ]
           }
+        }
+      ],
+      [
+        "@clerk/expo",
+        {
+          "appleSignIn": true
         }
       ],
       "./plugins/withWatchExtension",

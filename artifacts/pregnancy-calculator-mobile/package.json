@@ -31,7 +31,6 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
-    "@clerk/expo": "^4.3.0",
     "@expo-google-fonts/inter": "^0.4.0",
     "@expo/cli": "54.0.23",
     "@expo/config-plugins": "~54.0.4",
@@ -86,6 +85,7 @@
     "zod-validation-error": "^3.4.0"
   },
   "dependencies": {
+    "@clerk/expo": "^4.3.0",
     "@react-native-community/datetimepicker": "^8.4.4",
     "@react-native-community/netinfo": "11.4.1",
     "@workspace/learn-content-ids": "workspace:*",
