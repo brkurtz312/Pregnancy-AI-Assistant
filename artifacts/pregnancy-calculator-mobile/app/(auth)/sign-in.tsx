@@ -365,6 +365,18 @@ export default function SignInScreen() {
             )}
           </TouchableOpacity>
 
+          <TouchableOpacity
+            style={styles.resetLink}
+            onPress={() => router.push("/forgot-password")}
+            testID="forgot-password"
+            accessibilityRole="button"
+            accessibilityLabel="Forgot password"
+          >
+            <Text style={[styles.footerLink, { color: colors.primary }]}>
+              Forgot password?
+            </Text>
+          </TouchableOpacity>
+
           <View style={styles.footerRow}>
             <Text
               style={[styles.footerText, { color: colors.mutedForeground }]}
@@ -479,6 +491,11 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontFamily: "Inter_600SemiBold",
+  },
+  resetLink: {
+    alignSelf: "center",
+    paddingVertical: 8,
+    marginTop: 2,
   },
   footerRow: {
     flexDirection: "row",
