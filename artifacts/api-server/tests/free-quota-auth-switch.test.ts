@@ -22,8 +22,10 @@ vi.mock("@workspace/integrations-anthropic-ai", () => ({
 }));
 
 const getUserId = vi.fn<(req: Request) => string | null>(() => null);
+const ensureActiveAccount = vi.fn(async (_userId: string) => true);
 vi.mock("../src/middlewares/auth", () => ({
   getUserId: (req: Request) => getUserId(req),
+  ensureActiveAccount: (userId: string) => ensureActiveAccount(userId),
   requireAuth: (_req: Request, _res: Response, next: NextFunction) => next(),
 }));
 
@@ -83,6 +85,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   isAnthropicConfigured.mockReturnValue(true);
   getUserId.mockReturnValue(null);
+  ensureActiveAccount.mockResolvedValue(true);
   userHasPass.mockResolvedValue(false);
   reserveUsage.mockResolvedValue({ reserved: true, count: 1 });
   refundUsage.mockResolvedValue(undefined);

@@ -21,7 +21,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { db, scribeIdempotencyKeysTable } from "@workspace/db";
+import { db, scribeIdempotencyKeysTable, usersTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import express, {
   type Request,
@@ -138,6 +138,10 @@ async function cleanTestRows(): Promise<void> {
     .where(eq(scribeIdempotencyKeysTable.userId, TEST_USER));
 }
 
+async function provisionTestUser(userId: string): Promise<void> {
+  await db.insert(usersTable).values({ id: userId }).onConflictDoNothing();
+}
+
 // ─── Setup / teardown ─────────────────────────────────────────────────────────
 
 beforeEach(async () => {
@@ -148,6 +152,7 @@ beforeEach(async () => {
   _clearIdempotencyCache();
   // Remove any rows left over from a previous run.
   await cleanTestRows();
+  await provisionTestUser(TEST_USER);
   // Defaults for route-level tests.
   mockUserHasPass.mockResolvedValue(false);
   mockReserveUsage.mockResolvedValue({ reserved: true, count: 1 });
@@ -272,6 +277,7 @@ describe("scribe-idempotency — DB-backed cross-instance durability (integratio
   it("the same key for a different userId is a distinct row (cross-user isolation)", async () => {
     const KEY = "integ-user-isolation-005";
     const OTHER_USER = `${TEST_USER}_other`;
+    await provisionTestUser(OTHER_USER);
 
     // Instance A commits for TEST_USER.
     const { commit } = beginIdempotency(KEY, TEST_USER);
@@ -288,6 +294,7 @@ describe("scribe-idempotency — DB-backed cross-instance durability (integratio
       await db
         .delete(scribeIdempotencyKeysTable)
         .where(eq(scribeIdempotencyKeysTable.userId, OTHER_USER));
+      await db.delete(usersTable).where(eq(usersTable.id, OTHER_USER));
     }
   });
 

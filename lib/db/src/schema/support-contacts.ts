@@ -1,10 +1,15 @@
 import { pgTable, text, timestamp, uuid, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { usersTable } from "./users";
 
 export const supportContactsTable = pgTable("support_contacts", {
   id: uuid("id").primaryKey().defaultRandom(),
-  userId: text("user_id").notNull(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => usersTable.id, {
+      onDelete: "cascade",
+    }),
   firstName: text("first_name").notNull(),
   role: text("role").notNull(),
   phone: text("phone").notNull(),

@@ -9,12 +9,17 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import { sql } from "drizzle-orm";
 import { z } from "zod/v4";
+import { usersTable } from "./users";
 
 export const contractionLogsTable = pgTable(
   "contraction_logs",
   {
     id: serial("id").primaryKey(),
-    userId: text("user_id").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => usersTable.id, {
+        onDelete: "cascade",
+      }),
     startedAt: timestamp("started_at").notNull(),
     endedAt: timestamp("ended_at"),
     durationSeconds: integer("duration_seconds"),

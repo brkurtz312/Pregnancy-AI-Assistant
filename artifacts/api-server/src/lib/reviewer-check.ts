@@ -1,9 +1,15 @@
-import { db, appConfigTable, usersTable } from "@workspace/db";
+import {
+  accountDeletionRequestsTable,
+  appConfigTable,
+  db,
+  usersTable,
+} from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { logger } from "./logger";
 
 export type ReviewerCheckReason =
   | "no_demo_user_id"
+  | "deleted_account"
   | "user_missing"
   | "pass_revoked";
 
@@ -150,21 +156,54 @@ export async function runReviewerPassCheck(): Promise<ReviewerCheckResult> {
     });
   }
 
-  // 2. Look up the user row
-  const [user] = await db
-    .select()
-    .from(usersTable)
-    .where(eq(usersTable.id, demoUserId));
+  // Serialize all reviewer-account provisioning with account deletion. A
+  // completed tombstone is permanent: intentionally deleted reviewer accounts
+  // must be provisioned with a new Clerk ID, never silently restored here.
+  const accountState = await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtext(${demoUserId}))`,
+    );
+    const [tombstone] = await tx
+      .select({ userId: accountDeletionRequestsTable.userId })
+      .from(accountDeletionRequestsTable)
+      .where(eq(accountDeletionRequestsTable.userId, demoUserId))
+      .limit(1);
+    if (tombstone) return "deleted" as const;
 
-  if (!user) {
-    // User row is missing — upsert with hasPass: true
-    await db
-      .insert(usersTable)
-      .values({ id: demoUserId, hasPass: true })
-      .onConflictDoUpdate({
-        target: usersTable.id,
-        set: { hasPass: true, updatedAt: sql`now()` },
-      });
+    const [user] = await tx
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, demoUserId))
+      .limit(1);
+    if (!user) {
+      await tx.insert(usersTable).values({ id: demoUserId, hasPass: true });
+      return "missing" as const;
+    }
+    if (!user.hasPass) {
+      await tx
+        .update(usersTable)
+        .set({ hasPass: true, updatedAt: sql`now()` })
+        .where(eq(usersTable.id, demoUserId));
+      return "revoked" as const;
+    }
+    return "ok" as const;
+  });
+
+  if (accountState === "deleted") {
+    logger.warn(
+      { demoUserId },
+      "Reviewer demo account has a deletion tombstone; skipping pass healing",
+    );
+    return record({
+      ok: false,
+      demoUserId,
+      healed: false,
+      timestamp,
+      reason: "deleted_account",
+    });
+  }
+
+  if (accountState === "missing") {
     logger.warn(
       { demoUserId },
       "Demo user row was missing; created with hasPass=true",
@@ -178,12 +217,7 @@ export async function runReviewerPassCheck(): Promise<ReviewerCheckResult> {
     });
   }
 
-  if (!user.hasPass) {
-    // Pass was revoked — restore it
-    await db
-      .update(usersTable)
-      .set({ hasPass: true, updatedAt: sql`now()` })
-      .where(eq(usersTable.id, demoUserId));
+  if (accountState === "revoked") {
     logger.warn({ demoUserId }, "Demo user hasPass was false; healed to true");
     return record({
       ok: false,

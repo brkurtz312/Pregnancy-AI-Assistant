@@ -16,6 +16,7 @@
     "check-whats-new": "tsx ./src/check-whats-new.ts",
     "set-alert-config": "tsx ./src/set-alert-config.ts",
     "smoke-test-alert": "tsx ./src/smoke-test-alert.ts",
+    "migrate-deletion-integrity": "tsx ./src/migrate-deletion-integrity.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },

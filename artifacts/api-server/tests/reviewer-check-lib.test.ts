@@ -34,11 +34,45 @@ const dbDeleteImpl = vi.fn(async () => []);
 vi.mock("@workspace/db", () => {
   const appConfigTable = { key: "key" };
   const usersTable = { id: "id" };
+  const accountDeletionRequestsTable = { userId: "userId" };
+  const transaction = async (
+    callback: (tx: {
+      execute: () => Promise<void>;
+      select: () => {
+        from: (table: unknown) => {
+          where: () => {
+            limit: () => Promise<unknown[]>;
+          };
+        };
+      };
+      insert: () => { values: () => Promise<unknown[]> };
+      update: () => {
+        set: () => { where: () => Promise<unknown[]> };
+      };
+    }) => Promise<unknown>,
+  ) =>
+    callback({
+      execute: async () => {},
+      select: () => ({
+        from: (table: unknown) => ({
+          where: () => ({
+            limit: () =>
+              table === accountDeletionRequestsTable
+                ? Promise.resolve([])
+                : dbSelectImpl(),
+          }),
+        }),
+      }),
+      insert: () => ({ values: () => dbInsertUsersImpl() }),
+      update: () => ({ set: () => ({ where: () => dbUpdateImpl() }) }),
+    });
 
   return {
     appConfigTable,
     usersTable,
+    accountDeletionRequestsTable,
     db: {
+      transaction,
       select: () => ({
         from: () => ({
           where: () => dbSelectImpl(),

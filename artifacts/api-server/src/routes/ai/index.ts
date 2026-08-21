@@ -20,7 +20,7 @@ import {
   getClientIp,
 } from "../../lib/rate-limit";
 import { TtlCache } from "../../lib/ttl-cache";
-import { getUserId } from "../../middlewares/auth";
+import { ensureActiveAccount, getUserId } from "../../middlewares/auth";
 import { userHasPass } from "../../lib/entitlement";
 import {
   currentPeriodKey,
@@ -86,6 +86,10 @@ router.post("/ai/ask", async (req, res): Promise<void> => {
   // free allowance keyed to their account when signed in, or their IP when
   // anonymous. The per-IP burst/daily limiters above still apply on top.
   const userId = getUserId(req);
+  if (userId && !(await ensureActiveAccount(userId))) {
+    res.status(410).json({ error: "This account is no longer available." });
+    return;
+  }
   const periodKey = currentPeriodKey();
   let meteredIdentifier: string | null = null;
   if (!(userId && (await userHasPass(userId)))) {
@@ -99,6 +103,7 @@ router.post("/ai/ask", async (req, res): Promise<void> => {
       meteredIdentifier,
       periodKey,
       FREE_WEEKLY_LIMIT,
+      userId ?? undefined,
     );
     if (!reserved) {
       res.status(403).json({

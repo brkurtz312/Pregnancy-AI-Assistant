@@ -6,6 +6,7 @@ import {
   index,
   primaryKey,
 } from "drizzle-orm/pg-core";
+import { usersTable } from "./users";
 
 /**
  * Persisted idempotency cache for /scribe/generate-note.
@@ -22,7 +23,11 @@ export const scribeIdempotencyKeysTable = pgTable(
   "scribe_idempotency_keys",
   {
     idempotencyKey: text("idempotency_key").notNull(),
-    userId: text("user_id").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => usersTable.id, {
+        onDelete: "cascade",
+      }),
     response: jsonb("response").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   },

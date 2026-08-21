@@ -8,16 +8,107 @@ import express, {
 import request from "supertest";
 
 const deletedRows: Array<{ table: string; value: string }> = [];
+const deletionRequests = new Map<
+  string,
+  {
+    userId: string;
+    status: string;
+    attemptCount: number;
+    nextAttemptAt: Date;
+    lastAttemptAt?: Date;
+    lastError?: string | null;
+    completedAt?: Date;
+    clerkDeletedAt?: Date;
+  }
+>();
+
+function conditionValue(condition: unknown): string | undefined {
+  if (
+    condition &&
+    typeof condition === "object" &&
+    "value" in condition &&
+    typeof condition.value === "string"
+  ) {
+    return condition.value;
+  }
+  return undefined;
+}
+
+function userIdFromCondition(condition: unknown): string | undefined {
+  const conditions =
+    condition &&
+    typeof condition === "object" &&
+    "conditions" in condition &&
+    Array.isArray(condition.conditions)
+      ? condition.conditions
+      : [condition];
+  return conditions
+    .map(conditionValue)
+    .find((value) => value?.startsWith("user_"));
+}
+
+function selectDeletionRequests(condition: unknown) {
+  const conditions =
+    condition &&
+    typeof condition === "object" &&
+    "conditions" in condition &&
+    Array.isArray(condition.conditions)
+      ? condition.conditions
+      : [condition];
+  const requestedUserId = userIdFromCondition(condition);
+  const dueAt = conditions.find(
+    (item) =>
+      item &&
+      typeof item === "object" &&
+      "operator" in item &&
+      item.operator === "lte" &&
+      "value" in item &&
+      item.value instanceof Date,
+  ) as { value: Date } | undefined;
+  const requests = requestedUserId
+    ? [deletionRequests.get(requestedUserId)].filter(
+        (request): request is NonNullable<typeof request> => !!request,
+      )
+    : [...deletionRequests.values()].filter(
+        (request) =>
+          request.status === "pending" &&
+          (!dueAt || request.nextAttemptAt <= dueAt.value),
+      );
+  return {
+    limit: async (count: number) => requests.slice(0, count),
+  };
+}
+
 const dbTransaction = vi.fn(
-  async (callback: (tx: unknown) => Promise<void>) => {
+  async (callback: (tx: unknown) => Promise<unknown>) => {
     const tx = {
+      select: () => ({
+        from: () => ({
+          where: (condition: unknown) => selectDeletionRequests(condition),
+        }),
+      }),
+      insert: (insertedTable: { name: string }) => ({
+        values: (values: { userId: string; status: string }) => ({
+          onConflictDoNothing: async () => {
+            if (insertedTable.name === "account_deletion_requests") {
+              deletionRequests.set(values.userId, {
+                userId: values.userId,
+                status: values.status,
+                attemptCount: 0,
+                nextAttemptAt: new Date(0),
+              });
+            }
+          },
+        }),
+      }),
+      execute: async () => {},
       delete: (table: { name: string }) => ({
         where: async (condition: { value: string }) => {
           deletedRows.push({ table: table.name, value: condition.value });
         },
       }),
     };
-    await callback(tx);
+    return callback(tx);
   },
 );
 
@@ -29,8 +120,24 @@ vi.mock("@workspace/db", () => ({
   db: {
     transaction: (...args: Parameters<typeof dbTransaction>) =>
       dbTransaction(...args),
+    select: () => ({
+      from: () => ({
+        where: (condition: unknown) => selectDeletionRequests(condition),
+      }),
+    }),
+    update: () => ({
+      set: (values: Record<string, unknown>) => ({
+        where: async (condition: unknown) => {
+          const userId = userIdFromCondition(condition);
+          if (!userId) return;
+          const request = deletionRequests.get(userId);
+          if (request) Object.assign(request, values);
+        },
+      }),
+    }),
   },
   aiUsageTable: table("ai_usage", "identifier"),
+  accountDeletionRequestsTable: table("account_deletion_requests", "userId"),
   birthPlanAnswersTable: table("birth_plan_answers"),
   contractionLogsTable: table("contraction_logs"),
   hospitalBagStateTable: table("hospital_bag_state"),
@@ -45,7 +152,10 @@ vi.mock("@workspace/db", () => ({
 }));
 
 vi.mock("drizzle-orm", () => ({
-  eq: (_column: string, value: string) => ({ value }),
+  eq: (column: string, value: string) => ({ column, value }),
+  and: (...conditions: unknown[]) => ({ conditions }),
+  lte: (_column: unknown, value: Date) => ({ operator: "lte", value }),
+  sql: () => ({}),
 }));
 
 const deleteClerkUser = vi.fn(async () => {});
@@ -65,7 +175,11 @@ vi.mock("../src/middlewares/auth", () => ({
   },
 }));
 
-import { deleteAccount } from "../src/lib/account-deletion";
+import {
+  deleteAccount,
+  isAccountDeletionBlocked,
+  retryPendingAccountDeletions,
+} from "../src/lib/account-deletion";
 import accountRouter from "../src/routes/account";
 
 function buildApp(): Express {
@@ -82,13 +196,14 @@ describe("permanent account deletion", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     deletedRows.length = 0;
+    deletionRequests.clear();
     authedUserId = "user_a";
   });
 
   it("removes every app-owned record only for the requested user, then deletes that Clerk identity", async () => {
     await deleteAccount("user_a");
 
-    expect(deletedRows).toHaveLength(12);
+    expect(deletedRows).toHaveLength(13);
     expect(deletedRows.map((row) => row.value)).toEqual([
       "user_a",
       "user_a",
@@ -101,10 +216,14 @@ describe("permanent account deletion", () => {
       "user_a",
       "user_a",
       "user:user_a",
+      "scribe:user_a",
       "user_a",
     ]);
     expect(deletedRows.some((row) => row.value.includes("user_b"))).toBe(false);
     expect(deleteClerkUser).toHaveBeenCalledWith("user_a");
+    expect(deletionRequests.get("user_a")).toMatchObject({
+      status: "completed",
+    });
   });
 
   it("treats an already-deleted Clerk identity as a completed retry", async () => {
@@ -114,7 +233,44 @@ describe("permanent account deletion", () => {
     });
 
     await expect(deleteAccount("user_a")).resolves.toBeUndefined();
-    expect(deletedRows).toHaveLength(12);
+    expect(deletedRows).toHaveLength(13);
+    expect(deletionRequests.get("user_a")).toMatchObject({
+      status: "completed",
+    });
+  });
+
+  it("keeps a tombstone after a lost Clerk response, blocks app access, and completes on the worker retry", async () => {
+    // Clerk accepted the first deletion but the API connection timed out before
+    // receiving a response. Its retry reports 404 because the identity is gone.
+    deleteClerkUser.mockRejectedValueOnce(new Error("upstream timeout"));
+
+    await expect(deleteAccount("user_a")).rejects.toThrow("upstream timeout");
+    expect(deletionRequests.get("user_a")).toMatchObject({
+      status: "pending",
+      attemptCount: 1,
+      lastError: "upstream timeout",
+    });
+    await expect(isAccountDeletionBlocked("user_a")).resolves.toBe(true);
+    await retryPendingAccountDeletions();
+    expect(deleteClerkUser).toHaveBeenCalledTimes(1);
+
+    const request = deletionRequests.get("user_a");
+    if (!request) throw new Error("Expected a pending account deletion");
+    request.nextAttemptAt = new Date();
+
+    deleteClerkUser.mockRejectedValueOnce({
+      status: 404,
+      errors: [{ code: "resource_not_found" }],
+    });
+    await retryPendingAccountDeletions();
+
+    expect(deleteClerkUser).toHaveBeenCalledTimes(2);
+    expect(deletionRequests.get("user_a")).toMatchObject({
+      status: "completed",
+      lastError: null,
+    });
+    // Completed tombstones are retained so a stale session cannot recreate data.
+    await expect(isAccountDeletionBlocked("user_a")).resolves.toBe(true);
   });
 
   it("does not delete the Clerk identity when the app-data transaction fails", async () => {

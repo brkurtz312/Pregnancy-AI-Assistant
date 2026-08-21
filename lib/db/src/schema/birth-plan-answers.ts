@@ -1,8 +1,14 @@
 import { pgTable, text, timestamp, uuid, json } from "drizzle-orm/pg-core";
+import { usersTable } from "./users";
 
 export const birthPlanAnswersTable = pgTable("birth_plan_answers", {
   id: uuid("id").primaryKey().defaultRandom(),
-  userId: text("user_id").notNull().unique(),
+  userId: text("user_id")
+    .notNull()
+    .unique()
+    .references(() => usersTable.id, {
+      onDelete: "cascade",
+    }),
   answers: json("answers").notNull(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

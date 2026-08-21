@@ -15,17 +15,22 @@
  *      while rows with NULL watch_session_id are unconstrained.
  */
 
-import { describe, it, expect, afterAll } from "vitest";
+import { describe, it, expect, afterAll, beforeAll } from "vitest";
 import { sql } from "drizzle-orm";
-import { db, kickSessionsTable } from "@workspace/db";
+import { db, kickSessionsTable, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 const TEST_USER = `test_watch_idem_${Date.now()}`;
+
+beforeAll(async () => {
+  await db.insert(usersTable).values({ id: TEST_USER }).onConflictDoNothing();
+});
 
 afterAll(async () => {
   await db
     .delete(kickSessionsTable)
     .where(eq(kickSessionsTable.userId, TEST_USER));
+  await db.delete(usersTable).where(eq(usersTable.id, TEST_USER));
 });
 
 describe("kick_sessions.watch_session_id — schema", () => {

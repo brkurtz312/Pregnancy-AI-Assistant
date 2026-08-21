@@ -23,8 +23,10 @@ vi.mock("@workspace/integrations-anthropic-ai", () => ({
 }));
 
 const getUserId = vi.fn<(req: Request) => string | null>(() => null);
+const ensureActiveAccount = vi.fn(async (_userId: string) => true);
 vi.mock("../src/middlewares/auth", () => ({
   getUserId: (req: Request) => getUserId(req),
+  ensureActiveAccount: (userId: string) => ensureActiveAccount(userId),
   requireAuth: (_req: Request, _res: Response, next: NextFunction) => next(),
 }));
 
@@ -117,6 +119,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   isAnthropicConfigured.mockReturnValue(true);
   getUserId.mockReturnValue(null);
+  ensureActiveAccount.mockResolvedValue(true);
   userHasPass.mockResolvedValue(false);
   reserveUsage.mockResolvedValue({ reserved: true, count: 1 });
   refundUsage.mockResolvedValue(undefined);
@@ -169,6 +172,17 @@ describe("POST /api/ai/ask free-question gating", () => {
     const res = await ask({ question: "Is sushi safe?" });
     expect(res.status).toBe(200);
     expect(reserveUsage.mock.calls[0][0]).toBe("user:user_123");
+  });
+
+  it("rejects a signed-in account after deletion starts before it can use AI", async () => {
+    getUserId.mockReturnValue("user_deleted");
+    ensureActiveAccount.mockResolvedValue(false);
+
+    const res = await ask({ question: "Is sushi safe?" });
+
+    expect(res.status).toBe(410);
+    expect(anthropicCreate).not.toHaveBeenCalled();
+    expect(reserveUsage).not.toHaveBeenCalled();
   });
 
   it("lets a pass holder through even when over the free limit, without metering", async () => {

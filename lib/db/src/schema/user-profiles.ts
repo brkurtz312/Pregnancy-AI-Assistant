@@ -1,9 +1,12 @@
 import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { usersTable } from "./users";
 
 export const userProfilesTable = pgTable("user_profiles", {
-  userId: text("user_id").primaryKey(),
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => usersTable.id, { onDelete: "cascade" }),
   firstName: text("first_name"),
   zipCode: text("zip_code"),
   dueDate: text("due_date"),

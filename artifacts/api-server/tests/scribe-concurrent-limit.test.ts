@@ -43,7 +43,7 @@ vi.mock("../src/middlewares/auth", () => ({
 
 // ─── Imports (after mocks) ───────────────────────────────────────────────────
 
-import { db, aiUsageTable } from "@workspace/db";
+import { db, aiUsageTable, usersTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import { reserveUsage } from "../src/lib/ai-usage";
 import scribeRouter from "../src/routes/scribe/index";
@@ -54,6 +54,10 @@ const TEST_IDENTIFIER = "scribe:user_concurrent_test";
 const PERIOD_KEY = "all-time";
 
 async function cleanupTestRow() {
+  await db
+    .insert(usersTable)
+    .values({ id: "user_concurrent_test" })
+    .onConflictDoNothing();
   await db
     .delete(aiUsageTable)
     .where(

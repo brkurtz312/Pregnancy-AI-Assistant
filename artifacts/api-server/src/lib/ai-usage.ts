@@ -39,13 +39,19 @@ export async function getUsage(
 export async function incrementUsage(
   identifier: string,
   periodKey: string,
+  userId?: string,
 ): Promise<number> {
+  const set = {
+    count: sql`${aiUsageTable.count} + 1`,
+    updatedAt: sql`now()`,
+    ...(userId ? { userId } : {}),
+  };
   const [row] = await db
     .insert(aiUsageTable)
-    .values({ identifier, periodKey, count: 1 })
+    .values({ identifier, periodKey, count: 1, userId })
     .onConflictDoUpdate({
       target: [aiUsageTable.identifier, aiUsageTable.periodKey],
-      set: { count: sql`${aiUsageTable.count} + 1`, updatedAt: sql`now()` },
+      set,
     })
     .returning({ count: aiUsageTable.count });
   return row?.count ?? 0;
@@ -67,14 +73,20 @@ export async function reserveUsage(
   identifier: string,
   periodKey: string,
   limit: number,
+  userId?: string,
 ): Promise<{ reserved: boolean; count: number }> {
   if (limit <= 0) return { reserved: false, count: 0 };
+  const set = {
+    count: sql`${aiUsageTable.count} + 1`,
+    updatedAt: sql`now()`,
+    ...(userId ? { userId } : {}),
+  };
   const [row] = await db
     .insert(aiUsageTable)
-    .values({ identifier, periodKey, count: 1 })
+    .values({ identifier, periodKey, count: 1, userId })
     .onConflictDoUpdate({
       target: [aiUsageTable.identifier, aiUsageTable.periodKey],
-      set: { count: sql`${aiUsageTable.count} + 1`, updatedAt: sql`now()` },
+      set,
       // Only consume quota while still under the limit. When the row already
       // sits at/above the limit this WHERE is false, the UPDATE is skipped, no
       // row is returned, and the reservation is denied.

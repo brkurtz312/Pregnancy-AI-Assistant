@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { initStripe } from "./lib/stripe-init";
 import { startReviewerCheckScheduler } from "./lib/reviewer-check-scheduler";
+import { startAccountDeletionWorker } from "./lib/account-deletion";
 
 const rawPort = process.env["PORT"];
 
@@ -36,3 +37,4 @@ app.listen(port, (err) => {
 // Alerts are dispatched via Slack / Resend when a failure is detected.
 // Set REVIEWER_CHECK_INTERVAL_MS=0 to disable (e.g. in unit-test environments).
 startReviewerCheckScheduler();
+startAccountDeletionWorker();

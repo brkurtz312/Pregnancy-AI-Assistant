@@ -5,6 +5,7 @@ import {
   timestamp,
   primaryKey,
 } from "drizzle-orm/pg-core";
+import { usersTable } from "./users";
 
 /**
  * Per-period free AI question metering.
@@ -18,6 +19,9 @@ export const aiUsageTable = pgTable(
   "ai_usage",
   {
     identifier: text("identifier").notNull(),
+    userId: text("user_id").references(() => usersTable.id, {
+      onDelete: "cascade",
+    }),
     periodKey: text("period_key").notNull(),
     count: integer("count").notNull().default(0),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),

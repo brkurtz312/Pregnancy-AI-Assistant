@@ -204,6 +204,7 @@ router.post(
           `scribe:${userId}`,
           "all-time",
           FREE_SCRIBE_LIMIT,
+          userId,
         );
         if (!reserved) {
           // 403s are not cached — abort so retries attempt a fresh check.
