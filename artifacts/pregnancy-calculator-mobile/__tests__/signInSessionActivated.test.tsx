@@ -89,8 +89,9 @@ function buildDefaults(overrides: {
   const passwordFn = jest.fn(
     overrides.passwordImpl ?? (() => Promise.resolve({ error: null })),
   );
+  const push = jest.fn();
 
-  mockUseRouter.mockReturnValue({ dismissAll, back: jest.fn() });
+  mockUseRouter.mockReturnValue({ dismissAll, back: jest.fn(), push });
   mockUseClerk.mockReturnValue({ setActive });
   mockUseSSO.mockReturnValue({ startSSOFlow: jest.fn() });
   mockUseSignInWithApple.mockReturnValue({
@@ -105,7 +106,7 @@ function buildDefaults(overrides: {
     fetchStatus: "idle",
   });
 
-  return { dismissAll, setActive, passwordFn };
+  return { dismissAll, setActive, passwordFn, push };
 }
 
 function renderScreen() {
@@ -165,6 +166,17 @@ describe("Sign-in screen — sessionActivated fix", () => {
     const json = JSON.stringify(renderer.toJSON());
     expect(json).not.toContain("Sign-in failed");
     expect(json).not.toContain("Password is incorrect");
+  });
+
+  it("opens password recovery from the forgot-password link", async () => {
+    const { push } = buildDefaults({});
+    const renderer = renderScreen();
+
+    await act(async () => {
+      renderer.root.findByProps({ testID: "forgot-password" }).props.onPress();
+    });
+
+    expect(push).toHaveBeenCalledWith("/forgot-password");
   });
 
   it("navigates away when a stale Clerk 400 fires after setActive already succeeded", async () => {

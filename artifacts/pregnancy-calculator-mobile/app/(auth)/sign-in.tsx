@@ -341,6 +341,18 @@ export default function SignInScreen() {
             returnKeyType="go"
           />
 
+          <TouchableOpacity
+            style={styles.resetLink}
+            onPress={() => router.push("/forgot-password")}
+            testID="forgot-password"
+            accessibilityRole="button"
+            accessibilityLabel="Forgot password"
+          >
+            <Text style={[styles.footerLink, { color: colors.primary }]}>
+              Forgot password?
+            </Text>
+          </TouchableOpacity>
+
           {errorText && (
             <Text style={[styles.error, { color: colors.destructive }]}>
               {errorText}
@@ -363,18 +375,6 @@ export default function SignInScreen() {
             ) : (
               <Text style={styles.primaryBtnText}>Sign In</Text>
             )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.resetLink}
-            onPress={() => router.push("/forgot-password")}
-            testID="forgot-password"
-            accessibilityRole="button"
-            accessibilityLabel="Forgot password"
-          >
-            <Text style={[styles.footerLink, { color: colors.primary }]}>
-              Forgot password?
-            </Text>
           </TouchableOpacity>
 
           <View style={styles.footerRow}>
