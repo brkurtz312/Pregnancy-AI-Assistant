@@ -267,12 +267,14 @@ describe("Android fresh install — browser warm-up", () => {
 
 describe("Android fresh install — email/password sign-in", () => {
   let dismissAll: jest.Mock;
+  let replace: jest.Mock;
   let back: jest.Mock;
 
   beforeEach(() => {
     dismissAll = jest.fn();
+    replace = jest.fn();
     back = jest.fn();
-    mockUseRouter.mockReturnValue({ dismissAll, back, replace: jest.fn() });
+    mockUseRouter.mockReturnValue({ dismissAll, back, replace });
     mockSetActive.mockReset();
     mockPasswordFn.mockReset();
     mockSignInObj.createdSessionId = null;
@@ -289,7 +291,7 @@ describe("Android fresh install — email/password sign-in", () => {
     jest.clearAllMocks();
   });
 
-  it("calls setActive and dismisses the screen on correct credentials (Android fresh install)", async () => {
+  it("calls setActive and opens the app on correct credentials (Android fresh install)", async () => {
     mockSignInObj.createdSessionId = "sess_android_001";
     mockPasswordFn.mockResolvedValue({ error: null });
     mockSetActive.mockResolvedValue(undefined);
@@ -307,7 +309,7 @@ describe("Android fresh install — email/password sign-in", () => {
       password: "securePass1!",
     });
     expect(mockSetActive).toHaveBeenCalledWith({ session: "sess_android_001" });
-    expect(dismissAll).toHaveBeenCalled();
+    expect(replace).toHaveBeenCalledWith("/");
   });
 
   it("shows an error and does NOT navigate when credentials are wrong on Android", async () => {
@@ -342,12 +344,14 @@ describe("Android fresh install — email/password sign-in", () => {
 
 describe("Android fresh install — Google SSO flow", () => {
   let dismissAll: jest.Mock;
+  let replace: jest.Mock;
   let back: jest.Mock;
 
   beforeEach(() => {
     dismissAll = jest.fn();
+    replace = jest.fn();
     back = jest.fn();
-    mockUseRouter.mockReturnValue({ dismissAll, back, replace: jest.fn() });
+    mockUseRouter.mockReturnValue({ dismissAll, back, replace });
     mockUseSignIn.mockReturnValue({
       signIn: mockSignInObj,
       errors: { fields: {} },
@@ -394,7 +398,7 @@ describe("Android fresh install — Google SSO flow", () => {
     expect(call.redirectUrl).toBe("pregnancy-calculator-mobile://");
   });
 
-  it("calls setActive and dismissAll when Chrome Custom Tabs OAuth completes successfully", async () => {
+  it("calls setActive and opens the app when Chrome Custom Tabs OAuth completes successfully", async () => {
     const setActive = jest.fn().mockResolvedValue(undefined);
     mockStartSSOFlow.mockResolvedValue({
       createdSessionId: "sess_android_google_001",
@@ -414,7 +418,7 @@ describe("Android fresh install — Google SSO flow", () => {
     expect(setActive).toHaveBeenCalledWith({
       session: "sess_android_google_001",
     });
-    expect(dismissAll).toHaveBeenCalled();
+    expect(replace).toHaveBeenCalledWith("/");
   });
 
   it("does NOT show an error when the user presses back in Chrome Custom Tabs (user_cancel)", async () => {

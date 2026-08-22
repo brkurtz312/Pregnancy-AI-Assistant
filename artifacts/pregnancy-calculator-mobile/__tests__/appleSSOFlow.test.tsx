@@ -140,6 +140,7 @@ function findAppleButton(root: ReactTestInstance): ReactTestInstance {
 
 describe("SignInScreen — Apple SSO", () => {
   let dismissAll: jest.Mock;
+  let replace: jest.Mock;
   let back: jest.Mock;
   let originalOS: typeof Platform.OS;
 
@@ -157,8 +158,9 @@ describe("SignInScreen — Apple SSO", () => {
 
   beforeEach(() => {
     dismissAll = jest.fn();
+    replace = jest.fn();
     back = jest.fn();
-    mockUseRouter.mockReturnValue({ dismissAll, back });
+    mockUseRouter.mockReturnValue({ dismissAll, back, replace });
     mockUseSSO.mockReturnValue({ startSSOFlow: jest.fn() });
     mockUseSignIn.mockReturnValue({
       signIn: mockSignIn,
@@ -208,7 +210,7 @@ describe("SignInScreen — Apple SSO", () => {
     expect(mockStartAppleAuthFlow).toHaveBeenCalledWith(/* no args */);
   });
 
-  it("calls setActive and dismissAll when Apple SSO returns a session", async () => {
+  it("calls setActive and opens the app when Apple SSO returns a session", async () => {
     const setActive = jest.fn().mockResolvedValue(undefined);
     mockStartAppleAuthFlow.mockResolvedValue({
       createdSessionId: "sess_apple_123",
@@ -227,7 +229,7 @@ describe("SignInScreen — Apple SSO", () => {
     });
 
     expect(setActive).toHaveBeenCalledWith({ session: "sess_apple_123" });
-    expect(dismissAll).toHaveBeenCalled();
+    expect(replace).toHaveBeenCalledWith("/");
   });
 
   it("does NOT show an error when the Apple sheet is dismissed (ERR_CANCELED)", async () => {

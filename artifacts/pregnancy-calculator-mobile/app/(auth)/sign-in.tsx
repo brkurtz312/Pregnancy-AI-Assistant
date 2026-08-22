@@ -3,7 +3,7 @@ import { useSignInWithApple } from "@clerk/expo/apple";
 import { Ionicons } from "@expo/vector-icons";
 import * as AuthSession from "expo-auth-session";
 import Constants from "expo-constants";
-import { useRouter } from "expo-router";
+import { type Href, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -87,7 +87,7 @@ export default function SignInScreen() {
       if (setActive && signIn.createdSessionId) {
         await setActive({ session: signIn.createdSessionId });
         sessionActivated.current = true;
-        router.dismissAll();
+        router.replace("/" as Href);
       } else {
         setNotice(
           "Sign-in could not be completed. " +
@@ -100,7 +100,7 @@ export default function SignInScreen() {
       // request after setActive succeeds, returning 400. If we already
       // activated the session, navigate away and ignore the stale error.
       if (sessionActivated.current) {
-        router.dismissAll();
+        router.replace("/" as Href);
         return;
       }
       console.error("Sign-in error:", JSON.stringify(err, null, 2));
@@ -137,7 +137,7 @@ export default function SignInScreen() {
 
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
-        router.dismissAll();
+        router.replace("/" as Href);
       } else {
         setNotice("Sign-in could not be completed — please try again.");
       }
@@ -172,7 +172,7 @@ export default function SignInScreen() {
 
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
-        router.dismissAll();
+        router.replace("/" as Href);
       }
       // null createdSessionId means the user cancelled the native Apple sheet
       // (Clerk resolves rather than rejects on cancellation in the native flow).

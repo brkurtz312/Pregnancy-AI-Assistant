@@ -1,6 +1,6 @@
 import { useClerk, useSignIn } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { type Href, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -131,7 +131,7 @@ export default function ForgotPasswordScreen() {
         navigate: async ({ session }) => {
           if (session?.id && setActive) {
             await setActive({ session: session.id });
-            router.dismissAll();
+            router.replace("/" as Href);
             return;
           }
           router.replace("/sign-in");

@@ -80,9 +80,9 @@ const mockUseRouter = useRouter as jest.Mock;
 function buildDefaults(overrides: {
   passwordImpl?: () => Promise<{ error: unknown }>;
   setActiveImpl?: () => Promise<void>;
-  dismissAll?: jest.Mock;
+  replace?: jest.Mock;
 }) {
-  const dismissAll = overrides.dismissAll ?? jest.fn();
+  const replace = overrides.replace ?? jest.fn();
   const setActive = jest.fn(
     overrides.setActiveImpl ?? (() => Promise.resolve()),
   );
@@ -91,7 +91,7 @@ function buildDefaults(overrides: {
   );
   const push = jest.fn();
 
-  mockUseRouter.mockReturnValue({ dismissAll, back: jest.fn(), push });
+  mockUseRouter.mockReturnValue({ back: jest.fn(), push, replace });
   mockUseClerk.mockReturnValue({ setActive });
   mockUseSSO.mockReturnValue({ startSSOFlow: jest.fn() });
   mockUseSignInWithApple.mockReturnValue({
@@ -106,7 +106,7 @@ function buildDefaults(overrides: {
     fetchStatus: "idle",
   });
 
-  return { dismissAll, setActive, passwordFn, push };
+  return { replace, setActive, passwordFn, push };
 }
 
 function renderScreen() {
@@ -148,7 +148,7 @@ describe("Sign-in screen — sessionActivated fix", () => {
   });
 
   it("navigates away and shows no error when correct credentials succeed", async () => {
-    const { dismissAll } = buildDefaults({});
+    const { replace } = buildDefaults({});
     const renderer = renderScreen();
     await act(async () => {});
 
@@ -162,7 +162,7 @@ describe("Sign-in screen — sessionActivated fix", () => {
 
     await pressSignIn(renderer);
 
-    expect(dismissAll).toHaveBeenCalled();
+    expect(replace).toHaveBeenCalledWith("/");
     const json = JSON.stringify(renderer.toJSON());
     expect(json).not.toContain("Sign-in failed");
     expect(json).not.toContain("Password is incorrect");
@@ -182,20 +182,20 @@ describe("Sign-in screen — sessionActivated fix", () => {
   it("navigates away when a stale Clerk 400 fires after setActive already succeeded", async () => {
     // Simulate: password() resolves fine, setActive() resolves fine,
     // then a second error (400 from Clerk cleanup) arrives in the catch block.
-    // The sessionActivated ref should be true at that point, so dismissAll is
+    // The sessionActivated ref should be true at that point, so replace() is
     // called instead of showing an error.
-    const dismissAll = jest.fn();
+    const replace = jest.fn();
 
     // We'll inject the stale error by making setActive resolve and then having
     // the surrounding try-block throw after sessionActivated.current is set.
-    // We achieve this by replacing `router.dismissAll` with a function that
-    // throws on the FIRST call (simulating the 400 arriving during dismissAll)
+    // We achieve this by replacing `router.replace` with a function that
+    // throws on the FIRST call (simulating the 400 arriving during navigation)
     // then succeeds on subsequent calls.
-    let dismissCallCount = 0;
-    dismissAll.mockImplementation(() => {
-      dismissCallCount++;
-      if (dismissCallCount === 1) {
-        // The first call to dismissAll is the one inside the try block
+    let replaceCallCount = 0;
+    replace.mockImplementation(() => {
+      replaceCallCount++;
+      if (replaceCallCount === 1) {
+        // The first call to replace is the one inside the try block
         // (after setActive). Throw to simulate a background 400 landing
         // in the catch block.
         throw Object.assign(new Error("cleanup 400"), {
@@ -205,7 +205,7 @@ describe("Sign-in screen — sessionActivated fix", () => {
       // Second call (from the catch block's sessionActivated branch) succeeds.
     });
 
-    buildDefaults({ dismissAll });
+    buildDefaults({ replace });
 
     const renderer = renderScreen();
     await act(async () => {});
@@ -219,8 +219,8 @@ describe("Sign-in screen — sessionActivated fix", () => {
 
     await pressSignIn(renderer);
 
-    // dismissAll should have been called twice: once in try (threw), once in catch
-    expect(dismissAll).toHaveBeenCalledTimes(2);
+    // replace should have been called twice: once in try (threw), once in catch.
+    expect(replace).toHaveBeenCalledTimes(2);
     const json = JSON.stringify(renderer.toJSON());
     // The cleanup error message must NOT be shown to the user
     expect(json).not.toContain("Request already completed");

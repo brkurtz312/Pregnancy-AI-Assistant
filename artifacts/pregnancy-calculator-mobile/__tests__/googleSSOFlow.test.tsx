@@ -143,12 +143,14 @@ function findGoogleButton(root: ReactTestInstance): ReactTestInstance {
 
 describe("SignInScreen — Google SSO", () => {
   let dismissAll: jest.Mock;
+  let replace: jest.Mock;
   let back: jest.Mock;
 
   beforeEach(() => {
     dismissAll = jest.fn();
+    replace = jest.fn();
     back = jest.fn();
-    mockUseRouter.mockReturnValue({ dismissAll, back });
+    mockUseRouter.mockReturnValue({ dismissAll, back, replace });
     mockUseSSO.mockReturnValue({ startSSOFlow: mockStartSSOFlow });
     mockUseSignIn.mockReturnValue({
       signIn: mockSignIn,
@@ -202,7 +204,7 @@ describe("SignInScreen — Google SSO", () => {
     expect(call.redirectUrl).toBe("pregnancy-calculator-mobile://");
   });
 
-  it("calls setActive and dismissAll when startSSOFlow returns a session", async () => {
+  it("calls setActive and opens the app when startSSOFlow returns a session", async () => {
     const setActive = jest.fn().mockResolvedValue(undefined);
     mockStartSSOFlow.mockResolvedValue({
       createdSessionId: "sess_123",
@@ -221,7 +223,7 @@ describe("SignInScreen — Google SSO", () => {
     });
 
     expect(setActive).toHaveBeenCalledWith({ session: "sess_123" });
-    expect(dismissAll).toHaveBeenCalled();
+    expect(replace).toHaveBeenCalledWith("/");
   });
 
   it("shows an error notice and does NOT crash when startSSOFlow rejects", async () => {
@@ -406,11 +408,13 @@ describe("SignInScreen — Google SSO", () => {
 
 describe("Fresh install — Google SSO", () => {
   let dismissAll: jest.Mock;
+  let replace: jest.Mock;
 
   beforeEach(() => {
     mockExpoConfig.scheme = "pregnancy-calculator-mobile";
     dismissAll = jest.fn();
-    mockUseRouter.mockReturnValue({ dismissAll, back: jest.fn() });
+    replace = jest.fn();
+    mockUseRouter.mockReturnValue({ dismissAll, back: jest.fn(), replace });
     mockUseSSO.mockReturnValue({ startSSOFlow: mockStartSSOFlow });
     mockUseSignIn.mockReturnValue({
       // Fresh install: no cached session, no createdSessionId on signIn.
@@ -440,7 +444,7 @@ describe("Fresh install — Google SSO", () => {
     expect(appJson.expo.android?.package).toBeTruthy();
   });
 
-  it("completes the full fresh-install sequence: consent → redirect back → setActive → dismiss", async () => {
+  it("completes the full fresh-install sequence: consent → redirect back → setActive → app home", async () => {
     const callOrder: string[] = [];
     const setActive = jest.fn().mockImplementation(async () => {
       callOrder.push("setActive");
@@ -454,8 +458,8 @@ describe("Fresh install — Google SSO", () => {
       );
       return { createdSessionId: "sess_fresh_install", setActive };
     });
-    dismissAll.mockImplementation(() => {
-      callOrder.push("dismissAll");
+    replace.mockImplementation(() => {
+      callOrder.push("replace");
     });
 
     let renderer!: ReturnType<typeof create>;
@@ -470,9 +474,9 @@ describe("Fresh install — Google SSO", () => {
     });
 
     expect(setActive).toHaveBeenCalledWith({ session: "sess_fresh_install" });
-    // Order matters: session must be activated BEFORE the screen dismisses,
-    // otherwise the app re-opens signed out.
-    expect(callOrder).toEqual(["startSSOFlow", "setActive", "dismissAll"]);
+    // Order matters: session must be activated BEFORE the app route changes,
+    // otherwise the app could re-open signed out.
+    expect(callOrder).toEqual(["startSSOFlow", "setActive", "replace"]);
     // No error notice should be shown on success.
     const json = JSON.stringify(renderer.toJSON());
     expect(json).not.toContain("sign-in failed");

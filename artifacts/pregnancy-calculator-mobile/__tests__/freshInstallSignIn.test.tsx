@@ -5,7 +5,8 @@
  * prior cached session — the "fresh install" scenario. This covers the chain
  * of fixes made to the sign-in screen:
  *
- *   1. Happy path: correct credentials → setActive called → router dismissed.
+ *   1. Happy path: correct credentials → setActive called → app home replaces
+ *      the auth route.
  *   2. Clerk background-400 resilience: if Clerk throws after setActive already
  *      returned successfully (background cleanup request), the app navigates
  *      away rather than showing a spurious error (sessionActivated ref fix).
@@ -156,13 +157,13 @@ async function pressSignInButton(root: ReactTestInstance) {
 // ─── tests ───────────────────────────────────────────────────────────────────
 
 describe("Sign-in screen — fresh install, no cached session", () => {
-  let dismissAll: jest.Mock;
+  let replace: jest.Mock;
   let back: jest.Mock;
 
   beforeEach(() => {
-    dismissAll = jest.fn();
+    replace = jest.fn();
     back = jest.fn();
-    mockUseRouter.mockReturnValue({ dismissAll, back, replace: jest.fn() });
+    mockUseRouter.mockReturnValue({ back, replace });
     mockSetActive.mockReset();
     mockPasswordFn.mockReset();
     mockSignInObj.createdSessionId = null;
@@ -182,7 +183,7 @@ describe("Sign-in screen — fresh install, no cached session", () => {
 
   // ── 1. Happy path ──────────────────────────────────────────────────────────
 
-  it("calls setActive and dismisses the screen when correct credentials are entered on a fresh install", async () => {
+  it("calls setActive and opens the app when correct credentials are entered on a fresh install", async () => {
     mockSignInObj.createdSessionId = "sess_new_user_123";
     mockPasswordFn.mockResolvedValue({ error: null });
     mockSetActive.mockResolvedValue(undefined);
@@ -202,25 +203,25 @@ describe("Sign-in screen — fresh install, no cached session", () => {
     expect(mockSetActive).toHaveBeenCalledWith({
       session: "sess_new_user_123",
     });
-    expect(dismissAll).toHaveBeenCalled();
+    expect(replace).toHaveBeenCalledWith("/");
   });
 
   // ── 2. sessionActivated ref: Clerk background 400 after successful setActive
 
   it("navigates away instead of showing an error when Clerk throws after setActive already succeeded (background-400 scenario)", async () => {
-    // setActive resolves but router.dismissAll throws to simulate the Clerk
+    // setActive resolves but router.replace throws to simulate the Clerk
     // background cleanup request racing in after a successful 200.  The
     // sessionActivated ref ensures the catch block still navigates away.
     mockSignInObj.createdSessionId = "sess_background_400";
     mockPasswordFn.mockResolvedValue({ error: null });
     mockSetActive.mockResolvedValue(undefined);
 
-    // Make the first dismissAll throw synchronously; the catch block should
+    // Make the first replace throw synchronously; the catch block should
     // call it again because sessionActivated.current is true.
-    let dismissCallCount = 0;
-    dismissAll.mockImplementation(() => {
-      dismissCallCount += 1;
-      if (dismissCallCount === 1) throw new Error("Clerk background 400");
+    let replaceCallCount = 0;
+    replace.mockImplementation(() => {
+      replaceCallCount += 1;
+      if (replaceCallCount === 1) throw new Error("Clerk background 400");
     });
 
     let renderer!: ReturnType<typeof create>;
@@ -231,8 +232,8 @@ describe("Sign-in screen — fresh install, no cached session", () => {
     await fillCredentials(renderer.root, "user@example.com", "correctPass!");
     await pressSignInButton(renderer.root);
 
-    // The catch block must call dismissAll again, not show an error.
-    expect(dismissCallCount).toBeGreaterThanOrEqual(2);
+    // The catch block must replace again, not show an error.
+    expect(replaceCallCount).toBeGreaterThanOrEqual(2);
     const json = JSON.stringify(renderer.toJSON());
     expect(json).not.toContain("Sign-in failed");
     expect(json).not.toContain("check your credentials");
@@ -254,7 +255,7 @@ describe("Sign-in screen — fresh install, no cached session", () => {
     await pressSignInButton(renderer.root);
 
     expect(mockSetActive).not.toHaveBeenCalled();
-    expect(dismissAll).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
   });
 
   it("shows an error notice when the Clerk API rejects (network or credentials error)", async () => {
@@ -273,7 +274,7 @@ describe("Sign-in screen — fresh install, no cached session", () => {
 
     const json = JSON.stringify(renderer.toJSON());
     expect(json).toContain("Invalid email address or password.");
-    expect(dismissAll).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
   });
 
   // ── 4. Sign out then sign back in ──────────────────────────────────────────
@@ -293,11 +294,11 @@ describe("Sign-in screen — fresh install, no cached session", () => {
     await pressSignInButton(renderer.root);
 
     expect(mockSetActive).toHaveBeenCalledWith({ session: "sess_first" });
-    expect(dismissAll).toHaveBeenCalledTimes(1);
+    expect(replace).toHaveBeenCalledTimes(1);
 
     // Simulate re-mounting the sign-in screen after signing out
     mockSetActive.mockReset();
-    dismissAll.mockReset();
+    replace.mockReset();
     mockSignInObj.createdSessionId = "sess_second";
 
     let renderer2!: ReturnType<typeof create>;
@@ -309,7 +310,7 @@ describe("Sign-in screen — fresh install, no cached session", () => {
     await pressSignInButton(renderer2.root);
 
     expect(mockSetActive).toHaveBeenCalledWith({ session: "sess_second" });
-    expect(dismissAll).toHaveBeenCalledTimes(1);
+    expect(replace).toHaveBeenCalledTimes(1);
   });
 
   // ── 5. signIn not ready (race on fresh install) ───────────────────────────
@@ -359,6 +360,6 @@ describe("Sign-in screen — fresh install, no cached session", () => {
     const json = JSON.stringify(renderer.toJSON());
     expect(json).toContain("Sign-in is not ready yet");
     expect(mockSetActive).not.toHaveBeenCalled();
-    expect(dismissAll).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
   });
 });

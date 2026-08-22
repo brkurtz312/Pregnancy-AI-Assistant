@@ -64,7 +64,7 @@ describe("Password recovery", () => {
     const sendCode = jest.fn(() => Promise.resolve({ error: null }));
     const verifyCode = jest.fn(() => Promise.resolve({ error: null }));
     const submitPassword = jest.fn(() => Promise.resolve({ error: null }));
-    const dismissAll = jest.fn();
+    const replace = jest.fn();
     const setActive = jest.fn(() => Promise.resolve());
     const finalize = jest.fn(async ({ navigate }) => {
       await navigate({ session: { id: "reset-session" } });
@@ -73,8 +73,7 @@ describe("Password recovery", () => {
 
     mockUseRouter.mockReturnValue({
       back: jest.fn(),
-      dismissAll,
-      replace: jest.fn(),
+      replace,
     });
     mockUseClerk.mockReturnValue({ setActive });
     mockUseSignIn.mockReturnValue({
@@ -138,7 +137,7 @@ describe("Password recovery", () => {
     });
     expect(finalize).toHaveBeenCalledTimes(1);
     expect(setActive).toHaveBeenCalledWith({ session: "reset-session" });
-    expect(dismissAll).toHaveBeenCalledTimes(1);
+    expect(replace).toHaveBeenCalledWith("/");
   });
 
   it("requires an email address before requesting a reset", async () => {
