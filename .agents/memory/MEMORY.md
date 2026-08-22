@@ -36,3 +36,4 @@
 - [Mobile jest suite flaky under load](mobile-jest-flaky-under-load.md) — full-suite runs time out on random suites; verify failing suites in isolation before debugging; typecheck also fails until check-watch-sync --fix re-syncs ios/ Swift copies.
 - [EAS submit blocked non-interactively](eas-submit-and-ipa-verification.md) — no ASC API key; verify builds by downloading the .ipa and inspecting the embedded Watch app instead; ios/ is gitignored so EAS always prebuilds.
 - [expo-notifications test mocking](expo-notifications-test-mocking.md) — real module IS installed; package-level manual mock prevents random full-suite failures from real-module leaks.
+- [Sign-in email-code fallback](sign-in-email-code-fallback.md) — incomplete Clerk password sign-ins need code verification, finalization, and root-route replacement instead of a dead-end error.
