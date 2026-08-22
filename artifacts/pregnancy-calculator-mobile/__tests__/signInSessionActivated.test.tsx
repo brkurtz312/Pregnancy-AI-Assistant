@@ -140,6 +140,27 @@ async function pressSignIn(renderer: ReturnType<typeof create>) {
   });
 }
 
+async function pressButton(renderer: ReturnType<typeof create>, label: string) {
+  const text = renderer.root
+    .findAllByType(Text)
+    .find((node) => node.props.children === label);
+  expect(text).toBeDefined();
+
+  let node = text?.parent;
+  let button: ReturnType<typeof create>["root"] | undefined;
+  while (node?.parent) {
+    if (node.type === TouchableOpacity) {
+      button = node;
+      break;
+    }
+    node = node.parent;
+  }
+  expect(button).toBeDefined();
+  await act(async () => {
+    button!.props.onPress();
+  });
+}
+
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 describe("Sign-in screen — sessionActivated fix", () => {
@@ -177,6 +198,81 @@ describe("Sign-in screen — sessionActivated fix", () => {
     });
 
     expect(push).toHaveBeenCalledWith("/forgot-password");
+  });
+
+  it("sends and verifies an email code when Clerk requires one after password sign-in", async () => {
+    const replace = jest.fn();
+    const setActive = jest.fn(() => Promise.resolve());
+    const sendCode = jest.fn(() => Promise.resolve({ error: null }));
+    const verifyCode = jest.fn(() => {
+      signIn.status = "complete";
+      signIn.createdSessionId = "email-code-session";
+      return Promise.resolve({ error: null });
+    });
+    const finalize = jest.fn(
+      async ({
+        navigate,
+      }: {
+        navigate?: (context: {
+          session?: { id?: string };
+        }) => Promise<void> | void;
+      }) => {
+        await navigate?.({ session: { id: "email-code-session" } });
+        return { error: null };
+      },
+    );
+    const signIn = {
+      password: jest.fn(() => Promise.resolve({ error: null })),
+      status: "needs_first_factor",
+      createdSessionId: null as string | null,
+      emailCode: { sendCode, verifyCode },
+      mfa: {
+        sendEmailCode: jest.fn(),
+        verifyEmailCode: jest.fn(),
+      },
+      finalize,
+    };
+
+    mockUseRouter.mockReturnValue({
+      back: jest.fn(),
+      push: jest.fn(),
+      replace,
+    });
+    mockUseClerk.mockReturnValue({ setActive });
+    mockUseSSO.mockReturnValue({ startSSOFlow: jest.fn() });
+    mockUseSignInWithApple.mockReturnValue({
+      startAppleAuthenticationFlow: jest.fn(),
+    });
+    mockUseSignIn.mockReturnValue({
+      signIn,
+      errors: { fields: {} },
+      fetchStatus: "idle",
+    });
+
+    const renderer = renderScreen();
+    const inputs = renderer.root.findAllByType(
+      require("react-native").TextInput,
+    );
+    await act(async () => {
+      inputs[0].props.onChangeText("user@example.com");
+      inputs[1].props.onChangeText("CorrectPassword1");
+    });
+    await pressSignIn(renderer);
+
+    expect(sendCode).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(renderer.toJSON())).toContain("Check your email");
+
+    await act(async () => {
+      renderer.root
+        .findByProps({ testID: "sign-in-email-code" })
+        .props.onChangeText("123456");
+    });
+    await pressButton(renderer, "Verify & Sign In");
+
+    expect(verifyCode).toHaveBeenCalledWith({ code: "123456" });
+    expect(finalize).toHaveBeenCalledTimes(1);
+    expect(setActive).toHaveBeenCalledWith({ session: "email-code-session" });
+    expect(replace).toHaveBeenCalledWith("/");
   });
 
   it("navigates away when a stale Clerk 400 fires after setActive already succeeded", async () => {

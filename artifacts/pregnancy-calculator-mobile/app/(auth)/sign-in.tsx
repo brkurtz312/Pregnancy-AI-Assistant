@@ -52,15 +52,23 @@ export default function SignInScreen() {
 
   const [emailAddress, setEmailAddress] = useState("");
   const [password, setPassword] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [verificationStep, setVerificationStep] = useState<
+    "first-factor" | "second-factor" | null
+  >(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
 
   const fetching = fetchStatus === "fetching";
   const errorText =
-    errors.fields.identifier?.message ??
-    errors.fields.password?.message ??
-    notice;
+    (verificationStep
+      ? errors.fields.code?.message
+      : (errors.fields.identifier?.message ??
+        errors.fields.password?.message)) ?? notice;
+  const isSubmitDisabled =
+    fetching ||
+    (verificationStep ? !verificationCode : !emailAddress || !password);
 
   const onSubmit = async () => {
     if (fetching) return;
@@ -68,6 +76,14 @@ export default function SignInScreen() {
       setNotice(
         "Sign-in is not ready yet — please wait a moment and try again.",
       );
+      return;
+    }
+    if (!emailAddress.trim()) {
+      setNotice("Enter your email address.");
+      return;
+    }
+    if (!password) {
+      setNotice("Enter your password.");
       return;
     }
     sessionActivated.current = false;
@@ -88,10 +104,28 @@ export default function SignInScreen() {
         await setActive({ session: signIn.createdSessionId });
         sessionActivated.current = true;
         router.replace("/" as Href);
+      } else if (
+        signIn.status === "needs_first_factor" ||
+        signIn.status === "needs_second_factor"
+      ) {
+        const nextStep =
+          signIn.status === "needs_second_factor"
+            ? "second-factor"
+            : "first-factor";
+        const { error: codeError } =
+          nextStep === "second-factor"
+            ? await signIn.mfa.sendEmailCode()
+            : await signIn.emailCode.sendCode();
+
+        if (codeError) {
+          setNotice("We couldn't send a verification code. Please try again.");
+          return;
+        }
+
+        setVerificationStep(nextStep);
       } else {
         setNotice(
-          "Sign-in could not be completed. " +
-            "If your account requires email verification, check your inbox and verify before signing in.",
+          "Sign-in could not be completed. Please try again or reset your password.",
         );
       }
       return;
@@ -115,6 +149,69 @@ export default function SignInScreen() {
         msg || "Sign-in failed. Please check your credentials and try again.",
       );
     }
+  };
+
+  const onVerifyEmailCode = async () => {
+    if (fetching || !signIn || !verificationStep) return;
+    if (!verificationCode.trim()) {
+      setNotice("Enter the code from your email.");
+      return;
+    }
+
+    setNotice(null);
+    try {
+      const { error } =
+        verificationStep === "second-factor"
+          ? await signIn.mfa.verifyEmailCode({ code: verificationCode.trim() })
+          : await signIn.emailCode.verifyCode({
+              code: verificationCode.trim(),
+            });
+      if (error) return;
+
+      if (signIn.status !== "complete" || !signIn.createdSessionId) {
+        setNotice(
+          "That code did not complete sign-in. Request a new code and try again.",
+        );
+        return;
+      }
+
+      const { error: finalizeError } = await signIn.finalize({
+        navigate: async ({ session }) => {
+          if (session?.id && setActive) {
+            await setActive({ session: session.id });
+          }
+          router.replace("/" as Href);
+        },
+      });
+      if (finalizeError) return;
+    } catch (error) {
+      console.error(
+        "Email verification error:",
+        JSON.stringify(error, null, 2),
+      );
+      setNotice("That code could not be verified. Try again.");
+    }
+  };
+
+  const onResendEmailCode = async () => {
+    if (fetching || !signIn || !verificationStep) return;
+    setNotice(null);
+    const { error } =
+      verificationStep === "second-factor"
+        ? await signIn.mfa.sendEmailCode()
+        : await signIn.emailCode.sendCode();
+    if (error) {
+      setNotice("We couldn't send a verification code. Please try again.");
+      return;
+    }
+    setNotice("A new verification code was sent.");
+  };
+
+  const onUseAnotherEmail = async () => {
+    setVerificationCode("");
+    setVerificationStep(null);
+    setNotice(null);
+    if (signIn) await signIn.reset();
   };
 
   const onGooglePress = useCallback(async () => {
@@ -297,61 +394,105 @@ export default function SignInScreen() {
             />
           </View>
 
-          <Text style={[styles.label, { color: colors.foreground }]}>
-            Email
-          </Text>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                borderColor: colors.border,
-                color: colors.foreground,
-                backgroundColor: colors.card,
-              },
-            ]}
-            value={emailAddress}
-            onChangeText={setEmailAddress}
-            placeholder="you@example.com"
-            placeholderTextColor={colors.mutedForeground}
-            autoCapitalize="none"
-            autoComplete="email"
-            keyboardType="email-address"
-            inputMode="email"
-          />
+          {verificationStep ? (
+            <>
+              <Text
+                style={[styles.verificationText, { color: colors.foreground }]}
+              >
+                Check your email
+              </Text>
+              <Text
+                style={[
+                  styles.verificationSubtitle,
+                  { color: colors.mutedForeground },
+                ]}
+              >
+                Enter the code we sent to {emailAddress.trim()} to finish
+                signing in.
+              </Text>
+              <Text style={[styles.label, { color: colors.foreground }]}>
+                Verification code
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    borderColor: colors.border,
+                    color: colors.foreground,
+                    backgroundColor: colors.card,
+                  },
+                ]}
+                value={verificationCode}
+                onChangeText={setVerificationCode}
+                placeholder="123456"
+                placeholderTextColor={colors.mutedForeground}
+                autoComplete="one-time-code"
+                keyboardType="number-pad"
+                inputMode="numeric"
+                onSubmitEditing={onVerifyEmailCode}
+                returnKeyType="go"
+                testID="sign-in-email-code"
+              />
+            </>
+          ) : (
+            <>
+              <Text style={[styles.label, { color: colors.foreground }]}>
+                Email
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    borderColor: colors.border,
+                    color: colors.foreground,
+                    backgroundColor: colors.card,
+                  },
+                ]}
+                value={emailAddress}
+                onChangeText={setEmailAddress}
+                placeholder="you@example.com"
+                placeholderTextColor={colors.mutedForeground}
+                autoCapitalize="none"
+                autoComplete="email"
+                keyboardType="email-address"
+                inputMode="email"
+              />
 
-          <Text style={[styles.label, { color: colors.foreground }]}>
-            Password
-          </Text>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                borderColor: colors.border,
-                color: colors.foreground,
-                backgroundColor: colors.card,
-              },
-            ]}
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Your password"
-            placeholderTextColor={colors.mutedForeground}
-            secureTextEntry
-            autoComplete="current-password"
-            onSubmitEditing={onSubmit}
-            returnKeyType="go"
-          />
+              <Text style={[styles.label, { color: colors.foreground }]}>
+                Password
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    borderColor: colors.border,
+                    color: colors.foreground,
+                    backgroundColor: colors.card,
+                  },
+                ]}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Your password"
+                placeholderTextColor={colors.mutedForeground}
+                secureTextEntry
+                autoComplete="current-password"
+                onSubmitEditing={onSubmit}
+                returnKeyType="go"
+              />
 
-          <TouchableOpacity
-            style={styles.resetLink}
-            onPress={() => router.push("/forgot-password")}
-            testID="forgot-password"
-            accessibilityRole="button"
-            accessibilityLabel="Forgot password"
-          >
-            <Text style={[styles.footerLink, { color: colors.primary }]}>
-              Forgot password?
-            </Text>
-          </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.resetLink}
+                onPress={() => router.push("/forgot-password")}
+                testID="forgot-password"
+                accessibilityRole="button"
+                accessibilityLabel="Forgot password"
+              >
+                <Text style={[styles.footerLink, { color: colors.primary }]}>
+                  Forgot password?
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
 
           {errorText && (
             <Text style={[styles.error, { color: colors.destructive }]}>
@@ -364,31 +505,48 @@ export default function SignInScreen() {
               styles.primaryBtn,
               {
                 backgroundColor: colors.primary,
-                opacity: fetching || !emailAddress || !password ? 0.7 : 1,
+                opacity: isSubmitDisabled ? 0.7 : 1,
               },
             ]}
-            onPress={onSubmit}
-            disabled={fetching || !emailAddress || !password}
+            onPress={verificationStep ? onVerifyEmailCode : onSubmit}
+            disabled={isSubmitDisabled}
           >
             {fetching ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.primaryBtnText}>Sign In</Text>
+              <Text style={styles.primaryBtnText}>
+                {verificationStep ? "Verify & Sign In" : "Sign In"}
+              </Text>
             )}
           </TouchableOpacity>
 
-          <View style={styles.footerRow}>
-            <Text
-              style={[styles.footerText, { color: colors.mutedForeground }]}
-            >
-              New here?
-            </Text>
-            <TouchableOpacity onPress={() => router.replace("/sign-up")}>
-              <Text style={[styles.footerLink, { color: colors.primary }]}>
-                Create an account
+          {verificationStep ? (
+            <View style={styles.verificationActions}>
+              <TouchableOpacity onPress={onResendEmailCode}>
+                <Text style={[styles.footerLink, { color: colors.primary }]}>
+                  Send a new code
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={onUseAnotherEmail}>
+                <Text style={[styles.footerLink, { color: colors.primary }]}>
+                  Use a different email
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.footerRow}>
+              <Text
+                style={[styles.footerText, { color: colors.mutedForeground }]}
+              >
+                New here?
               </Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity onPress={() => router.replace("/sign-up")}>
+                <Text style={[styles.footerLink, { color: colors.primary }]}>
+                  Create an account
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -423,6 +581,17 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     lineHeight: 20,
     marginBottom: 12,
+  },
+  verificationText: {
+    fontSize: 18,
+    fontFamily: "Inter_700Bold",
+    marginTop: 10,
+  },
+  verificationSubtitle: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 20,
+    marginBottom: 6,
   },
   googleBtn: {
     flexDirection: "row",
@@ -502,6 +671,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
     marginTop: 18,
+  },
+  verificationActions: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 18,
+    marginTop: 12,
   },
   footerText: { fontSize: 14, fontFamily: "Inter_400Regular" },
   footerLink: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
