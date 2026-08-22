@@ -1,5 +1,5 @@
 import React from "react";
-import { Text, TextInput, TouchableOpacity } from "react-native";
+import { Text, TouchableOpacity } from "react-native";
 import { act, create } from "react-test-renderer";
 
 jest.mock("@clerk/expo", () => ({
