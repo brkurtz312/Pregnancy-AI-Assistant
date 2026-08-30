@@ -9,7 +9,7 @@ id = "artifacts/mockup-sandbox"
 [deployment]
 router = "application"
 deploymentTarget = "autoscale"
-build = "pnpm --filter @workspace/scripts run migrate-deletion-integrity && pnpm --filter @workspace/api-server run build"
+build = "pnpm --filter @workspace/api-server run build"
 
 [deployment.postBuild]
 args = ["pnpm", "store", "prune"]
