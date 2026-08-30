@@ -1,4 +1,5 @@
-import { ClerkProvider, useAuth } from "@clerk/expo";
+import { ClerkProvider } from "@clerk/expo";
+import { useAppAuth as useAuth } from "@/hooks/useAppAuth";
 import { tokenCache } from "@clerk/expo/token-cache";
 import {
   Inter_400Regular,
@@ -26,6 +27,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AuthTokenBridge } from "@/components/AuthTokenBridge";
+import { hydrateDemoSession } from "@/lib/demo-session";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ErrorFallback } from "@/components/ErrorFallback";
 import { LocationModeGate } from "@/components/LocationModePrompt";
@@ -49,6 +51,10 @@ const apiDomain = process.env.EXPO_PUBLIC_DOMAIN;
 if (apiDomain) {
   setBaseUrl(`https://${apiDomain}`);
 }
+
+// Restore any persisted App Review demo session before the first auth gate
+// renders, so relaunching mid-review does not bounce the reviewer to sign-in.
+void hydrateDemoSession();
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
 // Production routes Clerk through a same-domain proxy; empty/undefined in dev,

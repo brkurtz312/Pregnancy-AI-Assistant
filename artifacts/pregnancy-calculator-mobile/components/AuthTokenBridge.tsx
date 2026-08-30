@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ApiError, setAuthTokenGetter } from "@workspace/api-client-react";
 import { useEffect, useRef } from "react";
 import { clearSignedOutUserData } from "@/lib/session-cleanup";
+import { getDemoToken } from "@/lib/demo-session";
 
 /**
  * Bridges the Clerk session token into the generated API client and keeps the
@@ -43,6 +44,10 @@ export function AuthTokenBridge() {
     // Register the getter once on mount. The closure reads sessionRef so it
     // is never stale regardless of how many times the session changes.
     setAuthTokenGetter(async () => {
+      // An App Review demo session authenticates without Clerk entirely, so it
+      // takes precedence: there is no Clerk session to read a token from.
+      const demoToken = getDemoToken();
+      if (demoToken) return demoToken;
       try {
         return (await sessionRef.current?.getToken()) ?? null;
       } catch {
@@ -69,6 +74,9 @@ export function AuthTokenBridge() {
       // out is expected (unauthenticated request) and should not trigger another
       // sign-out cycle.
       if (sessionRef.current == null) return;
+      // A demo session has no Clerk session to sign out of; a 401 there means
+      // the demo token expired, which the demo screens handle themselves.
+      if (getDemoToken() != null) return;
       if (signingOutRef.current) return;
       signingOutRef.current = true;
       // Do NOT reset signingOutRef in .finally(). Clerk's own sign-out flow

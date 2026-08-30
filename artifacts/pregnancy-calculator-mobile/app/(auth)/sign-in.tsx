@@ -22,6 +22,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { isCancelError } from "@/lib/auth-cancel";
 
+const apiBase = process.env.EXPO_PUBLIC_DOMAIN
+  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+  : "";
+
 // Handles the OAuth callback redirect on Android. This must be called at
 // module level so it runs before the component tree mounts.
 WebBrowser.maybeCompleteAuthSession();
@@ -38,6 +42,26 @@ function useWarmUpBrowser() {
 
 export default function SignInScreen() {
   useWarmUpBrowser();
+  // The App Review demo entry is shown only while the server has demo mode
+  // configured, so unsetting DEMO_SESSION_SECRET after approval hides it from
+  // everyone without shipping a new build.
+  const [demoAvailable, setDemoAvailable] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`${apiBase}/api/demo/available`);
+        if (!res.ok) return;
+        const body = (await res.json()) as { available?: boolean };
+        if (!cancelled) setDemoAvailable(!!body.available);
+      } catch {
+        // Offline or unreachable: leave the entry hidden.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -547,6 +571,17 @@ export default function SignInScreen() {
               </TouchableOpacity>
             </View>
           )}
+
+          {demoAvailable ? (
+            <TouchableOpacity
+              testID="link-demo-access"
+              style={styles.demoLink}
+              onPress={() => router.push("/demo-access" as Href)}
+            >
+              <Ionicons name="shield-checkmark" size={16} color="#0071e3" />
+              <Text style={styles.demoLinkText}>App Review access</Text>
+            </TouchableOpacity>
+          ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -666,6 +701,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginTop: 2,
   },
+  demoLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: 24,
+    paddingVertical: 10,
+  },
+  demoLinkText: { color: "#0071e3", fontSize: 15, fontWeight: "600" },
   footerRow: {
     flexDirection: "row",
     justifyContent: "center",

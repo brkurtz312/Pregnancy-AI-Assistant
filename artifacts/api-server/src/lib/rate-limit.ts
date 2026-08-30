@@ -65,6 +65,12 @@ export const AI_BURST_LIMIT = 15;
 export const AI_DAILY_LIMIT = 120;
 export const REDEEM_REVIEWER_LIMIT = 10;
 
+// Demo-session minting for App Review. Generous enough that a reviewer
+// retrying is never blocked, tight enough that the endpoint is not a
+// free token faucet.
+export const DEMO_SESSION_WINDOW_MS = 15 * 60 * 1000;
+export const DEMO_SESSION_LIMIT = 20;
+
 // Burst protection: absorbs a natural session (one auto weekly-insight call
 // plus an active Q&A back-and-forth) while stopping scripted hammering.
 export const aiBurstLimiter: RequestHandler = makeLimiter(
@@ -93,4 +99,12 @@ export const redeemCodeLimiter: RequestHandler = makeLimiter(
   "Too many code attempts. Please wait a few minutes and try again.",
   RATE_LIMIT_PREFIXES.redeemCode,
   "Redeem-code",
+);
+
+export const demoSessionLimiter: RequestHandler = makeLimiter(
+  DEMO_SESSION_WINDOW_MS,
+  DEMO_SESSION_LIMIT,
+  "Too many demo session requests. Please wait a few minutes.",
+  RATE_LIMIT_PREFIXES.demoSession,
+  "Demo session",
 );

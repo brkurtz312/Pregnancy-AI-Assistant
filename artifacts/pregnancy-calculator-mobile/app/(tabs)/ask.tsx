@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useAuth } from "@clerk/expo";
+import { useAppAuth as useAuth } from "@/hooks/useAppAuth";
 import { useRouter, useLocalSearchParams, type Href } from "expo-router";
 import React, { useMemo } from "react";
 import {

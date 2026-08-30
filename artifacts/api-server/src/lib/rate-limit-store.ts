@@ -13,6 +13,7 @@ export const RATE_LIMIT_PREFIXES = {
   aiBurst: "ai-burst",
   aiDaily: "ai-daily",
   redeemCode: "redeem-code",
+  demoSession: "demo-session",
 } as const;
 
 export type RateLimitPrefix =

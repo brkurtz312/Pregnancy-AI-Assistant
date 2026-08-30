@@ -18,7 +18,7 @@ const DateTimePicker: React.ComponentType<any> | null = (() => {
     return null;
   }
 })();
-import { useAuth } from "@clerk/expo";
+import { useAppAuth as useAuth } from "@/hooks/useAppAuth";
 import * as Haptics from "expo-haptics";
 import * as haptics from "@/lib/haptics";
 import { useRouter } from "expo-router";
