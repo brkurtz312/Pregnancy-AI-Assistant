@@ -1,4 +1,6 @@
 import { useAuth, useUser } from "@clerk/expo";
+import { useAppAuth } from "@/hooks/useAppAuth";
+import { clearDemoToken } from "@/lib/demo-session";
 import { Ionicons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
@@ -54,7 +56,10 @@ export function AccountSheet({
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { isSignedIn, signOut } = useAuth();
+  const { signOut } = useAuth();
+  // A demo session is authenticated without Clerk, so the signed-in state
+  // comes from the app-level hook rather than Clerk directly.
+  const { isSignedIn, isDemo } = useAppAuth();
   const { user } = useUser();
   const queryClient = useQueryClient();
   const pass = usePass();
@@ -615,6 +620,9 @@ export function AccountSheet({
                       setIsSigningOut(true);
                       setSignOutError(null);
                       try {
+                        // Ends an App Review demo session. Harmless no-op for
+                        // a normal Clerk session.
+                        await clearDemoToken();
                         await signOut();
                         // Cancel appointment reminders only after sign-out
                         // succeeds so a failed sign-out (e.g. offline) does not
@@ -657,7 +665,7 @@ export function AccountSheet({
                             { color: colors.destructive },
                           ]}
                         >
-                          Sign Out
+                          {isDemo ? "Exit Demo" : "Sign Out"}
                         </Text>
                       </>
                     )}
