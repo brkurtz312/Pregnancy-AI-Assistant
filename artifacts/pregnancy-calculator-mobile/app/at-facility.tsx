@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useAuth } from "@clerk/expo";
+import { useAppAuth as useAuth } from "@/hooks/useAppAuth";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useState, useEffect, useCallback } from "react";

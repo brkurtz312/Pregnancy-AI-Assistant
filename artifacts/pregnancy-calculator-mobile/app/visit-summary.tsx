@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useUser } from "@clerk/expo";
+import { useAppAuth as useUser } from "@/hooks/useAppAuth";
 import { router } from "expo-router";
 import * as Print from "expo-print";
 import React, { useEffect, useMemo, useState } from "react";

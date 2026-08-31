@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/expo";
+import { useAppAuth as useAuth } from "@/hooks/useAppAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetPassStatusQueryKey,

@@ -25,7 +25,7 @@ import {
 } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAuth, useUser } from "@clerk/expo";
+import { useAppAuth as useAuth } from "@/hooks/useAppAuth";
 import { useColors } from "@/hooks/useColors";
 import {
   BIRTH_PLAN_SECTIONS,
@@ -257,8 +257,7 @@ export default function BirthPlanScreen() {
   const params = useLocalSearchParams<{ from?: string }>();
   const backLabel = params.from || "Get Ready";
 
-  const { isSignedIn, getToken } = useAuth();
-  const { user } = useUser();
+  const { isSignedIn, getToken, userId } = useAuth();
 
   const [answers, setAnswers] = useState<BirthPlanAnswers>({});
   const [loaded, setLoaded] = useState(false);
@@ -276,7 +275,8 @@ export default function BirthPlanScreen() {
   }, [syncFailed]);
 
   useEffect(() => {
-    const userId = user?.id ?? null;
+    // Identity comes from useAppAuth so demo sessions scope correctly; the
+    // Clerk user object is null in a demo session.
     if (isSignedIn && userId) {
       // Pre-flight: clear stale cross-user cache before any load. Running
       // this before the API call ensures isolation even when the network is
@@ -319,7 +319,7 @@ export default function BirthPlanScreen() {
         setLoaded(true);
       });
     }
-  }, [isSignedIn, getToken, user]);
+  }, [isSignedIn, getToken, userId]);
 
   useEffect(() => {
     answersRef.current = answers;

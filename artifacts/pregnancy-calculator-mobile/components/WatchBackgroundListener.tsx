@@ -18,7 +18,7 @@ import React, {
 import { Animated, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useAuth } from "@clerk/expo";
+import { useAppAuth as useAuth } from "@/hooks/useAppAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   getListKickSessionsQueryKey,

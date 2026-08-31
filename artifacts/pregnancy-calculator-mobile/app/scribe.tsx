@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useAuth } from "@clerk/expo";
+import { useAppAuth as useAuth } from "@/hooks/useAppAuth";
 import { router } from "expo-router";
 import { Audio } from "expo-av";
 import * as Clipboard from "expo-clipboard";

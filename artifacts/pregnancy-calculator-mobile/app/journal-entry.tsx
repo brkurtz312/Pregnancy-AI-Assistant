@@ -21,7 +21,7 @@ import {
   getGetProfileQueryKey,
   useGetProfile,
 } from "@workspace/api-client-react";
-import { useAuth } from "@clerk/expo";
+import { useAppAuth as useAuth } from "@/hooks/useAppAuth";
 import { useColors } from "@/hooks/useColors";
 import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 import { MediaViewerModal } from "@/components/MediaViewerModal";

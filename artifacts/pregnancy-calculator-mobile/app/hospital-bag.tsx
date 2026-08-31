@@ -22,7 +22,7 @@ import {
 } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAuth, useUser } from "@clerk/expo";
+import { useAppAuth as useAuth } from "@/hooks/useAppAuth";
 import { useColors } from "@/hooks/useColors";
 import { AskCard } from "@/components/AskCard";
 import {
@@ -47,8 +47,7 @@ export default function HospitalBagScreen() {
   const params = useLocalSearchParams<{ from?: string }>();
   const backLabel = params.from || "Labor and Delivery";
 
-  const { isSignedIn, getToken } = useAuth();
-  const { user } = useUser();
+  const { isSignedIn, getToken, userId } = useAuth();
 
   const [categories, setCategories] = useState<HospitalBagCategory[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -66,7 +65,8 @@ export default function HospitalBagScreen() {
   }, [syncFailed]);
 
   useEffect(() => {
-    const userId = user?.id ?? null;
+    // Identity comes from useAppAuth so demo sessions scope correctly; the
+    // Clerk user object is null in a demo session.
     if (isSignedIn && userId) {
       // Pre-flight: clear stale cross-user cache before any load. Running
       // this before the API call ensures isolation even when the network is
@@ -106,7 +106,7 @@ export default function HospitalBagScreen() {
         .then(setCategories)
         .finally(() => setLoaded(true));
     }
-  }, [isSignedIn, getToken, user]);
+  }, [isSignedIn, getToken, userId]);
 
   useEffect(() => {
     categoriesRef.current = categories;

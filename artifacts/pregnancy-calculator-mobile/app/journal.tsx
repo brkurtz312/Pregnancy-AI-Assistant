@@ -14,7 +14,7 @@ import {
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
-import { useAuth, useUser } from "@clerk/expo";
+import { useAppAuth as useAuth } from "@/hooks/useAppAuth";
 import { useColors } from "@/hooks/useColors";
 import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 import {
@@ -294,8 +294,7 @@ export default function JournalScreen() {
   const syncFailedRef = useRef(false);
   const wasReconnectPendingRef = useRef(false);
   const { hasPass } = usePass();
-  const { isSignedIn, getToken } = useAuth();
-  const { user } = useUser();
+  const { isSignedIn, getToken, userId } = useAuth();
   const migratedForUserRef = useRef<string | null>(null);
   // Holds the latest sync function so useNetReconnect can call it without
   // capturing a stale closure or needing extra state as a trigger.
@@ -351,7 +350,8 @@ export default function JournalScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      const userId = user?.id ?? null;
+      // Identity comes from useAppAuth so demo sessions scope correctly; the
+    // Clerk user object is null in a demo session.
 
       const syncNow = () => {
         if (isSignedIn && userId) {
@@ -562,7 +562,7 @@ export default function JournalScreen() {
 
       syncNowRef.current = syncNow;
       syncNow();
-    }, [isSignedIn, getToken, user]),
+    }, [isSignedIn, getToken, userId]),
   );
 
   const bumpMedia = entries.flatMap((e) =>

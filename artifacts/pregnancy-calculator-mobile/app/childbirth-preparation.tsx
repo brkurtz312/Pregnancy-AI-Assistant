@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useAuth } from "@clerk/expo";
+import { useAppAuth as useAuth } from "@/hooks/useAppAuth";
 import { router, useLocalSearchParams } from "expo-router";
 import { Asset } from "expo-asset";
 import * as FileSystem from "expo-file-system/legacy";

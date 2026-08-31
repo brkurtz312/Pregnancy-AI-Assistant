@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/expo";
+import { useAppAuth as useAuth } from "@/hooks/useAppAuth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, {
   createContext,
