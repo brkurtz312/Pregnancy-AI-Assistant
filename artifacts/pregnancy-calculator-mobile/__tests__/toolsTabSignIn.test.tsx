@@ -6,9 +6,13 @@ jest.mock("react-native-reanimated", () =>
   require("react-native-reanimated/mock"),
 );
 
-jest.mock("@clerk/expo", () => ({
-  useUser: jest.fn(),
-}));
+// The screen reads auth state through useAppAuth, which calls Clerk's useAuth.
+// Both hooks share one mock so the existing mockUseUser.mockReturnValue calls
+// continue to express "the component sees this signed-in state".
+jest.mock("@clerk/expo", () => {
+  const shared = jest.fn();
+  return { useUser: shared, useAuth: shared };
+});
 
 jest.mock("expo-router", () => ({
   router: { push: jest.fn() },

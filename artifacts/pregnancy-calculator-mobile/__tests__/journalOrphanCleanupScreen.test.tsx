@@ -151,6 +151,7 @@ const mockApiLoadJournal = apiLoadJournalEntries as jest.Mock;
 function setSignedIn(id = "user-orphan-test") {
   mockUseAuth.mockReturnValue({
     isSignedIn: true,
+    userId: id,
     getToken: jest.fn(async () => "tok"),
   });
   mockUseUser.mockReturnValue({ user: { id } });

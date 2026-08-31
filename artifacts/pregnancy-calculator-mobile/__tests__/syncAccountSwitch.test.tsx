@@ -214,6 +214,7 @@ function setSignedIn(id: string, token: string) {
   const getToken = makeGetToken(token);
   mockUseAuth.mockReturnValue({
     isSignedIn: true,
+    userId: id,
     getToken,
   });
   mockUseUser.mockReturnValue({ user: { id } });
@@ -314,7 +315,7 @@ describe("Hospital Bag — account switch mid-session", () => {
 
     // User B signs in — capture B's getToken so we can assert it was used
     mockGetHospitalBagCacheOwner.mockResolvedValue(USER_A_ID);
-    const getTokenB = setSignedIn(USER_B_ID, "tok-b");
+    setSignedIn(USER_B_ID, "tok-b");
     mockApiLoadHospitalBag.mockResolvedValue(USER_B_BAG);
 
     act(() => {
@@ -323,7 +324,14 @@ describe("Hospital Bag — account switch mid-session", () => {
     await flushAsync();
 
     // The reload after the switch must have used user B's token getter, not A's
-    expect(mockApiLoadHospitalBag).toHaveBeenLastCalledWith(getTokenB);
+    // useAppAuth wraps getToken, so the screen no longer passes Clerk's mock
+    // function by reference. Assert on the token the passed getter actually
+    // produces — a stronger check than identity.
+    const callsmockApiLoadHospitalBag = mockApiLoadHospitalBag.mock.calls;
+    const passedmockApiLoadHospitalBag = callsmockApiLoadHospitalBag[callsmockApiLoadHospitalBag.length - 1]?.[0] as
+      | (() => Promise<string | null>)
+      | undefined;
+    await expect(passedmockApiLoadHospitalBag?.()).resolves.toBe("tok-b");
   });
 
   it("displays user B's bag items after the account switch, not user A's", async () => {
@@ -471,7 +479,7 @@ describe("Birth Plan — account switch mid-session", () => {
 
     // User B signs in — capture B's getToken so we can assert it was used
     mockGetBirthPlanCacheOwner.mockResolvedValue(USER_A_ID);
-    const getTokenB = setSignedIn(USER_B_ID, "tok-b");
+    setSignedIn(USER_B_ID, "tok-b");
     mockApiLoadBirthPlan.mockResolvedValue(USER_B_BIRTH_PLAN);
 
     act(() => {
@@ -480,7 +488,14 @@ describe("Birth Plan — account switch mid-session", () => {
     await flushAsync();
 
     // The reload after the switch must have used user B's token getter, not A's
-    expect(mockApiLoadBirthPlan).toHaveBeenLastCalledWith(getTokenB);
+    // useAppAuth wraps getToken, so the screen no longer passes Clerk's mock
+    // function by reference. Assert on the token the passed getter actually
+    // produces — a stronger check than identity.
+    const callsmockApiLoadBirthPlan = mockApiLoadBirthPlan.mock.calls;
+    const passedmockApiLoadBirthPlan = callsmockApiLoadBirthPlan[callsmockApiLoadBirthPlan.length - 1]?.[0] as
+      | (() => Promise<string | null>)
+      | undefined;
+    await expect(passedmockApiLoadBirthPlan?.()).resolves.toBe("tok-b");
   });
 
   it("displays user B's birth plan data after the account switch, not user A's", async () => {

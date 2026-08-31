@@ -107,6 +107,7 @@ const mockUseUser = useUser as jest.Mock;
 function setSignedIn(id = "user-123") {
   mockUseAuth.mockReturnValue({
     isSignedIn: true,
+    userId: id,
     getToken: jest.fn(async () => "tok"),
   });
   mockUseUser.mockReturnValue({ user: { id } });
@@ -596,6 +597,7 @@ describe("Hospital Bag — sync API fallback", () => {
     // is already set to userId so the migration block is not entered again.
     mockUseAuth.mockReturnValue({
       isSignedIn: true,
+      userId: "user-123",
       getToken: jest.fn(async () => "tok-refreshed"),
     });
     await act(async () => {
@@ -855,6 +857,7 @@ describe("Birth Plan — sync API fallback", () => {
     // is already set to userId so the migration block is not entered again.
     mockUseAuth.mockReturnValue({
       isSignedIn: true,
+      userId: "user-123",
       getToken: jest.fn(async () => "tok-refreshed"),
     });
     await act(async () => {

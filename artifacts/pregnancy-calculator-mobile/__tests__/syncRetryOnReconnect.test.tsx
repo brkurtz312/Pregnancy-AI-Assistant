@@ -270,6 +270,7 @@ const mockClearBirthPlanCache = clearBirthPlanCache as jest.Mock;
 function setSignedIn(id = "user-123") {
   mockUseAuth.mockReturnValue({
     isSignedIn: true,
+    userId: id,
     getToken: jest.fn(async () => "tok"),
   });
   mockUseUser.mockReturnValue({ user: { id } });

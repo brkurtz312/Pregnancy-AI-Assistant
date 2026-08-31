@@ -121,6 +121,7 @@ const mockUseUser = useUser as jest.Mock;
 function setSignedIn(id = "user-reinstall") {
   mockUseAuth.mockReturnValue({
     isSignedIn: true,
+    userId: id,
     getToken: jest.fn(async () => "tok"),
   });
   mockUseUser.mockReturnValue({ user: { id } });

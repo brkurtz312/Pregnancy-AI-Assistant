@@ -224,6 +224,7 @@ const SYNCED_ENTRY_2 = {
 function setSignedIn(id = "user-offline") {
   mockUseAuth.mockReturnValue({
     isSignedIn: true,
+    userId: id,
     getToken: jest.fn(async () => "tok"),
   });
   mockUseUser.mockReturnValue({ user: { id } });
