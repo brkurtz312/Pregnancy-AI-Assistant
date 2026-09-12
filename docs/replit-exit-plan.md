@@ -106,10 +106,17 @@ depends on where the API server ends up living.
 | Replit deployment | `VITE_CLERK_PUBLISHABLE_KEY`        | `pk_test_…` |
 | Replit deployment | `CLERK_SECRET_KEY`                  | `sk_test_…` |
 
-A `pk_live_` Production instance does exist — Replit creates one when an app is
-published — but nothing points at it. The App Store build, the web app and the
-API server all authenticate against Development, which is where every real user
-account lives.
+**There is no Production instance.** The Clerk dashboard shows only
+Development (checked 12 Sep 2026), which matches the keys above: the App Store
+build, the web app and the API server all authenticate against Development, and
+that is where every real user account lives.
+
+This plan previously asserted that a `pk_live_` instance existed because Replit
+creates one at publish. That came from
+`.agents/memory/clerk-dashboard-access-gating.md`, which reached it by
+mistaking a separate production **database** for a separate Clerk **instance**
+— see the correction in that note. Nothing points at a production instance
+because there is nothing to point at.
 
 Two things follow, and they are the opposite of what this plan said before.
 
@@ -169,10 +176,11 @@ now, but do it properly rather than assuming zero:
    email, creation date.
 
    **The workspace key is the right one.** It reaches the Development
-   instance, and that is where the real users are — the deployment runs on
-   `sk_test_`. The `pk_live_` Production instance is unused, so exporting from
-   it would produce an empty file and a migration that moves nobody. Confirm
-   the count against the `users` table before trusting either.
+   instance, which is the only instance there is, and where the real users
+   are — the deployment runs on `sk_test_` too. Confirm the count against
+   Clerk's own Users page, not the `users` table: the production and
+   development databases are separate, but both sets of people are Clerk users
+   in the same instance, and that is what counts against its limits.
 
 2. Create matching users in the new instance via the Backend API, email verified.
 3. Build an old-id → new-id map and update `users.id`. Child tables cascade from
