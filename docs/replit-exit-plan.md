@@ -98,9 +98,35 @@ depends on where the API server ends up living.
 
 ## Phase 1 — Clerk
 
-`checkClerkManagementStatus()` returns `requires_personal_pro`, so there has
-never been a Clerk dashboard — which is why instance-wide MFA (the cause of two
-App Store rejections) was invisible and unfixable. Owning the account ends that.
+**The live app runs on Clerk's Development instance.** Checked 12 Sep 2026:
+
+| Where             | Variable                            | Value       |
+| ----------------- | ----------------------------------- | ----------- |
+| EAS, production   | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | `pk_test_…` |
+| Replit deployment | `VITE_CLERK_PUBLISHABLE_KEY`        | `pk_test_…` |
+| Replit deployment | `CLERK_SECRET_KEY`                  | `sk_test_…` |
+
+A `pk_live_` Production instance does exist — Replit creates one when an app is
+published — but nothing points at it. The App Store build, the web app and the
+API server all authenticate against Development, which is where every real user
+account lives.
+
+Two things follow, and they are the opposite of what this plan said before.
+
+**The MFA requirement is already off**, checked 12 Sep 2026 in the Development
+instance the app uses — and its dashboard turns out to be reachable after all.
+The two rejections it caused were resolved before the 11 Sep approval. It is
+not an outstanding blocker, and nothing in this migration is needed to fix it.
+
+**Running production on a development instance is its own problem.** Clerk's
+development instances carry lower rate limits and are not intended to serve real
+users; check the current limits against the user count before assuming there is
+time. This is a reason to move, independent of leaving Replit.
+
+`checkClerkManagementStatus()` returning `dashboardAccess: requires_personal_pro`
+gates the dashboard, not the instances
+(`.agents/memory/clerk-dashboard-access-gating.md`). Owning the account removes
+that gate — and gives somewhere to move that is not a development instance.
 
 1. Create a Clerk account and application. Free tier covers this app easily.
 2. Development instance first — `pk_test_` / `sk_test_`.
@@ -109,7 +135,16 @@ App Store rejections) was invisible and unfixable. Owning the account ends that.
    DKIM records). **Set these DNS-only in Cloudflare, not proxied** — orange-cloud
    proxying breaks Clerk's certificate issuance.
 4. **Turn OFF "Require multi-factor authentication"** (Configure → User &
-   authentication → Multi-factor) in _both_ instances.
+   authentication → Multi-factor) in _both_ instances. It is instance-wide: it
+   forces an `email_code` second factor on every password sign-in, including
+   accounts with `two_factor_enabled: false`. That is what no reviewer can get
+   past, and no app-side change can work around it.
+
+   **Already off on the current instance** (checked 12 Sep 2026, in the
+   Development instance the shipped app uses). The two rejections it caused are
+   history — the app was approved on 11 Sep. Nothing to do there; this step is
+   about the new instances, where the requirement must not be switched on.
+
 5. Sign-in methods: email/password, Google, Apple — now with Bryan's own OAuth
    credentials. Apple needs a Services ID and key from the developer account.
    **Sign in with Apple must keep working:** it satisfies Guideline 4.8, and
@@ -132,6 +167,13 @@ now, but do it properly rather than assuming zero:
 1. Export from the old instance — `CLERK_SECRET_KEY` works against
    `GET https://api.clerk.com/v1/users` even without a dashboard. Capture id,
    email, creation date.
+
+   **The workspace key is the right one.** It reaches the Development
+   instance, and that is where the real users are — the deployment runs on
+   `sk_test_`. The `pk_live_` Production instance is unused, so exporting from
+   it would produce an empty file and a migration that moves nobody. Confirm
+   the count against the `users` table before trusting either.
+
 2. Create matching users in the new instance via the Backend API, email verified.
 3. Build an old-id → new-id map and update `users.id`. Child tables cascade from
    it — check FK behaviour before running anything.
