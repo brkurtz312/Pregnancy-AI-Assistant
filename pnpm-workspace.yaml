@@ -35,6 +35,18 @@ packageExtensions:
   expo-font:
     dependencies:
       expo-asset: "*"
+  # Both of these import expo-modules-core in their published types without
+  # declaring it as a dependency or a peer, so pnpm's isolated layout leaves it
+  # unresolvable and tsc reports errors inside the dependency's own files:
+  # expo-file-system ships TypeScript source as `main`, and expo-notifications
+  # extends PermissionResponse from expo-modules-core (which silently strips
+  # `status` off NotificationPermissionsStatus). Metro resolves both fine.
+  expo-file-system:
+    dependencies:
+      expo-modules-core: "*"
+  expo-notifications:
+    dependencies:
+      expo-modules-core: "*"
 
 minimumReleaseAge: 1440
 

@@ -65,16 +65,15 @@ jobs:
         if: ${{ !cancelled() }}
         run: pnpm run typecheck:libs
 
-      # Path-scoped filters, not a bare exclusion: `pnpm -r` also selects the
-      # workspace root, whose own scripts recurse over every package — which
-      # drags the excluded mobile app straight back in.
+      # Path-scoped filters rather than plain `-r`: `pnpm -r` also selects the
+      # workspace root, whose own scripts recurse over every package, so the
+      # suites would run twice.
       - name: Typecheck apps and scripts
         if: ${{ !cancelled() }}
         run: >-
           pnpm -r
           --filter "./artifacts/**"
           --filter "./scripts"
-          --filter "!@workspace/pregnancy-calculator-mobile"
           --if-present run typecheck
 
       - name: Test
@@ -84,22 +83,11 @@ jobs:
           --filter "./artifacts/**"
           --filter "./lib/**"
           --filter "./scripts"
-          --filter "!@workspace/pregnancy-calculator-mobile"
           --if-present run test
 
-# ── Why the mobile app is excluded ───────────────────────────────────────────
-# @workspace/pregnancy-calculator-mobile is left out of the typecheck and test
-# steps because it fails on a clean checkout for three pre-existing reasons,
-# none of them related to the code under review:
-#
-#   1. `scripts/check-watch-sync.js` compares `watchapp/` against `ios/`, which
-#      is a gitignored `expo prebuild` artifact — absent on every fresh clone.
-#   2. `tsc` reports 65 errors in `__tests__/`, `plugins/__tests__/` and
-#      `test-helpers/`: @types/node resolution noise (`fs`, `__dirname`,
-#      `global`), not real type errors.
-#   3. Two jest suites fail — the `withWatchExtension` pair asserts a prebuilt
-#      `ios/`, and `contractionHistoryDeleteSession` has a real date-label bug.
-#
-# Fix those and the mobile app can join by deleting the two
-# `!@workspace/pregnancy-calculator-mobile` filters above. Everything else in
-# the repository is covered.
+# ── What is not covered ──────────────────────────────────────────────────────
+# The mobile app's Watch sources are only compared against ios/ when that
+# directory exists, since `expo prebuild` generates it and it is gitignored.
+# Run `pnpm --filter @workspace/pregnancy-calculator-mobile run typecheck`
+# after a prebuild to exercise that check, and the Xcode project assertions in
+# plugins/__tests__ with it.
