@@ -351,7 +351,7 @@ export default function JournalScreen() {
   useFocusEffect(
     useCallback(() => {
       // Identity comes from useAppAuth so demo sessions scope correctly; the
-    // Clerk user object is null in a demo session.
+      // Clerk user object is null in a demo session.
 
       const syncNow = () => {
         if (isSignedIn && userId) {

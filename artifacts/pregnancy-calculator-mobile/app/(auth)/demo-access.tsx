@@ -152,7 +152,12 @@ export default function DemoAccessScreen() {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  content: { paddingHorizontal: 24, maxWidth: 520, width: "100%", alignSelf: "center" },
+  content: {
+    paddingHorizontal: 24,
+    maxWidth: 520,
+    width: "100%",
+    alignSelf: "center",
+  },
   closeBtn: { alignSelf: "flex-start", padding: 4, marginBottom: 8 },
   logo: {
     width: 56,

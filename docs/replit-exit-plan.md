@@ -183,8 +183,13 @@ the last migration of its kind.
   `artifacts/api-server/tests/connector-credentials.test.ts` shrinks with them.
 - Decide separately what to do about `stripe-replit-sync`, which owns the
   `stripe.*` tables. Not cleanup — see Phase 0.
-- Replace `sync-to-github.sh` and the Replit workflows with GitHub Actions
-  running typecheck, lint and tests.
+- Replace `sync-to-github.sh` and the Replit workflows. The GitHub Actions
+  half is done: `.github/workflows/ci.yml` runs lint, format, typecheck and
+  tests on every pull request and every push to `main`. It excludes the mobile
+  app until three pre-existing failures are fixed (`check-watch-sync.js`
+  against a gitignored `ios/`, 65 `@types/node` errors in its test files, and
+  two failing jest suites) — the reasons are listed at the bottom of that file.
+  `sync-to-github.sh` still needs to go.
 - Fix `check-watch-sync.js` to skip when `ios/` is absent.
 - Rewrite the README — "Getting Started" still says the project runs on Replit.
 - Unset `DEMO_SESSION_SECRET` on production to close the App Review demo path.

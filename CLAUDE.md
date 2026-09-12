@@ -73,6 +73,11 @@ pnpm --filter @workspace/pregnancy-calculator-mobile run test
 pnpm run lint
 ```
 
+CI runs lint, format, typecheck and tests on every pull request and every push
+to `main` (`.github/workflows/ci.yml`). The mobile app is **not** covered — the
+comment at the bottom of that file says why and what it would take. Run its
+tests by hand until then.
+
 Six api-server suites need `DATABASE_URL` and skip without it:
 `account-deletion-schema`, `kick-sessions-watch-id-schema`,
 `postgres-rate-limit-store`, `rate-limits-table-schema`,

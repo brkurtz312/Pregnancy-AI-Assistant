@@ -123,10 +123,10 @@ describe("verifyDemoToken", () => {
   });
 
   it("rejects a tampered signature", () => {
-    const [version, body, signature] = issueDemoToken(
-      newDemoSubject(),
-    ).split(".");
-    const flipped = signature.slice(0, -1) + (signature.endsWith("A") ? "B" : "A");
+    const [version, body, signature] =
+      issueDemoToken(newDemoSubject()).split(".");
+    const flipped =
+      signature.slice(0, -1) + (signature.endsWith("A") ? "B" : "A");
     expect(verifyDemoToken(`${version}.${body}.${flipped}`)).toBeNull();
   });
 
@@ -146,11 +146,15 @@ describe("verifyDemoToken", () => {
   });
 
   it("rejects a token whose body is not valid JSON", () => {
-    expect(verifyDemoToken(forgeSignedToken("not-an-object" as never))).toBeNull();
+    expect(
+      verifyDemoToken(forgeSignedToken("not-an-object" as never)),
+    ).toBeNull();
   });
 
   it("rejects a payload missing its fields", () => {
-    expect(verifyDemoToken(forgeSignedToken({ sub: newDemoSubject() }))).toBeNull();
+    expect(
+      verifyDemoToken(forgeSignedToken({ sub: newDemoSubject() })),
+    ).toBeNull();
     expect(verifyDemoToken(forgeSignedToken({ exp: 99999999999 }))).toBeNull();
   });
 
