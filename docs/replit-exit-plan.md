@@ -151,8 +151,24 @@ and the update only reaches binaries whose runtime version matches, so confirm
 That makes the order:
 
 1. New Clerk instance live on its own domain (steps 1-5 above).
-2. Publish an OTA update to `production` carrying the new key and no
-   `proxyUrl`. Verify sign-in on a device that took the update.
+2. Clear the stale variable, then publish an OTA update carrying the new key
+   and no `proxyUrl`:
+
+   ```
+   cd artifacts/pregnancy-calculator-mobile
+   pnpm exec eas env:delete production --variable-name EXPO_PUBLIC_CLERK_PROXY_URL
+   pnpm exec eas update --branch production --environment production -m "..."
+   ```
+
+   **`--branch production` is not optional.** Without it the branch defaults to
+   the current git branch, and the update lands on an EAS branch no channel
+   points at — published, invisible, reaching nobody. The `production` channel
+   serves the branch literally named `production` (verified 12 Sep 2026 with
+   `eas channel:view production`). Clear the variable before publishing, since
+   `--environment` resolves EAS variables at export time.
+
+   Verify sign-in on a device that took the update.
+
 3. Watch adoption in the Expo dashboard.
 4. Only then merge the proxy deletion and retire the old instance. Clear
    `EXPO_PUBLIC_CLERK_PROXY_URL` from the EAS environment at the same time —
