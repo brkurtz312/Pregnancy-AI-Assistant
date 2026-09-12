@@ -95,7 +95,14 @@ const SOAP_RESPONSE = JSON.stringify({
 
 // ─── Unit-level: concurrent reserveUsage against real DB ─────────────────────
 
-describe("reserveUsage — concurrent calls against the real database", () => {
+// This suite runs against a real Postgres connection. Without DATABASE_URL
+// there is nothing to run against, so it skips instead of failing the whole
+// api-server run — the integration coverage is still there for anyone who sets
+// DATABASE_URL and re-runs.
+const hasDatabase = Boolean(process.env.DATABASE_URL);
+const describeDb = describe.skipIf(!hasDatabase);
+
+describeDb("reserveUsage — concurrent calls against the real database", () => {
   beforeEach(cleanupTestRow);
   afterEach(cleanupTestRow);
 
@@ -150,81 +157,84 @@ describe("reserveUsage — concurrent calls against the real database", () => {
 
 // ─── HTTP-level: two concurrent /scribe/generate-note requests ───────────────
 
-describe("POST /scribe/generate-note — concurrent requests from two devices", () => {
-  beforeEach(async () => {
-    await cleanupTestRow();
-    vi.clearAllMocks();
-    mockAnthropicCreate.mockResolvedValue({
-      content: [{ type: "text", text: SOAP_RESPONSE }],
+describeDb(
+  "POST /scribe/generate-note — concurrent requests from two devices",
+  () => {
+    beforeEach(async () => {
+      await cleanupTestRow();
+      vi.clearAllMocks();
+      mockAnthropicCreate.mockResolvedValue({
+        content: [{ type: "text", text: SOAP_RESPONSE }],
+      });
     });
-  });
 
-  afterEach(cleanupTestRow);
+    afterEach(cleanupTestRow);
 
-  it("allows exactly one request and blocks the other with 403 SCRIBE_LIMIT_REACHED", async () => {
-    const app = buildApp();
+    it("allows exactly one request and blocks the other with 403 SCRIBE_LIMIT_REACHED", async () => {
+      const app = buildApp();
 
-    const [res1, res2] = await Promise.all([
-      request(app)
-        .post("/scribe/generate-note")
-        .send({ transcript: VALID_TRANSCRIPT, mode: "soap" }),
-      request(app)
-        .post("/scribe/generate-note")
-        .send({ transcript: VALID_TRANSCRIPT, mode: "soap" }),
-    ]);
+      const [res1, res2] = await Promise.all([
+        request(app)
+          .post("/scribe/generate-note")
+          .send({ transcript: VALID_TRANSCRIPT, mode: "soap" }),
+        request(app)
+          .post("/scribe/generate-note")
+          .send({ transcript: VALID_TRANSCRIPT, mode: "soap" }),
+      ]);
 
-    const statuses = [res1.status, res2.status].sort();
+      const statuses = [res1.status, res2.status].sort();
 
-    expect(statuses).toEqual([200, 403]);
+      expect(statuses).toEqual([200, 403]);
 
-    const blocked = [res1, res2].find((r) => r.status === 403);
-    expect(blocked?.body.code).toBe("SCRIBE_LIMIT_REACHED");
-  });
-
-  it("the successful response contains a structured SOAP note", async () => {
-    const app = buildApp();
-
-    const [res1, res2] = await Promise.all([
-      request(app)
-        .post("/scribe/generate-note")
-        .send({ transcript: VALID_TRANSCRIPT, mode: "soap" }),
-      request(app)
-        .post("/scribe/generate-note")
-        .send({ transcript: VALID_TRANSCRIPT, mode: "soap" }),
-    ]);
-
-    const succeeded = [res1, res2].find((r) => r.status === 200);
-    expect(succeeded).toBeDefined();
-    expect(succeeded?.body.note).toMatchObject({
-      subjective: expect.any(String),
-      objective: expect.any(String),
-      assessment: expect.any(String),
-      plan: expect.any(String),
+      const blocked = [res1, res2].find((r) => r.status === 403);
+      expect(blocked?.body.code).toBe("SCRIBE_LIMIT_REACHED");
     });
-  });
 
-  it("leaves the counter at exactly 1 after both concurrent HTTP requests resolve", async () => {
-    const app = buildApp();
+    it("the successful response contains a structured SOAP note", async () => {
+      const app = buildApp();
 
-    await Promise.all([
-      request(app)
-        .post("/scribe/generate-note")
-        .send({ transcript: VALID_TRANSCRIPT, mode: "soap" }),
-      request(app)
-        .post("/scribe/generate-note")
-        .send({ transcript: VALID_TRANSCRIPT, mode: "soap" }),
-    ]);
+      const [res1, res2] = await Promise.all([
+        request(app)
+          .post("/scribe/generate-note")
+          .send({ transcript: VALID_TRANSCRIPT, mode: "soap" }),
+        request(app)
+          .post("/scribe/generate-note")
+          .send({ transcript: VALID_TRANSCRIPT, mode: "soap" }),
+      ]);
 
-    const [row] = await db
-      .select({ count: aiUsageTable.count })
-      .from(aiUsageTable)
-      .where(
-        and(
-          eq(aiUsageTable.identifier, TEST_IDENTIFIER),
-          eq(aiUsageTable.periodKey, PERIOD_KEY),
-        ),
-      );
+      const succeeded = [res1, res2].find((r) => r.status === 200);
+      expect(succeeded).toBeDefined();
+      expect(succeeded?.body.note).toMatchObject({
+        subjective: expect.any(String),
+        objective: expect.any(String),
+        assessment: expect.any(String),
+        plan: expect.any(String),
+      });
+    });
 
-    expect(row?.count).toBe(1);
-  });
-});
+    it("leaves the counter at exactly 1 after both concurrent HTTP requests resolve", async () => {
+      const app = buildApp();
+
+      await Promise.all([
+        request(app)
+          .post("/scribe/generate-note")
+          .send({ transcript: VALID_TRANSCRIPT, mode: "soap" }),
+        request(app)
+          .post("/scribe/generate-note")
+          .send({ transcript: VALID_TRANSCRIPT, mode: "soap" }),
+      ]);
+
+      const [row] = await db
+        .select({ count: aiUsageTable.count })
+        .from(aiUsageTable)
+        .where(
+          and(
+            eq(aiUsageTable.identifier, TEST_IDENTIFIER),
+            eq(aiUsageTable.periodKey, PERIOD_KEY),
+          ),
+        );
+
+      expect(row?.count).toBe(1);
+    });
+  },
+);

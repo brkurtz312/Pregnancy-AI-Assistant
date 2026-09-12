@@ -18,6 +18,16 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
+// The database pool is now created on first use rather than on import (see
+// @workspace/db), so a missing DATABASE_URL would otherwise surface as a
+// failed request rather than a failed boot. Check it here to keep a
+// misconfigured deploy loud and immediate, as it was before.
+if (!process.env["DATABASE_URL"]) {
+  throw new Error(
+    "DATABASE_URL environment variable is required but was not provided.",
+  );
+}
+
 // Best-effort: set up the Stripe schema/webhook/sync. Non-fatal if Stripe is
 // not yet connected so the rest of the API still boots.
 await initStripe();

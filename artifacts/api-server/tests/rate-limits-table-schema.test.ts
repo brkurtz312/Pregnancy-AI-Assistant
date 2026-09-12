@@ -31,7 +31,14 @@ import { db } from "@workspace/db";
 
 // ─── Table existence ──────────────────────────────────────────────────────────
 
-describe("rate_limits table — existence", () => {
+// This suite runs against a real Postgres connection. Without DATABASE_URL
+// there is nothing to run against, so it skips instead of failing the whole
+// api-server run — the integration coverage is still there for anyone who sets
+// DATABASE_URL and re-runs.
+const hasDatabase = Boolean(process.env.DATABASE_URL);
+const describeDb = describe.skipIf(!hasDatabase);
+
+describeDb("rate_limits table — existence", () => {
   it("the rate_limits table exists in the public schema", async () => {
     const result = await db.execute(sql`
       SELECT table_name
@@ -46,7 +53,7 @@ describe("rate_limits table — existence", () => {
 
 // ─── Column presence and types ────────────────────────────────────────────────
 
-describe("rate_limits table — columns", () => {
+describeDb("rate_limits table — columns", () => {
   /**
    * Fetch all columns for the `rate_limits` table from information_schema and
    * return a map of column_name → data_type for easy assertions.
@@ -89,7 +96,7 @@ describe("rate_limits table — columns", () => {
 
 // ─── Primary key ──────────────────────────────────────────────────────────────
 
-describe("rate_limits table — primary key", () => {
+describeDb("rate_limits table — primary key", () => {
   it("'key' is the primary key column", async () => {
     // The ON CONFLICT target used in PostgresRateLimitStore.increment() is
     // rateLimitsTable.key. If 'key' loses its PK constraint, the upsert throws
@@ -115,7 +122,7 @@ describe("rate_limits table — primary key", () => {
 
 // ─── Index ────────────────────────────────────────────────────────────────────
 
-describe("rate_limits table — index", () => {
+describeDb("rate_limits table — index", () => {
   it("the housekeeping index rate_limits_expires_at_idx exists on expires_at", async () => {
     // PostgresRateLimitStore runs periodic DELETE … WHERE expires_at <= now().
     // Without an index on expires_at this becomes a full-table scan. The index
