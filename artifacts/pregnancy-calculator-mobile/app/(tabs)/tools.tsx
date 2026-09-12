@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAppAuth as useUser } from "@/hooks/useAppAuth";
 import * as Haptics from "expo-haptics";
 import * as haptics from "@/lib/haptics";
+import { localDateString } from "@/lib/dates";
 import { router, useRouter } from "expo-router";
 import React, {
   useState,
@@ -102,10 +103,6 @@ function formatDate(iso: string) {
     " " +
     d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
   );
-}
-
-function todayDate() {
-  return new Date().toISOString().slice(0, 10);
 }
 
 // ─── Symptom Log Section ─────────────────────────────────────────────────────
@@ -735,7 +732,7 @@ export function KickCounterSection() {
 
 export function ContractionTimerSection() {
   const colors = useColors();
-  const today = todayDate();
+  const today = localDateString();
   const { data, isLoading, refetch } = useListContractions({
     sessionDate: today,
     limit: 50,
