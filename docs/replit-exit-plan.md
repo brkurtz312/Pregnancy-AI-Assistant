@@ -109,7 +109,7 @@ App Store rejections) was invisible and unfixable. Owning the account ends that.
    DKIM records). **Set these DNS-only in Cloudflare, not proxied** — orange-cloud
    proxying breaks Clerk's certificate issuance.
 4. **Turn OFF "Require multi-factor authentication"** (Configure → User &
-   authentication → Multi-factor) in *both* instances.
+   authentication → Multi-factor) in _both_ instances.
 5. Sign-in methods: email/password, Google, Apple — now with Bryan's own OAuth
    credentials. Apple needs a Services ID and key from the developer account.
    **Sign in with Apple must keep working:** it satisfies Guideline 4.8, and
@@ -152,9 +152,11 @@ the last migration of its kind.
   managed Postgres, env vars in a UI). Render and Fly also fine.
 - **Secrets:** move everything out of `.replit` `[userenv]` — the RevenueCat
   keys are currently sitting in that committed file, which is its own problem.
-  Phase 0 adds four to that list: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
-  a RevenueCat v2 secret key, and whatever replaces `REPLIT_CONNECTORS_HOSTNAME`
-  in the two `stripeClient.ts` and two `revenueCatClient.ts` files.
+  The credential plumbing already reads three of these, so setting them is the
+  whole cutover: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and
+  `REVENUECAT_SECRET_API_KEY` (a v2 secret key from RevenueCat's dashboard,
+  Project settings → API keys). Each falls back to the Replit connector while
+  unset, so they can be set and verified one at a time.
 - **Stripe webhook — the one thing that can silently break billing.** Replit's
   managed webhook goes away with Replit. Create the endpoint in the Stripe
   dashboard against the new API host, put its `whsec_…` secret in
@@ -171,10 +173,14 @@ the last migration of its kind.
 ## Phase 3 — Cleanup
 
 - Delete `.replit`, `.replitignore`, `replit.md`.
-- Remove `@replit/*` dependencies and the Replit Vite plugins. Phase 0 cleared
-  this: `@replit/connectors-sdk` is unused, the Vite plugins are dev-only and
-  already gated behind `REPL_ID`, and `@replit/revenuecat-sdk` is a plain REST
-  wrapper that can stay or go on its own schedule.
+- Remove the remaining `@replit/*` dependencies and the Replit Vite plugins.
+  `@replit/connectors-sdk` is already gone (it was unused). The Vite plugins
+  are dev-only and gated behind `REPL_ID`; `@replit/revenuecat-sdk` is a plain
+  REST wrapper that can stay or go on its own schedule.
+- Delete the connector fallbacks in `artifacts/api-server/src/lib/`
+  {`stripeClient.ts`, `revenueCatClient.ts`} and their two twins under
+  `scripts/src/`, once the environment variables above are set everywhere.
+  `artifacts/api-server/tests/connector-credentials.test.ts` shrinks with them.
 - Decide separately what to do about `stripe-replit-sync`, which owns the
   `stripe.*` tables. Not cleanup — see Phase 0.
 - Replace `sync-to-github.sh` and the Replit workflows with GitHub Actions

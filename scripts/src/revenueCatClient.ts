@@ -12,7 +12,14 @@ type ConnectionSettings = {
 
 let cached: { token: string; expiresAt: number } | null = null;
 
-async function getAccessToken(): Promise<string> {
+/**
+ * Fetches a RevenueCat OAuth access token from the Replit connector.
+ *
+ * Only used when `REVENUECAT_SECRET_API_KEY` is unset. Deleted once the move
+ * off Replit is complete -- see docs/replit-exit-plan.md. The token rotates,
+ * hence the expiry-aware cache; a plain API key does not.
+ */
+async function getAccessTokenFromReplit(): Promise<string> {
   if (cached && cached.expiresAt - 60_000 > Date.now()) {
     return cached.token;
   }
@@ -24,8 +31,12 @@ async function getAccessToken(): Promise<string> {
       ? "depl " + process.env.WEB_REPL_RENEWAL
       : null;
 
-  if (!hostname) throw new Error("REPLIT_CONNECTORS_HOSTNAME is not set");
-  if (!xReplitToken) throw new Error("Replit identity token not found");
+  if (!hostname || !xReplitToken) {
+    throw new Error(
+      "RevenueCat is not configured. Set REVENUECAT_SECRET_API_KEY, or run " +
+        "on Replit with RevenueCat connected in the Integrations pane.",
+    );
+  }
 
   const res = await fetch(
     `https://${hostname}/api/v2/connection?include_secrets=true&connector_names=revenuecat`,
@@ -50,7 +61,8 @@ async function getAccessToken(): Promise<string> {
 
   if (!token) {
     throw new Error(
-      "RevenueCat is not connected. Connect it in the Integrations pane.",
+      "RevenueCat is not connected. Connect it in the Integrations pane, " +
+        "or set REVENUECAT_SECRET_API_KEY.",
     );
   }
 
@@ -63,9 +75,25 @@ async function getAccessToken(): Promise<string> {
 }
 
 /**
- * Returns a RevenueCat REST v2 client authenticated with a fresh OAuth access
- * token from the Replit connector. The token rotates, so always fetch a new
- * client per logical operation rather than caching the client itself.
+ * Returns the RevenueCat REST v2 bearer credential, preferring the
+ * environment over Replit.
+ *
+ * `REVENUECAT_SECRET_API_KEY` is a v2 secret API key from the RevenueCat
+ * dashboard (Project settings -> API keys). It authenticates the same way the
+ * connector's OAuth token does, so nothing downstream changes.
+ */
+async function getAccessToken(): Promise<string> {
+  const apiKey = process.env.REVENUECAT_SECRET_API_KEY;
+  if (apiKey) {
+    return apiKey;
+  }
+  return getAccessTokenFromReplit();
+}
+
+/**
+ * Returns a RevenueCat REST v2 client authenticated with a fresh credential.
+ * When that credential is a Replit OAuth token it rotates, so always fetch a
+ * new client per logical operation rather than caching the client itself.
  */
 export async function getUncachableRevenueCatClient(): Promise<
   ReturnType<typeof createClient>
