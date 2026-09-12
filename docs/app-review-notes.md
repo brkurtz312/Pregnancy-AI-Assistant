@@ -43,7 +43,7 @@ The previous two submissions were rejected under Guideline 2.1 because Apple
 could not sign in with the supplied credentials. The credentials were valid.
 
 The Clerk instance has **"Require multi-factor authentication"** enabled
-instance-wide. That policy forces an `email_code` second factor on *every*
+instance-wide. That policy forces an `email_code` second factor on _every_
 password sign-in, including accounts with no MFA enrolled — so the sign-in
 verifies the password and then returns `needs_second_factor`. The reviewer has
 no way to read the mailbox the code is sent to, so no credential-based demo
@@ -59,10 +59,10 @@ Full detail: `.agents/memory/clerk-mfa-blocks-app-review.md`.
 
 Both must be set on the **production** deployment:
 
-| Setting | Where | Notes |
-| --- | --- | --- |
-| `DEMO_SESSION_SECRET` | env var | 32+ chars, random. Demo mode is disabled entirely when unset. |
-| `demo_access_code` | `app_config` table (or `DEMO_ACCESS_CODE` env) | The code that goes in the review notes. Rotatable without a rebuild. |
+| Setting               | Where                                          | Notes                                                                |
+| --------------------- | ---------------------------------------------- | -------------------------------------------------------------------- |
+| `DEMO_SESSION_SECRET` | env var                                        | 32+ chars, random. Demo mode is disabled entirely when unset.        |
+| `demo_access_code`    | `app_config` table (or `DEMO_ACCESS_CODE` env) | The code that goes in the review notes. Rotatable without a rebuild. |
 
 Verify before submitting:
 

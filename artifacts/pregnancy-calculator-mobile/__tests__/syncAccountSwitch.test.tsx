@@ -328,9 +328,9 @@ describe("Hospital Bag — account switch mid-session", () => {
     // function by reference. Assert on the token the passed getter actually
     // produces — a stronger check than identity.
     const callsmockApiLoadHospitalBag = mockApiLoadHospitalBag.mock.calls;
-    const passedmockApiLoadHospitalBag = callsmockApiLoadHospitalBag[callsmockApiLoadHospitalBag.length - 1]?.[0] as
-      | (() => Promise<string | null>)
-      | undefined;
+    const passedmockApiLoadHospitalBag = callsmockApiLoadHospitalBag[
+      callsmockApiLoadHospitalBag.length - 1
+    ]?.[0] as (() => Promise<string | null>) | undefined;
     await expect(passedmockApiLoadHospitalBag?.()).resolves.toBe("tok-b");
   });
 
@@ -492,9 +492,9 @@ describe("Birth Plan — account switch mid-session", () => {
     // function by reference. Assert on the token the passed getter actually
     // produces — a stronger check than identity.
     const callsmockApiLoadBirthPlan = mockApiLoadBirthPlan.mock.calls;
-    const passedmockApiLoadBirthPlan = callsmockApiLoadBirthPlan[callsmockApiLoadBirthPlan.length - 1]?.[0] as
-      | (() => Promise<string | null>)
-      | undefined;
+    const passedmockApiLoadBirthPlan = callsmockApiLoadBirthPlan[
+      callsmockApiLoadBirthPlan.length - 1
+    ]?.[0] as (() => Promise<string | null>) | undefined;
     await expect(passedmockApiLoadBirthPlan?.()).resolves.toBe("tok-b");
   });
 

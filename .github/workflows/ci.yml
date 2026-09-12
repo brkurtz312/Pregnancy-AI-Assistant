@@ -1,0 +1,105 @@
+name: CI
+
+# Lint, format, typecheck and test on every pull request and every push to
+# main. Nothing here needs a database, an API key or a network call: the
+# api-server suites that require Postgres skip themselves when DATABASE_URL is
+# absent, which is the whole reason this can run as a gate.
+#
+# Deliberately does NOT build. The web app's vite.config.ts throws unless PORT
+# and BASE_PATH are set when the config loads, so `vite build` cannot run
+# anywhere that does not set them — which is also why the Cloudflare Pages
+# checks fail on every pull request. Worth fixing with the rest of the Replit
+# cleanup (docs/replit-exit-plan.md, Phase 3); until then a build step here
+# would be red for a reason unrelated to the change under test.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Read-only: this workflow inspects code, it never writes to the repository.
+permissions:
+  contents: read
+
+# One run per branch. A new push cancels the run still in flight rather than
+# queueing behind it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint, typecheck and test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Each check below runs even when an earlier one fails, so one run
+      # reports everything that is wrong instead of only the first thing. The
+      # job still fails if any of them do.
+      - name: Lint
+        if: ${{ !cancelled() }}
+        run: pnpm run lint
+
+      - name: Format
+        if: ${{ !cancelled() }}
+        run: pnpm run format
+
+      - name: Typecheck libraries
+        if: ${{ !cancelled() }}
+        run: pnpm run typecheck:libs
+
+      # Path-scoped filters, not a bare exclusion: `pnpm -r` also selects the
+      # workspace root, whose own scripts recurse over every package — which
+      # drags the excluded mobile app straight back in.
+      - name: Typecheck apps and scripts
+        if: ${{ !cancelled() }}
+        run: >-
+          pnpm -r
+          --filter "./artifacts/**"
+          --filter "./scripts"
+          --filter "!@workspace/pregnancy-calculator-mobile"
+          --if-present run typecheck
+
+      - name: Test
+        if: ${{ !cancelled() }}
+        run: >-
+          pnpm -r
+          --filter "./artifacts/**"
+          --filter "./lib/**"
+          --filter "./scripts"
+          --filter "!@workspace/pregnancy-calculator-mobile"
+          --if-present run test
+
+# ── Why the mobile app is excluded ───────────────────────────────────────────
+# @workspace/pregnancy-calculator-mobile is left out of the typecheck and test
+# steps because it fails on a clean checkout for three pre-existing reasons,
+# none of them related to the code under review:
+#
+#   1. `scripts/check-watch-sync.js` compares `watchapp/` against `ios/`, which
+#      is a gitignored `expo prebuild` artifact — absent on every fresh clone.
+#   2. `tsc` reports 65 errors in `__tests__/`, `plugins/__tests__/` and
+#      `test-helpers/`: @types/node resolution noise (`fs`, `__dirname`,
+#      `global`), not real type errors.
+#   3. Two jest suites fail — the `withWatchExtension` pair asserts a prebuilt
+#      `ios/`, and `contractionHistoryDeleteSession` has a real date-label bug.
+#
+# Fix those and the mobile app can join by deleting the two
+# `!@workspace/pregnancy-calculator-mobile` filters above. Everything else in
+# the repository is covered.
