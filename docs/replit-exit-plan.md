@@ -186,7 +186,8 @@ the last migration of its kind.
 - Replace `sync-to-github.sh` and the Replit workflows. The GitHub Actions
   half is done: `.github/workflows/ci.yml` runs lint, format, typecheck and
   tests on every pull request and every push to `main`, covering every package
-  including the mobile app. `sync-to-github.sh` still needs to go.
+  including the mobile app, and builds the web apps and API server.
+  `sync-to-github.sh` still needs to go.
 - ~~Fix `check-watch-sync.js` to skip when `ios/` is absent.~~ Done — it
   skips when `ios/` is absent and still catches drift when it is there.
 - Rewrite the README — "Getting Started" still says the project runs on Replit.
