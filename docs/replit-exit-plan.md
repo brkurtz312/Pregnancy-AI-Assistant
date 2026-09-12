@@ -98,9 +98,19 @@ depends on where the API server ends up living.
 
 ## Phase 1 — Clerk
 
-`checkClerkManagementStatus()` returns `requires_personal_pro`, so there has
-never been a Clerk dashboard — which is why instance-wide MFA (the cause of two
-App Store rejections) was invisible and unfixable. Owning the account ends that.
+`checkClerkManagementStatus()` returns `dashboardAccess: requires_personal_pro`.
+That gates the **dashboard**, not the instances. Per
+`.agents/memory/clerk-dashboard-access-gating.md`, Replit creates a full
+Production Clerk instance the moment an app is published — own keys, own user
+store — and this app is published. It exists and is serving the live app right
+now; it was only ever invisible, confirmed independently by production database
+rows that differ from development's.
+
+That distinction decides how Phase 1 goes. Instance-wide MFA — the cause of two
+App Store rejections — is set on that Production instance and was unfixable
+because the dashboard would not show it, not because no instance existed. And
+the users to migrate live there, not in development. Owning the account is what
+makes both reachable.
 
 1. Create a Clerk account and application. Free tier covers this app easily.
 2. Development instance first — `pk_test_` / `sk_test_`.
@@ -109,7 +119,10 @@ App Store rejections) was invisible and unfixable. Owning the account ends that.
    DKIM records). **Set these DNS-only in Cloudflare, not proxied** — orange-cloud
    proxying breaks Clerk's certificate issuance.
 4. **Turn OFF "Require multi-factor authentication"** (Configure → User &
-   authentication → Multi-factor) in _both_ instances.
+   authentication → Multi-factor) in _both_ instances. It is instance-wide: it
+   forces an `email_code` second factor on every password sign-in, including
+   accounts with `two_factor_enabled: false`. That is what no reviewer can get
+   past, and no app-side change can work around it.
 5. Sign-in methods: email/password, Google, Apple — now with Bryan's own OAuth
    credentials. Apple needs a Services ID and key from the developer account.
    **Sign in with Apple must keep working:** it satisfies Guideline 4.8, and
@@ -132,6 +145,13 @@ now, but do it properly rather than assuming zero:
 1. Export from the old instance — `CLERK_SECRET_KEY` works against
    `GET https://api.clerk.com/v1/users` even without a dashboard. Capture id,
    email, creation date.
+
+   **Use the Production instance's key, not the workspace's.** Per
+   `.agents/memory/clerk-mfa-blocks-app-review.md`, the `CLERK_SECRET_KEY` in
+   the Replit workspace reaches the Development instance only — a separate user
+   store. Exporting with it migrates test accounts and silently leaves every
+   real user behind. The production key lives in the deployment's environment.
+
 2. Create matching users in the new instance via the Backend API, email verified.
 3. Build an old-id → new-id map and update `users.id`. Child tables cascade from
    it — check FK behaviour before running anything.
