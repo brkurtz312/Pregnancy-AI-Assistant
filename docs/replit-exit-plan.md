@@ -6,28 +6,93 @@ what makes an all-at-once move reasonable rather than reckless.
 
 ---
 
-## Phase 0 — Survey (do this first)
+## Phase 0 — Survey (answered 12 Sep 2026)
 
-Two Replit couplings are deeper than hosting and have not been assessed. Find
-out what they actually do before planning around them:
+Surveyed the couplings below. **Two of the three named here are thinner than
+feared; a dependency this plan never listed is the one that needs real care.**
 
-```
-@replit/connectors-sdk     # root dependency — Stripe connector credentials
-@replit/revenuecat-sdk     # root dependency — RevenueCat integration
-@replit/vite-plugin-*      # cartographer, dev-banner, runtime-error-modal
-```
+### `@replit/connectors-sdk` — dead, delete it
 
-`.agents/memory/stripe-connector-fields.md` says connection settings use
-`secret`/`publishable` rather than `secret_key`/`webhook_secret`. That reads
-like Replit brokering the Stripe credentials. If so, leaving Replit means
-wiring Stripe directly — a real work item, not a dependency swap.
+Zero references anywhere in the codebase. The connector API is called by
+hand-rolled `fetch` in the client files below, never through this SDK. It is a
+root dependency that does nothing. Remove it whenever convenient — nothing
+depends on the timing.
 
-Same question for `@replit/revenuecat-sdk`. `revenuecat-asc-sync.md` notes a
-generic "Failed to sync products" error came from "the Replit→Apple layer",
-which suggests Replit sits in the purchase path too.
+### `@replit/revenuecat-sdk` — a thin wrapper, as hoped
 
-**Answer this before committing to a timeline.** Everything below assumes these
-are thin wrappers; if they aren't, they become their own phase.
+`createClient` is pointed at an explicit RevenueCat base URL
+(`https://api.revenuecat.com/v2`), and the named helpers (`listProjects`,
+`listProducts`, `listEntitlements`, `attachProductsToPackage`, …) are typed
+calls against RevenueCat's public REST v2 API. **Replit is not in the request
+path.** The package is ordinary npm code and keeps working off Replit.
+
+The only coupling is authentication: `getAccessToken()` fetches an OAuth token
+from `REPLIT_CONNECTORS_HOSTNAME`. It lives in two near-identical ~80-line
+files —
+
+- `artifacts/api-server/src/lib/revenueCatClient.ts`
+- `scripts/src/revenueCatClient.ts`
+
+— and is replaced by a RevenueCat v2 secret key read from the environment. An
+afternoon, not a phase.
+
+### Purchases were never on Replit
+
+`pregnancy-calculator-mobile/lib/revenuecat.tsx` configures
+`react-native-purchases` directly with `REVENUECAT_IOS_API_KEY` /
+`REVENUECAT_ANDROID_API_KEY` and calls `Purchases.purchasePackage` against
+RevenueCat. **Nothing in the runtime purchase path touches Replit**, so leaving
+cannot break buying, restoring, or entitlements on a device.
+
+The "Failed to sync products" error in `revenuecat-asc-sync.md` came from
+Replit's Publishing pane → Manage in-app purchases → Sync to App Store Connect,
+a Replit UI convenience that pushes RevenueCat products into App Store Connect.
+Leaving loses that button; in-app purchase metadata gets managed in ASC
+directly instead. It was already failing, so this costs nothing.
+
+### Stripe — same shape as RevenueCat
+
+Credentials are brokered by the same connector API (`settings.secret`),
+isolated to two files:
+
+- `artifacts/api-server/src/lib/stripeClient.ts`
+- `scripts/src/stripeClient.ts`
+
+Replaced by `STRIPE_SECRET_KEY` in the environment. The webhook secret is a
+different story — see below.
+
+### `stripe-replit-sync` — the real work item
+
+This plan did not list it. It is a Replit-authored npm package that **owns a
+Postgres schema**: `runMigrations` in
+`artifacts/api-server/src/lib/stripe-init.ts` creates the `stripe.*` tables,
+`processWebhook` writes rows into them, and `lib/db/src/schema/users.ts`
+explicitly defers that schema to it. It sits in the webhook → entitlement path
+that decides whether a user has paid.
+
+Two consequences:
+
+1. **The webhook signing secret is Replit's, not yours.** Per
+   `.agents/memory/stripe-connector-fields.md`, there is no `webhook_secret` on
+   the connection — `findOrCreateManagedWebhook` provisions the endpoint and
+   stores its own signing secret, which is why passing `webhookSecret: ""`
+   works today. Leaving Replit means creating the webhook endpoint yourself in
+   the Stripe dashboard, pointed at the new API host, and putting its
+   `whsec_…` value in `STRIPE_WEBHOOK_SECRET`. **Until that is done no payment
+   events arrive and nobody's pass activates.** Verify with the Stripe CLI
+   before real traffic moves.
+2. **A Replit-authored package owns the billing tables.** It is ordinary npm
+   code, so it should keep running anywhere — the risk is maintenance and
+   lock-in, not breakage. Keep it, or replace it with a hand-written webhook
+   handler and Drizzle schema. Decide that deliberately, on its own, not in the
+   middle of the hosting move.
+
+### What this means for the timeline
+
+The dependency swaps are four small files and an `npm remove`; they are not a
+phase of their own and can ride along with Phase 3. The item that deserves care
+is the **Stripe webhook**, and it belongs with Phase 2, because the endpoint URL
+depends on where the API server ends up living.
 
 ---
 
@@ -87,6 +152,14 @@ the last migration of its kind.
   managed Postgres, env vars in a UI). Render and Fly also fine.
 - **Secrets:** move everything out of `.replit` `[userenv]` — the RevenueCat
   keys are currently sitting in that committed file, which is its own problem.
+  Phase 0 adds four to that list: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
+  a RevenueCat v2 secret key, and whatever replaces `REPLIT_CONNECTORS_HOSTNAME`
+  in the two `stripeClient.ts` and two `revenueCatClient.ts` files.
+- **Stripe webhook — the one thing that can silently break billing.** Replit's
+  managed webhook goes away with Replit. Create the endpoint in the Stripe
+  dashboard against the new API host, put its `whsec_…` secret in
+  `STRIPE_WEBHOOK_SECRET`, and confirm with `stripe trigger` that a payment
+  actually flips a user's pass. See Phase 0 for why this is not a config swap.
 - Run `migrate-deletion-integrity` deliberately against the new database, with
   someone watching, after fixing the `created_at`/`requested_at` mismatch.
 - **`EXPO_PUBLIC_DOMAIN` points at `pregnancy-calc--brkurtz.replit.app`.**
@@ -98,7 +171,12 @@ the last migration of its kind.
 ## Phase 3 — Cleanup
 
 - Delete `.replit`, `.replitignore`, `replit.md`.
-- Remove `@replit/*` dependencies and Replit Vite plugins (pending Phase 0).
+- Remove `@replit/*` dependencies and the Replit Vite plugins. Phase 0 cleared
+  this: `@replit/connectors-sdk` is unused, the Vite plugins are dev-only and
+  already gated behind `REPL_ID`, and `@replit/revenuecat-sdk` is a plain REST
+  wrapper that can stay or go on its own schedule.
+- Decide separately what to do about `stripe-replit-sync`, which owns the
+  `stripe.*` tables. Not cleanup — see Phase 0.
 - Replace `sync-to-github.sh` and the Replit workflows with GitHub Actions
   running typecheck, lint and tests.
 - Fix `check-watch-sync.js` to skip when `ios/` is absent.
