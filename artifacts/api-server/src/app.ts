@@ -3,11 +3,7 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
 import { publishableKeyFromHost } from "@clerk/shared/keys";
-import {
-  CLERK_PROXY_PATH,
-  clerkProxyMiddleware,
-  getClerkProxyHost,
-} from "./middlewares/clerkProxyMiddleware";
+import { getRequestHost } from "./lib/request-host";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { getStripeSync, getUncachableStripeClient } from "./lib/stripeClient";
@@ -39,10 +35,6 @@ app.use(
     },
   }),
 );
-
-// Clerk Frontend API proxy — streams raw bytes, so it must run before the body
-// parsers below.
-app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
 // Stripe webhook — needs the raw request body for signature verification, so it
 // must be registered before express.json() parses the body.
@@ -184,14 +176,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Resolve the publishable key from the incoming request host so the same
-// server can serve multiple Clerk custom domains (or the proxy domain in prod).
-// Falls back to CLERK_PUBLISHABLE_KEY when the host doesn't map to a custom domain.
-// getClerkProxyHost is shared with clerkProxyMiddleware so both halves agree on
-// which hostname is canonical.
+// server can serve multiple Clerk custom domains. Falls back to
+// CLERK_PUBLISHABLE_KEY when the host doesn't map to a custom domain.
 app.use(
   clerkMiddleware((req) => ({
     publishableKey: publishableKeyFromHost(
-      getClerkProxyHost(req) ?? "",
+      getRequestHost(req) ?? "",
       process.env.CLERK_PUBLISHABLE_KEY,
     ),
   })),

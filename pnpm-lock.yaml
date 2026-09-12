@@ -234,9 +234,6 @@ importers:
       express-rate-limit:
         specifier: ^8.5.2
         version: 8.5.2(express@5.2.1)
-      http-proxy-middleware:
-        specifier: 4.1.1
-        version: 4.1.1
       multer:
         specifier: ^1.4.5-lts.2
         version: 1.4.5-lts.2
