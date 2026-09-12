@@ -66,6 +66,7 @@ import {
   formatGestationalAge,
   getMilestones,
 } from "@/lib/pregnancy-math";
+import { parseApiDate, localDateString } from "@/lib/dates";
 
 type Method = "lmp" | "due" | "conception" | "ultrasound";
 
@@ -618,7 +619,7 @@ export default function CalculatorScreen() {
   useEffect(() => {
     if (profile?.dueDate && !autoLoadedRef.current && !results) {
       try {
-        const eddDate = new Date(profile.dueDate);
+        const eddDate = parseApiDate(profile.dueDate);
         const r = calculateByDueDate(eddDate);
         if (r) {
           setResults(r);
@@ -649,7 +650,7 @@ export default function CalculatorScreen() {
       // Save the EDD and the method used to the user's profile
       updateProfileMutation.mutate({
         data: {
-          dueDate: r.edd.toISOString().slice(0, 10),
+          dueDate: localDateString(r.edd),
           eddMethod: method,
         },
       });
@@ -675,7 +676,7 @@ export default function CalculatorScreen() {
     }
     if (!profile?.dueDate) return undefined;
     try {
-      return calculateByDueDate(new Date(profile.dueDate))
+      return calculateByDueDate(parseApiDate(profile.dueDate))
         .currentGestationalAgeWeeks;
     } catch {
       return undefined;

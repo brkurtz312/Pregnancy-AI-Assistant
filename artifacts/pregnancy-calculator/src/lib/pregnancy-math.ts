@@ -1,4 +1,5 @@
 import { differenceInDays, addDays, subDays, startOfDay } from "date-fns";
+import { parseApiDate } from "./dates";
 
 export interface PregnancyResults {
   edd: Date; // Estimated Due Date
@@ -56,7 +57,7 @@ export function calculateByDueDate(
   dueDateStr: string,
 ): PregnancyResults | null {
   if (!dueDateStr) return null;
-  const edd = startOfDay(new Date(dueDateStr));
+  const edd = startOfDay(parseApiDate(dueDateStr));
   if (isNaN(edd.getTime())) return null;
 
   const lmp = subDays(edd, PREGNANCY_DURATION_DAYS);
@@ -67,7 +68,7 @@ export function calculateByConceptionDate(
   conceptionDateStr: string,
 ): PregnancyResults | null {
   if (!conceptionDateStr) return null;
-  const conception = startOfDay(new Date(conceptionDateStr));
+  const conception = startOfDay(parseApiDate(conceptionDateStr));
   if (isNaN(conception.getTime())) return null;
 
   // LMP is 14 days before conception
@@ -77,7 +78,7 @@ export function calculateByConceptionDate(
 
 export function calculateByLMP(lmpDateStr: string): PregnancyResults | null {
   if (!lmpDateStr) return null;
-  const lmp = startOfDay(new Date(lmpDateStr));
+  const lmp = startOfDay(parseApiDate(lmpDateStr));
   if (isNaN(lmp.getTime())) return null;
   return calculateCommonResults(lmp);
 }
@@ -88,7 +89,7 @@ export function calculateByUltrasound(
   days: number,
 ): PregnancyResults | null {
   if (!ultrasoundDateStr || isNaN(weeks) || isNaN(days)) return null;
-  const usDate = startOfDay(new Date(ultrasoundDateStr));
+  const usDate = startOfDay(parseApiDate(ultrasoundDateStr));
   if (isNaN(usDate.getTime())) return null;
 
   const gaAtUltrasoundDays = weeks * 7 + days;

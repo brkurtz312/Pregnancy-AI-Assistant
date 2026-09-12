@@ -54,7 +54,7 @@ import {
   isKickSessionRecentlySaved,
   markKickSessionSaved,
 } from "@/lib/sync-queue";
-import { localDateString } from "@/lib/dates";
+import { parseApiDate, localDateString } from "@/lib/dates";
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
@@ -180,7 +180,7 @@ export function WatchBackgroundListener() {
   const gestationalWeek = useMemo(() => {
     if (!profile?.dueDate) return undefined;
     try {
-      return calculateByDueDate(new Date(profile.dueDate))
+      return calculateByDueDate(parseApiDate(profile.dueDate))
         .currentGestationalAgeWeeks;
     } catch {
       return undefined;

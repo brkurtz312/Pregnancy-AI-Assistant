@@ -48,6 +48,7 @@ import {
 import { getGestationalAgeAtDate } from "@/lib/pregnancy-math";
 import { getVisitExpectation } from "@/constants/prenatal-visit-expectations";
 import { ResponsiveContainer } from "@/components/ResponsiveContainer";
+import { parseApiDate } from "@/lib/dates";
 
 // DateTimePicker is disabled until a new native build confirms its TurboModule
 // is stable on iOS 26. All date entry falls back to TextInput.
@@ -541,7 +542,7 @@ function UpcomingAppointmentsSection({
   function gaLabel(visitDateIso: string) {
     if (!dueDate) return null;
     const { weeks, days } = getGestationalAgeAtDate(
-      new Date(dueDate),
+      parseApiDate(dueDate),
       new Date(visitDateIso),
     );
     if (weeks < 4 || weeks > 45) return null;
@@ -551,7 +552,7 @@ function UpcomingAppointmentsSection({
   function expectationLabel(visitDateIso: string) {
     if (!dueDate) return null;
     const { weeks } = getGestationalAgeAtDate(
-      new Date(dueDate),
+      parseApiDate(dueDate),
       new Date(visitDateIso),
     );
     if (weeks < 4 || weeks > 45) return null;
@@ -1308,7 +1309,7 @@ export default function OfficeVisitScreen() {
         // Reschedule if still in the future
         if (saveData.visitDate.getTime() > Date.now() && dueDate) {
           const { weeks } = getGestationalAgeAtDate(
-            new Date(dueDate),
+            parseApiDate(dueDate),
             saveData.visitDate,
           );
           await scheduleAppointmentReminder(
@@ -1322,7 +1323,7 @@ export default function OfficeVisitScreen() {
         // Schedule reminder for new future appointments
         if (saveData.visitDate.getTime() > Date.now() && dueDate) {
           const { weeks } = getGestationalAgeAtDate(
-            new Date(dueDate),
+            parseApiDate(dueDate),
             saveData.visitDate,
           );
           await scheduleAppointmentReminder(
