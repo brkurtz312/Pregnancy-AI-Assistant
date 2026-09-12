@@ -19,17 +19,21 @@ watchOS), API (Express 5), Postgres + Drizzle.
 
 - `pnpm install --ignore-scripts` — the root `preinstall` shells to `sh`, absent
   on Windows.
-- `pnpm run typecheck` fails for the mobile package on any clean checkout:
-  `check-watch-sync.js` compares `watchapp/` against `ios/`, which is a
-  gitignored `expo prebuild` artifact. Bypass with
-  `pnpm exec tsc -p tsconfig.json --noEmit` from the package. **Worth fixing so
-  it skips when `ios/` is absent.**
-- 65 typecheck errors in `__tests__/`, `plugins/__tests__/` and `test-helpers/`
-  are pre-existing `@types/node` resolution noise. Judge changes by errors in
-  `app/`, `components/`, `hooks/`, `contexts/`, `lib/`.
-- Pre-existing test failures, unrelated to current work:
-  `contractionHistoryDeleteSession` (date-label assertions — a real bug) and the
-  two `withWatchExtension` suites (assert a prebuilt `ios/`).
+- `pnpm run typecheck` and `pnpm run test` both pass on a clean checkout, for
+  every package including mobile. Anything that fails is yours.
+- `check-watch-sync.js` skips when `ios/` is absent (it is a gitignored
+  `expo prebuild` artifact) and still reports drift when it is present. The
+  `withWatchExtension` pbxproj assertions skip on the same condition. After an
+  `expo prebuild`, both run — so run the mobile typecheck then if you have
+  touched `watchapp/`.
+- The mobile package needs `@types/node` for its test and plugin files, which
+  use `fs`, `path` and `__dirname`. Without it tsc reports ~70 errors that look
+  like app bugs and are not.
+- `expo-file-system` and `expo-notifications` import `expo-modules-core` in
+  their published types without declaring it, so `packageExtensions` in
+  `pnpm-workspace.yaml` adds it. Remove that and tsc breaks in confusing
+  places — a missing `status` on `NotificationPermissionsStatus`, errors inside
+  a dependency's own files.
 - `git-lfs` is not installed; LFS files stay as pointers.
 - EAS builds from GitHub `main`, not the laptop. `appVersionSource: remote`.
 
@@ -74,9 +78,8 @@ pnpm run lint
 ```
 
 CI runs lint, format, typecheck and tests on every pull request and every push
-to `main` (`.github/workflows/ci.yml`). The mobile app is **not** covered — the
-comment at the bottom of that file says why and what it would take. Run its
-tests by hand until then.
+to `main` (`.github/workflows/ci.yml`), covering every package including the
+mobile app.
 
 Six api-server suites need `DATABASE_URL` and skip without it:
 `account-deletion-schema`, `kick-sessions-watch-id-schema`,

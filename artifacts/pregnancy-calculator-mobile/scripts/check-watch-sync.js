@@ -43,6 +43,18 @@ function iosCounterpart(basename) {
 
 const fix = process.argv.includes("--fix");
 
+// ios/ is a gitignored `expo prebuild` artifact, so it is absent on every
+// clean checkout — including CI. There is no drift to detect when there are no
+// copies to drift from, so skip rather than fail. `--fix` still runs: that is
+// how the copies get created in the first place.
+if (!fix && !fs.existsSync(iosRoot)) {
+  console.log(
+    `watch-sync skipped: ${path.relative(projectRoot, iosRoot)} is absent ` +
+      "(run `expo prebuild` to generate it). Nothing to compare against.",
+  );
+  process.exit(0);
+}
+
 const swiftFiles = fs
   .readdirSync(watchappDir)
   .filter((f) => f.endsWith(".swift"))

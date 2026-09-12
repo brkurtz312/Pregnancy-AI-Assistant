@@ -185,12 +185,10 @@ the last migration of its kind.
   `stripe.*` tables. Not cleanup — see Phase 0.
 - Replace `sync-to-github.sh` and the Replit workflows. The GitHub Actions
   half is done: `.github/workflows/ci.yml` runs lint, format, typecheck and
-  tests on every pull request and every push to `main`. It excludes the mobile
-  app until three pre-existing failures are fixed (`check-watch-sync.js`
-  against a gitignored `ios/`, 65 `@types/node` errors in its test files, and
-  two failing jest suites) — the reasons are listed at the bottom of that file.
-  `sync-to-github.sh` still needs to go.
-- Fix `check-watch-sync.js` to skip when `ios/` is absent.
+  tests on every pull request and every push to `main`, covering every package
+  including the mobile app. `sync-to-github.sh` still needs to go.
+- ~~Fix `check-watch-sync.js` to skip when `ios/` is absent.~~ Done — it
+  skips when `ios/` is absent and still catches drift when it is there.
 - Rewrite the README — "Getting Started" still says the project runs on Replit.
 - Unset `DEMO_SESSION_SECRET` on production to close the App Review demo path.
 
