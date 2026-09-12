@@ -13,6 +13,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 import { PREGNANCY_DURATION_DAYS } from "./pregnancy-math";
+import { localDateString } from "./dates";
 
 const STORAGE_KEY = "@milestone_notif_v1";
 const PREFS_KEY = "@milestone_prefs_v1";
@@ -356,7 +357,7 @@ export function scheduleMilestoneNotifications(dueDate: Date): Promise<void> {
     if (gen !== generation) return;
     if (!Notifications || Platform.OS === "web") return;
 
-    const dueDateISO = dueDate.toISOString().slice(0, 10);
+    const dueDateISO = localDateString(dueDate);
     const existing = await readState();
 
     // If due date hasn't changed, nothing to do.

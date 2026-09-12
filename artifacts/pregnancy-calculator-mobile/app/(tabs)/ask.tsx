@@ -21,6 +21,7 @@ import {
 import { useColors } from "@/hooks/useColors";
 import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 import { calculateByDueDate } from "@/lib/pregnancy-math";
+import { parseApiDate } from "@/lib/dates";
 
 export default function AskScreen() {
   const colors = useColors();
@@ -37,7 +38,7 @@ export default function AskScreen() {
   const currentWeek = useMemo(() => {
     if (!profile?.dueDate) return 0;
     try {
-      const r = calculateByDueDate(new Date(profile.dueDate));
+      const r = calculateByDueDate(parseApiDate(profile.dueDate));
       return r?.currentGestationalAgeWeeks ?? 0;
     } catch {
       return 0;

@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAppAuth as useUser } from "@/hooks/useAppAuth";
 import * as Haptics from "expo-haptics";
 import * as haptics from "@/lib/haptics";
-import { localDateString } from "@/lib/dates";
 import { router, useRouter } from "expo-router";
 import React, {
   useState,
@@ -58,6 +57,7 @@ import {
   type RepeatInterval,
 } from "@/lib/custom-reminders";
 import { requestNotificationPermission } from "@/lib/appointment-reminders";
+import { parseApiDate, localDateString } from "@/lib/dates";
 
 // Safe-require DateTimePicker — static import crashes the screen if the native
 // module is absent from the binary (see datetimepicker-safe-require.md).
@@ -2024,7 +2024,7 @@ export default function ToolsScreen() {
   const gestationalWeek = useMemo(() => {
     if (!profile?.dueDate) return undefined;
     try {
-      return calculateByDueDate(new Date(profile.dueDate))
+      return calculateByDueDate(parseApiDate(profile.dueDate))
         .currentGestationalAgeWeeks;
     } catch {
       return undefined;
