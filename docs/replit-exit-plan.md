@@ -98,19 +98,35 @@ depends on where the API server ends up living.
 
 ## Phase 1 — Clerk
 
-`checkClerkManagementStatus()` returns `dashboardAccess: requires_personal_pro`.
-That gates the **dashboard**, not the instances. Per
-`.agents/memory/clerk-dashboard-access-gating.md`, Replit creates a full
-Production Clerk instance the moment an app is published — own keys, own user
-store — and this app is published. It exists and is serving the live app right
-now; it was only ever invisible, confirmed independently by production database
-rows that differ from development's.
+**The live app runs on Clerk's Development instance.** Checked 12 Sep 2026:
 
-That distinction decides how Phase 1 goes. Instance-wide MFA — the cause of two
-App Store rejections — is set on that Production instance and was unfixable
-because the dashboard would not show it, not because no instance existed. And
-the users to migrate live there, not in development. Owning the account is what
-makes both reachable.
+| Where             | Variable                            | Value       |
+| ----------------- | ----------------------------------- | ----------- |
+| EAS, production   | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | `pk_test_…` |
+| Replit deployment | `VITE_CLERK_PUBLISHABLE_KEY`        | `pk_test_…` |
+| Replit deployment | `CLERK_SECRET_KEY`                  | `sk_test_…` |
+
+A `pk_live_` Production instance does exist — Replit creates one when an app is
+published — but nothing points at it. The App Store build, the web app and the
+API server all authenticate against Development, which is where every real user
+account lives.
+
+Two things follow, and they are the opposite of what this plan said before.
+
+**The MFA fix is reachable now.** The instance-wide requirement that caused two
+App Store rejections is set on the instance the app actually uses, and that is
+the one the workspace `CLERK_SECRET_KEY` reaches and whose dashboard is visible
+without Personal Pro. It does not need this migration first.
+
+**Running production on a development instance is its own problem.** Clerk's
+development instances carry lower rate limits and are not intended to serve real
+users; check the current limits against the user count before assuming there is
+time. This is a reason to move, independent of leaving Replit.
+
+`checkClerkManagementStatus()` returning `dashboardAccess: requires_personal_pro`
+gates the dashboard, not the instances
+(`.agents/memory/clerk-dashboard-access-gating.md`). Owning the account removes
+that gate — and gives somewhere to move that is not a development instance.
 
 1. Create a Clerk account and application. Free tier covers this app easily.
 2. Development instance first — `pk_test_` / `sk_test_`.
@@ -123,6 +139,11 @@ makes both reachable.
    forces an `email_code` second factor on every password sign-in, including
    accounts with `two_factor_enabled: false`. That is what no reviewer can get
    past, and no app-side change can work around it.
+
+   **Worth doing on the current Development instance before any of this.** That
+   is the instance the shipped app uses, so turning it off there unblocks App
+   Review without waiting for the migration.
+
 5. Sign-in methods: email/password, Google, Apple — now with Bryan's own OAuth
    credentials. Apple needs a Services ID and key from the developer account.
    **Sign in with Apple must keep working:** it satisfies Guideline 4.8, and
@@ -146,11 +167,11 @@ now, but do it properly rather than assuming zero:
    `GET https://api.clerk.com/v1/users` even without a dashboard. Capture id,
    email, creation date.
 
-   **Use the Production instance's key, not the workspace's.** Per
-   `.agents/memory/clerk-mfa-blocks-app-review.md`, the `CLERK_SECRET_KEY` in
-   the Replit workspace reaches the Development instance only — a separate user
-   store. Exporting with it migrates test accounts and silently leaves every
-   real user behind. The production key lives in the deployment's environment.
+   **The workspace key is the right one.** It reaches the Development
+   instance, and that is where the real users are — the deployment runs on
+   `sk_test_`. The `pk_live_` Production instance is unused, so exporting from
+   it would produce an empty file and a migration that moves nobody. Confirm
+   the count against the `users` table before trusting either.
 
 2. Create matching users in the new instance via the Backend API, email verified.
 3. Build an old-id → new-id map and update `users.id`. Child tables cascade from
