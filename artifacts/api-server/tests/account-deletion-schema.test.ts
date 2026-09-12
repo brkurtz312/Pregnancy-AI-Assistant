@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 
-describe("account_deletion_requests table", () => {
+// This suite runs against a real Postgres connection. Without DATABASE_URL
+// there is nothing to run against, so it skips instead of failing the whole
+// api-server run — the integration coverage is still there for anyone who sets
+// DATABASE_URL and re-runs.
+const hasDatabase = Boolean(process.env.DATABASE_URL);
+const describeDb = describe.skipIf(!hasDatabase);
+
+describeDb("account_deletion_requests table", () => {
   it("exists with the durable tombstone columns used by the retry worker", async () => {
     const result = await db.execute(sql`
       SELECT column_name, data_type

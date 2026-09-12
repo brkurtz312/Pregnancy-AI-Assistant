@@ -144,7 +144,15 @@ async function provisionTestUser(userId: string): Promise<void> {
 
 // ─── Setup / teardown ─────────────────────────────────────────────────────────
 
+// This suite runs against a real Postgres connection. Without DATABASE_URL
+// there is nothing to run against, so it skips instead of failing the whole
+// api-server run — the integration coverage is still there for anyone who sets
+// DATABASE_URL and re-runs.
+const hasDatabase = Boolean(process.env.DATABASE_URL);
+const describeDb = describe.skipIf(!hasDatabase);
+
 beforeEach(async () => {
+  if (!hasDatabase) return;
   vi.clearAllMocks();
   // Stop the background sweep timer so it cannot interfere with test assertions.
   _stopSweepInterval();
@@ -159,229 +167,233 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  if (!hasDatabase) return;
   await cleanTestRows();
 });
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-describe("scribe-idempotency — DB-backed cross-instance durability (integration)", () => {
-  // ── Core cross-instance round-trip (route-level) ───────────────────────────
+describeDb(
+  "scribe-idempotency — DB-backed cross-instance durability (integration)",
+  () => {
+    // ── Core cross-instance round-trip (route-level) ───────────────────────────
 
-  it("instance B route returns cached DB response and does NOT call reserveUsage", async () => {
-    // ── Instance A ──────────────────────────────────────────────────────────
-    // Directly commit a result to the DB, simulating a successful generate-note
-    // request that completed on a different server instance.
-    const KEY = "integ-route-no-reserve-001";
-    const { commit } = beginIdempotency(KEY, TEST_USER);
-    await commit(RESPONSE_A);
+    it("instance B route returns cached DB response and does NOT call reserveUsage", async () => {
+      // ── Instance A ──────────────────────────────────────────────────────────
+      // Directly commit a result to the DB, simulating a successful generate-note
+      // request that completed on a different server instance.
+      const KEY = "integ-route-no-reserve-001";
+      const { commit } = beginIdempotency(KEY, TEST_USER);
+      await commit(RESPONSE_A);
 
-    // ── Simulate process boundary ────────────────────────────────────────────
-    // Clearing the in-process cache is equivalent to starting a brand-new
-    // Node process or a second autoscale replica with no shared memory.
-    _clearIdempotencyCache();
+      // ── Simulate process boundary ────────────────────────────────────────────
+      // Clearing the in-process cache is equivalent to starting a brand-new
+      // Node process or a second autoscale replica with no shared memory.
+      _clearIdempotencyCache();
 
-    // ── Instance B — route-level request ────────────────────────────────────
-    // The route calls checkIdempotency BEFORE reserveUsage.  When it finds the
-    // DB-stored entry it must return 200 with the cached response immediately,
-    // skipping reserveUsage entirely.
-    const app = buildApp();
-    const res = await supertest(app)
-      .post("/scribe/generate-note")
-      .set("x-idempotency-key", KEY)
-      .send({ transcript: "any transcript", mode: "summary" });
+      // ── Instance B — route-level request ────────────────────────────────────
+      // The route calls checkIdempotency BEFORE reserveUsage.  When it finds the
+      // DB-stored entry it must return 200 with the cached response immediately,
+      // skipping reserveUsage entirely.
+      const app = buildApp();
+      const res = await supertest(app)
+        .post("/scribe/generate-note")
+        .set("x-idempotency-key", KEY)
+        .send({ transcript: "any transcript", mode: "summary" });
 
-    // The route must succeed and return the cached response.
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual(RESPONSE_A);
+      // The route must succeed and return the cached response.
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual(RESPONSE_A);
 
-    // The critical assertion: reserveUsage was NEVER called on instance B.
-    // If the idempotency cache had not protected this request, reserveUsage
-    // would have been called at least once (free user, cache miss path).
-    expect(mockReserveUsage).not.toHaveBeenCalled();
-  });
-
-  // ── Core cross-instance round-trip (library-level) ────────────────────────
-
-  it("commit on instance A writes to the DB, checkIdempotency on instance B reads it back", async () => {
-    const KEY = "integ-cross-instance-002";
-
-    // Instance A.
-    const { commit } = beginIdempotency(KEY, TEST_USER);
-    await commit(RESPONSE_A);
-
-    // Simulate process boundary.
-    _clearIdempotencyCache();
-
-    // Instance B — library level.
-    const result = await checkIdempotency(KEY, TEST_USER);
-
-    expect(result.found).toBe(true);
-    if (result.found) {
-      expect(result.response).toEqual(RESPONSE_A);
-    }
-  });
-
-  // ── DB row is written with correct field values ────────────────────────────
-
-  it("the DB row contains the committed response and a future expiresAt", async () => {
-    const KEY = "integ-row-content-003";
-    const before = new Date();
-
-    const { commit } = beginIdempotency(KEY, TEST_USER);
-    await commit(RESPONSE_A);
-
-    // Read the row directly from the DB to verify the stored shape.
-    const rows = await db
-      .select()
-      .from(scribeIdempotencyKeysTable)
-      .where(
-        and(
-          eq(scribeIdempotencyKeysTable.userId, TEST_USER),
-          eq(scribeIdempotencyKeysTable.idempotencyKey, KEY),
-        ),
-      )
-      .limit(1);
-
-    expect(rows).toHaveLength(1);
-    expect(rows[0].response).toEqual(RESPONSE_A);
-    // expiresAt must be in the future (roughly TTL from now).
-    expect(rows[0].expiresAt.getTime()).toBeGreaterThan(before.getTime());
-    expect(rows[0].expiresAt.getTime()).toBeGreaterThan(
-      Date.now() + IDEMPOTENCY_TTL_MS - 5_000,
-    );
-  });
-
-  // ── Key + user isolation ───────────────────────────────────────────────────
-
-  it("two different keys for the same user are stored and retrieved independently", async () => {
-    const KEY1 = "integ-isolation-key1-004";
-    const KEY2 = "integ-isolation-key2-004";
-
-    const { commit: commit1 } = beginIdempotency(KEY1, TEST_USER);
-    await commit1(RESPONSE_A);
-
-    const { commit: commit2 } = beginIdempotency(KEY2, TEST_USER);
-    await commit2(RESPONSE_B);
-
-    _clearIdempotencyCache();
-
-    const r1 = await checkIdempotency(KEY1, TEST_USER);
-    const r2 = await checkIdempotency(KEY2, TEST_USER);
-
-    expect(r1.found).toBe(true);
-    expect(r2.found).toBe(true);
-    if (r1.found) expect(r1.response).toEqual(RESPONSE_A);
-    if (r2.found) expect(r2.response).toEqual(RESPONSE_B);
-  });
-
-  it("the same key for a different userId is a distinct row (cross-user isolation)", async () => {
-    const KEY = "integ-user-isolation-005";
-    const OTHER_USER = `${TEST_USER}_other`;
-    await provisionTestUser(OTHER_USER);
-
-    // Instance A commits for TEST_USER.
-    const { commit } = beginIdempotency(KEY, TEST_USER);
-    await commit(RESPONSE_A);
-
-    _clearIdempotencyCache();
-
-    try {
-      // OTHER_USER has no row — must be a miss.
-      const result = await checkIdempotency(KEY, OTHER_USER);
-      expect(result.found).toBe(false);
-    } finally {
-      // Clean up the extra user row.
-      await db
-        .delete(scribeIdempotencyKeysTable)
-        .where(eq(scribeIdempotencyKeysTable.userId, OTHER_USER));
-      await db.delete(usersTable).where(eq(usersTable.id, OTHER_USER));
-    }
-  });
-
-  // ── Expired row is a miss ──────────────────────────────────────────────────
-
-  it("a row whose expiresAt is in the past is treated as a cache miss", async () => {
-    const KEY = "integ-expired-006";
-
-    // Insert an already-expired row directly — bypassing beginIdempotency so
-    // we can control the timestamp precisely.
-    await db.insert(scribeIdempotencyKeysTable).values({
-      idempotencyKey: KEY,
-      userId: TEST_USER,
-      response: RESPONSE_A as Record<string, unknown>,
-      // 10 seconds in the past — definitely expired.
-      expiresAt: new Date(Date.now() - 10_000),
+      // The critical assertion: reserveUsage was NEVER called on instance B.
+      // If the idempotency cache had not protected this request, reserveUsage
+      // would have been called at least once (free user, cache miss path).
+      expect(mockReserveUsage).not.toHaveBeenCalled();
     });
 
-    _clearIdempotencyCache();
+    // ── Core cross-instance round-trip (library-level) ────────────────────────
 
-    // The WHERE clause in dbLookup uses gt(expiresAt, now()), so the expired
-    // row must not be returned.
-    const result = await checkIdempotency(KEY, TEST_USER);
-    expect(result.found).toBe(false);
-  });
+    it("commit on instance A writes to the DB, checkIdempotency on instance B reads it back", async () => {
+      const KEY = "integ-cross-instance-002";
 
-  // ── Upsert: second commit overwrites the first ────────────────────────────
+      // Instance A.
+      const { commit } = beginIdempotency(KEY, TEST_USER);
+      await commit(RESPONSE_A);
 
-  it("committing the same key twice upserts — the second response wins", async () => {
-    const KEY = "integ-upsert-007";
+      // Simulate process boundary.
+      _clearIdempotencyCache();
 
-    const { commit: commit1 } = beginIdempotency(KEY, TEST_USER);
-    await commit1(RESPONSE_A);
+      // Instance B — library level.
+      const result = await checkIdempotency(KEY, TEST_USER);
 
-    // Simulate a second commit for the same key (e.g. two instances racing).
-    // The DB upsert (ON CONFLICT DO UPDATE) must be idempotent.
-    const { commit: commit2 } = beginIdempotency(KEY, TEST_USER);
-    await commit2(RESPONSE_B);
+      expect(result.found).toBe(true);
+      if (result.found) {
+        expect(result.response).toEqual(RESPONSE_A);
+      }
+    });
 
-    _clearIdempotencyCache();
+    // ── DB row is written with correct field values ────────────────────────────
 
-    const result = await checkIdempotency(KEY, TEST_USER);
-    expect(result.found).toBe(true);
-    // commit2 ran after commit1 so RESPONSE_B wins.
-    if (result.found) {
-      expect(result.response).toEqual(RESPONSE_B);
-    }
-  });
+    it("the DB row contains the committed response and a future expiresAt", async () => {
+      const KEY = "integ-row-content-003";
+      const before = new Date();
 
-  // ── Miss path: unknown key ────────────────────────────────────────────────
+      const { commit } = beginIdempotency(KEY, TEST_USER);
+      await commit(RESPONSE_A);
 
-  it("returns found: false when neither the in-process cache nor the DB has the key", async () => {
-    _clearIdempotencyCache();
-    const result = await checkIdempotency("integ-unknown-key-008", TEST_USER);
-    expect(result.found).toBe(false);
-  });
+      // Read the row directly from the DB to verify the stored shape.
+      const rows = await db
+        .select()
+        .from(scribeIdempotencyKeysTable)
+        .where(
+          and(
+            eq(scribeIdempotencyKeysTable.userId, TEST_USER),
+            eq(scribeIdempotencyKeysTable.idempotencyKey, KEY),
+          ),
+        )
+        .limit(1);
 
-  // ── In-process hit does not require a DB round-trip ──────────────────────
+      expect(rows).toHaveLength(1);
+      expect(rows[0].response).toEqual(RESPONSE_A);
+      // expiresAt must be in the future (roughly TTL from now).
+      expect(rows[0].expiresAt.getTime()).toBeGreaterThan(before.getTime());
+      expect(rows[0].expiresAt.getTime()).toBeGreaterThan(
+        Date.now() + IDEMPOTENCY_TTL_MS - 5_000,
+      );
+    });
 
-  it("a live in-process done entry is returned without waiting for a DB round-trip", async () => {
-    const KEY = "integ-inproc-priority-009";
+    // ── Key + user isolation ───────────────────────────────────────────────────
 
-    // commit() writes to the in-process cache first, then awaits the DB upsert.
-    const { commit } = beginIdempotency(KEY, TEST_USER);
-    await commit(RESPONSE_A);
+    it("two different keys for the same user are stored and retrieved independently", async () => {
+      const KEY1 = "integ-isolation-key1-004";
+      const KEY2 = "integ-isolation-key2-004";
 
-    // Do NOT clear the in-process cache — the done entry is still live.
-    const result = await checkIdempotency(KEY, TEST_USER);
+      const { commit: commit1 } = beginIdempotency(KEY1, TEST_USER);
+      await commit1(RESPONSE_A);
 
-    expect(result.found).toBe(true);
-    if (result.found) {
-      expect(result.response).toEqual(RESPONSE_A);
-    }
-  });
+      const { commit: commit2 } = beginIdempotency(KEY2, TEST_USER);
+      await commit2(RESPONSE_B);
 
-  // ── abort clears the in-process entry and leaves no DB row ────────────────
+      _clearIdempotencyCache();
 
-  it("abort removes the pending in-process entry; a subsequent checkIdempotency is a miss", async () => {
-    const KEY = "integ-abort-010";
+      const r1 = await checkIdempotency(KEY1, TEST_USER);
+      const r2 = await checkIdempotency(KEY2, TEST_USER);
 
-    const { abort } = beginIdempotency(KEY, TEST_USER);
-    abort();
+      expect(r1.found).toBe(true);
+      expect(r2.found).toBe(true);
+      if (r1.found) expect(r1.response).toEqual(RESPONSE_A);
+      if (r2.found) expect(r2.response).toEqual(RESPONSE_B);
+    });
 
-    _clearIdempotencyCache();
+    it("the same key for a different userId is a distinct row (cross-user isolation)", async () => {
+      const KEY = "integ-user-isolation-005";
+      const OTHER_USER = `${TEST_USER}_other`;
+      await provisionTestUser(OTHER_USER);
 
-    // No DB row was written (abort fires before commit), so this is a miss.
-    const result = await checkIdempotency(KEY, TEST_USER);
-    expect(result.found).toBe(false);
-  });
-});
+      // Instance A commits for TEST_USER.
+      const { commit } = beginIdempotency(KEY, TEST_USER);
+      await commit(RESPONSE_A);
+
+      _clearIdempotencyCache();
+
+      try {
+        // OTHER_USER has no row — must be a miss.
+        const result = await checkIdempotency(KEY, OTHER_USER);
+        expect(result.found).toBe(false);
+      } finally {
+        // Clean up the extra user row.
+        await db
+          .delete(scribeIdempotencyKeysTable)
+          .where(eq(scribeIdempotencyKeysTable.userId, OTHER_USER));
+        await db.delete(usersTable).where(eq(usersTable.id, OTHER_USER));
+      }
+    });
+
+    // ── Expired row is a miss ──────────────────────────────────────────────────
+
+    it("a row whose expiresAt is in the past is treated as a cache miss", async () => {
+      const KEY = "integ-expired-006";
+
+      // Insert an already-expired row directly — bypassing beginIdempotency so
+      // we can control the timestamp precisely.
+      await db.insert(scribeIdempotencyKeysTable).values({
+        idempotencyKey: KEY,
+        userId: TEST_USER,
+        response: RESPONSE_A as Record<string, unknown>,
+        // 10 seconds in the past — definitely expired.
+        expiresAt: new Date(Date.now() - 10_000),
+      });
+
+      _clearIdempotencyCache();
+
+      // The WHERE clause in dbLookup uses gt(expiresAt, now()), so the expired
+      // row must not be returned.
+      const result = await checkIdempotency(KEY, TEST_USER);
+      expect(result.found).toBe(false);
+    });
+
+    // ── Upsert: second commit overwrites the first ────────────────────────────
+
+    it("committing the same key twice upserts — the second response wins", async () => {
+      const KEY = "integ-upsert-007";
+
+      const { commit: commit1 } = beginIdempotency(KEY, TEST_USER);
+      await commit1(RESPONSE_A);
+
+      // Simulate a second commit for the same key (e.g. two instances racing).
+      // The DB upsert (ON CONFLICT DO UPDATE) must be idempotent.
+      const { commit: commit2 } = beginIdempotency(KEY, TEST_USER);
+      await commit2(RESPONSE_B);
+
+      _clearIdempotencyCache();
+
+      const result = await checkIdempotency(KEY, TEST_USER);
+      expect(result.found).toBe(true);
+      // commit2 ran after commit1 so RESPONSE_B wins.
+      if (result.found) {
+        expect(result.response).toEqual(RESPONSE_B);
+      }
+    });
+
+    // ── Miss path: unknown key ────────────────────────────────────────────────
+
+    it("returns found: false when neither the in-process cache nor the DB has the key", async () => {
+      _clearIdempotencyCache();
+      const result = await checkIdempotency("integ-unknown-key-008", TEST_USER);
+      expect(result.found).toBe(false);
+    });
+
+    // ── In-process hit does not require a DB round-trip ──────────────────────
+
+    it("a live in-process done entry is returned without waiting for a DB round-trip", async () => {
+      const KEY = "integ-inproc-priority-009";
+
+      // commit() writes to the in-process cache first, then awaits the DB upsert.
+      const { commit } = beginIdempotency(KEY, TEST_USER);
+      await commit(RESPONSE_A);
+
+      // Do NOT clear the in-process cache — the done entry is still live.
+      const result = await checkIdempotency(KEY, TEST_USER);
+
+      expect(result.found).toBe(true);
+      if (result.found) {
+        expect(result.response).toEqual(RESPONSE_A);
+      }
+    });
+
+    // ── abort clears the in-process entry and leaves no DB row ────────────────
+
+    it("abort removes the pending in-process entry; a subsequent checkIdempotency is a miss", async () => {
+      const KEY = "integ-abort-010";
+
+      const { abort } = beginIdempotency(KEY, TEST_USER);
+      abort();
+
+      _clearIdempotencyCache();
+
+      // No DB row was written (abort fires before commit), so this is a miss.
+      const result = await checkIdempotency(KEY, TEST_USER);
+      expect(result.found).toBe(false);
+    });
+  },
+);

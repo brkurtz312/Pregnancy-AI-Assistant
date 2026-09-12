@@ -77,7 +77,15 @@ async function cleanTestRows() {
     );
 }
 
+// This suite runs against a real Postgres connection. Without DATABASE_URL
+// there is nothing to run against, so it skips instead of failing the whole
+// api-server run — the integration coverage is still there for anyone who sets
+// DATABASE_URL and re-runs.
+const hasDatabase = Boolean(process.env.DATABASE_URL);
+const describeDb = describe.skipIf(!hasDatabase);
+
 beforeEach(async () => {
+  if (!hasDatabase) return;
   // Clear the duplicate-prefix registry so each test starts with the same
   // clean slate a fresh server process would have.
   _resetPrefixRegistryForTesting();
@@ -85,6 +93,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  if (!hasDatabase) return;
   await cleanTestRows();
 });
 
@@ -101,7 +110,7 @@ function makeStore(prefix: RateLimitPrefix): PostgresRateLimitStore {
 
 // ─── increment ────────────────────────────────────────────────────────────────
 
-describe("PostgresRateLimitStore — increment", () => {
+describeDb("PostgresRateLimitStore — increment", () => {
   it("returns totalHits=1 on the first call and a future resetTime", async () => {
     const store = makeStore(PREFIX_A);
     const result = await store.increment(CLIENT_KEY);
@@ -148,7 +157,7 @@ describe("PostgresRateLimitStore — increment", () => {
 
 // ─── decrement ────────────────────────────────────────────────────────────────
 
-describe("PostgresRateLimitStore — decrement", () => {
+describeDb("PostgresRateLimitStore — decrement", () => {
   it("reduces totalHits by 1 after an increment", async () => {
     const store = makeStore(PREFIX_A);
 
@@ -185,7 +194,7 @@ describe("PostgresRateLimitStore — decrement", () => {
 
 // ─── resetKey ─────────────────────────────────────────────────────────────────
 
-describe("PostgresRateLimitStore — resetKey", () => {
+describeDb("PostgresRateLimitStore — resetKey", () => {
   it("removes the counter row so the next increment starts fresh at 1", async () => {
     const store = makeStore(PREFIX_A);
 
@@ -205,7 +214,7 @@ describe("PostgresRateLimitStore — resetKey", () => {
 
 // ─── Prefix isolation ─────────────────────────────────────────────────────────
 
-describe("PostgresRateLimitStore — prefix isolation", () => {
+describeDb("PostgresRateLimitStore — prefix isolation", () => {
   it("two stores with different prefixes maintain independent counters for the same client key", async () => {
     const storeA = makeStore(PREFIX_A);
     const storeB = makeStore(PREFIX_B);
@@ -272,35 +281,38 @@ describe("PostgresRateLimitStore — prefix isolation", () => {
 
 // ─── Server-restart / deploy continuity ──────────────────────────────────────
 
-describe("PostgresRateLimitStore — cross-instance persistence (server restart)", () => {
-  it("a second store instance with the same prefix sees the counter written by the first instance", async () => {
-    // Simulate what happens across a deploy or server restart: the first
-    // Node process (instanceA) increments a counter and writes it to Postgres.
-    // A new process starts (instanceB, a completely fresh object) and must
-    // continue from the persisted value rather than resetting to 0.
-    // This is the core guarantee that makes PostgresRateLimitStore suitable
-    // for autoscaled, multi-instance deployments.
-    const instanceA = makeStore(PREFIX_A);
-    await instanceA.increment(CLIENT_KEY);
-    await instanceA.increment(CLIENT_KEY);
+describeDb(
+  "PostgresRateLimitStore — cross-instance persistence (server restart)",
+  () => {
+    it("a second store instance with the same prefix sees the counter written by the first instance", async () => {
+      // Simulate what happens across a deploy or server restart: the first
+      // Node process (instanceA) increments a counter and writes it to Postgres.
+      // A new process starts (instanceB, a completely fresh object) and must
+      // continue from the persisted value rather than resetting to 0.
+      // This is the core guarantee that makes PostgresRateLimitStore suitable
+      // for autoscaled, multi-instance deployments.
+      const instanceA = makeStore(PREFIX_A);
+      await instanceA.increment(CLIENT_KEY);
+      await instanceA.increment(CLIENT_KEY);
 
-    // Simulate process restart: the new process begins with a clean registry
-    // (the module re-initialises) so the same prefix can be registered again.
-    _resetPrefixRegistryForTesting();
+      // Simulate process restart: the new process begins with a clean registry
+      // (the module re-initialises) so the same prefix can be registered again.
+      _resetPrefixRegistryForTesting();
 
-    // New process / new object — same prefix, no shared in-process state.
-    const instanceB = makeStore(PREFIX_A);
-    const result = await instanceB.increment(CLIENT_KEY);
+      // New process / new object — same prefix, no shared in-process state.
+      const instanceB = makeStore(PREFIX_A);
+      const result = await instanceB.increment(CLIENT_KEY);
 
-    // Counter must continue from where instanceA left off (2 + 1 = 3),
-    // not restart at 1 as an in-memory store would.
-    expect(result.totalHits).toBe(3);
-  });
-});
+      // Counter must continue from where instanceA left off (2 + 1 = 3),
+      // not restart at 1 as an in-memory store would.
+      expect(result.totalHits).toBe(3);
+    });
+  },
+);
 
 // ─── AI limiter — ai-burst prefix and 60-second window ───────────────────────
 
-describe("AI limiter — ai-burst prefix and 60-second window", () => {
+describeDb("AI limiter — ai-burst prefix and 60-second window", () => {
   function makeBurstStore(): PostgresRateLimitStore {
     const store = new PostgresRateLimitStore("ai-burst");
     store.init({ windowMs: AI_BURST_WINDOW_MS } as Parameters<
@@ -353,7 +365,7 @@ describe("AI limiter — ai-burst prefix and 60-second window", () => {
 
 // ─── AI limiter — ai-daily prefix and 24-hour window ─────────────────────────
 
-describe("AI limiter — ai-daily prefix and 24-hour window", () => {
+describeDb("AI limiter — ai-daily prefix and 24-hour window", () => {
   function makeDailyStore(): PostgresRateLimitStore {
     const store = new PostgresRateLimitStore("ai-daily");
     store.init({ windowMs: AI_DAILY_WINDOW_MS } as Parameters<
@@ -402,168 +414,176 @@ describe("AI limiter — ai-daily prefix and 24-hour window", () => {
 
 // ─── AI limiter — burst and daily counters are independent ────────────────────
 
-describe("AI limiter — ai-burst and ai-daily counters are independent", () => {
-  function makeBurstStore(): PostgresRateLimitStore {
-    const store = new PostgresRateLimitStore("ai-burst");
-    store.init({ windowMs: AI_BURST_WINDOW_MS } as Parameters<
-      PostgresRateLimitStore["init"]
-    >[0]);
-    return store;
-  }
-
-  function makeDailyStore(): PostgresRateLimitStore {
-    const store = new PostgresRateLimitStore("ai-daily");
-    store.init({ windowMs: AI_DAILY_WINDOW_MS } as Parameters<
-      PostgresRateLimitStore["init"]
-    >[0]);
-    return store;
-  }
-
-  it("burst and daily counters for the same IP are tracked separately", async () => {
-    const burst = makeBurstStore();
-    const daily = makeDailyStore();
-
-    // Drive the burst counter up.
-    await burst.increment(AI_TEST_IP);
-    await burst.increment(AI_TEST_IP);
-    const burstResult = await burst.increment(AI_TEST_IP);
-
-    // The daily counter has only ever seen one hit.
-    const dailyResult = await daily.increment(AI_TEST_IP);
-
-    expect(burstResult.totalHits).toBe(3);
-    expect(dailyResult.totalHits).toBe(1);
-  });
-
-  it("resetting the burst counter does not affect the daily counter", async () => {
-    const burst = makeBurstStore();
-    const daily = makeDailyStore();
-
-    await burst.increment(AI_TEST_IP);
-    await burst.increment(AI_TEST_IP);
-    await daily.increment(AI_TEST_IP);
-    await daily.increment(AI_TEST_IP);
-    await daily.increment(AI_TEST_IP);
-
-    // Clear the burst window (mimics the window expiring or a manual reset).
-    await burst.resetKey(AI_TEST_IP);
-
-    // Burst starts fresh at 1.
-    const burstAfter = await burst.increment(AI_TEST_IP);
-    expect(burstAfter.totalHits).toBe(1);
-
-    // Daily counter is untouched — next hit is 4.
-    const dailyAfter = await daily.increment(AI_TEST_IP);
-    expect(dailyAfter.totalHits).toBe(4);
-  });
-
-  it("burst exhaustion does not bleed into the daily budget", async () => {
-    // Simulate a client hitting the burst ceiling (AI_BURST_LIMIT req/min in production).
-    // After burst is exhausted, the daily counter should reflect only the
-    // requests that actually reached the daily limiter — not the burst count.
-    // Here we just confirm the two stores stay numerically independent
-    // regardless of how many hits the burst store has absorbed.
-    const burst = makeBurstStore();
-    const daily = makeDailyStore();
-
-    // Simulate burst window being exhausted with 5 rapid hits.
-    for (let i = 0; i < 5; i++) {
-      await burst.increment(AI_TEST_IP);
+describeDb(
+  "AI limiter — ai-burst and ai-daily counters are independent",
+  () => {
+    function makeBurstStore(): PostgresRateLimitStore {
+      const store = new PostgresRateLimitStore("ai-burst");
+      store.init({ windowMs: AI_BURST_WINDOW_MS } as Parameters<
+        PostgresRateLimitStore["init"]
+      >[0]);
+      return store;
     }
 
-    // Daily counter was only hit twice (requests that passed the burst check).
-    await daily.increment(AI_TEST_IP);
-    const dailyResult = await daily.increment(AI_TEST_IP);
+    function makeDailyStore(): PostgresRateLimitStore {
+      const store = new PostgresRateLimitStore("ai-daily");
+      store.init({ windowMs: AI_DAILY_WINDOW_MS } as Parameters<
+        PostgresRateLimitStore["init"]
+      >[0]);
+      return store;
+    }
 
-    expect(dailyResult.totalHits).toBe(2);
+    it("burst and daily counters for the same IP are tracked separately", async () => {
+      const burst = makeBurstStore();
+      const daily = makeDailyStore();
 
-    // Confirm the burst counter is genuinely at 5, not polluted by the daily.
-    const burstResult = await burst.increment(AI_TEST_IP);
-    expect(burstResult.totalHits).toBe(6);
-  });
+      // Drive the burst counter up.
+      await burst.increment(AI_TEST_IP);
+      await burst.increment(AI_TEST_IP);
+      const burstResult = await burst.increment(AI_TEST_IP);
 
-  it("burst and daily resetTime values reflect their respective window lengths", async () => {
-    const burst = makeBurstStore();
-    const daily = makeDailyStore();
+      // The daily counter has only ever seen one hit.
+      const dailyResult = await daily.increment(AI_TEST_IP);
 
-    const before = Date.now();
-    const burstResult = await burst.increment(AI_TEST_IP);
-    const dailyResult = await daily.increment(AI_TEST_IP);
-    const after = Date.now();
+      expect(burstResult.totalHits).toBe(3);
+      expect(dailyResult.totalHits).toBe(1);
+    });
 
-    const burstReset = burstResult.resetTime.getTime();
-    const dailyReset = dailyResult.resetTime.getTime();
+    it("resetting the burst counter does not affect the daily counter", async () => {
+      const burst = makeBurstStore();
+      const daily = makeDailyStore();
 
-    // Burst window is ~60 s — well under an hour.
-    expect(burstReset).toBeLessThan(before + 60 * 60 * 1000);
+      await burst.increment(AI_TEST_IP);
+      await burst.increment(AI_TEST_IP);
+      await daily.increment(AI_TEST_IP);
+      await daily.increment(AI_TEST_IP);
+      await daily.increment(AI_TEST_IP);
 
-    // Daily window is ~24 h — more than 12 hours from now.
-    expect(dailyReset).toBeGreaterThan(after + 12 * 60 * 60 * 1000);
+      // Clear the burst window (mimics the window expiring or a manual reset).
+      await burst.resetKey(AI_TEST_IP);
 
-    // Daily reset must always be later than burst reset.
-    expect(dailyReset).toBeGreaterThan(burstReset);
-  });
-});
+      // Burst starts fresh at 1.
+      const burstAfter = await burst.increment(AI_TEST_IP);
+      expect(burstAfter.totalHits).toBe(1);
+
+      // Daily counter is untouched — next hit is 4.
+      const dailyAfter = await daily.increment(AI_TEST_IP);
+      expect(dailyAfter.totalHits).toBe(4);
+    });
+
+    it("burst exhaustion does not bleed into the daily budget", async () => {
+      // Simulate a client hitting the burst ceiling (AI_BURST_LIMIT req/min in production).
+      // After burst is exhausted, the daily counter should reflect only the
+      // requests that actually reached the daily limiter — not the burst count.
+      // Here we just confirm the two stores stay numerically independent
+      // regardless of how many hits the burst store has absorbed.
+      const burst = makeBurstStore();
+      const daily = makeDailyStore();
+
+      // Simulate burst window being exhausted with 5 rapid hits.
+      for (let i = 0; i < 5; i++) {
+        await burst.increment(AI_TEST_IP);
+      }
+
+      // Daily counter was only hit twice (requests that passed the burst check).
+      await daily.increment(AI_TEST_IP);
+      const dailyResult = await daily.increment(AI_TEST_IP);
+
+      expect(dailyResult.totalHits).toBe(2);
+
+      // Confirm the burst counter is genuinely at 5, not polluted by the daily.
+      const burstResult = await burst.increment(AI_TEST_IP);
+      expect(burstResult.totalHits).toBe(6);
+    });
+
+    it("burst and daily resetTime values reflect their respective window lengths", async () => {
+      const burst = makeBurstStore();
+      const daily = makeDailyStore();
+
+      const before = Date.now();
+      const burstResult = await burst.increment(AI_TEST_IP);
+      const dailyResult = await daily.increment(AI_TEST_IP);
+      const after = Date.now();
+
+      const burstReset = burstResult.resetTime.getTime();
+      const dailyReset = dailyResult.resetTime.getTime();
+
+      // Burst window is ~60 s — well under an hour.
+      expect(burstReset).toBeLessThan(before + 60 * 60 * 1000);
+
+      // Daily window is ~24 h — more than 12 hours from now.
+      expect(dailyReset).toBeGreaterThan(after + 12 * 60 * 60 * 1000);
+
+      // Daily reset must always be later than burst reset.
+      expect(dailyReset).toBeGreaterThan(burstReset);
+    });
+  },
+);
 
 // ─── redeem-code limiter — 10-minute window ───────────────────────────────────
 
-describe("redeem-code limiter — 10-minute window and server-restart survival", () => {
-  function makeRedeemStore(): PostgresRateLimitStore {
-    const store = new PostgresRateLimitStore(RATE_LIMIT_PREFIXES.redeemCode);
-    store.init({ windowMs: REDEEM_REVIEWER_WINDOW_MS } as Parameters<
-      PostgresRateLimitStore["init"]
-    >[0]);
-    return store;
-  }
+describeDb(
+  "redeem-code limiter — 10-minute window and server-restart survival",
+  () => {
+    function makeRedeemStore(): PostgresRateLimitStore {
+      const store = new PostgresRateLimitStore(RATE_LIMIT_PREFIXES.redeemCode);
+      store.init({ windowMs: REDEEM_REVIEWER_WINDOW_MS } as Parameters<
+        PostgresRateLimitStore["init"]
+      >[0]);
+      return store;
+    }
 
-  it("starts at totalHits=1 with a resetTime roughly 10 minutes out", async () => {
-    const store = makeRedeemStore();
-    const before = Date.now();
-    const result = await store.increment(RESTART_TEST_IP);
-    const after = Date.now();
+    it("starts at totalHits=1 with a resetTime roughly 10 minutes out", async () => {
+      const store = makeRedeemStore();
+      const before = Date.now();
+      const result = await store.increment(RESTART_TEST_IP);
+      const after = Date.now();
 
-    expect(result.totalHits).toBe(1);
+      expect(result.totalHits).toBe(1);
 
-    // resetTime must fall within the 10-minute window (with a small buffer).
-    const resetMs = result.resetTime.getTime();
-    expect(resetMs).toBeGreaterThan(before + REDEEM_REVIEWER_WINDOW_MS - 2_000);
-    expect(resetMs).toBeLessThan(after + REDEEM_REVIEWER_WINDOW_MS + 2_000);
+      // resetTime must fall within the 10-minute window (with a small buffer).
+      const resetMs = result.resetTime.getTime();
+      expect(resetMs).toBeGreaterThan(
+        before + REDEEM_REVIEWER_WINDOW_MS - 2_000,
+      );
+      expect(resetMs).toBeLessThan(after + REDEEM_REVIEWER_WINDOW_MS + 2_000);
 
-    // Confirm it is NOT a 60-second or 24-hour window.
-    expect(resetMs).toBeGreaterThan(after + 60 * 1000);
-    expect(resetMs).toBeLessThan(before + 24 * 60 * 60 * 1000);
-  });
+      // Confirm it is NOT a 60-second or 24-hour window.
+      expect(resetMs).toBeGreaterThan(after + 60 * 1000);
+      expect(resetMs).toBeLessThan(before + 24 * 60 * 60 * 1000);
+    });
 
-  it("accumulates hits within the same 10-minute window", async () => {
-    const store = makeRedeemStore();
-    await store.increment(RESTART_TEST_IP);
-    await store.increment(RESTART_TEST_IP);
-    const r = await store.increment(RESTART_TEST_IP);
+    it("accumulates hits within the same 10-minute window", async () => {
+      const store = makeRedeemStore();
+      await store.increment(RESTART_TEST_IP);
+      await store.increment(RESTART_TEST_IP);
+      const r = await store.increment(RESTART_TEST_IP);
 
-    expect(r.totalHits).toBe(3);
-  });
+      expect(r.totalHits).toBe(3);
+    });
 
-  it("survives a simulated server restart — a fresh store object continues from the persisted count", async () => {
-    const instanceA = makeRedeemStore();
-    await instanceA.increment(RESTART_TEST_IP);
-    await instanceA.increment(RESTART_TEST_IP);
+    it("survives a simulated server restart — a fresh store object continues from the persisted count", async () => {
+      const instanceA = makeRedeemStore();
+      await instanceA.increment(RESTART_TEST_IP);
+      await instanceA.increment(RESTART_TEST_IP);
 
-    // Simulate process restart: the new process begins with a clean registry.
-    _resetPrefixRegistryForTesting();
+      // Simulate process restart: the new process begins with a clean registry.
+      _resetPrefixRegistryForTesting();
 
-    // Brand-new object, same prefix — simulates the store being reconstructed
-    // after a process restart or autoscale spin-up.
-    const instanceB = makeRedeemStore();
-    const result = await instanceB.increment(RESTART_TEST_IP);
+      // Brand-new object, same prefix — simulates the store being reconstructed
+      // after a process restart or autoscale spin-up.
+      const instanceB = makeRedeemStore();
+      const result = await instanceB.increment(RESTART_TEST_IP);
 
-    // Counter must continue from where instanceA left off (2 + 1 = 3),
-    // not restart at 1 as an in-memory store would.
-    expect(result.totalHits).toBe(3);
+      // Counter must continue from where instanceA left off (2 + 1 = 3),
+      // not restart at 1 as an in-memory store would.
+      expect(result.totalHits).toBe(3);
 
-    // resetTime on the resumed counter must still be ~10 minutes from now,
-    // not reset to 60 seconds or 24 hours.
-    const resetMs = result.resetTime.getTime();
-    expect(resetMs).toBeGreaterThan(Date.now() + 60 * 1000);
-    expect(resetMs).toBeLessThan(Date.now() + 24 * 60 * 60 * 1000);
-  });
-});
+      // resetTime on the resumed counter must still be ~10 minutes from now,
+      // not reset to 60 seconds or 24 hours.
+      const resetMs = result.resetTime.getTime();
+      expect(resetMs).toBeGreaterThan(Date.now() + 60 * 1000);
+      expect(resetMs).toBeLessThan(Date.now() + 24 * 60 * 60 * 1000);
+    });
+  },
+);

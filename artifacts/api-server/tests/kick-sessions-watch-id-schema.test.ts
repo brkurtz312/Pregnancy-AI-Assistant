@@ -22,18 +22,27 @@ import { eq } from "drizzle-orm";
 
 const TEST_USER = `test_watch_idem_${Date.now()}`;
 
+// This suite runs against a real Postgres connection. Without DATABASE_URL
+// there is nothing to run against, so it skips instead of failing the whole
+// api-server run — the integration coverage is still there for anyone who sets
+// DATABASE_URL and re-runs.
+const hasDatabase = Boolean(process.env.DATABASE_URL);
+const describeDb = describe.skipIf(!hasDatabase);
+
 beforeAll(async () => {
+  if (!hasDatabase) return;
   await db.insert(usersTable).values({ id: TEST_USER }).onConflictDoNothing();
 });
 
 afterAll(async () => {
+  if (!hasDatabase) return;
   await db
     .delete(kickSessionsTable)
     .where(eq(kickSessionsTable.userId, TEST_USER));
   await db.delete(usersTable).where(eq(usersTable.id, TEST_USER));
 });
 
-describe("kick_sessions.watch_session_id — schema", () => {
+describeDb("kick_sessions.watch_session_id — schema", () => {
   it("the watch_session_id column exists with type text", async () => {
     const result = await db.execute(sql`
       SELECT data_type
@@ -65,7 +74,7 @@ describe("kick_sessions.watch_session_id — schema", () => {
   });
 });
 
-describe("kick_sessions.watch_session_id — live idempotency", () => {
+describeDb("kick_sessions.watch_session_id — live idempotency", () => {
   it("a duplicate (user_id, watch_session_id) insert is suppressed by ON CONFLICT DO NOTHING", async () => {
     const watchSessionId = "2026-08-11T10:00:00.000Z";
     const values = {

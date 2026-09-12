@@ -46,7 +46,7 @@ Clerk is imported in exactly five places, and it should stay that way:
 **Why:** demo mode authenticates without Clerk. A first pass converted five
 files and looked complete; twenty more screens were still gating on Clerk
 directly, including six calling `getToken()` for manual fetches — those fail
-*even where the UI unlocks*, so features load and then quietly fail to save.
+_even where the UI unlocks_, so features load and then quietly fail to save.
 Found only by testing on a device. If you add a screen that needs auth, use
 `useAppAuth`.
 
@@ -73,10 +73,16 @@ pnpm --filter @workspace/pregnancy-calculator-mobile run test
 pnpm run lint
 ```
 
-Three api-server suites need `DATABASE_URL` and skip without it:
-`duplicate-prefix-guard`, `postgres-rate-limit-store`,
-`rate-limits-table-schema`. The duplicate-prefix guard exists to catch a bad
-rate-limit prefix addition — run it if you add one.
+Six api-server suites need `DATABASE_URL` and skip without it:
+`account-deletion-schema`, `kick-sessions-watch-id-schema`,
+`postgres-rate-limit-store`, `rate-limits-table-schema`,
+`scribe-concurrent-limit` and `scribe-idempotency-db-persist`. They are real
+integration tests — set `DATABASE_URL` and re-run to exercise them, and do run
+them before anything that changes the schema.
+
+`duplicate-prefix-guard` no longer needs a database; it only ever imported the
+db module. It exists to catch a bad rate-limit prefix addition, so run it if
+you add one.
 
 ## Known landmines
 
