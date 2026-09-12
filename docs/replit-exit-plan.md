@@ -113,10 +113,10 @@ account lives.
 
 Two things follow, and they are the opposite of what this plan said before.
 
-**The MFA fix is reachable now.** The instance-wide requirement that caused two
-App Store rejections is set on the instance the app actually uses, and that is
-the one the workspace `CLERK_SECRET_KEY` reaches and whose dashboard is visible
-without Personal Pro. It does not need this migration first.
+**The MFA requirement is already off**, checked 12 Sep 2026 in the Development
+instance the app uses — and its dashboard turns out to be reachable after all.
+The two rejections it caused were resolved before the 11 Sep approval. It is
+not an outstanding blocker, and nothing in this migration is needed to fix it.
 
 **Running production on a development instance is its own problem.** Clerk's
 development instances carry lower rate limits and are not intended to serve real
@@ -140,9 +140,10 @@ that gate — and gives somewhere to move that is not a development instance.
    accounts with `two_factor_enabled: false`. That is what no reviewer can get
    past, and no app-side change can work around it.
 
-   **Worth doing on the current Development instance before any of this.** That
-   is the instance the shipped app uses, so turning it off there unblocks App
-   Review without waiting for the migration.
+   **Already off on the current instance** (checked 12 Sep 2026, in the
+   Development instance the shipped app uses). The two rejections it caused are
+   history — the app was approved on 11 Sep. Nothing to do there; this step is
+   about the new instances, where the requirement must not be switched on.
 
 5. Sign-in methods: email/password, Google, Apple — now with Bryan's own OAuth
    credentials. Apple needs a Services ID and key from the developer account.
