@@ -2,9 +2,16 @@ import Stripe from "stripe";
 
 /**
  * Fetches Stripe credentials from the Replit connection API.
- * Not cached -- tokens can rotate, so fetch fresh each time.
+ *
+ * Only used when `STRIPE_SECRET_KEY` is unset. Deleted once the move off
+ * Replit is complete -- see docs/replit-exit-plan.md.
+ *
+ * The connection exposes `secret`, not `secret_key`. See
+ * .agents/memory/stripe-connector-fields.md.
  */
-async function getStripeCredentials(): Promise<{ secretKey: string }> {
+async function getStripeCredentialsFromReplit(): Promise<{
+  secretKey: string;
+}> {
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY
     ? "repl " + process.env.REPL_IDENTITY
@@ -14,8 +21,8 @@ async function getStripeCredentials(): Promise<{ secretKey: string }> {
 
   if (!hostname || !xReplitToken) {
     throw new Error(
-      "Missing Replit environment variables. " +
-        "Ensure the Stripe integration is connected via the Integrations tab.",
+      "Stripe is not configured. Set STRIPE_SECRET_KEY, or run on Replit " +
+        "with the Stripe integration connected via the Integrations tab.",
     );
   }
 
@@ -41,11 +48,24 @@ async function getStripeCredentials(): Promise<{ secretKey: string }> {
   if (!settings?.secret) {
     throw new Error(
       "Stripe integration not connected or missing secret key. " +
-        "Connect Stripe via the Integrations tab first.",
+        "Connect Stripe via the Integrations tab, or set STRIPE_SECRET_KEY.",
     );
   }
 
   return { secretKey: settings.secret };
+}
+
+/**
+ * Returns Stripe credentials, preferring the environment over Replit.
+ *
+ * Not cached -- connector tokens rotate, so fetch fresh on every call.
+ */
+async function getStripeCredentials(): Promise<{ secretKey: string }> {
+  const secretKey = process.env.STRIPE_SECRET_KEY;
+  if (secretKey) {
+    return { secretKey };
+  }
+  return getStripeCredentialsFromReplit();
 }
 
 /**
