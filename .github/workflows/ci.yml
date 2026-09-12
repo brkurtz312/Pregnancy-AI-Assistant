@@ -5,12 +5,9 @@ name: CI
 # api-server suites that require Postgres skip themselves when DATABASE_URL is
 # absent, which is the whole reason this can run as a gate.
 #
-# Deliberately does NOT build. The web app's vite.config.ts throws unless PORT
-# and BASE_PATH are set when the config loads, so `vite build` cannot run
-# anywhere that does not set them — which is also why the Cloudflare Pages
-# checks fail on every pull request. Worth fixing with the rest of the Replit
-# cleanup (docs/replit-exit-plan.md, Phase 3); until then a build step here
-# would be red for a reason unrelated to the change under test.
+# The build step covers the three Vite apps and the API server. The mobile app
+# is excluded: its "build" spawns a Metro dev server rather than producing a
+# bundle, and real builds happen on EAS.
 
 on:
   pull_request:
@@ -84,6 +81,17 @@ jobs:
           --filter "./lib/**"
           --filter "./scripts"
           --if-present run test
+
+      # Guards the fix that made this possible: the Vite configs used to demand
+      # PORT and BASE_PATH as the config loaded, so a build failed anywhere
+      # that did not inject them. Easy to reintroduce without noticing.
+      - name: Build
+        if: ${{ !cancelled() }}
+        run: >-
+          pnpm -r
+          --filter "./artifacts/**"
+          --filter "!@workspace/pregnancy-calculator-mobile"
+          --if-present run build
 
 # ── What is not covered ──────────────────────────────────────────────────────
 # The mobile app's Watch sources are only compared against ios/ when that
