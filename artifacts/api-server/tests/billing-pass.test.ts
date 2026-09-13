@@ -16,8 +16,20 @@ import request from "supertest";
 const dbExecute = vi.fn(async () => ({
   rows: [] as Array<{ price_id?: string }>,
 }));
+// The redeem endpoint resolves the reviewer access code from
+// app_config.reviewer_access_code before falling back to the env vars, so the
+// select chain has to exist here too.
+const dbSelectWhere = vi.fn(async (): Promise<Array<{ value: string }>> => []);
 vi.mock("@workspace/db", () => ({
-  db: { execute: (...args: unknown[]) => dbExecute(...(args as [])) },
+  db: {
+    execute: (...args: unknown[]) => dbExecute(...(args as [])),
+    select: () => ({
+      from: () => ({
+        where: (..._args: unknown[]) => dbSelectWhere(),
+      }),
+    }),
+  },
+  appConfigTable: { key: "key" },
 }));
 
 let authedUserId: string | null = "user_1";
@@ -114,6 +126,7 @@ beforeEach(() => {
   userHasPass.mockResolvedValue(false);
   getUsage.mockResolvedValue(0);
   dbExecute.mockResolvedValue({ rows: [{ price_id: "price_pass_123" }] });
+  dbSelectWhere.mockResolvedValue([]);
 });
 
 describe("GET /api/billing/pass-status", () => {
@@ -297,13 +310,51 @@ describe("POST /api/billing/redeem-code", () => {
     expect(grantPass).not.toHaveBeenCalled();
   });
 
-  it("returns 503 when no developer code is configured", async () => {
+  it("returns 503 when no code is configured anywhere", async () => {
     delete process.env.DEV_ACCESS_CODE;
     const res = await request(app)
       .post("/api/billing/redeem-code")
       .send({ code: "let-me-in" });
     expect(res.status).toBe(503);
     expect(grantPass).not.toHaveBeenCalled();
+  });
+
+  // rotate-reviewer-code writes app_config.reviewer_access_code and reports the
+  // rotation as effective immediately. It only is if the endpoint reads it.
+  it("accepts the code stored in app_config", async () => {
+    delete process.env.DEV_ACCESS_CODE;
+    dbSelectWhere.mockResolvedValue([{ value: "rotated-code" }]);
+    userHasPass.mockResolvedValue(true);
+    const res = await request(app)
+      .post("/api/billing/redeem-code")
+      .send({ code: "rotated-code" });
+    expect(res.status).toBe(200);
+    expect(grantPass).toHaveBeenCalledWith("user_1");
+  });
+
+  it("lets a rotated app_config code supersede a stale DEV_ACCESS_CODE", async () => {
+    dbSelectWhere.mockResolvedValue([{ value: "rotated-code" }]);
+    const stale = await request(app)
+      .post("/api/billing/redeem-code")
+      .send({ code: "let-me-in" });
+    expect(stale.status).toBe(403);
+    expect(grantPass).not.toHaveBeenCalled();
+
+    userHasPass.mockResolvedValue(true);
+    const rotated = await request(app)
+      .post("/api/billing/redeem-code")
+      .send({ code: "rotated-code" });
+    expect(rotated.status).toBe(200);
+    expect(grantPass).toHaveBeenCalledWith("user_1");
+  });
+
+  it("still accepts DEV_ACCESS_CODE when no row is stored", async () => {
+    userHasPass.mockResolvedValue(true);
+    const res = await request(app)
+      .post("/api/billing/redeem-code")
+      .send({ code: "let-me-in" });
+    expect(res.status).toBe(200);
+    expect(grantPass).toHaveBeenCalledWith("user_1");
   });
 
   it("rejects an incorrect code with 403 and does not grant the pass", async () => {

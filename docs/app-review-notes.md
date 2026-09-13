@@ -101,14 +101,19 @@ The "Access Code" section on the Profile tab calls
 It is a safety net: the pass should already be active, and a reviewer who has to
 use this has hit a problem worth knowing about.
 
-**The endpoint reads `process.env.DEV_ACCESS_CODE` and nothing else**
-(`billing/index.ts:267`). Put that value in the notes.
+The endpoint resolves the code from `app_config.reviewer_access_code` first,
+then `REVIEWER_ACCESS_CODE`, then `DEV_ACCESS_CODE` — the same order
+`check-reviewer-pass` uses, so the health check's verdict is about the code the
+server would actually accept.
 
-⚠️ Do not use `scripts/rotate-reviewer-code` to change it. That script writes
-`app_config.reviewer_access_code` and prints "effective immediately", but no
-code path reads that row — the endpoint only ever consults the environment
-variable. Rotating with it would leave the reviewer holding a code the server
-rejects. Change `DEV_ACCESS_CODE` in the production app secrets instead.
+To rotate it, run `scripts/rotate-reviewer-code`, which writes the row and takes
+effect without a redeploy. Put the code it prints in the notes above. Don't also
+set one of the env vars to it: the row wins, and a stale env var is a second
+answer to "what is the code" with nothing to say which one the server picked.
+
+Check `DATABASE_URL` before you trust the rotation. The Replit workspace Shell's
+`DATABASE_URL` is the development database, so a run from there updates the
+wrong `app_config` and reports success; the script prints the host it wrote to.
 
 ---
 
