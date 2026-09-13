@@ -106,14 +106,45 @@ then `REVIEWER_ACCESS_CODE`, then `DEV_ACCESS_CODE` — the same order
 `check-reviewer-pass` uses, so the health check's verdict is about the code the
 server would actually accept.
 
-To rotate it, run `scripts/rotate-reviewer-code`, which writes the row and takes
-effect without a redeploy. Put the code it prints in the notes above. Don't also
-set one of the env vars to it: the row wins, and a stale env var is a second
-answer to "what is the code" with nothing to say which one the server picked.
+The live code is never written down here. This file is in git; the code is a
+working credential. It goes in App Store Connect and in the production database,
+nowhere else.
 
-Check `DATABASE_URL` before you trust the rotation. The Replit workspace Shell's
-`DATABASE_URL` is the development database, so a run from there updates the
-wrong `app_config` and reports success; the script prints the host it wrote to.
+### Rotating it
+
+**Writing the row is a cutover, not an addition.** Once
+`app_config.reviewer_access_code` exists, it outranks `DEV_ACCESS_CODE` and the
+old code stops working the moment the row lands. Don't rotate while a
+submission is in review with the old code in its notes — the reviewer's fallback
+would break under them mid-review.
+
+Order that works:
+
+1. Confirm production is running a build that reads the row. It was added on
+   13 Sep 2026; a deployment older than that reads `DEV_ACCESS_CODE` only, and
+   rotating against it writes a row nothing consults — the new code would be
+   refused while `check-reviewer-pass` called the setup healthy.
+2. Rotate against the **production** database. `scripts/rotate-reviewer-code`
+   prints the host it wrote to; check it. The Replit workspace Shell's
+   `DATABASE_URL` is the development database, so a run from there updates the
+   wrong `app_config` and reports success either way.
+3. Paste the printed code into the App Store Connect notes.
+4. Run `check-reviewer-pass` to confirm, then redeem it once on a real device.
+
+From the production database pane instead of the script, this generates the code
+server-side and returns it once, so it never passes through a shell history or a
+chat log:
+
+```sql
+INSERT INTO app_config (key, value)
+VALUES ('reviewer_access_code', replace(gen_random_uuid()::text, '-', ''))
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()
+RETURNING value;
+```
+
+Don't also set `REVIEWER_ACCESS_CODE` or `DEV_ACCESS_CODE` to the new value. The
+row wins, so a stale env var is a second answer to "what is the code" with
+nothing to say which one the server picked.
 
 ---
 
