@@ -66,6 +66,22 @@ export function requireAuth(
   // call, and a demo token is never a valid Clerk session anyway.
   const userId = getDemoSubject(req) ?? getAuth(req).userId;
   if (!userId) {
+    // Clerk explains its refusals in response headers that clerkMiddleware has
+    // already attached by the time we get here — x-clerk-auth-reason carries a
+    // code such as token-invalid or token-expired, and -message the detail.
+    // Without them a rejected request is indistinguishable from a request that
+    // simply arrived signed out, which makes a misconfigured instance look like
+    // a client bug. Log them rather than discarding them; they cost one line
+    // and are the only account of WHY the token failed.
+    req.log.warn(
+      {
+        hasAuthHeader: Boolean(req.headers["authorization"]),
+        clerkAuthStatus: res.getHeader("x-clerk-auth-status") ?? null,
+        clerkAuthReason: res.getHeader("x-clerk-auth-reason") ?? null,
+        clerkAuthMessage: res.getHeader("x-clerk-auth-message") ?? null,
+      },
+      "requireAuth rejected the request",
+    );
     res.status(401).json({ error: "Please sign in to continue." });
     return;
   }
