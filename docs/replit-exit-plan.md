@@ -98,6 +98,29 @@ depends on where the API server ends up living.
 
 ## Phase 1 — Clerk
 
+**Done — 13 Sep 2026.** The app runs on our own Clerk production instance
+(`ins_3JFZzAp82jo7IrbO7T7IvJkYDJj`, Frontend API `clerk.pregnancy-assistant.com`)
+with our own Google and Apple credentials and no proxy. Password, Google and
+Apple sign-in were each verified on device.
+
+The survey below is what we believed going in. Two of its load-bearing claims
+were wrong, and correcting them mid-cutover cost a day and a live outage —
+read the corrections before trusting anything else in this section.
+
+**A production instance did exist.** Replit's own auth product — Publishing →
+**Users & Auth** — provisions a Clerk instance per App, and `ins_3EYw…` was it,
+holding the real users with logins as recent as twelve days before the cutover.
+It does not appear in the Clerk dashboard's instance switcher, which is why this
+plan concluded there was none. Bryan twice said a production account already
+existed and was twice talked out of it.
+
+**The shipped app authenticated against that production instance**, not
+Development. The `pk_test_` key in the table below was real, but the proxy
+routed the Frontend API through the API server, which held `sk_live_`. The
+instance was decided by the proxy target and the secret key, never by the
+publishable key — which is also why swapping publishable keys alone changed
+nothing for hours.
+
 **The live app runs on Clerk's Development instance.** Checked 12 Sep 2026:
 
 | Where             | Variable                            | Value       |
@@ -106,17 +129,16 @@ depends on where the API server ends up living.
 | Replit deployment | `VITE_CLERK_PUBLISHABLE_KEY`        | `pk_test_…` |
 | Replit deployment | `CLERK_SECRET_KEY`                  | `sk_test_…` |
 
-**There is no Production instance.** The Clerk dashboard shows only
-Development (checked 12 Sep 2026), which matches the keys above: the App Store
-build, the web app and the API server all authenticate against Development, and
-that is where every real user account lives.
+**Superseded.** This paragraph used to read "There is no Production
+instance", on the evidence that the Clerk dashboard showed only Development. The
+dashboard does not list instances Replit provisions through Users & Auth, so the
+absence proved nothing. `ins_3EYw…` existed the whole time and held the users.
 
-This plan previously asserted that a `pk_live_` instance existed because Replit
-creates one at publish. That came from
-`.agents/memory/clerk-dashboard-access-gating.md`, which reached it by
-mistaking a separate production **database** for a separate Clerk **instance**
-— see the correction in that note. Nothing points at a production instance
-because there is nothing to point at.
+The lesson is narrower than "check harder": an instance switcher is a list of
+instances **someone chose to attach to this Clerk account**, not a list of every
+Clerk instance serving this app. The authoritative check is the `kid` in a
+session token, or `GET https://api.clerk.com/v1/instance` with whichever secret
+key the server actually loaded.
 
 Two things follow, and they are the opposite of what this plan said before.
 
@@ -219,10 +241,87 @@ That makes the order:
 Devices that never relaunch keep the old bundle indefinitely. Decide what
 adoption number is good enough before starting, rather than after.
 
+### Four traps, every one of which recurs in Phase 2
+
+Each of these cost more than an hour on 13 Sep. None is Clerk's fault and none
+is specific to auth — they are properties of how Replit hosts an app, so expect
+all four again when the API server moves.
+
+**1. Replit Auth injects its own `CLERK_SECRET_KEY`.** If Users & Auth is
+enabled, Replit writes that variable into the deployed process, and its value
+wins over the one set in the deployment's secrets. The server verified tokens
+against Replit's instance no matter what we configured, answering
+`jwk-kid-mismatch` to tokens that were perfectly valid.
+
+The fix was to stop using the contested name: `app.ts` now reads
+`PREGNANCY_CLERK_SECRET_KEY` / `PREGNANCY_CLERK_PUBLISHABLE_KEY` (see
+`api-server/src/lib/clerk-env.ts`) and passes both to `clerkMiddleware`
+explicitly. A bare `clerkMiddleware()` re-reads the environment and picks the
+injected value straight back up, so the explicit pass matters as much as the
+rename. The `CLERK_*` names remain as a fallback for local development and CI,
+where nothing injects.
+
+**2. There are two secrets panes and they are not the same store.** Tools →
+Secrets is the workspace. Publishing → Adjust settings → **Production app
+secrets** is what the deployment reads. They held different values for
+`CLERK_SECRET_KEY` for most of a day — the workspace one correct, the
+deployment one Replit's. Editing the wrong pane changes nothing and looks
+exactly like a change that failed to take effect.
+
+**3. `publishableKeyFromHost()` cannot work once the proxy is gone.** It was
+sound only while the Frontend API was proxied through this server's own domain,
+so the request host and the Clerk host were one name. Afterwards neither of its
+branches can name the right instance: a `pk_test_` fallback is returned
+verbatim, and any other fallback is discarded in favour of `clerk.<request
+host>`. Pinned by `api-server/tests/clerk-publishable-key-source.test.ts`.
+
+**4. The deployment's log collector drops a process's first lines.** The
+boot-time `Clerk instance` line was emitted by three consecutive deployments and
+captured from none of them, while `requireAuth` lines from the same builds came
+through — which briefly convinced us the deploy was stale and cost two
+republishes. Diagnostics that only exist at startup are not reliably readable
+here. `requireAuth` therefore repeats the key sources on every rejection, which
+is where they were finally read.
+
+### Diagnostics worth keeping
+
+Both were added during this cutover and both earn their place after the move:
+
+- **Boot:** `Clerk instance` logs the resolved Frontend API, each key's instance
+  type, and which variable supplied it.
+- **On rejection:** `requireAuth rejected the request` logs Clerk's own
+  `x-clerk-auth-reason` and `-message` alongside the key sources. Clerk explains
+  its refusals in response headers that `clerkMiddleware` has already attached;
+  discarding them is what made a misconfigured instance look like a client bug
+  for six hours.
+
 ### User migration
 
-`users.id` is the Clerk user id, so a new instance orphans existing rows. Cheap
-now, but do it properly rather than assuming zero:
+**Not done, deliberately — 13 Sep 2026.** The 20 users in `ins_3EYw…` were
+left behind after checking what they were:
+
+```sql
+SELECT count(*) FILTER (WHERE has_pass), count(*) FILTER (WHERE stripe_customer_id IS NOT NULL) FROM users;
+```
+
+20 users, 16 with a pass, 2 with a Stripe customer — and the two Stripe rows
+were `brkurtz@msn.com` and `appreview@pregnancy-assistant.com`, both Bryan's own
+test purchases. The remaining pass-holders were his second address, the orphan
+row, ten `reviewer+<hash>@…` accounts the health check creates, and two `demo:`
+session subjects. No outside user, so nothing to carry across.
+
+**Run that query before assuming the same next time.** It is the check that
+turned "probably just testers" into a decision rather than a hope, and with a
+different answer the right move would have been to roll back the OTA rather than
+press on.
+
+**Outstanding:** the demo user row still carries the old instance's id
+(`user_3FNurP19…`), and `reviewer-check.ts` looks it up by that id — so the App
+Review demo account has no pass on the new instance. Repoint it before the next
+submission.
+
+`users.id` is the Clerk user id, so a new instance orphans existing rows. If
+there is ever a migration worth doing:
 
 1. Export from the old instance — `CLERK_SECRET_KEY` works against
    `GET https://api.clerk.com/v1/users` even without a dashboard. Capture id,
