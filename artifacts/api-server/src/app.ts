@@ -2,11 +2,9 @@ import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
-import { publishableKeyFromHost } from "@clerk/shared/keys";
 import {
   CLERK_PROXY_PATH,
   clerkProxyMiddleware,
-  getClerkProxyHost,
 } from "./middlewares/clerkProxyMiddleware";
 import router from "./routes";
 import { logger } from "./lib/logger";
@@ -183,19 +181,17 @@ app.use(cors({ credentials: true, origin: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Resolve the publishable key from the incoming request host so the same
-// server can serve multiple Clerk custom domains (or the proxy domain in prod).
-// Falls back to CLERK_PUBLISHABLE_KEY when the host doesn't map to a custom domain.
-// getClerkProxyHost is shared with clerkProxyMiddleware so both halves agree on
-// which hostname is canonical.
-app.use(
-  clerkMiddleware((req) => ({
-    publishableKey: publishableKeyFromHost(
-      getClerkProxyHost(req) ?? "",
-      process.env.CLERK_PUBLISHABLE_KEY,
-    ),
-  })),
-);
+// Clerk identifies its instance from CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY
+// in the environment, which is what the bare call below reads.
+//
+// Do NOT derive the publishable key from the request host. That only worked
+// while the Frontend API was proxied through this server's own domain, so the
+// request host and the Clerk host were one name. They diverged when the proxy
+// went away: the clients call this API at its deployment host while Clerk lives
+// at clerk.pregnancy-assistant.com. See the regression test in
+// tests/clerk-publishable-key-source.test.ts for why neither branch of Clerk's
+// publishableKeyFromHost() helper can name the right instance here.
+app.use(clerkMiddleware());
 
 app.use("/api", router);
 
