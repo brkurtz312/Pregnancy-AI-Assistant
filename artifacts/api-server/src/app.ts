@@ -2,6 +2,7 @@ import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
+import { clerkPublishableKey, clerkSecretKey } from "./lib/clerk-env";
 import {
   CLERK_PROXY_PATH,
   clerkProxyMiddleware,
@@ -181,17 +182,23 @@ app.use(cors({ credentials: true, origin: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Clerk identifies its instance from CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY
-// in the environment, which is what the bare call below reads.
+// Pass the keys explicitly rather than letting Clerk read the environment
+// itself: Replit's auth product injects its own CLERK_SECRET_KEY into the
+// deployed process, and a bare clerkMiddleware() picks that up in preference
+// to anything we set. See lib/clerk-env.ts.
 //
-// Do NOT derive the publishable key from the request host. That only worked
-// while the Frontend API was proxied through this server's own domain, so the
-// request host and the Clerk host were one name. They diverged when the proxy
-// went away: the clients call this API at its deployment host while Clerk lives
-// at clerk.pregnancy-assistant.com. See the regression test in
-// tests/clerk-publishable-key-source.test.ts for why neither branch of Clerk's
-// publishableKeyFromHost() helper can name the right instance here.
-app.use(clerkMiddleware());
+// Do NOT derive the publishable key from the request host either. That only
+// worked while the Frontend API was proxied through this server's own domain,
+// so the request host and the Clerk host were one name. They diverged when the
+// proxy went away: the clients call this API at its deployment host while Clerk
+// lives at clerk.pregnancy-assistant.com. See the regression test in
+// tests/clerk-publishable-key-source.test.ts.
+app.use(
+  clerkMiddleware({
+    secretKey: clerkSecretKey(),
+    publishableKey: clerkPublishableKey(),
+  }),
+);
 
 app.use("/api", router);
 
