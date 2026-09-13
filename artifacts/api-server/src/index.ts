@@ -3,6 +3,11 @@ import {
   parsePublishableKey,
 } from "@clerk/shared/keys";
 import app from "./app";
+import {
+  clerkKeySources,
+  clerkPublishableKey,
+  clerkSecretKey,
+} from "./lib/clerk-env";
 import { logger } from "./lib/logger";
 import { initStripe } from "./lib/stripe-init";
 import { startReviewerCheckScheduler } from "./lib/reviewer-check-scheduler";
@@ -41,11 +46,11 @@ if (!process.env["DATABASE_URL"]) {
 // indistinguishable from a genuinely signed-out request. Both cost hours to
 // find from the outside, so say which instance this process resolved, in the
 // same breath as the PORT and DATABASE_URL checks above.
-const clerkPublishableKey = process.env["CLERK_PUBLISHABLE_KEY"];
-const clerkSecretKey = process.env["CLERK_SECRET_KEY"];
-const clerkPublishable = parsePublishableKey(clerkPublishableKey ?? "");
-const clerkSecretInstance = clerkSecretKey
-  ? isProductionFromSecretKey(clerkSecretKey)
+const publishableKey = clerkPublishableKey();
+const secretKey = clerkSecretKey();
+const clerkPublishable = parsePublishableKey(publishableKey ?? "");
+const clerkSecretInstance = secretKey
+  ? isProductionFromSecretKey(secretKey)
     ? "production"
     : "development"
   : null;
@@ -55,21 +60,22 @@ logger.info(
     frontendApi: clerkPublishable?.frontendApi ?? null,
     publishableKeyInstance: clerkPublishable?.instanceType ?? null,
     secretKeyInstance: clerkSecretInstance,
+    ...clerkKeySources(),
   },
   "Clerk instance",
 );
 
-if (!clerkPublishableKey || !clerkSecretKey) {
+if (!publishableKey || !secretKey) {
   logger.error(
     {
-      hasPublishableKey: Boolean(clerkPublishableKey),
-      hasSecretKey: Boolean(clerkSecretKey),
+      hasPublishableKey: Boolean(publishableKey),
+      hasSecretKey: Boolean(secretKey),
     },
     "Clerk keys are incomplete; every authenticated request will return 401",
   );
 } else if (!clerkPublishable) {
   logger.error(
-    "CLERK_PUBLISHABLE_KEY is not a valid publishable key; every authenticated request will return 401",
+    "The Clerk publishable key is not valid; every authenticated request will return 401",
   );
 } else if (clerkPublishable.instanceType !== clerkSecretInstance) {
   logger.error(
