@@ -160,6 +160,22 @@ describe("requireAuth — rejection reason", () => {
       "requireAuth rejected the request",
     );
   });
+
+  it("names the variable each Clerk key came from", async () => {
+    // Which variable supplied the key is the whole question when a hosting
+    // platform injects a CLERK_SECRET_KEY of its own.
+    process.env.PREGNANCY_CLERK_SECRET_KEY = "sk_live_ours";
+    const req = makeReq("Bearer some.session.token");
+    await run(req);
+    delete process.env.PREGNANCY_CLERK_SECRET_KEY;
+
+    expect(req.log.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        secretKeyFrom: "PREGNANCY_CLERK_SECRET_KEY",
+      }),
+      "requireAuth rejected the request",
+    );
+  });
 });
 
 describe("requireAuth — Clerk sessions are unaffected", () => {
