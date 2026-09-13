@@ -166,6 +166,59 @@ that gate — and gives somewhere to move that is not a development instance.
    needs `selfHandleResponse: true` plus hand-rolled chunked-response buffering,
    and any drift silently breaks production sign-in.
 
+### The shipped app is pinned to the current Clerk instance
+
+`EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` and `EXPO_PUBLIC_CLERK_PROXY_URL` are
+inlined into the JS bundle when it is exported, not read at runtime. Verified
+12 Sep 2026 with `eas env:list --environment production`:
+
+```
+EXPO_PUBLIC_CLERK_PROXY_URL=https://pregnancy-calc--brkurtz.replit.app/api/__clerk
+```
+
+So 1.0.12 on the App Store reaches Clerk through that proxy path, with the
+Replit-managed instance's key. **Switching keys in EAS changes nothing already
+installed**, and deleting the proxy while those installs are live strands them
+at the sign-in screen.
+
+**The way out is OTA, not an App Store release.** `expo-updates` is configured
+(`runtimeVersion: "1.0.12"`, `checkAutomatically: ON_LOAD`, channel
+`production`), and both changes — the new publishable key and dropping
+`proxyUrl` — are JS-only, so a published update carries them to existing
+installs. Two caveats: `fallbackToCacheTimeout: 0` means a device downloads the
+update on one launch and applies it on the next, so adoption lags by a launch;
+and the update only reaches binaries whose runtime version matches, so confirm
+`runtimeVersion` still matches the shipped build before publishing.
+
+That makes the order:
+
+1. New Clerk instance live on its own domain (steps 1-5 above).
+2. Clear the stale variable, then publish an OTA update carrying the new key
+   and no `proxyUrl`:
+
+   ```
+   cd artifacts/pregnancy-calculator-mobile
+   pnpm exec eas env:delete production --variable-name EXPO_PUBLIC_CLERK_PROXY_URL
+   pnpm exec eas update --branch production --environment production -m "..."
+   ```
+
+   **`--branch production` is not optional.** Without it the branch defaults to
+   the current git branch, and the update lands on an EAS branch no channel
+   points at — published, invisible, reaching nobody. The `production` channel
+   serves the branch literally named `production` (verified 12 Sep 2026 with
+   `eas channel:view production`). Clear the variable before publishing, since
+   `--environment` resolves EAS variables at export time.
+
+   Verify sign-in on a device that took the update.
+
+3. Watch adoption in the Expo dashboard.
+4. Only then merge the proxy deletion and retire the old instance. Clear
+   `EXPO_PUBLIC_CLERK_PROXY_URL` from the EAS environment at the same time —
+   removing the code that reads it leaves the variable behind.
+
+Devices that never relaunch keep the old bundle indefinitely. Decide what
+adoption number is good enough before starting, rather than after.
+
 ### User migration
 
 `users.id` is the Clerk user id, so a new instance orphans existing rows. Cheap

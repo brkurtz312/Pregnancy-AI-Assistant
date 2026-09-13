@@ -58,9 +58,6 @@ if (apiDomain) {
 void hydrateDemoSession();
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
-// Production routes Clerk through a same-domain proxy; empty/undefined in dev,
-// where the SDK talks to the Frontend API encoded in the publishable key.
-const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
 
 /**
  * Retry predicate for React Query:
@@ -406,7 +403,6 @@ function RootLayout() {
           <ClerkProvider
             publishableKey={publishableKey}
             tokenCache={tokenCache}
-            proxyUrl={clerkProxyUrl}
           >
             <QueryClientProvider client={queryClient}>
               <AuthTokenBridge />
