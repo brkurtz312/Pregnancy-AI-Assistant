@@ -61,6 +61,7 @@ import {
   MILESTONE_SCHEDULE,
   getMilestoneDate,
 } from "@/lib/milestone-notifications";
+import { parseApiDate, localDateString } from "@/lib/dates";
 
 function CallButton({ phone }: { phone: string }) {
   const colors = useColors();
@@ -378,9 +379,7 @@ export default function ProfileScreen() {
           prePregnancyWeight: prePregnancyWeight.trim()
             ? `${prePregnancyWeight.trim()} ${weightUnit}`
             : null,
-          deliveryDate: deliveryDate
-            ? deliveryDate.toISOString().slice(0, 10)
-            : null,
+          deliveryDate: deliveryDate ? localDateString(deliveryDate) : null,
           providerName: providerName.trim() || null,
           providerPhone: providerPhone.trim() || null,
           providerAddress: providerAddress.trim() || null,
@@ -482,7 +481,7 @@ export default function ProfileScreen() {
               {/* Pregnancy Summary card */}
               {(() => {
                 const dueDateObj = profile?.dueDate
-                  ? new Date(profile.dueDate)
+                  ? parseApiDate(profile.dueDate)
                   : null;
                 if (!dueDateObj) return null;
 
@@ -1691,7 +1690,7 @@ export default function ProfileScreen() {
 
             {(() => {
               const dueDateObj = profile?.dueDate
-                ? new Date(profile.dueDate)
+                ? parseApiDate(profile.dueDate)
                 : null;
 
               if (!dueDateObj) {

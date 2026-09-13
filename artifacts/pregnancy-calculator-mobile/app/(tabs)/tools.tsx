@@ -57,6 +57,7 @@ import {
   type RepeatInterval,
 } from "@/lib/custom-reminders";
 import { requestNotificationPermission } from "@/lib/appointment-reminders";
+import { parseApiDate, localDateString } from "@/lib/dates";
 
 // Safe-require DateTimePicker — static import crashes the screen if the native
 // module is absent from the binary (see datetimepicker-safe-require.md).
@@ -102,10 +103,6 @@ function formatDate(iso: string) {
     " " +
     d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
   );
-}
-
-function todayDate() {
-  return new Date().toISOString().slice(0, 10);
 }
 
 // ─── Symptom Log Section ─────────────────────────────────────────────────────
@@ -735,7 +732,7 @@ export function KickCounterSection() {
 
 export function ContractionTimerSection() {
   const colors = useColors();
-  const today = todayDate();
+  const today = localDateString();
   const { data, isLoading, refetch } = useListContractions({
     sessionDate: today,
     limit: 50,
@@ -2027,7 +2024,7 @@ export default function ToolsScreen() {
   const gestationalWeek = useMemo(() => {
     if (!profile?.dueDate) return undefined;
     try {
-      return calculateByDueDate(new Date(profile.dueDate))
+      return calculateByDueDate(parseApiDate(profile.dueDate))
         .currentGestationalAgeWeeks;
     } catch {
       return undefined;

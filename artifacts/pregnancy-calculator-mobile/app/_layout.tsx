@@ -42,6 +42,7 @@ import {
   getInitialMilestoneNotificationUrl,
   scheduleMilestoneNotifications,
 } from "@/lib/milestone-notifications";
+import { parseApiDate } from "@/lib/dates";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -166,7 +167,7 @@ function MilestoneNotificationScheduler() {
     const dueDateISO = profile.dueDate.slice(0, 10);
     if (lastScheduledDueDateRef.current === dueDateISO) return;
     lastScheduledDueDateRef.current = dueDateISO;
-    scheduleMilestoneNotifications(new Date(profile.dueDate)).catch(() => {
+    scheduleMilestoneNotifications(parseApiDate(profile.dueDate)).catch(() => {
       // best-effort — scheduling failure should not affect app behaviour
     });
   }, [isSignedIn, profile?.dueDate]);

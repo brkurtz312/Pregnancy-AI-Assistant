@@ -47,6 +47,7 @@ import {
 } from "@/lib/journal";
 import { apiUpsertJournalEntry, apiDeleteJournalEntry } from "@/lib/sync-api";
 import { markPendingSync } from "@/lib/sync-queue";
+import { parseApiDate } from "@/lib/dates";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const MEDIA_CELL = (SCREEN_WIDTH - 32 - 8) / 3;
@@ -111,7 +112,7 @@ export default function JournalEntryScreen() {
     "gestationalWeeks" | "gestationalDays" | "postpartumDays"
   > {
     if (!profile?.dueDate) return {};
-    const due = new Date(profile.dueDate);
+    const due = parseApiDate(profile.dueDate);
     const today = new Date();
     if (today > due) {
       const msPerDay = 1000 * 60 * 60 * 24;

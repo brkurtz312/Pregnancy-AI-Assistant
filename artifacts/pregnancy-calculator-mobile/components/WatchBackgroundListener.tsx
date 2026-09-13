@@ -54,9 +54,7 @@ import {
   isKickSessionRecentlySaved,
   markKickSessionSaved,
 } from "@/lib/sync-queue";
-function todayDate() {
-  return new Date().toISOString().slice(0, 10);
-}
+import { parseApiDate, localDateString } from "@/lib/dates";
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
@@ -182,7 +180,7 @@ export function WatchBackgroundListener() {
   const gestationalWeek = useMemo(() => {
     if (!profile?.dueDate) return undefined;
     try {
-      return calculateByDueDate(new Date(profile.dueDate))
+      return calculateByDueDate(parseApiDate(profile.dueDate))
         .currentGestationalAgeWeeks;
     } catch {
       return undefined;
@@ -404,7 +402,7 @@ export function WatchBackgroundListener() {
             endedAt: record.endedAt ?? undefined,
             durationSeconds,
             intervalSeconds: record.interval,
-            sessionDate: todayDate(),
+            sessionDate: localDateString(),
             // Pass the Watch-assigned UUID as a server-enforced idempotency key.
             // If the phone is force-quit after the API succeeds but before the
             // native receipt acknowledgement fires, the startup drain will replay
@@ -446,7 +444,7 @@ export function WatchBackgroundListener() {
               endedAt: record.endedAt ?? undefined,
               durationSeconds,
               intervalSeconds: record.interval,
-              sessionDate: todayDate(),
+              sessionDate: localDateString(),
               // Propagate the Watch UUID so the offline queue flush submits the
               // same idempotency key as the startup drain path.
               watchRecordId: record.id ?? null,

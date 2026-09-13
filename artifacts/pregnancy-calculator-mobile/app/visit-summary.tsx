@@ -34,6 +34,7 @@ import { loadQuestions, getSelectedQuestions } from "@/lib/visit-questions";
 import { PassGate } from "@/components/PassGate";
 import { usePass } from "@/hooks/usePass";
 import { ResponsiveContainer } from "@/components/ResponsiveContainer";
+import { parseApiDate } from "@/lib/dates";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -123,7 +124,7 @@ export default function VisitSummaryScreen() {
     return upcoming[0] ?? null;
   }, [visits]);
 
-  const dueDate = profile?.dueDate ? new Date(profile.dueDate) : null;
+  const dueDate = profile?.dueDate ? parseApiDate(profile.dueDate) : null;
   const visitDate = nextVisit ? new Date(nextVisit.visitDate) : new Date();
   const gaAtVisit = dueDate
     ? getGestationalAgeAtDate(dueDate, visitDate)
