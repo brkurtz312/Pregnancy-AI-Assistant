@@ -5,6 +5,7 @@ import {
   usersTable,
 } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
+import { getConfig } from "./app-config";
 import { logger } from "./logger";
 
 export type ReviewerCheckReason =
@@ -38,18 +39,6 @@ const _state: ReviewerCheckStatus = {
   lastResult: null,
   lastReason: null,
 };
-
-async function getConfig(key: string): Promise<string | null> {
-  try {
-    const [row] = await db
-      .select()
-      .from(appConfigTable)
-      .where(eq(appConfigTable.key, key));
-    return row?.value ?? null;
-  } catch {
-    return null;
-  }
-}
 
 async function setConfig(key: string, value: string | null): Promise<void> {
   try {

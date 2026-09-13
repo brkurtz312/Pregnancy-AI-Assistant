@@ -1,8 +1,9 @@
 import { Router, type IRouter } from "express";
 import { timingSafeEqual } from "node:crypto";
-import { db, appConfigTable, usersTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { db, usersTable } from "@workspace/db";
+import { sql } from "drizzle-orm";
 import { demoSessionLimiter } from "../lib/rate-limit";
+import { getConfig } from "../lib/app-config";
 import {
   isDemoModeEnabled,
   issueDemoToken,
@@ -11,18 +12,6 @@ import {
 } from "../lib/demo-token";
 
 const router: IRouter = Router();
-
-async function getConfig(key: string): Promise<string | null> {
-  try {
-    const [row] = await db
-      .select()
-      .from(appConfigTable)
-      .where(eq(appConfigTable.key, key));
-    return row?.value ?? null;
-  } catch {
-    return null;
-  }
-}
 
 function codesMatch(a: string, b: string): boolean {
   try {

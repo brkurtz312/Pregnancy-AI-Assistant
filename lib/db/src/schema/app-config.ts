@@ -4,7 +4,11 @@ import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
  * Generic key-value config store for runtime-mutable server settings.
  *
  * Current keys:
- *   reviewer_access_code          — the code the Apple reviewer enters to sign in
+ *   reviewer_access_code          — the code a signed-in reviewer redeems to
+ *                                   unlock the pass (rotate-reviewer-code writes
+ *                                   it; the server prefers it over the
+ *                                   REVIEWER_ACCESS_CODE and DEV_ACCESS_CODE
+ *                                   env vars)
  *   reviewer_demo_user_id         — the Clerk user id of the demo account
  *
  * Reviewer pass health check status (written after each scheduled run so

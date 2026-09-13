@@ -1,27 +1,41 @@
 /**
  * Generates a new reviewer access code and stores it in the database.
- * The API server reads the code from the database at request time, so this
+ *
+ * The API server reads app_config.reviewer_access_code at request time, so this
  * rotation takes effect immediately — no redeployment required.
  *
  * Usage:
  *   pnpm --filter @workspace/scripts run rotate-reviewer-code
  *
  * After running:
- *   1. Copy the printed code.
- *   2. Save it in Replit Secrets as REVIEWER_ACCESS_CODE — this is the
- *      authoritative record and the safe location outside the codebase.
- *      (Tools → Secrets in the Replit workspace sidebar.)
- *   3. Give the code only as a post-sign-in Full Pregnancy Pass unlock code.
- *      It is not a Clerk password and must not be entered in App Store Connect
- *      as a demo-account password.
+ *   1. Copy the printed code into the App Store Connect review notes, in the
+ *      "Access Code" step — not the demo-account password field. It is a
+ *      post-sign-in Full Pregnancy Pass unlock code, not a Clerk password.
+ *   2. Do not also set REVIEWER_ACCESS_CODE or DEV_ACCESS_CODE to it. Those are
+ *      the fallbacks the server uses when no row is stored; leaving a stale one
+ *      behind means two answers to "what is the code" and no sign of which the
+ *      server picked.
+ *   3. Verify with `check-reviewer-pass`, which resolves the same chain.
  *
  * Requires:
- *   DATABASE_URL  — provided automatically by Replit
+ *   DATABASE_URL — must point at the *production* database. The Replit
+ *   workspace Shell's DATABASE_URL is the development one, so a run from there
+ *   updates the wrong app_config and reports success. The host is printed
+ *   below; check it before trusting the result.
  */
 
 import { randomBytes } from "node:crypto";
 import { db, appConfigTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
+
+/** Host only — the URL carries credentials. */
+function databaseHost(): string {
+  try {
+    return new URL(process.env.DATABASE_URL ?? "").host || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
 
 async function main() {
   const newCode = randomBytes(16).toString("hex"); // 32-char hex string
@@ -35,26 +49,31 @@ async function main() {
     });
 
   console.log("\n✅ Reviewer access code rotated — effective immediately.\n");
-  console.log(`   New code: ${newCode}\n`);
+  console.log(`   New code: ${newCode}`);
+  console.log(
+    `   Written to: app_config.reviewer_access_code on ${databaseHost()}\n`,
+  );
   console.log("   ── Next steps (required) ────────────────────────────────");
   console.log(
-    "   1. Save this code in Replit Secrets as REVIEWER_ACCESS_CODE.",
+    "   1. Put this code in the App Store Connect review notes, in the",
   );
   console.log(
-    "      This is the authoritative record and keeps the code out of the codebase.",
+    "      'Access Code' step. It is NOT the demo-account password: a reviewer",
   );
   console.log(
-    "      Open the workspace sidebar → Tools → Secrets → add REVIEWER_ACCESS_CODE.",
+    "      signs in with the Clerk credentials first, then redeems this from",
+  );
+  console.log("      Profile → Access Code to unlock the pass.");
+  console.log(
+    "   2. Do NOT also set REVIEWER_ACCESS_CODE or DEV_ACCESS_CODE to it.",
   );
   console.log(
-    "   2. Never use this as an App Store Connect demo-account password.",
+    "      The stored row wins; a stale env var is a second answer nobody reads.",
   );
   console.log(
-    "      A reviewer must first sign in with the separate Production demo account,",
+    "   3. Confirm the host above is the production database, then run",
   );
-  console.log(
-    "      then enter this code from Profile → Redeem access code to unlock the pass.",
-  );
+  console.log("      check-reviewer-pass to verify.");
   console.log("   ─────────────────────────────────────────────────────────\n");
 
   process.exit(0);
