@@ -86,6 +86,30 @@ plumbing. Defensive hardening that IS allowed: keep ErrorBoundary outermost and
 guard an empty publishable key so a missing key degrades gracefully instead of
 hard-crashing on launch.
 
+**`CLERK_PUBLISHABLE_KEY` is not one of the names build.js accepts.** Replit's
+auth product provisions a Clerk instance per App and injects that name, so on
+Replit it holds *Replit's* instance. Because Expo Launch runs build.js, falling
+back to it shipped a TestFlight bundle that authenticated against an instance
+our own server does not verify against — a working-looking build whose every
+token came back `jwk-kid-mismatch`. A wrong key is worse than a missing one: the
+empty-key guard catches missing, nothing catches wrong. build.js now resolves
+`EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` → `PREGNANCY_CLERK_PUBLISHABLE_KEY` →
+`VITE_CLERK_PUBLISHABLE_KEY`, exits non-zero if none is set, and logs which name
+supplied the key and which Frontend API host it decodes to. The server dropped
+the same name for the same reason (`artifacts/api-server/src/lib/clerk-env.ts`).
+
+**A key set in EAS is not set for an Expo Launch build.** They read different
+environments: `eas env:*` values reach `eas build`/`eas update`, while Expo
+Launch reads the Replit workspace secrets through build.js. Changing one leaves
+the other on the old instance.
+
+**An OTA cannot repair a bundle built with the wrong key.** `app.json` sets
+`fallbackToCacheTimeout: 0`, so the first launch after an install always runs the
+*embedded* bundle and applies any update on the next launch (see
+`lib/splash-gate.ts`). A reviewer installing a build whose embedded key points at
+the wrong instance hits a failed sign-in on first launch no matter how current
+the OTA is. That needs a new native build, not a re-publish.
+
 # Replit Expo Launch is a MANAGED identity — app.json must not fight it
 
 Replit's Expo Launch (the Publish → App Store flow) injects its OWN managed

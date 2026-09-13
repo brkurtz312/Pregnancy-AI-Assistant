@@ -129,6 +129,58 @@ function getExpoPublicReplId() {
   return process.env.REPL_ID || process.env.EXPO_PUBLIC_REPL_ID;
 }
 
+/**
+ * Which Clerk publishable key this bundle is built with.
+ *
+ * CLERK_PUBLISHABLE_KEY is deliberately NOT in this chain. Replit's own auth
+ * product provisions a Clerk instance per App and injects that name into the
+ * environment, so on Replit it holds Replit's instance, not ours. Falling back
+ * to it built a bundle that authenticated against the wrong instance while
+ * looking perfectly configured — every token the app issued came back
+ * jwk-kid-mismatch from our own server. The server stopped reading that name
+ * for the same reason; see artifacts/api-server/src/lib/clerk-env.ts.
+ *
+ * VITE_CLERK_PUBLISHABLE_KEY stays: it is the live key powering the web app,
+ * it is a name we control, and it keeps OTA bundles on the production key.
+ */
+function resolveClerkPublishableKey() {
+  const sources = [
+    "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY",
+    "PREGNANCY_CLERK_PUBLISHABLE_KEY",
+    "VITE_CLERK_PUBLISHABLE_KEY",
+  ];
+
+  for (const from of sources) {
+    const key = process.env[from];
+    if (key) return { key, from };
+  }
+
+  console.error(
+    "ERROR: No Clerk publishable key found. Set one of: " +
+      sources.join(", ") +
+      ".\n" +
+      "       CLERK_PUBLISHABLE_KEY is not accepted — on Replit that name holds\n" +
+      "       Replit's own Clerk instance, which this app does not authenticate against.",
+  );
+  process.exit(1);
+}
+
+/**
+ * A publishable key is the Frontend API host, base64-encoded, with a trailing
+ * "$". Printing the host is what turns "the key is set" into "the key points at
+ * the instance I meant" — the distinction that cost a day to see.
+ */
+function clerkFrontendApi(key) {
+  const encoded = key.replace(/^pk_(test|live)_/, "");
+  // base64 decoding never throws here — it drops what it cannot read — so an
+  // unrecognisable key decodes to mojibake rather than failing. Only report a
+  // host that actually looks like one.
+  const decoded = Buffer.from(encoded, "base64")
+    .toString("utf8")
+    .replace(/\$$/, "");
+  return /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(decoded) ? decoded : "unknown";
+}
+
 async function startMetro(expoPublicDomain, expoPublicReplId) {
   const isRunning = await checkMetroHealth();
   if (isRunning) {
@@ -138,18 +190,16 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
 
   console.log("Starting Metro...");
   console.log(`Setting EXPO_PUBLIC_DOMAIN=${expoPublicDomain}`);
+
+  const clerk = resolveClerkPublishableKey();
+  console.log(
+    `Clerk publishable key: from ${clerk.from} -> ${clerkFrontendApi(clerk.key)}`,
+  );
   const env = {
     ...process.env,
     EXPO_PUBLIC_DOMAIN: expoPublicDomain,
     EXPO_PUBLIC_REPL_ID: expoPublicReplId,
-    // Prefer an explicit EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY if set; otherwise use
-    // VITE_CLERK_PUBLISHABLE_KEY (the live key that powers the web app) so OTA
-    // bundles always carry the production Clerk key, not the test key.
-    EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY:
-      process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ||
-      process.env.VITE_CLERK_PUBLISHABLE_KEY ||
-      process.env.CLERK_PUBLISHABLE_KEY ||
-      "",
+    EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: clerk.key,
     EXPO_PUBLIC_REVENUECAT_TEST_API_KEY:
       process.env.REVENUECAT_TEST_API_KEY || "",
     EXPO_PUBLIC_REVENUECAT_IOS_API_KEY:
