@@ -27,6 +27,21 @@ export interface WhatsNewEntry {
  * the build before it reaches the App Store.
  */
 export const WHATS_NEW: Record<string, WhatsNewEntry> = {
+  "1.0.13": {
+    headline: "Accuracy and sign-in fixes",
+    items: [
+      {
+        icon: "calendar-outline",
+        title: "Dates Land on the Right Day",
+        body: "Due dates, appointments and visit records were shifting by a day depending on your time zone, which moved gestational age and everything calculated from it. Dates are now read and saved as calendar days, so they stay exactly as you entered them.",
+      },
+      {
+        icon: "log-in-outline",
+        title: "More Reliable Sign-In",
+        body: "Signing in with email, Apple or Google is handled directly by the app now. Sessions hold up properly instead of occasionally dropping you back to the sign-in screen.",
+      },
+    ],
+  },
   "1.0.12": {
     headline: "Now on Apple Watch",
     items: [

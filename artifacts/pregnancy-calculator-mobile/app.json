@@ -2,14 +2,14 @@
   "expo": {
     "name": "Pregnancy AI Assistant",
     "slug": "pregnancy-calculator-mobile",
-    "version": "1.0.12",
+    "version": "1.0.13",
     "orientation": "portrait",
     "updates": {
       "url": "https://u.expo.dev/8d9ddefc-b718-432f-9c1d-6bb44a7ea9d8",
       "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 0
     },
-    "runtimeVersion": "1.0.12",
+    "runtimeVersion": "1.0.13",
     "icon": "./assets/images/icon.png",
     "scheme": "pregnancy-calculator-mobile",
     "userInterfaceStyle": "automatic",
