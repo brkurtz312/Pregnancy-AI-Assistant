@@ -494,6 +494,21 @@ export function WatchBackgroundListener() {
   //     deliveries to A's UserDefaults key-space while B is the active user), or
   //   • read A's receipts and call handleContractionUpdate with A's health data
   //     under B's authenticated session / React Query context.
+  // Guards the one-shot nature of a bridge-failure toast. Showing a toast
+  // sets state; this effect re-runs on renders it does not control; so an
+  // ungated toast is a loop waiting to happen. The persistent message under
+  // the Watch badge is what the user reads at leisure — the toast only has to
+  // fire once to draw the eye.
+  const reportedRef = useRef<string | null>(null);
+  const reportOnce = useCallback(
+    (message: string) => {
+      if (reportedRef.current === message) return;
+      reportedRef.current = message;
+      showToast(message, true);
+    },
+    [showToast],
+  );
+
   const drainedForUserRef = useRef<string | null>(null);
   const drainGenRef = useRef(0);
   useEffect(() => {
@@ -503,7 +518,7 @@ export function WatchBackgroundListener() {
       // phone can never accept a Watch record.
       if (Platform.OS === "ios") {
         const f = recordWatchBridgeFailure("module", null);
-        showToast(f.message, true);
+        reportOnce(f.message);
       }
       return;
     }
@@ -538,12 +553,13 @@ export function WatchBackgroundListener() {
       .catch((err: unknown) => {
         if (drainGenRef.current !== gen) return;
         const f = recordWatchBridgeFailure("register", err);
-        showToast(f.message, true);
-        // Allow a later run to retry registration rather than being skipped by
-        // the drained-for-this-user guard.
-        if (drainedForUserRef.current === userId) {
-          drainedForUserRef.current = null;
-        }
+        reportOnce(f.message);
+        // The drained-for-this-user guard stays SET. Releasing it here let the
+        // effect re-enter: its deps include handleContractionUpdate, which
+        // depends on Clerk's getToken and changes identity across renders, so
+        // the toast's own setState re-ran the effect, which retried, failed,
+        // and toasted again — a loop that froze the app at launch. Recording
+        // the failure is this chain's job; retrying is not.
         throw err;
       })
       // Stage 2: read pending receipts — only if generation is still current.
@@ -597,7 +613,7 @@ export function WatchBackgroundListener() {
           recordWatchBridgeFailure("dispatch", err);
         }
       });
-  }, [isSignedIn, userId, handleContractionUpdate, showToast]);
+  }, [isSignedIn, userId, handleContractionUpdate, reportOnce]);
 
   useWatchConnectivity({
     gestationalWeek,
