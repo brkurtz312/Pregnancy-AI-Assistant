@@ -15,8 +15,13 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Animated, StyleSheet, Text, View } from "react-native";
+import { Animated, Platform, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  clearWatchBridgeFailure,
+  getWatchBridgeFailure,
+  recordWatchBridgeFailure,
+} from "@/lib/watch-bridge-log";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppAuth as useAuth } from "@/hooks/useAppAuth";
 import { useQueryClient } from "@tanstack/react-query";
@@ -493,7 +498,15 @@ export function WatchBackgroundListener() {
   const drainGenRef = useRef(0);
   useEffect(() => {
     const mod = getWatchModule();
-    if (!mod) return;
+    if (!mod) {
+      // Not a no-op worth staying quiet about on iOS: without the module the
+      // phone can never accept a Watch record.
+      if (Platform.OS === "ios") {
+        const f = recordWatchBridgeFailure("module", null);
+        showToast(f.message, true);
+      }
+      return;
+    }
 
     // Claim a generation token for this effect run.  Any async work started by
     // a previous run will observe gen !== drainGenRef.current and abort.
@@ -502,7 +515,9 @@ export function WatchBackgroundListener() {
     if (!isSignedIn || !userId) {
       // Signed out: deregister active user so incoming Watch deliveries are dropped.
       // No generation check needed — deregistration is always safe.
-      mod.setActiveWatchUser(null)?.catch(() => {});
+      mod.setActiveWatchUser(null)?.catch((err: unknown) => {
+        recordWatchBridgeFailure("deregister", err);
+      });
       return;
     }
 
@@ -510,8 +525,27 @@ export function WatchBackgroundListener() {
     drainedForUserRef.current = userId;
 
     // Stage 1: register the active user in the native bridge.
+    //
+    // This stage failing is the quiet catastrophe: the bridge keeps
+    // activeUserId == nil, persistContractionReceipt refuses every record and
+    // withholds the ack, and the Watch retries forever while the phone log
+    // stays empty. Surface it instead of continuing as if it had worked.
     (mod.setActiveWatchUser(userId) ?? Promise.resolve())
-      .catch(() => {})
+      .then(() => {
+        if (drainGenRef.current !== gen) return;
+        clearWatchBridgeFailure();
+      })
+      .catch((err: unknown) => {
+        if (drainGenRef.current !== gen) return;
+        const f = recordWatchBridgeFailure("register", err);
+        showToast(f.message, true);
+        // Allow a later run to retry registration rather than being skipped by
+        // the drained-for-this-user guard.
+        if (drainedForUserRef.current === userId) {
+          drainedForUserRef.current = null;
+        }
+        throw err;
+      })
       // Stage 2: read pending receipts — only if generation is still current.
       // If the user signed out or switched accounts while stage 1 was running,
       // drainGenRef will have advanced; return an empty array to skip dispatch.
@@ -525,7 +559,10 @@ export function WatchBackgroundListener() {
           }>
         > => {
           if (drainGenRef.current !== gen) return Promise.resolve([]);
-          return mod.getPendingContractionReceipts();
+          return mod.getPendingContractionReceipts().catch((err: unknown) => {
+            recordWatchBridgeFailure("drain", err);
+            throw err;
+          });
         },
       )
       // Stage 3: dispatch — only if generation is still current.
@@ -553,8 +590,14 @@ export function WatchBackgroundListener() {
           }
         },
       )
-      .catch(() => {});
-  }, [isSignedIn, userId, handleContractionUpdate]);
+      .catch((err: unknown) => {
+        // Registration and drain already recorded their own stage; anything
+        // reaching here is the dispatch loop. Either way it is never dropped.
+        if (getWatchBridgeFailure() === null) {
+          recordWatchBridgeFailure("dispatch", err);
+        }
+      });
+  }, [isSignedIn, userId, handleContractionUpdate, showToast]);
 
   useWatchConnectivity({
     gestationalWeek,
