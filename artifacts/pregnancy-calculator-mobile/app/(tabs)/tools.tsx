@@ -46,6 +46,7 @@ import {
   useWatchConnectivity,
   type WatchTip,
 } from "@/hooks/useWatchConnectivity";
+import { useWatchBridgeFailure } from "@/hooks/useWatchBridgeFailure";
 import { calculateByDueDate } from "@/lib/pregnancy-math";
 import { getWeeklyTips } from "@/lib/watch-tips";
 import {
@@ -2039,6 +2040,7 @@ export default function ToolsScreen() {
   // Push gestational-week tips to the Watch; actual event handling (kick session
   // end, contraction update) is done by WatchBackgroundListener in the root
   // layout so data is saved regardless of which tab is active.
+  const watchBridgeFailure = useWatchBridgeFailure();
   const { watchStatus, watchDiagnostic } = useWatchConnectivity({
     gestationalWeek,
     tips: watchTips,
@@ -2214,7 +2216,24 @@ export default function ToolsScreen() {
                 isWatchAppInstalled={watchStatus.isWatchAppInstalled}
                 activationState={watchStatus.activationState}
               />
-              {watchStatus.activationState === "notActivated" &&
+              {watchBridgeFailure && (
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontFamily: "Inter_500Medium",
+                    color: colors.destructive ?? colors.mutedForeground,
+                    marginTop: -2,
+                    marginBottom: 4,
+                  }}
+                >
+                  {watchBridgeFailure.message}
+                </Text>
+              )}
+              {/* Show the raw session diagnostic whenever something is wrong,
+                  not only when the session never activated — a bridge failure
+                  on an activated session was invisible before. */}
+              {(watchStatus.activationState === "notActivated" ||
+                watchBridgeFailure !== null) &&
                 watchDiagnostic !== "" && (
                   <Text
                     style={{
