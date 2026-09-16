@@ -35,8 +35,14 @@ calculates gestational age and week-by-week content from it.
 
 APPLE WATCH
 
-The Watch app pairs automatically once the iPhone app is open. Contraction
-Timer and Kick Counter sync live between the two.
+The companion Watch app runs on its own: Contraction Timer, Kick Counter
+and the weekly tip for the current pregnancy week. Install it from the
+iPhone's Watch app if it is not already on the Watch.
+
+Sessions recorded on the Watch are not currently reflected in the iPhone
+log. That is a known defect, present in the shipping version, and is
+being worked on separately. Nothing in the review flow depends on it —
+record on the iPhone to see entries appear in the log.
 
 IF THE PASS DOES NOT APPEAR
 
@@ -91,6 +97,44 @@ of these. Every one has broken reviewer sign-in at least once.
 4. **Continue with Google** completes. It depends on the redirect allowlist in
    Clerk and the authorized redirect URI in Google Cloud; see the runbook.
 5. Sign out, reinstall, sign in again. The pass survives without a purchase.
+6. **The Watch app opens and runs.** Contraction Timer, Kick Counter and the
+   weekly tip. Do not check for Watch sessions in the iPhone log — that path
+   is broken (see "The Apple Watch sync defect") and the notes no longer
+   claim it works.
+
+---
+
+## The Apple Watch sync defect
+
+Contraction and kick sessions recorded on the Watch do not appear in the
+iPhone log. The Watch keeps them in its own retry queue, so nothing is lost on
+the Watch — they simply never arrive.
+
+What has been established, on a clean 1.0.13 install with a freshly installed
+Watch app:
+
+- **Phone → Watch works.** Gestational age and weekly tips reach the Watch.
+- **Watch → phone receives nothing.** Not records, and not the live
+  `onWatchStateChange` events either — the connectivity line only refreshes
+  when the phone app is re-entered, never when the state actually changes.
+- `setActiveWatchUser` succeeds, so the native bridge has an active user.
+- The session reports `activated`.
+- A force-quit drains no pending receipts, so the native receipt store is
+  empty — the records never reached the bridge at all.
+
+So the break is in Watch→phone delivery, at or below the native layer. It is
+not JavaScript, not Clerk, not authentication: the failing direction needs none
+of them.
+
+**It is not a regression from the September 2026 Clerk migration.** Nothing in
+that work touches WCSession, and the Watch holds records in its retry queue —
+meaning it is attempting delivery and being told it failed. The defect is
+present in 1.0.12, the approved and currently shipping version.
+
+Diagnosing it needs instrumentation readable without a Mac. The next step is to
+surface the Watch's own delivery state on the Watch itself — queued record
+count and last send error. The Watch knows it is failing; it has no way to say
+so.
 
 ---
 
