@@ -23,9 +23,12 @@ Before every App Store resubmission:
      contains `pregnancy-calculator-mobile://`. Production instances enforce
      this allowlist where development instances allow anything, so Google
      sign-in fails on a fresh production instance until it is added.
-   - **Device Trust is off** (Configure → User & authentication → Password). It
-     demands extra verification on every new device, which is every reviewer,
-     and the app has no screen for that step.
+   - **Device Trust is off** (Protect → Rules → the Device Trust row → Manage →
+     toggle off Enable → Save). It demands extra verification on every new
+     device, which is every reviewer, and the app has no screen for that step.
+     It lives under Protect, not with the password settings — an earlier
+     version of this runbook sent the reader to Configure → User &
+     authentication → Password, where it is not.
 2. Install the exact TestFlight candidate on a clean iPhone or iPad.
 3. Create or reset a dedicated Production reviewer account, complete any
    required email verification, then record its Clerk user ID as

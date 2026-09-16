@@ -86,9 +86,10 @@ of these. Every one has broken reviewer sign-in at least once.
    - **Require multi-factor authentication** must be OFF. It is instance-wide
      and forces an `email_code` second factor on every password sign-in, even
      for accounts with no MFA enrolled. A reviewer cannot read that mailbox.
-   - **Device Trust** must be OFF (Configure → User & authentication →
-     Password). It demands extra verification from every new device, which is
-     every reviewer, and the app has no screen for that step.
+   - **Device Trust** must be OFF (Protect → Rules → the Device Trust row →
+     Manage → toggle off Enable → Save). It demands extra verification from
+     every new device, which is every reviewer, and the app has no screen for
+     that step.
 2. **The Full Pregnancy Pass shows as active** immediately after sign-in,
    without redeeming anything.
 3. **Sign in with Apple** is visible and completes the native Apple sheet. It
