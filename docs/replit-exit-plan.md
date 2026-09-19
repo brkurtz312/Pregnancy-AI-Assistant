@@ -429,7 +429,9 @@ the last migration of its kind.
   setup steps are in `docs/railway-deploy.md`.
 
 - **Deploying the API to Railway** has its own runbook:
-  `docs/railway-deploy.md`. `railway.json` in the repository root already
+  `docs/railway-deploy.md`, and pointing users at it has another,
+  `docs/cutover.md` — including the one question that has to be answered
+  first: what serves the web app once Replit is gone. `railway.json` in the repository root already
   carries the build command, start command and `/api/healthz` health check, so
   the service needs no build configuration in the Railway UI — only variables.
 

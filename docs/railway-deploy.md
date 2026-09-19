@@ -227,9 +227,9 @@ At this point two servers are talking to the same database and the app still
 points at Replit. Nothing has switched over. That is the intended resting
 state until:
 
-- the AI credentials above are decided, and
-- `EXPO_PUBLIC_DOMAIN` is repointed at the new host, which needs a new build
-  and a full device test — see `docs/replit-exit-plan.md`.
+- `EXPO_PUBLIC_DOMAIN` is repointed at the new host. `docs/cutover.md` carries
+  that sequence in full, including why it ships as an OTA rather than a new
+  build, and what has to be decided before it starts.
 
 Before the cutover, re-run `compare-databases` so the switch happens on a
 database known to match.
