@@ -3,10 +3,6 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
 import { clerkPublishableKey, clerkSecretKey } from "./lib/clerk-env";
-import {
-  CLERK_PROXY_PATH,
-  clerkProxyMiddleware,
-} from "./middlewares/clerkProxyMiddleware";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { mountWebApp } from "./lib/web-app";
@@ -39,10 +35,6 @@ app.use(
     },
   }),
 );
-
-// Clerk Frontend API proxy — streams raw bytes, so it must run before the body
-// parsers below.
-app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
 // Stripe webhook — needs the raw request body for signature verification, so it
 // must be registered before express.json() parses the body.
