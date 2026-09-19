@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import express, {
   type Express,
   type NextFunction,
@@ -315,5 +315,60 @@ describe("permanent account deletion", () => {
       error: "We couldn't delete your account. Please try again.",
     });
     expect(deleteClerkUser).not.toHaveBeenCalled();
+  });
+});
+
+// The sweep's de-duplication (`activeRetries`) is module-level, so it guards
+// one process against itself and nothing across two. During the Railway
+// migration two servers run against one database, and both would sweep the
+// same tombstones — hence an off switch for whichever one is not yet serving.
+describe("account deletion worker interval", () => {
+  const ENV = "ACCOUNT_DELETION_WORKER_INTERVAL_MS";
+  const original = process.env[ENV];
+
+  afterEach(() => {
+    if (original === undefined) delete process.env[ENV];
+    else process.env[ENV] = original;
+  });
+
+  it("does not schedule a sweep when the interval is 0", async () => {
+    process.env[ENV] = "0";
+    const { startAccountDeletionWorker } =
+      await import("../src/lib/account-deletion");
+    const setInterval = vi.spyOn(globalThis, "setInterval");
+
+    const stop = startAccountDeletionWorker();
+
+    expect(setInterval).not.toHaveBeenCalled();
+    setInterval.mockRestore();
+    stop();
+  });
+
+  it("schedules a sweep at the interval the environment names", async () => {
+    process.env[ENV] = "5000";
+    const { startAccountDeletionWorker } =
+      await import("../src/lib/account-deletion");
+    const setInterval = vi.spyOn(globalThis, "setInterval");
+
+    const stop = startAccountDeletionWorker();
+
+    expect(setInterval).toHaveBeenCalledWith(expect.any(Function), 5000);
+    setInterval.mockRestore();
+    stop();
+  });
+
+  // An explicit argument still wins, so tests and callers that pass one are
+  // not silently overridden by a variable set on the host.
+  it("lets an explicit option override the environment", async () => {
+    process.env[ENV] = "5000";
+    const { startAccountDeletionWorker } =
+      await import("../src/lib/account-deletion");
+    const setInterval = vi.spyOn(globalThis, "setInterval");
+
+    const stop = startAccountDeletionWorker({ intervalMs: 1234 });
+
+    expect(setInterval).toHaveBeenCalledWith(expect.any(Function), 1234);
+    setInterval.mockRestore();
+    stop();
   });
 });

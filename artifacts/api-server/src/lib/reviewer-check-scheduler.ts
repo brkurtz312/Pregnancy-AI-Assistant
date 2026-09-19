@@ -17,6 +17,7 @@
  */
 
 import { logger } from "./logger";
+import { parseEnvMs } from "./env-ms";
 import { runReviewerPassCheck } from "./reviewer-check";
 import { dispatchAlert } from "./alert";
 import type { ReviewerCheckResult } from "./reviewer-check";
@@ -27,13 +28,6 @@ import type { ReviewerCheckResult } from "./reviewer-check";
 
 export const DEFAULT_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 export const DEFAULT_COOLDOWN_MS = 4 * 60 * 60 * 1000; // 4 hours
-
-function parseEnvMs(key: string, defaultMs: number): number {
-  const raw = process.env[key];
-  if (raw === undefined) return defaultMs;
-  const n = Number(raw);
-  return Number.isNaN(n) || n < 0 ? defaultMs : n;
-}
 
 // ---------------------------------------------------------------------------
 // Scheduler state (module-level so it persists across interval ticks)

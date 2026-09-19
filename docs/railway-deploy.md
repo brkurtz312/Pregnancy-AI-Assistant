@@ -158,7 +158,40 @@ or malformed — so a Clerk misconfiguration shows up as a failed Railway health
 check with nothing in it about Clerk. Verified: with no Clerk keys set,
 `/api/healthz` returns 500; with a valid pair, 200.
 
-### 5. Leave it running beside Replit
+### 5. Turn off the background workers on this server
+
+The API is not passive. It starts two schedulers that **write to the database**,
+and both were running within a minute of the first Railway deploy:
+
+- the **reviewer pass health check**, hourly, which can grant the demo
+  account's pass and fire Slack/email alerts
+- the **account deletion sweep**, every minute, which retries pending
+  tombstones against Clerk
+
+With Replit still serving traffic, two servers run both of them against one
+database. Nothing here is destructive — Clerk's delete is idempotent, and the
+reviewer check heals toward the same state from either process — but the
+de-duplication in the deletion sweep is per-process, and duplicate hourly
+alerts are real noise. There is no reason to pay for either.
+
+Add these two variables to the Railway service and redeploy:
+
+```
+REVIEWER_CHECK_INTERVAL_MS=0
+ACCOUNT_DELETION_WORKER_INTERVAL_MS=0
+```
+
+The next deploy log says `Reviewer pass health check scheduler disabled` and
+`Account deletion worker disabled`. **Remove both at cutover**, in the same
+change that repoints `EXPO_PUBLIC_DOMAIN` — once Railway is the only server,
+it has to do this work, and a silent gap in account deletions is a compliance
+problem rather than an inconvenience.
+
+`stripe-replit-sync` also creates the `stripe.*` schema on boot, so the
+Railway database now carries it. It is empty and harmless; noted because
+`docs/stripe-removal-plan.md` cares about that schema's existence.
+
+### 6. Leave it running beside Replit
 
 At this point two servers are talking to the same database and the app still
 points at Replit. Nothing has switched over. That is the intended resting

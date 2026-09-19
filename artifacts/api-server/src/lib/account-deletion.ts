@@ -17,11 +17,26 @@ import {
 import { clerkClient } from "@clerk/express";
 import { and, eq, lte, sql } from "drizzle-orm";
 import { logger } from "./logger";
+import { parseEnvMs } from "./env-ms";
 
 const DEFAULT_RETRY_INTERVAL_MS = 60_000;
 const MAX_RETRY_INTERVAL_MS = 24 * 60 * 60 * 1_000;
 const MAX_SWEEP_BATCH_SIZE = 25;
 const RETRY_WORKER_INTERVAL_MS = 60_000;
+
+/**
+ * Set ACCOUNT_DELETION_WORKER_INTERVAL_MS=0 to disable the sweep on this
+ * process.
+ *
+ * The de-duplication below (`activeRetries`) is a module-level Set, so it
+ * prevents one process from working a tombstone twice and does nothing at all
+ * across two. While a second server runs against the same database -- which is
+ * what the Railway migration looks like before cutover -- both would sweep the
+ * same rows. Clerk's delete is idempotent, so the cost is redundant calls and
+ * confusing retry bookkeeping rather than lost data, but there is no reason to
+ * pay it: turn the sweep off on whichever server is not yet serving traffic.
+ */
+const INTERVAL_ENV = "ACCOUNT_DELETION_WORKER_INTERVAL_MS";
 
 function retryIntervalMs(attemptCount: number): number {
   return Math.min(
@@ -238,8 +253,13 @@ export async function retryPendingAccountDeletions(): Promise<void> {
 export function startAccountDeletionWorker(
   opts: { intervalMs?: number } = {},
 ): () => void {
-  const intervalMs = opts.intervalMs ?? RETRY_WORKER_INTERVAL_MS;
-  if (intervalMs <= 0) return () => {};
+  const intervalMs =
+    opts.intervalMs ?? parseEnvMs(INTERVAL_ENV, RETRY_WORKER_INTERVAL_MS);
+  if (intervalMs <= 0) {
+    logger.info(`Account deletion worker disabled (${INTERVAL_ENV}=0)`);
+    return () => {};
+  }
+  logger.info({ intervalMs }, "Account deletion worker started");
 
   let stopped = false;
   const run = () => {
