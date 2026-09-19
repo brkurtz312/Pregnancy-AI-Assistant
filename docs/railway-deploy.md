@@ -161,11 +161,17 @@ lines, in this order:
    from different Clerk instances and every authenticated request will 401.
 2. `"msg":"Billing credentials"` — `revenueCatKey` and `revenueCatProjectId`
    must both read `"env"`, and `onReplit` must read `false`.
-3. `"msg":"Server listening"`.
+3. `"msg":"AI credentials"` — each provider reports `key: "set"` and the
+   **host** of its base URL: `api.anthropic.com` and `api.openai.com`. A host
+   of `null` with `baseUrlInvalid: true` means that variable holds something
+   that is not a URL, which is what a key pasted one line too high looks like.
+   The value is never printed, here or in the error, so a key that lands there
+   does not reach the log — but rotate it anyway, because it reached a shell.
+4. `"msg":"Server listening"`.
 
 Two `ERROR` lines about `STRIPE_SECRET_KEY` and one `WARN` about
 `STRIPE_WEBHOOK_SECRET` are expected while Stripe is unset. Any error naming
-RevenueCat is not.
+RevenueCat or `AI_INTEGRATIONS_` is not.
 
 ### 4. Check the health endpoint
 
