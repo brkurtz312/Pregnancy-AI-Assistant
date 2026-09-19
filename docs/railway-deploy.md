@@ -118,6 +118,11 @@ NODE_ENV=production
 REVENUECAT_PROJECT_ID=proj9120626a
 ```
 
+Plus `VITE_APP_URL`, set to the origin this service serves on — the API server
+also serves the web app, and this value is substituted into `index.html` at
+build time for the link-preview tags. Unset, the page ships a literal
+`%VITE_APP_URL%` and previews break.
+
 If the Postgres service in your project is named something other than
 `Postgres`, use that name inside the braces instead.
 

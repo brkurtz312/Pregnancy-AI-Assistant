@@ -26,34 +26,36 @@ at once.
 
 ---
 
-## The open question: what serves the web app?
+## The web app is served by the API server
 
-**Resolve this before starting.** The web app (`artifacts/pregnancy-calculator`)
-calls the API with _relative_ URLs and relies on session cookies, which only
-works when the same origin serves both — which is what the Replit deployment
-does today. The Railway API server serves no static files at all: `app.ts`
-mounts a logger, the Clerk proxy, the Stripe webhook, CORS, the body parsers
-and `/api`. Nothing else.
+**Decided and implemented.** The web app (`artifacts/pregnancy-calculator`)
+calls the API with _relative_ URLs and authenticates with session cookies, so
+it only works when one origin serves both — which the Replit deployment did by
+construction. The Railway API server originally served no static files at all,
+so retiring Replit would have removed the web app's home, and nothing in the
+deploy would have said so.
 
-So retiring Replit removes the web app's home, and nothing in the deploy would
-say so. Three ways out:
+`lib/web-app.ts` now mounts the built client from the API server:
 
-1. **Serve the web build from the API server.** Add static file serving to
-   `app.ts` and build `pregnancy-calculator` as part of the Railway build.
-   Keeps one origin, so cookies and CSRF behaviour are unchanged. Smallest
-   change to how anything works.
-2. **Host it separately** (Cloudflare Pages already has a project for it,
-   currently failing to build). Then it needs an absolute API base URL, CORS
-   for that origin, and cookie handling that works cross-site — a different
-   auth model, not a config change.
-3. **Decide it does not need to survive.** Its distinct purpose is Stripe web
-   checkout, which `docs/stripe-removal-plan.md` proposes deleting. If that
-   plan is adopted, this question answers itself.
+- **Static files** from `artifacts/pregnancy-calculator/dist/public`, or from
+  `WEB_ROOT` when that is set.
+- **A single-page fallback**, so client-side routes and refreshes away from `/`
+  reach `index.html` instead of a 404. It is mounted _after_ `/api`, and skips
+  `/api` paths explicitly, so an unknown API route stays a JSON-shaped 404
+  rather than becoming the web app with a 200.
+- **Caching that matches what Vite emits**: hashed files under `assets/` for a
+  year and immutable, `index.html` never — it is what points at the current
+  hashes — and unhashed files beside it (`opengraph.jpg`, icons) left alone,
+  since their names survive deploys and a year-long cache could not be undone.
 
-Option 1 is the least work and the least risk. Option 3 is the one that makes
-the question go away. Either way it is a decision, not a step.
+`railway.json` builds both artifacts. When the build is missing the server
+still starts and logs a warning naming the directory it looked in, because an
+API-only deploy is a valid thing to run and a silent 404 on the site is not.
 
----
+One variable to set for this: **`VITE_APP_URL`**, to the site's own origin. It
+is substituted into `index.html` at build time for the Open Graph and Twitter
+card tags. Unset, the deployed page ships `content="%VITE_APP_URL%/"` and link
+previews break — visible to everyone except you.
 
 ## Step 0 — Ground truth
 
