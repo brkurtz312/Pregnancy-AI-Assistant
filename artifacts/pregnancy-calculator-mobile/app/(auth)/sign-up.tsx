@@ -20,7 +20,12 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
-import { isCancelError } from "@/lib/auth-cancel";
+import { isCancelError, logAuthFailure } from "@/lib/auth-cancel";
+import {
+  clerkErrorMessage,
+  globalClerkErrorText,
+  logClerkFailure,
+} from "@/lib/clerk-errors";
 
 // Handles the OAuth callback redirect on Android. This must be called at
 // module level so it runs before the component tree mounts.
@@ -63,8 +68,10 @@ export default function SignUpScreen() {
   const formError =
     errors.fields.emailAddress?.message ??
     errors.fields.password?.message ??
-    notice;
-  const codeError = errors.fields.code?.message ?? notice;
+    notice ??
+    globalClerkErrorText(errors);
+  const codeError =
+    errors.fields.code?.message ?? notice ?? globalClerkErrorText(errors);
 
   const onCreate = async () => {
     if (fetching) return;
@@ -79,7 +86,16 @@ export default function SignUpScreen() {
       emailAddress: emailAddress.trim(),
       password,
     });
-    if (error) return;
+    if (error) {
+      logClerkFailure("Email sign-up", error);
+      setNotice(
+        clerkErrorMessage(
+          error,
+          "We couldn't create that account. Please try again.",
+        ),
+      );
+      return;
+    }
     await signUp.verifications.sendEmailCode();
   };
 
@@ -92,7 +108,17 @@ export default function SignUpScreen() {
       return;
     }
     setNotice(null);
-    await signUp.verifications.verifyEmailCode({ code });
+    // The result was previously discarded entirely, so a rejected code fell
+    // through to the status check, found it incomplete, and did nothing at
+    // all -- no message, no log.
+    const { error } = await signUp.verifications.verifyEmailCode({ code });
+    if (error) {
+      logClerkFailure("Sign-up code verification", error);
+      setNotice(
+        clerkErrorMessage(error, "That code could not be verified. Try again."),
+      );
+      return;
+    }
     if (signUp.status === "complete") {
       await signUp.finalize({
         navigate: () => {
@@ -128,10 +154,12 @@ export default function SignUpScreen() {
         setGoogleError("Sign-in could not be completed — please try again.");
       }
     } catch (err) {
-      // Suppress errors that indicate the user deliberately dismissed the
-      // consent screen — no message needed in that case.
+      // Log first, always. A browser that closes without completing the
+      // redirect is reported as a dismissal, so a real failure is shaped like
+      // the user swiping the sheet away — suppressing the on-screen message is
+      // a UX choice, suppressing the record of it is how a bug goes unseen.
+      logAuthFailure("Google sign-up", err);
       if (!isCancelError(err)) {
-        console.error("Google sign-up error:", JSON.stringify(err, null, 2));
         setGoogleError("Google sign-in failed. Please try again.");
       }
     } finally {
@@ -158,10 +186,9 @@ export default function SignUpScreen() {
       // (Clerk resolves rather than rejects on cancellation in the native flow).
       // Silently close — no error message needed.
     } catch (err) {
-      // Suppress errors that indicate the user deliberately dismissed the
-      // Apple Sign-In sheet — no message needed in that case.
+      logAuthFailure("Apple sign-up", err);
+      // A dismissed Apple sheet needs no message.
       if (!isCancelError(err)) {
-        console.error("Apple sign-up error:", JSON.stringify(err, null, 2));
         setAppleError("Apple sign-in failed. Please try again.");
       }
     } finally {

@@ -32,6 +32,7 @@ import {
 import { AccountBar } from "@/components/auth/account-bar";
 import { useGetProfile, useUpdateProfile } from "@workspace/api-client-react";
 import { useUser } from "@clerk/react";
+import { localDateString } from "@/lib/dates";
 
 type ToolView =
   | null
@@ -205,7 +206,7 @@ export default function CalculatorPage() {
       setResults(r);
       if (r && isSignedIn) {
         updateProfileMutation.mutate({
-          data: { dueDate: r.edd.toISOString().slice(0, 10) },
+          data: { dueDate: localDateString(r.edd) },
         });
       }
     },

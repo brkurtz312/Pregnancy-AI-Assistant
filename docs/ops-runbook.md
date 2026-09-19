@@ -8,14 +8,49 @@ after that account has signed in.
 
 Before every App Store resubmission:
 
-1. In Replit’s Auth settings, choose the **Production** environment and verify
-   the Apple provider is configured with the Apple Developer Services ID and
-   private key. This requires access to the managed Clerk configuration.
+1. In the **Clerk dashboard** (our own account — not Replit's Auth settings,
+   which managed a different instance until 13 Sep 2026), select the
+   **Production** instance and verify:
+   - **SSO Connections → Apple** is enabled. The app uses the native Apple
+     sheet, so what matters is **Configure → Native Applications**: the iOS
+     entry with App ID prefix `AW7GD9Q3AP` and bundle ID
+     `app.replit.pregnancycalculator`. The Services ID and private key on the
+     Apple connection serve the web flow, which this app does not use.
+   - **SSO Connections → Google** has our own credentials, and the Google Cloud
+     OAuth client lists `https://clerk.pregnancy-assistant.com/v1/oauth_callback`
+     under Authorized redirect URIs.
+   - **Configure → Native Applications → Allowlist for mobile SSO redirect**
+     contains `pregnancy-calculator-mobile://`. Production instances enforce
+     this allowlist where development instances allow anything, so Google
+     sign-in fails on a fresh production instance until it is added.
+   - **Device Trust is off** (Protect → Rules → the Device Trust row → Manage →
+     toggle off Enable → Save). It demands extra verification on every new
+     device, which is every reviewer, and the app has no screen for that step.
+     It lives under Protect, not with the password settings — an earlier
+     version of this runbook sent the reader to Configure → User &
+     authentication → Password, where it is not.
 2. Install the exact TestFlight candidate on a clean iPhone or iPad.
 3. Create or reset a dedicated Production reviewer account, complete any
    required email verification, then record its Clerk user ID as
    `reviewer_demo_user_id` in `app_config` (or `REVIEWER_DEMO_USER_ID` in the
    production API environment).
+
+   **The id is instance-specific.** Moving to a new Clerk instance gives the
+   reviewer account a new id, and this row keeps pointing at the old one — the
+   health check then maintains a pass on an account nobody can sign into. Read
+   the current id from Clerk rather than assuming:
+
+   ```
+   curl -s -H "Authorization: Bearer $CLERK_SECRET_KEY" \
+     "https://api.clerk.com/v1/users?email_address=appreview@pregnancy-assistant.com" \
+     | grep -o '"id":"user_[^"]*"' | head -1
+   ```
+
+   Write it to the **production** database — Replit → Database → Production
+   Database, with Enable Editing on. The workspace Shell's `DATABASE_URL` points
+   at the development database, so a script run from there updates the wrong
+   `app_config` and reports success.
+
 4. Sign in with the reviewer account’s email and password, then redeem the
    reviewer access code from **Profile → Redeem access code** and
    confirm the Full Pregnancy Pass is active.

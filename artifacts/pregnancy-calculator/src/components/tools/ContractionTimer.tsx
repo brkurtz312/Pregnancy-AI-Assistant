@@ -27,8 +27,18 @@ function formatDate(iso: string) {
   });
 }
 
+/**
+ * Today's calendar date where the browser is, as `YYYY-MM-DD`.
+ *
+ * Not `toISOString().slice(0, 10)`: that reports the UTC day, which files a
+ * 9pm session in the Americas under tomorrow and drops the earlier
+ * contractions of the same evening out of the "today" query.
+ */
 function todayDate() {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
 }
 
 export function ContractionTimer() {

@@ -1,8 +1,13 @@
 # App Review Notes
 
-Paste the "Notes" section below into App Store Connect → App Review Information.
-Leave the demo-account username and password fields **empty** — there is no
-account to sign into. See "Why no demo account" for the reasoning.
+Paste the "Notes" section below into App Store Connect → App Review Information,
+and **fill in the demo-account username and password fields** with the
+credentials in "Reviewer credentials".
+
+This replaces the account-free demo-session flow used for the September 2026
+submission. The app now has its own Clerk production instance, so a reviewer
+can sign in the same way a real user does — which is what Apple prefers, and
+what the two rejections before that approval were asking for.
 
 ---
 
@@ -13,76 +18,208 @@ Pregnancy AI Assistant helps expecting parents track their pregnancy, ask
 health questions, log symptoms, time contractions and count kicks, with a
 companion Apple Watch app.
 
-TO ACCESS ALL FEATURES — no account or email required:
+SIGNING IN
 
-1. Launch the app and tap "Sign In" (top right of the Home tab).
-2. At the bottom of the sign-in screen, tap "App Review access".
-3. Enter this access code:  <REVIEW_ACCESS_CODE>
-4. Tap "Open Demo".
+Use the demo account credentials supplied in the fields above. Tap
+"Sign In" (top right of the Home tab), enter the email and password, and
+tap Sign In. No verification code or second factor is required.
 
-This opens the app with the Full Pregnancy Pass active and every paid
-feature unlocked. To set up a pregnancy, enter any due date or last
-menstrual period date on the Home tab — the app calculates gestational
-age and week-by-week content from it.
+The Full Pregnancy Pass is already active on this account, so every paid
+feature is unlocked immediately — no purchase is needed to review paid
+functionality.
 
-APPLE WATCH: the Watch app pairs automatically once the iPhone app is
-open. Contraction Timer and Kick Counter sync live between the two.
+SETTING UP A PREGNANCY
 
-IN-APP PURCHASE: the Full Pregnancy Pass is already granted in the demo
-session, so no purchase is needed to review paid functionality.
+On the Home tab, enter any due date or last menstrual period date. The app
+calculates gestational age and week-by-week content from it.
+
+APPLE WATCH
+
+The companion Watch app runs on its own: Contraction Timer, Kick Counter
+and the weekly tip for the current pregnancy week. Install it from the
+iPhone's Watch app if it is not already on the Watch.
+
+Sessions recorded on the Watch are not currently reflected in the iPhone
+log. That is a known defect, present in the shipping version, and is
+being worked on separately. Nothing in the review flow depends on it —
+record on the iPhone to see entries appear in the log.
+
+IF THE PASS DOES NOT APPEAR
+
+Go to the Profile tab, find the "Access Code" section, enter this code and
+tap Redeem:  <REVIEW_ACCESS_CODE>
 ```
 
-Replace `<REVIEW_ACCESS_CODE>` with the value of the `demo_access_code` row in
-`app_config` (or the `DEMO_ACCESS_CODE` env var).
+Replace `<REVIEW_ACCESS_CODE>` before pasting — see "The fallback access code"
+for which value is the right one, because more than one thing is called the
+reviewer code and only one of them works.
 
 ---
 
-## Why no demo account
+## Reviewer credentials
 
-The previous two submissions were rejected under Guideline 2.1 because Apple
-could not sign in with the supplied credentials. The credentials were valid.
+| Field    | Value                                                       |
+| -------- | ----------------------------------------------------------- |
+| Email    | `appreview@pregnancy-assistant.com`                         |
+| Password | set in the Clerk dashboard — Production → Users → appreview |
 
-The Clerk instance has **"Require multi-factor authentication"** enabled
-instance-wide. That policy forces an `email_code` second factor on _every_
-password sign-in, including accounts with no MFA enrolled — so the sign-in
-verifies the password and then returns `needs_second_factor`. The reviewer has
-no way to read the mailbox the code is sent to, so no credential-based demo
-account can ever complete sign-in.
+The account lives in our own Clerk **production** instance
+(`ins_3JFZzAp82jo7IrbO7T7IvJkYDJj`, Frontend API
+`clerk.pregnancy-assistant.com`). Its pass is kept active by the reviewer
+health check, which reads `app_config.reviewer_demo_user_id` — currently
+`user_3JFjsV2goLIiceAVX1oRfHsQRLU`.
 
-Turning that policy off requires Clerk dashboard access, which is Pro-gated on
-this Replit-managed instance. Demo mode removes the dependency entirely: it
-never contacts Clerk.
+**That id is instance-specific.** If the Clerk instance ever changes again, the
+reviewer account gets a new id and this row keeps pointing at the old one, so
+the health check maintains a pass on an account nobody can sign into. See
+`docs/ops-runbook.md` for how to re-read it.
 
-Full detail: `.agents/memory/clerk-mfa-blocks-app-review.md`.
+---
 
-## Server configuration required before submitting
+## Preflight, before every submission
 
-Both must be set on the **production** deployment:
+Sign in on a clean device with the exact TestFlight candidate and confirm each
+of these. Every one has broken reviewer sign-in at least once.
 
-| Setting               | Where                                          | Notes                                                                |
-| --------------------- | ---------------------------------------------- | -------------------------------------------------------------------- |
-| `DEMO_SESSION_SECRET` | env var                                        | 32+ chars, random. Demo mode is disabled entirely when unset.        |
-| `demo_access_code`    | `app_config` table (or `DEMO_ACCESS_CODE` env) | The code that goes in the review notes. Rotatable without a rebuild. |
+1. **Password sign-in completes without a second factor.** Two settings on the
+   Clerk production instance can break this and neither is visible from the app:
+   - **Require multi-factor authentication** must be OFF. It is instance-wide
+     and forces an `email_code` second factor on every password sign-in, even
+     for accounts with no MFA enrolled. A reviewer cannot read that mailbox.
+   - **Device Trust** must be OFF (Protect → Rules → the Device Trust row →
+     Manage → toggle off Enable → Save). It demands extra verification from
+     every new device, which is every reviewer, and the app has no screen for
+     that step.
+2. **The Full Pregnancy Pass shows as active** immediately after sign-in,
+   without redeeming anything.
+3. **Sign in with Apple** is visible and completes the native Apple sheet. It
+   satisfies Guideline 4.8, and losing it while Google is present means
+   rejection.
+4. **Continue with Google** completes. It depends on the redirect allowlist in
+   Clerk and the authorized redirect URI in Google Cloud; see the runbook.
+5. Sign out, reinstall, sign in again. The pass survives without a purchase.
+6. **The Watch app opens and runs.** Contraction Timer, Kick Counter and the
+   weekly tip. Do not check for Watch sessions in the iPhone log — that path
+   is broken (see "The Apple Watch sync defect") and the notes no longer
+   claim it works.
 
-Verify before submitting:
+---
 
-```sh
-curl -s https://<your-domain>/api/demo/available
-# expect {"available":true}
+## The Apple Watch sync defect
 
-curl -s -X POST https://<your-domain>/api/demo/session \
-  -H 'Content-Type: application/json' \
-  -d '{"code":"<REVIEW_ACCESS_CODE>"}'
-# expect {"token":"v1....","expiresInSeconds":86400}
+Contraction and kick sessions recorded on the Watch do not appear in the
+iPhone log. The Watch keeps them in its own retry queue, so nothing is lost on
+the Watch — they simply never arrive.
+
+What has been established, on a clean 1.0.13 install with a freshly installed
+Watch app:
+
+- **Phone → Watch works.** Gestational age and weekly tips reach the Watch.
+- **Watch → phone receives nothing.** Not records, and not the live
+  `onWatchStateChange` events either — the connectivity line only refreshes
+  when the phone app is re-entered, never when the state actually changes.
+- `setActiveWatchUser` succeeds, so the native bridge has an active user.
+- The session reports `activated`.
+- A force-quit drains no pending receipts, so the native receipt store is
+  empty — the records never reached the bridge at all.
+
+So the break is in Watch→phone delivery, at or below the native layer. It is
+not JavaScript, not Clerk, not authentication: the failing direction needs none
+of them.
+
+**It is not a regression from the September 2026 Clerk migration.** Nothing in
+that work touches WCSession, and the Watch holds records in its retry queue —
+meaning it is attempting delivery and being told it failed. The defect is
+present in 1.0.12, the approved and currently shipping version.
+
+Diagnosing it needs instrumentation readable without a Mac. The next step is to
+surface the Watch's own delivery state on the Watch itself — queued record
+count and last send error. The Watch knows it is failing; it has no way to say
+so.
+
+---
+
+## The fallback access code
+
+The "Access Code" section on the Profile tab calls
+`POST /api/billing/redeem-code`, which grants the pass to the signed-in account.
+It is a safety net: the pass should already be active, and a reviewer who has to
+use this has hit a problem worth knowing about.
+
+The endpoint resolves the code from `app_config.reviewer_access_code` first,
+then `REVIEWER_ACCESS_CODE`, then `DEV_ACCESS_CODE` — the same order
+`check-reviewer-pass` uses, so the health check's verdict is about the code the
+server would actually accept.
+
+The live code is never written down here. This file is in git; the code is a
+working credential. It goes in App Store Connect and in the production database,
+nowhere else.
+
+### Rotating it
+
+**Writing the row is a cutover, not an addition.** Once
+`app_config.reviewer_access_code` exists, it outranks `DEV_ACCESS_CODE` and the
+old code stops working the moment the row lands. Don't rotate while a
+submission is in review with the old code in its notes — the reviewer's fallback
+would break under them mid-review.
+
+Order that works:
+
+1. Confirm production is running a build that reads the row. It was added on
+   13 Sep 2026; a deployment older than that reads `DEV_ACCESS_CODE` only, and
+   rotating against it writes a row nothing consults — the new code would be
+   refused while `check-reviewer-pass` called the setup healthy.
+2. Rotate against the **production** database. `scripts/rotate-reviewer-code`
+   prints the host it wrote to; check it. The Replit workspace Shell's
+   `DATABASE_URL` is the development database, so a run from there updates the
+   wrong `app_config` and reports success either way.
+3. Paste the printed code into the App Store Connect notes.
+4. Run `check-reviewer-pass` to confirm, then redeem it once on a real device.
+
+From the production database pane instead of the script, this generates the code
+server-side and returns it once, so it never passes through a shell history or a
+chat log:
+
+```sql
+INSERT INTO app_config (key, value)
+VALUES ('reviewer_access_code', replace(gen_random_uuid()::text, '-', ''))
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()
+RETURNING value;
 ```
 
-If `available` is false, `DEMO_SESSION_SECRET` is missing or shorter than 32
-characters. The "App Review access" link is hidden from the sign-in screen
-whenever that endpoint reports false, so this check also confirms the reviewer
-will actually see the entry point.
+Don't also set `REVIEWER_ACCESS_CODE` or `DEV_ACCESS_CODE` to the new value. The
+row wins, so a stale env var is a second answer to "what is the code" with
+nothing to say which one the server picked.
 
-## After approval
+---
 
-Unset `DEMO_SESSION_SECRET` on production. That single change disables token
-minting, rejects every outstanding demo token, and hides the sign-in entry
-point — no rebuild or resubmission needed.
+## History — why the earlier submissions failed
+
+Two submissions were rejected under Guideline 2.1 because Apple could not sign
+in with the supplied credentials. The credentials were valid; the Clerk instance
+had **Require multi-factor authentication** enabled instance-wide, so every
+password sign-in returned `needs_second_factor` and the code went to a mailbox
+the reviewer could not read.
+
+That was resolved before the 11 September 2026 approval, and the submission that
+followed used a demo-session flow that never contacted Clerk at all — a reviewer
+entered an access code and got a token, with no account involved.
+
+The demo flow is no longer needed. The app runs on a Clerk instance we control,
+where MFA is off and stays off, so ordinary credentials work. Keeping a
+second, parallel authentication path alive purely for App Review is a standing
+risk it no longer earns.
+
+Background: `.agents/memory/clerk-mfa-blocks-app-review.md`.
+
+---
+
+## Retiring demo mode
+
+Once a submission has been approved using the credentials above, unset
+`DEMO_SESSION_SECRET` on the production deployment. That single change disables
+token minting, rejects every outstanding demo token, and hides the "App Review
+access" link from the sign-in screen. No rebuild or resubmission is needed.
+
+Leave it set until then: if a reviewer hits a sign-in problem mid-review, demo
+mode is the only way to hand them a working session without a new build.

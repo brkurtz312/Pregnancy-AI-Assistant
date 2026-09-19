@@ -23,6 +23,7 @@ import {
 import { currentPeriodKey, getUsage } from "../../lib/ai-usage";
 import { FREE_WEEKLY_LIMIT, PASS_KIND } from "../../lib/billing-config";
 import { redeemCodeLimiter } from "../../lib/rate-limit";
+import { reviewerAccessCode } from "../../lib/app-config";
 
 const router: IRouter = Router();
 
@@ -264,9 +265,11 @@ router.post(
       return;
     }
 
-    const expected = process.env.DEV_ACCESS_CODE;
+    const { code: expected, source } = await reviewerAccessCode();
     if (!expected) {
-      req.log.error("DEV_ACCESS_CODE is not configured");
+      req.log.error(
+        "No reviewer access code is configured (checked app_config.reviewer_access_code, REVIEWER_ACCESS_CODE and DEV_ACCESS_CODE)",
+      );
       res
         .status(503)
         .json({ error: "Code redemption is not available right now." });
@@ -276,6 +279,7 @@ router.post(
     await getOrCreateUser(userId);
 
     if (!codesMatch(parsed.data.code.trim(), expected)) {
+      req.log.warn({ userId, source }, "Access code redemption rejected");
       res
         .status(403)
         .json({ error: "That access code isn't valid.", code: "INVALID_CODE" });
@@ -283,7 +287,7 @@ router.post(
     }
 
     await grantPass(userId);
-    req.log.info({ userId }, "Pass granted via developer access code");
+    req.log.info({ userId, source }, "Pass granted via access code");
     res.json(await passStatusPayload(userId));
   },
 );

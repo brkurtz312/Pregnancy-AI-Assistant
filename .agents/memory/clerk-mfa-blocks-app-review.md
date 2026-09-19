@@ -34,9 +34,15 @@ inspecting the Backend API user object — the user object won't show instance-w
 like this one. A `needs_second_factor` result with `email_code` as the only second factor,
 on a user with no MFA enrolled, means the instance-wide requirement is on.
 
-Development and Production are separate Clerk instances with separate user stores (and
-separate `reviewer_demo_user_id` app_config rows / separate DB rows in this project). The
-workspace's `CLERK_SECRET_KEY` only reaches the Development instance — verifying/fixing this
-for the actual App Store build requires the user to check the Production instance in the
-Clerk dashboard themselves (environment switcher, or the `clerkDashboard/prod/multiFactor`
-pane marker).
+Development and Production are separate Clerk instances with separate user stores.
+
+**Correction, 12 Sep 2026:** this note previously said that fixing it for the App Store
+build meant checking the *Production* instance. That was wrong for this project. The
+shipped app carries `pk_test_` (EAS production), and the deployment runs `sk_test_` and
+`pk_test_` — every client authenticates against **Development**. So the instance the
+reviewer hits is the same one the workspace key reaches, and the MFA setting to turn off
+is Development's. The `pk_live_` Production instance exists but nothing points at it.
+
+The general point still holds: the two instances have separate user stores, so always
+establish which one a given client actually uses — read the key's prefix — before
+reasoning about users, settings or demo accounts.

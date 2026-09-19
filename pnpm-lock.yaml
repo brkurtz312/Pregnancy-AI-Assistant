@@ -1066,6 +1066,9 @@ importers:
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.2(@types/pg@8.18.0)(pg@8.20.0)
+      pg:
+        specifier: ^8.20.0
+        version: 8.20.0
       stripe:
         specifier: ^22.2.0
         version: 22.2.0(@types/node@25.3.5)
@@ -1073,6 +1076,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.3.5
+      '@types/pg':
+        specifier: ^8.18.0
+        version: 8.18.0
       eslint:
         specifier: ^9.39.4
         version: 9.39.4(jiti@2.6.1)

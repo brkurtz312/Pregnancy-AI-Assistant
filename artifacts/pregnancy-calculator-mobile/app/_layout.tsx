@@ -42,6 +42,7 @@ import {
   getInitialMilestoneNotificationUrl,
   scheduleMilestoneNotifications,
 } from "@/lib/milestone-notifications";
+import { parseApiDate } from "@/lib/dates";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -57,9 +58,6 @@ if (apiDomain) {
 void hydrateDemoSession();
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
-// Production routes Clerk through a same-domain proxy; empty/undefined in dev,
-// where the SDK talks to the Frontend API encoded in the publishable key.
-const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
 
 /**
  * Retry predicate for React Query:
@@ -169,7 +167,7 @@ function MilestoneNotificationScheduler() {
     const dueDateISO = profile.dueDate.slice(0, 10);
     if (lastScheduledDueDateRef.current === dueDateISO) return;
     lastScheduledDueDateRef.current = dueDateISO;
-    scheduleMilestoneNotifications(new Date(profile.dueDate)).catch(() => {
+    scheduleMilestoneNotifications(parseApiDate(profile.dueDate)).catch(() => {
       // best-effort — scheduling failure should not affect app behaviour
     });
   }, [isSignedIn, profile?.dueDate]);
@@ -405,7 +403,6 @@ function RootLayout() {
           <ClerkProvider
             publishableKey={publishableKey}
             tokenCache={tokenCache}
-            proxyUrl={clerkProxyUrl}
           >
             <QueryClientProvider client={queryClient}>
               <AuthTokenBridge />

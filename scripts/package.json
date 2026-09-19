@@ -8,6 +8,7 @@
     "seed-products": "tsx ./src/seed-products.ts",
     "seed-revenuecat": "tsx ./src/seedRevenueCat.ts",
     "check-revenuecat": "tsx ./src/checkRevenueCat.ts",
+    "check-ai-keys": "tsx ./src/checkAiKeys.ts",
     "migrate-appstore-product-id": "tsx ./src/migrateAppStoreProductId.ts",
     "create-review-account": "tsx ./src/create-review-account.ts",
     "rotate-reviewer-code": "tsx ./src/rotate-reviewer-code.ts",
@@ -17,17 +18,21 @@
     "set-alert-config": "tsx ./src/set-alert-config.ts",
     "smoke-test-alert": "tsx ./src/smoke-test-alert.ts",
     "migrate-deletion-integrity": "tsx ./src/migrate-deletion-integrity.ts",
+    "audit-dates": "tsx ./src/audit-dates.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "compare-databases": "tsx ./src/compare-databases.ts"
   },
   "dependencies": {
     "@replit/revenuecat-sdk": "^4.2.0",
     "@workspace/db": "workspace:*",
     "drizzle-orm": "catalog:",
+    "pg": "^8.20.0",
     "stripe": "^22.2.0"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "@types/pg": "^8.18.0",
     "eslint": "^9.39.4",
     "tsx": "catalog:",
     "vitest": "^4.1.8"

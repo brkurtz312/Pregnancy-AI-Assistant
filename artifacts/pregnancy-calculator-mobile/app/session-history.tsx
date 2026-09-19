@@ -33,6 +33,7 @@ import {
 } from "@workspace/api-client-react";
 import type { KickSession, Contraction } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
+import { parseApiDate } from "@/lib/dates";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -44,7 +45,9 @@ function formatSeconds(seconds: number | null | undefined): string {
 }
 
 function formatLongDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
+  // parseApiDate, not new Date: `sessionDate` is a bare calendar date, and
+  // new Date("2026-08-13") is UTC midnight — the 12th, 8pm, in New York.
+  return parseApiDate(iso).toLocaleDateString(undefined, {
     weekday: "short",
     month: "short",
     day: "numeric",

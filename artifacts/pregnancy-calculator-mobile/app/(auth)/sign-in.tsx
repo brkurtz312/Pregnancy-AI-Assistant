@@ -20,7 +20,12 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
-import { isCancelError } from "@/lib/auth-cancel";
+import { isCancelError, logAuthFailure } from "@/lib/auth-cancel";
+import {
+  clerkErrorMessage,
+  globalClerkErrorText,
+  logClerkFailure,
+} from "@/lib/clerk-errors";
 
 const apiBase = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
@@ -89,7 +94,9 @@ export default function SignInScreen() {
     (verificationStep
       ? errors.fields.code?.message
       : (errors.fields.identifier?.message ??
-        errors.fields.password?.message)) ?? notice;
+        errors.fields.password?.message)) ??
+    notice ??
+    globalClerkErrorText(errors);
   const isSubmitDisabled =
     fetching ||
     (verificationStep ? !verificationCode : !emailAddress || !password);
@@ -117,7 +124,19 @@ export default function SignInScreen() {
         emailAddress: emailAddress.trim(),
         password,
       });
-      if (error) return;
+      if (error) {
+        // Not `return` on its own: a field error already renders, but anything
+        // Clerk files elsewhere -- session_exists being the likely one --
+        // would leave the screen blank and the log empty.
+        logClerkFailure("Email sign-in", error);
+        setNotice(
+          clerkErrorMessage(
+            error,
+            "Sign-in could not be completed. Please try again.",
+          ),
+        );
+        return;
+      }
 
       // Activate the session only when Clerk has fully completed the sign-in
       // (status === "complete" and a session ID was issued). If neither
@@ -263,10 +282,12 @@ export default function SignInScreen() {
         setNotice("Sign-in could not be completed — please try again.");
       }
     } catch (err) {
-      // Suppress errors that indicate the user deliberately dismissed the
-      // consent screen — no message needed in that case.
+      // Log first, always. A browser that closes without completing the
+      // redirect is reported as a dismissal, so a real failure is shaped like
+      // the user swiping the sheet away — suppressing the on-screen message is
+      // a UX choice, suppressing the record of it is how a bug goes unseen.
+      logAuthFailure("Google sign-in", err);
       if (!isCancelError(err)) {
-        console.error("Google sign-in error:", JSON.stringify(err, null, 2));
         const clerkErr = err as {
           errors?: Array<{ longMessage?: string; message?: string }>;
         };
@@ -299,10 +320,9 @@ export default function SignInScreen() {
       // (Clerk resolves rather than rejects on cancellation in the native flow).
       // Silently close — no error message needed.
     } catch (err) {
-      // Suppress errors that indicate the user deliberately dismissed the
-      // Apple Sign-In sheet — no message needed in that case.
+      logAuthFailure("Apple sign-in", err);
+      // A dismissed Apple sheet needs no message.
       if (!isCancelError(err)) {
-        console.error("Apple sign-in error:", JSON.stringify(err, null, 2));
         const clerkErr = err as {
           errors?: Array<{ longMessage?: string; message?: string }>;
         };

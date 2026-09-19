@@ -52,7 +52,9 @@ function makeReq(authorization?: string): Request {
   } as unknown as Request;
 }
 
-function makeRes(): Response & { statusCode?: number; body?: unknown } {
+function makeRes(
+  headers: Record<string, string> = {},
+): Response & { statusCode?: number; body?: unknown } {
   const res = {
     status(code: number) {
       (res as { statusCode?: number }).statusCode = code;
@@ -62,13 +64,19 @@ function makeRes(): Response & { statusCode?: number; body?: unknown } {
       (res as { body?: unknown }).body = payload;
       return res;
     },
+    // requireAuth reads Clerk's x-clerk-auth-* headers when it rejects a
+    // request. clerkMiddleware sets them upstream of this middleware, so the
+    // double has to answer for them too.
+    getHeader(name: string) {
+      return headers[name.toLowerCase()];
+    },
   };
   return res as unknown as Response & { statusCode?: number; body?: unknown };
 }
 
 /** Runs requireAuth and resolves once next() or a response has settled. */
-async function run(req: Request) {
-  const res = makeRes();
+async function run(req: Request, resHeaders: Record<string, string> = {}) {
+  const res = makeRes(resHeaders);
   const next = vi.fn<NextFunction>();
   requireAuth(req, res, next);
   // ensureActiveAccount is async; let its promise chain flush.
@@ -129,6 +137,44 @@ describe("requireAuth — demo sessions", () => {
     );
     expect(next).not.toHaveBeenCalled();
     expect(res.statusCode).toBe(410);
+  });
+});
+
+describe("requireAuth — rejection reason", () => {
+  it("logs the reason Clerk gave, so a 401 is not just a dead end", async () => {
+    const req = makeReq("Bearer some.session.token");
+    const { res } = await run(req, {
+      "x-clerk-auth-status": "signed-out",
+      "x-clerk-auth-reason": "token-invalid",
+      "x-clerk-auth-message": "Invalid JWT form.",
+    });
+
+    expect(res.statusCode).toBe(401);
+    expect(req.log.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hasAuthHeader: true,
+        clerkAuthStatus: "signed-out",
+        clerkAuthReason: "token-invalid",
+        clerkAuthMessage: "Invalid JWT form.",
+      }),
+      "requireAuth rejected the request",
+    );
+  });
+
+  it("names the variable each Clerk key came from", async () => {
+    // Which variable supplied the key is the whole question when a hosting
+    // platform injects a CLERK_SECRET_KEY of its own.
+    process.env.PREGNANCY_CLERK_SECRET_KEY = "sk_live_ours";
+    const req = makeReq("Bearer some.session.token");
+    await run(req);
+    delete process.env.PREGNANCY_CLERK_SECRET_KEY;
+
+    expect(req.log.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        secretKeyFrom: "PREGNANCY_CLERK_SECRET_KEY",
+      }),
+      "requireAuth rejected the request",
+    );
   });
 });
 

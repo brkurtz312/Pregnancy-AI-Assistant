@@ -46,6 +46,7 @@ import {
   useWatchConnectivity,
   type WatchTip,
 } from "@/hooks/useWatchConnectivity";
+import { useWatchBridgeFailure } from "@/hooks/useWatchBridgeFailure";
 import { calculateByDueDate } from "@/lib/pregnancy-math";
 import { getWeeklyTips } from "@/lib/watch-tips";
 import {
@@ -57,6 +58,7 @@ import {
   type RepeatInterval,
 } from "@/lib/custom-reminders";
 import { requestNotificationPermission } from "@/lib/appointment-reminders";
+import { parseApiDate, localDateString } from "@/lib/dates";
 
 // Safe-require DateTimePicker — static import crashes the screen if the native
 // module is absent from the binary (see datetimepicker-safe-require.md).
@@ -102,10 +104,6 @@ function formatDate(iso: string) {
     " " +
     d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
   );
-}
-
-function todayDate() {
-  return new Date().toISOString().slice(0, 10);
 }
 
 // ─── Symptom Log Section ─────────────────────────────────────────────────────
@@ -735,7 +733,7 @@ export function KickCounterSection() {
 
 export function ContractionTimerSection() {
   const colors = useColors();
-  const today = todayDate();
+  const today = localDateString();
   const { data, isLoading, refetch } = useListContractions({
     sessionDate: today,
     limit: 50,
@@ -2027,7 +2025,7 @@ export default function ToolsScreen() {
   const gestationalWeek = useMemo(() => {
     if (!profile?.dueDate) return undefined;
     try {
-      return calculateByDueDate(new Date(profile.dueDate))
+      return calculateByDueDate(parseApiDate(profile.dueDate))
         .currentGestationalAgeWeeks;
     } catch {
       return undefined;
@@ -2042,6 +2040,7 @@ export default function ToolsScreen() {
   // Push gestational-week tips to the Watch; actual event handling (kick session
   // end, contraction update) is done by WatchBackgroundListener in the root
   // layout so data is saved regardless of which tab is active.
+  const watchBridgeFailure = useWatchBridgeFailure();
   const { watchStatus, watchDiagnostic } = useWatchConnectivity({
     gestationalWeek,
     tips: watchTips,
@@ -2217,7 +2216,24 @@ export default function ToolsScreen() {
                 isWatchAppInstalled={watchStatus.isWatchAppInstalled}
                 activationState={watchStatus.activationState}
               />
-              {watchStatus.activationState === "notActivated" &&
+              {watchBridgeFailure && (
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontFamily: "Inter_500Medium",
+                    color: colors.destructive ?? colors.mutedForeground,
+                    marginTop: -2,
+                    marginBottom: 4,
+                  }}
+                >
+                  {watchBridgeFailure.message}
+                </Text>
+              )}
+              {/* Show the raw session diagnostic whenever something is wrong,
+                  not only when the session never activated — a bridge failure
+                  on an activated session was invisible before. */}
+              {(watchStatus.activationState === "notActivated" ||
+                watchBridgeFailure !== null) &&
                 watchDiagnostic !== "" && (
                   <Text
                     style={{

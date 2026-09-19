@@ -16,6 +16,11 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import {
+  clerkErrorMessage,
+  globalClerkErrorText,
+  logClerkFailure,
+} from "@/lib/clerk-errors";
 
 type ResetStep = "email" | "code" | "password";
 
@@ -48,7 +53,8 @@ export default function ForgotPasswordScreen() {
     errors.fields.identifier?.message ??
     errors.fields.code?.message ??
     errors.fields.password?.message ??
-    notice;
+    notice ??
+    globalClerkErrorText(errors);
 
   const sendCode = async () => {
     if (fetching) return;
@@ -97,7 +103,16 @@ export default function ForgotPasswordScreen() {
       const { error } = await signIn.resetPasswordEmailCode.verifyCode({
         code: code.trim(),
       });
-      if (error) return;
+      if (error) {
+        logClerkFailure("Reset code verification", error);
+        setNotice(
+          clerkErrorMessage(
+            error,
+            "That code could not be verified. Try again.",
+          ),
+        );
+        return;
+      }
       setStep("password");
     } catch (error) {
       setNotice(
@@ -119,7 +134,16 @@ export default function ForgotPasswordScreen() {
         password,
         signOutOfOtherSessions: true,
       });
-      if (error) return;
+      if (error) {
+        logClerkFailure("Password reset", error);
+        setNotice(
+          clerkErrorMessage(
+            error,
+            "That password could not be set. Please try again.",
+          ),
+        );
+        return;
+      }
 
       if (signIn.status !== "complete") {
         setNotice("Password updated. Please sign in with your new password.");

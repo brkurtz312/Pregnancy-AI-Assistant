@@ -2,10 +2,10 @@ import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
-import { publishableKeyFromHost } from "@clerk/shared/keys";
-import { getRequestHost } from "./lib/request-host";
+import { clerkPublishableKey, clerkSecretKey } from "./lib/clerk-env";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { mountWebApp } from "./lib/web-app";
 import { getStripeSync, getUncachableStripeClient } from "./lib/stripeClient";
 import {
   getUser,
@@ -175,18 +175,29 @@ app.use(cors({ credentials: true, origin: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Resolve the publishable key from the incoming request host so the same
-// server can serve multiple Clerk custom domains. Falls back to
-// CLERK_PUBLISHABLE_KEY when the host doesn't map to a custom domain.
+// Pass the keys explicitly rather than letting Clerk read the environment
+// itself: Replit's auth product injects its own CLERK_SECRET_KEY into the
+// deployed process, and a bare clerkMiddleware() picks that up in preference
+// to anything we set. See lib/clerk-env.ts.
+//
+// Do NOT derive the publishable key from the request host either. That only
+// worked while the Frontend API was proxied through this server's own domain,
+// so the request host and the Clerk host were one name. They diverged when the
+// proxy went away: the clients call this API at its deployment host while Clerk
+// lives at clerk.pregnancy-assistant.com. See the regression test in
+// tests/clerk-publishable-key-source.test.ts.
 app.use(
-  clerkMiddleware((req) => ({
-    publishableKey: publishableKeyFromHost(
-      getRequestHost(req) ?? "",
-      process.env.CLERK_PUBLISHABLE_KEY,
-    ),
-  })),
+  clerkMiddleware({
+    secretKey: clerkSecretKey(),
+    publishableKey: clerkPublishableKey(),
+  }),
 );
 
 app.use("/api", router);
+
+// Last, deliberately: the single-page fallback answers any GET it is given, so
+// mounting it before the router would turn an unknown API route into a 200
+// carrying HTML.
+mountWebApp(app);
 
 export default app;

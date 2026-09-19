@@ -15,8 +15,13 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Animated, StyleSheet, Text, View } from "react-native";
+import { Animated, Platform, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  clearWatchBridgeFailure,
+  getWatchBridgeFailure,
+  recordWatchBridgeFailure,
+} from "@/lib/watch-bridge-log";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppAuth as useAuth } from "@/hooks/useAppAuth";
 import { useQueryClient } from "@tanstack/react-query";
@@ -54,9 +59,7 @@ import {
   isKickSessionRecentlySaved,
   markKickSessionSaved,
 } from "@/lib/sync-queue";
-function todayDate() {
-  return new Date().toISOString().slice(0, 10);
-}
+import { parseApiDate, localDateString } from "@/lib/dates";
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
@@ -182,7 +185,7 @@ export function WatchBackgroundListener() {
   const gestationalWeek = useMemo(() => {
     if (!profile?.dueDate) return undefined;
     try {
-      return calculateByDueDate(new Date(profile.dueDate))
+      return calculateByDueDate(parseApiDate(profile.dueDate))
         .currentGestationalAgeWeeks;
     } catch {
       return undefined;
@@ -404,7 +407,7 @@ export function WatchBackgroundListener() {
             endedAt: record.endedAt ?? undefined,
             durationSeconds,
             intervalSeconds: record.interval,
-            sessionDate: todayDate(),
+            sessionDate: localDateString(),
             // Pass the Watch-assigned UUID as a server-enforced idempotency key.
             // If the phone is force-quit after the API succeeds but before the
             // native receipt acknowledgement fires, the startup drain will replay
@@ -446,7 +449,7 @@ export function WatchBackgroundListener() {
               endedAt: record.endedAt ?? undefined,
               durationSeconds,
               intervalSeconds: record.interval,
-              sessionDate: todayDate(),
+              sessionDate: localDateString(),
               // Propagate the Watch UUID so the offline queue flush submits the
               // same idempotency key as the startup drain path.
               watchRecordId: record.id ?? null,
@@ -491,11 +494,34 @@ export function WatchBackgroundListener() {
   //     deliveries to A's UserDefaults key-space while B is the active user), or
   //   • read A's receipts and call handleContractionUpdate with A's health data
   //     under B's authenticated session / React Query context.
+  // Guards the one-shot nature of a bridge-failure toast. Showing a toast
+  // sets state; this effect re-runs on renders it does not control; so an
+  // ungated toast is a loop waiting to happen. The persistent message under
+  // the Watch badge is what the user reads at leisure — the toast only has to
+  // fire once to draw the eye.
+  const reportedRef = useRef<string | null>(null);
+  const reportOnce = useCallback(
+    (message: string) => {
+      if (reportedRef.current === message) return;
+      reportedRef.current = message;
+      showToast(message, true);
+    },
+    [showToast],
+  );
+
   const drainedForUserRef = useRef<string | null>(null);
   const drainGenRef = useRef(0);
   useEffect(() => {
     const mod = getWatchModule();
-    if (!mod) return;
+    if (!mod) {
+      // Not a no-op worth staying quiet about on iOS: without the module the
+      // phone can never accept a Watch record.
+      if (Platform.OS === "ios") {
+        const f = recordWatchBridgeFailure("module", null);
+        reportOnce(f.message);
+      }
+      return;
+    }
 
     // Claim a generation token for this effect run.  Any async work started by
     // a previous run will observe gen !== drainGenRef.current and abort.
@@ -504,7 +530,9 @@ export function WatchBackgroundListener() {
     if (!isSignedIn || !userId) {
       // Signed out: deregister active user so incoming Watch deliveries are dropped.
       // No generation check needed — deregistration is always safe.
-      mod.setActiveWatchUser(null)?.catch(() => {});
+      mod.setActiveWatchUser(null)?.catch((err: unknown) => {
+        recordWatchBridgeFailure("deregister", err);
+      });
       return;
     }
 
@@ -512,8 +540,28 @@ export function WatchBackgroundListener() {
     drainedForUserRef.current = userId;
 
     // Stage 1: register the active user in the native bridge.
+    //
+    // This stage failing is the quiet catastrophe: the bridge keeps
+    // activeUserId == nil, persistContractionReceipt refuses every record and
+    // withholds the ack, and the Watch retries forever while the phone log
+    // stays empty. Surface it instead of continuing as if it had worked.
     (mod.setActiveWatchUser(userId) ?? Promise.resolve())
-      .catch(() => {})
+      .then(() => {
+        if (drainGenRef.current !== gen) return;
+        clearWatchBridgeFailure();
+      })
+      .catch((err: unknown) => {
+        if (drainGenRef.current !== gen) return;
+        const f = recordWatchBridgeFailure("register", err);
+        reportOnce(f.message);
+        // The drained-for-this-user guard stays SET. Releasing it here let the
+        // effect re-enter: its deps include handleContractionUpdate, which
+        // depends on Clerk's getToken and changes identity across renders, so
+        // the toast's own setState re-ran the effect, which retried, failed,
+        // and toasted again — a loop that froze the app at launch. Recording
+        // the failure is this chain's job; retrying is not.
+        throw err;
+      })
       // Stage 2: read pending receipts — only if generation is still current.
       // If the user signed out or switched accounts while stage 1 was running,
       // drainGenRef will have advanced; return an empty array to skip dispatch.
@@ -527,7 +575,10 @@ export function WatchBackgroundListener() {
           }>
         > => {
           if (drainGenRef.current !== gen) return Promise.resolve([]);
-          return mod.getPendingContractionReceipts();
+          return mod.getPendingContractionReceipts().catch((err: unknown) => {
+            recordWatchBridgeFailure("drain", err);
+            throw err;
+          });
         },
       )
       // Stage 3: dispatch — only if generation is still current.
@@ -555,8 +606,14 @@ export function WatchBackgroundListener() {
           }
         },
       )
-      .catch(() => {});
-  }, [isSignedIn, userId, handleContractionUpdate]);
+      .catch((err: unknown) => {
+        // Registration and drain already recorded their own stage; anything
+        // reaching here is the dispatch loop. Either way it is never dropped.
+        if (getWatchBridgeFailure() === null) {
+          recordWatchBridgeFailure("dispatch", err);
+        }
+      });
+  }, [isSignedIn, userId, handleContractionUpdate, reportOnce]);
 
   useWatchConnectivity({
     gestationalWeek,

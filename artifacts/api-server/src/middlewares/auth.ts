@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { getAuth } from "@clerk/express";
 import { accountDeletionRequestsTable, db, usersTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
+import { clerkKeySources } from "../lib/clerk-env";
 import { bearerFrom, verifyDemoToken } from "../lib/demo-token";
 
 export interface AuthedRequest extends Request {
@@ -66,6 +67,29 @@ export function requireAuth(
   // call, and a demo token is never a valid Clerk session anyway.
   const userId = getDemoSubject(req) ?? getAuth(req).userId;
   if (!userId) {
+    // Clerk explains its refusals in response headers that clerkMiddleware has
+    // already attached by the time we get here — x-clerk-auth-reason carries a
+    // code such as token-invalid or token-expired, and -message the detail.
+    // Without them a rejected request is indistinguishable from a request that
+    // simply arrived signed out, which makes a misconfigured instance look like
+    // a client bug. Log them rather than discarding them; they cost one line
+    // and are the only account of WHY the token failed.
+    // The boot-time "Clerk instance" line reports the same key sources, but a
+    // hosting platform's log collector can attach after a process has written
+    // its first lines, and then that line is simply never seen. A rejection is
+    // logged long after startup, so repeat the sources here: when a token is
+    // refused, which variable supplied the key is the first thing worth
+    // knowing, and it should not depend on catching the boot.
+    req.log.warn(
+      {
+        hasAuthHeader: Boolean(req.headers["authorization"]),
+        clerkAuthStatus: res.getHeader("x-clerk-auth-status") ?? null,
+        clerkAuthReason: res.getHeader("x-clerk-auth-reason") ?? null,
+        clerkAuthMessage: res.getHeader("x-clerk-auth-message") ?? null,
+        ...clerkKeySources(),
+      },
+      "requireAuth rejected the request",
+    );
     res.status(401).json({ error: "Please sign in to continue." });
     return;
   }
