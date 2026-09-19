@@ -21,6 +21,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { isCancelError, logAuthFailure } from "@/lib/auth-cancel";
+import {
+  clerkErrorMessage,
+  globalClerkErrorText,
+  logClerkFailure,
+} from "@/lib/clerk-errors";
 
 const apiBase = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
@@ -89,7 +94,9 @@ export default function SignInScreen() {
     (verificationStep
       ? errors.fields.code?.message
       : (errors.fields.identifier?.message ??
-        errors.fields.password?.message)) ?? notice;
+        errors.fields.password?.message)) ??
+    notice ??
+    globalClerkErrorText(errors);
   const isSubmitDisabled =
     fetching ||
     (verificationStep ? !verificationCode : !emailAddress || !password);
@@ -117,7 +124,19 @@ export default function SignInScreen() {
         emailAddress: emailAddress.trim(),
         password,
       });
-      if (error) return;
+      if (error) {
+        // Not `return` on its own: a field error already renders, but anything
+        // Clerk files elsewhere -- session_exists being the likely one --
+        // would leave the screen blank and the log empty.
+        logClerkFailure("Email sign-in", error);
+        setNotice(
+          clerkErrorMessage(
+            error,
+            "Sign-in could not be completed. Please try again.",
+          ),
+        );
+        return;
+      }
 
       // Activate the session only when Clerk has fully completed the sign-in
       // (status === "complete" and a session ID was issued). If neither
