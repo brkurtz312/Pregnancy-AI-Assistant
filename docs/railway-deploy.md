@@ -45,6 +45,30 @@ host while Replit still serves production — but they must be set before
 `EXPO_PUBLIC_DOMAIN` is repointed at the new host, or the app ships with two
 dead features.
 
+### Setting them up
+
+1. **Anthropic** — console.anthropic.com → API keys → Create key. Then add
+   credit under Billing: a new account has none, and a key with no balance
+   authenticates perfectly and fails on the first message.
+2. **OpenAI** — platform.openai.com → API keys → Create new secret key, and add
+   credit the same way. Only the transcription model is used.
+3. Put all four variables in Railway's **Variables** tab and redeploy.
+
+### Verifying them
+
+```
+pnpm --filter @workspace/scripts run check-ai-keys
+```
+
+It makes the two calls the server makes: a one-token message to
+`claude-sonnet-4-6`, and a model lookup for `gpt-4o-mini-transcribe`. Between
+them those cover the three ways a key that is present still fails — wrong
+account, empty balance, model not available to the account — and the script
+exits non-zero with the HTTP status when one of them does.
+
+Run it locally with the keys set in the shell before putting them in Railway,
+and there is nothing left for the deploy log to tell you.
+
 ---
 
 ## What is already in the repository
