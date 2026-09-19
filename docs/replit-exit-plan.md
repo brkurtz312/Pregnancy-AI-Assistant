@@ -359,11 +359,35 @@ the last migration of its kind.
   `REVENUECAT_SECRET_API_KEY` (a v2 secret key from RevenueCat's dashboard,
   Project settings → API keys). Each falls back to the Replit connector while
   unset, so they can be set and verified one at a time.
-- **Stripe webhook — the one thing that can silently break billing.** Replit's
-  managed webhook goes away with Replit. Create the endpoint in the Stripe
-  dashboard against the new API host, put its `whsec_…` secret in
+- **RevenueCat is the billing path that actually carries money.** Checked on
+  19 Sep 2026: Stripe has no live payments, only Bryan's own test charges, and
+  the Replit Stripe connection is still on a sandbox. Every real purchase is an
+  App Store one, and it reaches the server through
+  `/billing/revenuecat/reconcile` — a pull, not a webhook. That endpoint calls
+  RevenueCat with `REVENUECAT_SECRET_API_KEY`, falling back to the Replit
+  connector while unset. Off Replit the connector does not exist, so an unset
+  key means every App Store purchase returns 503 and grants nothing, while
+  Apple has already taken the money.
+
+  Set `REVENUECAT_SECRET_API_KEY` (a v2 secret key, Project settings → API
+  keys) before the API serves a single request off Replit.
+
+- **Stripe webhook — not urgent, but do not leave it half-done.** With no live
+  Stripe payments, breaking this breaks nothing today; it was listed as the
+  critical billing risk before anyone checked whether Stripe was live. It still
+  has to work before web payments are switched on. Create the endpoint in the
+  Stripe dashboard against the new API host, put its `whsec_…` secret in
   `STRIPE_WEBHOOK_SECRET`, and confirm with `stripe trigger` that a payment
-  actually flips a user's pass. See Phase 0 for why this is not a config swap.
+  flips a user's pass.
+
+  The trap worth knowing: when `STRIPE_WEBHOOK_SECRET` is unset,
+  `stripe-replit-sync` reads the signing secret from the
+  `stripe._managed_webhooks` table instead. That is why the webhook works today
+  with the variable unset — and why it will stop on any database that does not
+  carry that row, which includes every database the migration creates, since
+  `--schema=public` excludes it deliberately. Signature verification throws
+  rather than skipping, so the failure is rejected webhooks, never forged ones.
+
 - Run `migrate-deletion-integrity` deliberately against the new database, with
   someone watching, after fixing the `created_at`/`requested_at` mismatch.
 - **`EXPO_PUBLIC_DOMAIN` points at `pregnancy-calc--brkurtz.replit.app`.**
