@@ -85,6 +85,36 @@ export function isTestStore(): boolean {
 export const PURCHASE_IDENTITY_ERROR =
   "We couldn't link this purchase to your account. Check your connection and try again.";
 
+/**
+ * How long identification may take before it is treated as failed.
+ *
+ * `Purchases.logIn` is a network call, and an unbounded one sits in front of
+ * both purchase and restore. A hang there is worse than a failure: the
+ * mutation never settles, the button stays disabled showing "Restoring…", and
+ * nothing is ever logged or shown. A rejection at least reaches the user.
+ */
+const IDENTIFY_TIMEOUT_MS = 10_000;
+
+/** Rejects rather than hanging, so a stalled call becomes a reportable one. */
+function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`timed out after ${ms}ms`)),
+      ms,
+    );
+    work.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err: unknown) => {
+        clearTimeout(timer);
+        reject(err instanceof Error ? err : new Error(String(err)));
+      },
+    );
+  });
+}
+
 /** Records an identification failure; never throws, whatever the payload. */
 function logIdentityFailure(err: unknown): void {
   let detail: string;
@@ -146,7 +176,7 @@ function useSubscriptionContext() {
     }
 
     try {
-      await Purchases.logIn(userId);
+      await withTimeout(Purchases.logIn(userId), IDENTIFY_TIMEOUT_MS);
       setIdentifiedUserId(userId);
       setIdentityError(null);
       return true;
