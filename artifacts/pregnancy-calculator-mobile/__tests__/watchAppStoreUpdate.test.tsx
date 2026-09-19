@@ -719,7 +719,17 @@ describe("useWatchConnectivity — App Store update from 1.0.11 (no Watch) to 1.
       .spyOn(AppState, "addEventListener")
       .mockImplementation(((event: string, cb: (state: string) => void) => {
         appStateListeners.push(cb);
-        return { remove: jest.fn() };
+        // `remove` must actually remove, as the real AppState subscription
+        // does. With a no-op stub, an effect that re-runs leaves its old
+        // callback in this array, the `forEach` below invokes both, and the
+        // call counts come out one high -- a failure that depends on how many
+        // times a render happened rather than on the behaviour under test.
+        return {
+          remove: () => {
+            const i = appStateListeners.indexOf(cb);
+            if (i !== -1) appStateListeners.splice(i, 1);
+          },
+        };
       }) as unknown as typeof AppState.addEventListener);
 
     mockGetSessionState.mockResolvedValue({
@@ -740,6 +750,11 @@ describe("useWatchConnectivity — App Store update from 1.0.11 (no Watch) to 1.
     mockSendWeekAndTips.mockRejectedValueOnce(
       new Error("companion app removed mid-transfer"),
     );
+    // The hook registers exactly two AppState listeners: one re-fetches the
+    // session state, one re-pushes week and tips. Asserting it here means a
+    // leak is reported as a leak rather than as a wrong call count.
+    expect(appStateListeners).toHaveLength(2);
+
     await act(async () => {
       appStateListeners.forEach((cb) => cb("active"));
     });

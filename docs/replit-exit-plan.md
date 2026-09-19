@@ -423,6 +423,11 @@ the last migration of its kind.
   elsewhere. Settle this before `EXPO_PUBLIC_DOMAIN` is repointed, or the app
   ships with two dead features.
 
+  `pnpm --filter @workspace/scripts run check-ai-keys` verifies both
+  credentials by making the calls the server makes, so a wrong account, an
+  empty balance or an unavailable model is found before a user finds it. The
+  setup steps are in `docs/railway-deploy.md`.
+
 - **Deploying the API to Railway** has its own runbook:
   `docs/railway-deploy.md`. `railway.json` in the repository root already
   carries the build command, start command and `/api/healthz` health check, so
