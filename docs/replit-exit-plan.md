@@ -407,6 +407,27 @@ the last migration of its kind.
   `--schema=public` excludes it deliberately. Signature verification throws
   rather than skipping, so the failure is rejected webhooks, never forged ones.
 
+- **The AI credentials are Replit's, and this plan had missed them.** The AI
+  assistant (`/api/ai`) and the scribe (`/api/scribe`) reach Anthropic and
+  OpenAI through `AI_INTEGRATIONS_ANTHROPIC_BASE_URL`,
+  `AI_INTEGRATIONS_ANTHROPIC_API_KEY`, `AI_INTEGRATIONS_OPENAI_BASE_URL` and
+  `AI_INTEGRATIONS_OPENAI_API_KEY`, all four injected by Replit. Off Replit
+  both features throw on first use; the rest of the API is unaffected and the
+  server still boots, so this fails quietly rather than loudly.
+
+  No code change is needed — those libraries hand the values straight to the
+  official `@anthropic-ai/sdk` and `openai` clients, so direct API keys work.
+  What it decides is who pays for the AI usage: today it is billed through the
+  Replit account, and afterwards it is billed by Anthropic and OpenAI directly.
+  There is no arrangement that keeps Replit's billing while the server runs
+  elsewhere. Settle this before `EXPO_PUBLIC_DOMAIN` is repointed, or the app
+  ships with two dead features.
+
+- **Deploying the API to Railway** has its own runbook:
+  `docs/railway-deploy.md`. `railway.json` in the repository root already
+  carries the build command, start command and `/api/healthz` health check, so
+  the service needs no build configuration in the Railway UI — only variables.
+
 - Run `migrate-deletion-integrity` deliberately against the new database, with
   someone watching, after fixing the `created_at`/`requested_at` mismatch.
 - **`EXPO_PUBLIC_DOMAIN` points at `pregnancy-calc--brkurtz.replit.app`.**
