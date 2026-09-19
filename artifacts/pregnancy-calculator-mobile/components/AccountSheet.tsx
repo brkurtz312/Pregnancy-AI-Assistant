@@ -27,12 +27,27 @@ import { usePass } from "@/hooks/usePass";
 import {
   isTestStore,
   isUserCancelledError,
+  PURCHASE_IDENTITY_ERROR,
   useSubscription,
 } from "@/lib/revenuecat";
 import { cancelAllAppointmentReminders } from "@/lib/appointment-reminders";
 import { clearSignedOutUserData } from "@/lib/session-cleanup";
 
 const PASS_PRICE = "$14.99";
+
+/**
+ * Keeps the one purchase failure the generic message would mislead about.
+ *
+ * "Please try again" is right for a declined card or a dropped connection. It
+ * is wrong when the purchase was stopped because it could not be attached to
+ * the account: retrying in the same state does the same thing, and the useful
+ * instruction is about the connection or the sign-in, not the tap.
+ */
+function purchaseErrorMessage(err: unknown, fallback: string): string {
+  return err instanceof Error && err.message === PURCHASE_IDENTITY_ERROR
+    ? PURCHASE_IDENTITY_ERROR
+    : fallback;
+}
 
 function redeemErrorMessage(err: unknown): string {
   if (err instanceof ApiError) {
@@ -104,7 +119,12 @@ export function AccountSheet({
         setConfirmPurchase(false);
         return;
       }
-      setPurchaseError("Purchase couldn't be completed. Please try again.");
+      setPurchaseError(
+        purchaseErrorMessage(
+          err,
+          "Purchase couldn't be completed. Please try again.",
+        ),
+      );
     }
   };
 
@@ -113,8 +133,13 @@ export function AccountSheet({
     try {
       await subscription.restore();
       await pass.reconcileRevenueCat();
-    } catch {
-      setPurchaseError("Couldn't restore purchases. Please try again.");
+    } catch (err) {
+      setPurchaseError(
+        purchaseErrorMessage(
+          err,
+          "Couldn't restore purchases. Please try again.",
+        ),
+      );
     }
   };
 
