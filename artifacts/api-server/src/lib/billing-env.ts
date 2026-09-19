@@ -27,6 +27,14 @@ export type CredentialSource = "env" | "replit-connector" | "missing";
 export interface BillingCredentialReport {
   /** Apple in-app purchases reach the server through this one. */
   revenueCatKey: CredentialSource;
+  /**
+   * Not a credential, and no connector fallback: a plain environment variable
+   * that /billing/revenuecat/reconcile requires. It lives in `.replit`'s
+   * `[userenv]` today, which is a file, not a secret store — so it is exactly
+   * the kind of value that gets left behind when only the secrets are copied
+   * to a new host.
+   */
+  revenueCatProjectId: CredentialSource;
   /** Card payments on the web. */
   stripeSecretKey: CredentialSource;
   /**
@@ -54,6 +62,7 @@ export function billingCredentialReport(
   const connector = replitConnectorAvailable(env);
   return {
     revenueCatKey: sourceOf(env.REVENUECAT_SECRET_API_KEY, connector),
+    revenueCatProjectId: env.REVENUECAT_PROJECT_ID ? "env" : "missing",
     stripeSecretKey: sourceOf(env.STRIPE_SECRET_KEY, connector),
     // The webhook secret has no connector fallback at all: the Replit Stripe
     // connection does not expose one (see .agents/memory/stripe-connector-fields).
@@ -85,6 +94,16 @@ export function billingProblems(
         "REVENUECAT_SECRET_API_KEY is unset and the Replit connector is unavailable. " +
         "Every App Store purchase will fail to grant a pass: /billing/revenuecat/reconcile " +
         "returns 503 and the customer is charged by Apple with nothing to show for it.",
+    });
+  }
+
+  if (report.revenueCatProjectId === "missing") {
+    problems.push({
+      severity: "error",
+      message:
+        "REVENUECAT_PROJECT_ID is unset. /billing/revenuecat/reconcile returns 503 " +
+        "before it makes a single RevenueCat call, so App Store purchases grant " +
+        "nothing — a valid API key does not help.",
     });
   }
 

@@ -370,7 +370,26 @@ the last migration of its kind.
   Apple has already taken the money.
 
   Set `REVENUECAT_SECRET_API_KEY` (a v2 secret key, Project settings → API
-  keys) before the API serves a single request off Replit.
+  keys) before the API serves a single request off Replit. The key needs
+  **Customer information: read** as well as Project configuration: reconcile
+  reads the customer's active entitlements, and a key without that scope passes
+  every other check and still 503s on every purchase.
+
+  `REVENUECAT_PROJECT_ID` has to travel too, and it is the easier one to lose:
+  it is not a secret, so it is not in the secret manager — it sits in `.replit`
+  under `[userenv]` as `proj9120626a`. Reconcile checks it before it
+  authenticates, so without it a perfect key grants nothing. The boot check in
+  `billing-env.ts` now fails on it.
+
+  Verify both with the credential actually set, from any machine:
+
+  ```
+  pnpm --filter @workspace/scripts run check-revenuecat
+  ```
+
+  It makes the same calls the server makes — including
+  `listCustomerActiveEntitlements`, the one the revenue path depends on — and
+  exits non-zero with the HTTP status when a scope is missing.
 
 - **Stripe webhook — not urgent, but do not leave it half-done.** With no live
   Stripe payments, breaking this breaks nothing today; it was listed as the
