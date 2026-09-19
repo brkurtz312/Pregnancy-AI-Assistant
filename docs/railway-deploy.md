@@ -59,7 +59,10 @@ dead features.
 - **Health check:** `/api/healthz`
 - **Restart:** on failure, up to 10 times
 
-`.nvmrc` pins Node 24, matching CI.
+Node 24 is pinned by `engines.node` in the root `package.json`, matching CI.
+Deliberately not `.nvmrc`: Cloudflare Pages reads that file too, and the two
+Pages projects in this repository build from the same root. A version pin meant
+for Railway should not quietly change what Cloudflare builds with.
 
 ---
 
