@@ -9,6 +9,7 @@ import {
 } from "./middlewares/clerkProxyMiddleware";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { mountWebApp } from "./lib/web-app";
 import { getStripeSync, getUncachableStripeClient } from "./lib/stripeClient";
 import {
   getUser,
@@ -201,5 +202,10 @@ app.use(
 );
 
 app.use("/api", router);
+
+// Last, deliberately: the single-page fallback answers any GET it is given, so
+// mounting it before the router would turn an unknown API route into a 200
+// carrying HTML.
+mountWebApp(app);
 
 export default app;
