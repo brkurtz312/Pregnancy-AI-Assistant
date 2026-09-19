@@ -11,6 +11,10 @@ import {
 const ON_REPLIT: NodeJS.ProcessEnv = {
   REPLIT_CONNECTORS_HOSTNAME: "connectors.replit.com",
   REPL_IDENTITY: "token",
+  // Set in `.replit`'s `[userenv]`, so production has it today. It is here
+  // because it does not travel: that file is not a secret store, and a host
+  // that copies only the secrets loses this.
+  REVENUECAT_PROJECT_ID: "proj9120626a",
 };
 
 // The environment after the hosting move: no connector, so an unset credential
@@ -66,11 +70,23 @@ describe("off Replit with nothing set", () => {
   const problems = billingProblems(billingCredentialReport(OFF_REPLIT));
 
   it("calls the RevenueCat gap an error, and says what breaks", () => {
-    const err = problems.find((p) => p.message.includes("REVENUECAT"));
+    const err = problems.find((p) =>
+      p.message.includes("REVENUECAT_SECRET_API_KEY"),
+    );
     expect(err?.severity).toBe("error");
     // The consequence matters more than the variable name: this is the path
     // every App Store purchase takes.
     expect(err?.message).toMatch(/App Store purchase/);
+  });
+
+  it("calls the missing project id an error of its own", () => {
+    // A separate failure from the key: reconcile checks the project id first
+    // and gives up before authenticating, so a perfect key cannot cover it.
+    const err = problems.find((p) =>
+      p.message.includes("REVENUECAT_PROJECT_ID"),
+    );
+    expect(err?.severity).toBe("error");
+    expect(err?.message).toMatch(/App Store purchases grant/);
   });
 
   it("calls the Stripe secret key an error", () => {
@@ -81,6 +97,7 @@ describe("off Replit with nothing set", () => {
   it("reports every credential as missing", () => {
     const report = billingCredentialReport(OFF_REPLIT);
     expect(report.revenueCatKey).toBe("missing");
+    expect(report.revenueCatProjectId).toBe("missing");
     expect(report.stripeSecretKey).toBe("missing");
     expect(report.stripeWebhookSecret).toBe("missing");
     expect(report.onReplit).toBe(false);
@@ -90,6 +107,7 @@ describe("off Replit with nothing set", () => {
 describe("off Replit, fully configured", () => {
   const CONFIGURED: NodeJS.ProcessEnv = {
     REVENUECAT_SECRET_API_KEY: "sk_rc",
+    REVENUECAT_PROJECT_ID: "proj9120626a",
     STRIPE_SECRET_KEY: "sk_live_x",
     STRIPE_WEBHOOK_SECRET: "whsec_x",
   };
@@ -98,6 +116,7 @@ describe("off Replit, fully configured", () => {
     const report = billingCredentialReport(CONFIGURED);
     expect(report).toEqual({
       revenueCatKey: "env",
+      revenueCatProjectId: "env",
       stripeSecretKey: "env",
       stripeWebhookSecret: "env",
       onReplit: false,
@@ -116,6 +135,7 @@ describe("off Replit with RevenueCat forgotten", () => {
   it("is an error, not a warning", () => {
     const problems = billingProblems(
       billingCredentialReport({
+        REVENUECAT_PROJECT_ID: "proj9120626a",
         STRIPE_SECRET_KEY: "sk_live_x",
         STRIPE_WEBHOOK_SECRET: "whsec_x",
       }),
@@ -123,5 +143,22 @@ describe("off Replit with RevenueCat forgotten", () => {
     expect(problems).toHaveLength(1);
     expect(problems[0].severity).toBe("error");
     expect(problems[0].message).toMatch(/REVENUECAT_SECRET_API_KEY/);
+  });
+});
+
+// The same trap one variable over: the key is copied to the new host because
+// it is in the secret manager, and the project id is not because it never was.
+describe("off Replit with the project id forgotten", () => {
+  it("is an error, and names the variable that is missing", () => {
+    const problems = billingProblems(
+      billingCredentialReport({
+        REVENUECAT_SECRET_API_KEY: "sk_rc",
+        STRIPE_SECRET_KEY: "sk_live_x",
+        STRIPE_WEBHOOK_SECRET: "whsec_x",
+      }),
+    );
+    expect(problems).toHaveLength(1);
+    expect(problems[0].severity).toBe("error");
+    expect(problems[0].message).toMatch(/REVENUECAT_PROJECT_ID/);
   });
 });
