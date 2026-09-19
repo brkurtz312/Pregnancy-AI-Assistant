@@ -100,9 +100,24 @@ that proves the two databases are still identical in content, and the whole
 ## Step 1 — A domain you own
 
 Railway will hand out a `*.up.railway.app` hostname, and the app would work
-pointed at it. Use a custom domain anyway — `api.pregnancy-assistant.com` or
-similar, under **Settings → Networking → Custom Domain**, with the CNAME
-Railway gives you.
+pointed at it. Use a custom domain anyway, under **Settings → Networking →
+Custom Domain**, with the CNAME Railway gives you.
+
+Use the **apex**, `pregnancy-assistant.com`, not `api.` — this one origin
+serves the website as well as the API, so an `api.` name would put the public
+site at `api.pregnancy-assistant.com`. It also matches the Clerk production
+instance, which is configured for that domain.
+
+**Leave the Cloudflare record DNS-only, grey cloud.** Proxying it breaks
+certificate issuance — the same way it broke Clerk's, which is recorded in
+`docs/replit-exit-plan.md`. If you later want Cloudflare in front of it, the
+SSL/TLS mode has to be Full (strict); Flexible produces a redirect loop
+against a host that already serves HTTPS.
+
+Check what the record points at before adding one. If the apex currently
+serves the Replit deployment, this moves the **website** the moment DNS
+propagates — the mobile app is unaffected, because it calls the Replit host by
+its own name until the OTA in step 3.
 
 The reason is this migration. `EXPO_PUBLIC_DOMAIN` is baked into shipped
 binaries, so every future change of host is an OTA at best and an App Store
