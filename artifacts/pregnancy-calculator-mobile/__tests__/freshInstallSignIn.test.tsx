@@ -363,3 +363,89 @@ describe("Sign-in screen — fresh install, no cached session", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 });
+
+// ─── global (non-field) Clerk errors ─────────────────────────────────────────
+//
+// Clerk files refusals it cannot attach to a field under `errors.global`, and
+// the screen rendered only `errors.fields.*`. `session_exists` -- refusing a
+// sign-in because one is already active -- lands there, which is reachable by
+// signing in with Apple and then trying email. The result was a button that
+// did nothing at all: no message, no log, no navigation.
+describe("Sign-in screen — refusals Clerk does not attach to a field", () => {
+  let replace: jest.Mock;
+  let errorSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    replace = jest.fn();
+    mockUseRouter.mockReturnValue({ back: jest.fn(), replace });
+    mockSetActive.mockReset();
+    mockPasswordFn.mockReset();
+    mockSignInObj.createdSessionId = null;
+    mockUseClerk.mockReturnValue({ setActive: mockSetActive });
+    errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    errorSpy.mockRestore();
+    jest.clearAllMocks();
+  });
+
+  it("shows the message from a global error rather than nothing", async () => {
+    mockUseSignIn.mockReturnValue({
+      signIn: mockSignInObj,
+      errors: {
+        fields: {},
+        global: [{ message: "You're already signed in." }],
+      },
+      fetchStatus: "idle",
+    });
+    mockPasswordFn.mockResolvedValue({
+      error: { errors: [{ longMessage: "You're already signed in." }] },
+    });
+
+    let renderer!: ReturnType<typeof create>;
+    await act(async () => {
+      renderer = create(React.createElement(SignInScreen));
+    });
+
+    await fillCredentials(renderer.root, "user@example.com", "whatever!");
+    await pressSignInButton(renderer.root);
+
+    const shown = renderer.root
+      .findAllByType(Text)
+      .some((t) => t.props.children === "You're already signed in.");
+    expect(shown).toBe(true);
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("records the refusal even when the message is unhelpful", async () => {
+    mockUseSignIn.mockReturnValue({
+      signIn: mockSignInObj,
+      errors: { fields: {} },
+      fetchStatus: "idle",
+    });
+    mockPasswordFn.mockResolvedValue({ error: { code: "session_exists" } });
+
+    let renderer!: ReturnType<typeof create>;
+    await act(async () => {
+      renderer = create(React.createElement(SignInScreen));
+    });
+
+    await fillCredentials(renderer.root, "user@example.com", "whatever!");
+    await pressSignInButton(renderer.root);
+
+    // Logged, whatever the shape.
+    expect(errorSpy).toHaveBeenCalled();
+    expect(JSON.stringify(errorSpy.mock.calls)).toContain("session_exists");
+
+    // And the user is told something rather than left with a dead button.
+    const fallbackShown = renderer.root
+      .findAllByType(Text)
+      .some(
+        (t) =>
+          t.props.children ===
+          "Sign-in could not be completed. Please try again.",
+      );
+    expect(fallbackShown).toBe(true);
+  });
+});
