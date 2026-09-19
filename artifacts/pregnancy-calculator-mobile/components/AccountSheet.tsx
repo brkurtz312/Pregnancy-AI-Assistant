@@ -28,6 +28,7 @@ import {
   isTestStore,
   isUserCancelledError,
   PURCHASE_IDENTITY_ERROR,
+  REVENUECAT_ENTITLEMENT_IDENTIFIER,
   useSubscription,
 } from "@/lib/revenuecat";
 import { cancelAllAppointmentReminders } from "@/lib/appointment-reminders";
@@ -43,6 +44,21 @@ const PASS_PRICE = "$14.99";
  * the account: retrying in the same state does the same thing, and the useful
  * instruction is about the connection or the sign-in, not the tap.
  */
+/** Records a billing failure; never throws, whatever the payload. */
+function logBillingFailure(context: string, err: unknown): void {
+  let detail: string;
+  try {
+    detail = JSON.stringify(err) ?? String(err);
+  } catch {
+    detail = String(err);
+  }
+  console.error(
+    `${context} failed:`,
+    err instanceof Error ? err.message : detail,
+    detail,
+  );
+}
+
 function purchaseErrorMessage(err: unknown, fallback: string): string {
   return err instanceof Error && err.message === PURCHASE_IDENTITY_ERROR
     ? PURCHASE_IDENTITY_ERROR
@@ -86,6 +102,9 @@ export function AccountSheet({
   const [redeemError, setRedeemError] = React.useState<string | null>(null);
   const [confirmPurchase, setConfirmPurchase] = React.useState(false);
   const [purchaseError, setPurchaseError] = React.useState<string | null>(null);
+  // A restore that finds nothing is not an error, and saying nothing at all
+  // is indistinguishable from a button that did not work.
+  const [restoreNotice, setRestoreNotice] = React.useState<string | null>(null);
   const [purchaseSuccess, setPurchaseSuccess] = React.useState(false);
   const [isSigningOut, setIsSigningOut] = React.useState(false);
   const [signOutError, setSignOutError] = React.useState<string | null>(null);
@@ -119,6 +138,7 @@ export function AccountSheet({
         setConfirmPurchase(false);
         return;
       }
+      logBillingFailure("Purchase", err);
       setPurchaseError(
         purchaseErrorMessage(
           err,
@@ -130,10 +150,24 @@ export function AccountSheet({
 
   const handleRestore = async () => {
     setPurchaseError(null);
+    setRestoreNotice(null);
     try {
-      await subscription.restore();
+      const info = await subscription.restore();
       await pass.reconcileRevenueCat();
+      // Report the outcome either way. A restore that completes having found
+      // no purchase changes nothing on screen, which reads exactly like a tap
+      // that did nothing -- and "nothing to restore" is the expected result
+      // when the purchase was made on a different account.
+      const restored =
+        info?.entitlements?.active?.[REVENUECAT_ENTITLEMENT_IDENTIFIER] !==
+        undefined;
+      setRestoreNotice(
+        restored
+          ? "Purchases restored."
+          : "No previous purchase found for this Apple ID on this account.",
+      );
     } catch (err) {
+      logBillingFailure("Restore purchases", err);
       setPurchaseError(
         purchaseErrorMessage(
           err,
@@ -520,6 +554,20 @@ export function AccountSheet({
                           ]}
                         >
                           {purchaseError}
+                        </Text>
+                      ) : null}
+
+                      {restoreNotice ? (
+                        <Text
+                          style={[
+                            styles.redeemError,
+                            {
+                              color: colors.mutedForeground,
+                              textAlign: "center",
+                            },
+                          ]}
+                        >
+                          {restoreNotice}
                         </Text>
                       ) : null}
 

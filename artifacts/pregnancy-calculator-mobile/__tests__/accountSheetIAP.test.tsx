@@ -77,6 +77,12 @@ jest.mock("@/lib/appointment-reminders", () => ({
 
 jest.mock("@/lib/revenuecat", () => ({
   useSubscription: jest.fn(),
+  // The real values: the sheet reads the entitlement key out of the restored
+  // CustomerInfo, so a stubbed-out constant would make every restore look
+  // empty.
+  REVENUECAT_ENTITLEMENT_IDENTIFIER: "pass",
+  PURCHASE_IDENTITY_ERROR:
+    "We couldn't link this purchase to your account. Check your connection and try again.",
   isTestStore: jest.fn(() => true),
   isUserCancelledError: jest.fn((err: unknown) => {
     return (
@@ -412,5 +418,71 @@ describe("AccountSheet — RevenueCat in-app purchase (native)", () => {
 
     expect(mockClerkSignOut).toHaveBeenCalledTimes(1);
     expect(mockWatchSignOut).not.toHaveBeenCalled();
+  });
+});
+
+// ─── restore tells you what happened ─────────────────────────────────────────
+//
+// A restore that completes having found no purchase changes nothing on screen.
+// That is indistinguishable from a tap that did nothing, and it is the
+// expected outcome whenever the purchase was made on a different account --
+// which is exactly the case after a Clerk instance change.
+describe("AccountSheet — restore reports its outcome", () => {
+  function textShown(renderer: ReturnType<typeof renderSheet>, needle: string) {
+    return renderer.root
+      .findAllByType(Text)
+      .some(
+        (t) =>
+          typeof t.props.children === "string" &&
+          t.props.children.includes(needle),
+      );
+  }
+
+  beforeEach(() => {
+    mockUseSubscription.mockReturnValue(makeSubscriptionMock());
+  });
+
+  it("says so when there was nothing to restore", async () => {
+    mockRestore.mockResolvedValue({ entitlements: { active: {} } });
+
+    const renderer = renderSheet();
+    await act(async () => {});
+    await act(async () => {
+      await findBtn(renderer.root, "Restore purchases")!.props.onPress();
+    });
+
+    expect(textShown(renderer, "No previous purchase found")).toBe(true);
+  });
+
+  it("confirms a restore that found the pass", async () => {
+    mockRestore.mockResolvedValue({
+      entitlements: { active: { pass: { identifier: "pass" } } },
+    });
+
+    const renderer = renderSheet();
+    await act(async () => {});
+    await act(async () => {
+      await findBtn(renderer.root, "Restore purchases")!.props.onPress();
+    });
+
+    expect(textShown(renderer, "Purchases restored.")).toBe(true);
+  });
+
+  it("records a failed restore rather than only showing a message", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockRestore.mockRejectedValue(new Error("StoreKit unavailable"));
+
+    const renderer = renderSheet();
+    await act(async () => {});
+    await act(async () => {
+      await findBtn(renderer.root, "Restore purchases")!.props.onPress();
+    });
+
+    expect(errorSpy).toHaveBeenCalled();
+    expect(JSON.stringify(errorSpy.mock.calls)).toContain(
+      "StoreKit unavailable",
+    );
+    expect(textShown(renderer, "Couldn't restore purchases")).toBe(true);
+    errorSpy.mockRestore();
   });
 });
