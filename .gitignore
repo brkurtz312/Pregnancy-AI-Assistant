@@ -55,3 +55,17 @@ Thumbs.db
 # Stray git internals swept up by auto-commit
 FETCH_HEAD
 ORIG_HEAD
+
+# Database dumps. The migration runbook has you write these into the repo root
+# (docs/db-migration.md), and they hold real user data -- the production tables
+# verbatim. Untracked is not the same as ignored: untracked, one `git add -A`
+# puts patient data in the history for good.
+#
+# The exceptions are for a schema change this project has not made yet. Nothing
+# tracked matches *.sql today because drizzle-kit `push` applies the schema
+# directly. Switching to `generate` would start emitting migration files, and
+# without these lines they would be ignored silently -- a schema that never
+# reaches another machine, with nothing to see in `git status`.
+*.sql
+!lib/db/**/*.sql
+!**/migrations/*.sql
