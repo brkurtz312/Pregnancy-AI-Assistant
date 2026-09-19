@@ -11,6 +11,7 @@ import {
 import { logger } from "./lib/logger";
 import { initStripe } from "./lib/stripe-init";
 import { billingCredentialReport, billingProblems } from "./lib/billing-env";
+import { aiCredentialReport, aiProblems } from "./lib/ai-env";
 import { startReviewerCheckScheduler } from "./lib/reviewer-check-scheduler";
 import { startAccountDeletionWorker } from "./lib/account-deletion";
 
@@ -96,6 +97,16 @@ if (!publishableKey || !secretKey) {
 const billing = billingCredentialReport();
 logger.info(billing, "Billing credentials");
 for (const problem of billingProblems(billing)) {
+  if (problem.severity === "error") logger.error(problem.message);
+  else logger.warn(problem.message);
+}
+
+// The same question for the AI credentials, which Replit injects and no other
+// host does. A wrong value here breaks the assistant and the scribe while
+// every other route keeps working, so nothing else in the log would say.
+const ai = aiCredentialReport();
+logger.info(ai, "AI credentials");
+for (const problem of aiProblems(ai)) {
   if (problem.severity === "error") logger.error(problem.message);
   else logger.warn(problem.message);
 }
