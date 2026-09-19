@@ -10,6 +10,7 @@ import {
 } from "./lib/clerk-env";
 import { logger } from "./lib/logger";
 import { initStripe } from "./lib/stripe-init";
+import { billingCredentialReport, billingProblems } from "./lib/billing-env";
 import { startReviewerCheckScheduler } from "./lib/reviewer-check-scheduler";
 import { startAccountDeletionWorker } from "./lib/account-deletion";
 
@@ -86,6 +87,17 @@ if (!publishableKey || !secretKey) {
     },
     "Clerk publishable and secret keys name different instances; every authenticated request will return 401",
   );
+}
+
+// Which billing credentials this deployment will actually use, and what is
+// broken if any of them resolve to nothing. Both Stripe and RevenueCat fall
+// back to a Replit connector that does not exist off Replit, and neither
+// failure surfaces until someone tries to pay.
+const billing = billingCredentialReport();
+logger.info(billing, "Billing credentials");
+for (const problem of billingProblems(billing)) {
+  if (problem.severity === "error") logger.error(problem.message);
+  else logger.warn(problem.message);
 }
 
 // Best-effort: set up the Stripe schema/webhook/sync. Non-fatal if Stripe is
