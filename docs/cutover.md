@@ -117,7 +117,7 @@ against a host that already serves HTTPS.
 Check what the record points at before adding one. If the apex currently
 serves the Replit deployment, this moves the **website** the moment DNS
 propagates — the mobile app is unaffected, because it calls the Replit host by
-its own name until the OTA in step 3.
+its own name until the OTA in step 4.
 
 The reason is this migration. `EXPO_PUBLIC_DOMAIN` is baked into shipped
 binaries, so every future change of host is an OTA at best and an App Store
@@ -150,14 +150,66 @@ export inlines.
 
 ---
 
-## Step 3 — Publish the OTA
+## Step 3 — Diff the mobile app against the shipped build
 
-On Windows, install first so Metro can find its Babel preset — `eas update`
-bundles **locally**, unlike `eas build`:
+**Do this before every OTA, without exception.**
+
+`eas update` bundles your working tree. Not the variable you changed, not the
+commit you have in mind — everything in `artifacts/pregnancy-calculator-mobile`
+as it stands. Whatever has merged since the store build was cut goes out with
+it, to every installed phone, without review.
+
+Find the commit the live build was made from:
 
 ```
-pnpm install --ignore-scripts
+cd artifacts/pregnancy-calculator-mobile
+pnpm exec eas build:list --platform ios --limit 5
 ```
+
+Then look at what has accumulated since:
+
+```
+git diff --stat <that commit>..HEAD -- artifacts/pregnancy-calculator-mobile
+```
+
+Read every file in that list and decide, one at a time, whether you mean to
+ship it to production right now with no TestFlight round. Test and
+build-script changes are free. Anything touching a screen, a hook or a
+provider is a behaviour change reaching users tonight.
+
+**If the answer is no**, publish from the build's own commit so the update
+carries the variable and nothing else:
+
+```
+git checkout <that commit>
+pnpm exec eas update --branch production --environment production -m "..."
+git checkout main
+```
+
+The EAS variables resolve at export time, so the new `EXPO_PUBLIC_DOMAIN` is
+picked up even though the code is older. That is the minimal OTA: one value
+changed, nothing else moved.
+
+**Learned the hard way, 19 Sep 2026.** An OTA meant to carry one variable
+carried four behaviour changes that had merged since the store build —
+including one that had frozen the app on the home screen and its fix. It cost
+an evening of debugging symptoms that had nothing to do with the cutover, and
+a rollback.
+
+---
+
+## Step 4 — Publish the OTA
+
+`eas update` bundles **locally**, unlike `eas build`, so install first:
+
+```
+pnpm install
+```
+
+(`--ignore-scripts` used to be necessary on Windows because the root
+`preinstall` guard called `sh`. It is a Node script since Sep 2026 and plain
+`pnpm install` works; `babel-preset-expo` is a direct devDependency, which is
+the other thing local bundling needs.)
 
 Then, from `artifacts/pregnancy-calculator-mobile`:
 
@@ -179,7 +231,7 @@ project:**
 
 ---
 
-## Step 4 — Verify on a device
+## Step 5 — Verify on a device
 
 `fallbackToCacheTimeout: 0` means a phone **downloads** the update on one
 launch and **applies** it on the next. So: open the app, close it fully, open
@@ -205,7 +257,7 @@ confirmation that the phone switched hosts.
 
 ---
 
-## Step 5 — A binary that does not need the OTA
+## Step 6 — A binary that does not need the OTA
 
 After the OTA, installed phones talk to Railway. **A fresh App Store install
 still does not** — it runs the embedded bundle on first launch and only applies
@@ -230,9 +282,9 @@ agree, and first launches go to Railway.
 
 ---
 
-## Step 6 — Retire Replit
+## Step 7 — Retire Replit
 
-Only after step 5 is live and adopted.
+Only after step 6 is live and adopted.
 
 **Re-enable the background workers on Railway.** Remove both variables added in
 `docs/railway-deploy.md` step 5:
@@ -259,7 +311,7 @@ nothing to keep and it is the only copy of the pre-migration state.
 
 ## Rolling back
 
-At any point before step 6:
+At any point before step 7:
 
 ```
 pnpm exec eas env:update production --variable-name EXPO_PUBLIC_DOMAIN   # back to the old host
@@ -282,5 +334,5 @@ until you no longer want this option.**
   that downloads it. Close the app fully and reopen.
 - **Cloudflare Pages checks failing on every PR.** A standing failure unrelated
   to any of this; the project builds cleanly from this repository.
-- **Two servers in the logs at once.** Expected between steps 3 and 6. They
+- **Two servers in the logs at once.** Expected between steps 4 and 7. They
   share a database, so it does not matter which one answers.

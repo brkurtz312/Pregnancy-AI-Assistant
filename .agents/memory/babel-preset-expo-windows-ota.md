@@ -27,4 +27,12 @@ pnpm install --ignore-scripts
 
 This skips all pre/post install scripts but still correctly installs and links all packages. The preinstall script only removes stale `package-lock.json`/`yarn.lock` files — safe to skip on Windows.
 
-**How to apply:** Whenever adding or changing dependencies that will require `eas update` from Windows, tell the user to use `pnpm install --ignore-scripts` rather than plain `pnpm install`.
+**Superseded in part, 19 Sep 2026.** `--ignore-scripts` was only ever needed
+because the root `preinstall` guard was `sh -c '...'`, which PowerShell cannot
+run. It is a Node script now (`scripts/bin/preinstall-guard.mjs`), so plain
+`pnpm install` works on Windows. Confirmed by an `eas update` published from
+Windows that day with no `--ignore-scripts` anywhere.
+
+**How to apply:** the part that still holds is `babel-preset-expo` being a
+direct `devDependency`. That is what local bundling needs, and it is
+independent of how the install was run.
