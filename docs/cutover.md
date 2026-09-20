@@ -323,8 +323,10 @@ Both have failed on every recent pull request. In the check run,
 neither project deploys anything from here. The red check is pure noise, and
 noise on every PR is how a real failure gets waved through.
 
-For each project: Cloudflare dashboard → Workers & Pages → the project →
-Settings → Builds → Git repository → Disconnect. That stops the checks
+For each project: Cloudflare dashboard → Compute → Workers & Pages → the
+project → Settings → Build → Git repository → Disconnect. (Pages lives under
+Compute in the current dashboard; older docs say "Workers & Pages" is a
+top-level item.) That stops the checks
 immediately, deploys nothing, leaves every existing deployment and custom
 domain in place, and is reversible in one click.
 
@@ -356,7 +358,8 @@ Invoke-RestMethod https://pregnancy-assistant.com/api/healthz
 
 Pages has no API server; a Pages-served apex would 404. So Railway is the
 origin and the apex record is simply proxied — orange cloud, with Cloudflare
-terminating TLS in front of Railway. **The `pregnancy-calculator` Pages project
+terminating TLS in front of Railway. The project's **Custom domains** tab was
+empty, which says the same thing independently. **The `pregnancy-calculator` Pages project
 serves nothing and can be deleted outright, not merely disconnected.**
 
 ### The apex is proxied, which is worth knowing separately
