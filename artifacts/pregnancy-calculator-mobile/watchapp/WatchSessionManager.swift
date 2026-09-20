@@ -84,6 +84,10 @@ final class WatchSessionManager: NSObject, ObservableObject {
     /// a recording fake in tests so the real send paths can be exercised.
     let transport: WatchConnectivityTransport
 
+    /// Records what happens to each outbound message. Every send path below
+    /// used to discard its own failures; this is where they go instead.
+    let deliveryLog: WatchDeliveryLog
+
     /// UserDefaults key for the pending-acknowledgment retry queue.
     /// Records stay here until the phone sends a reply (or transferUserInfo delivers them).
     private let pendingContractionUpdatesKey = WatchSessionPersistence.pendingContractionUpdatesKey
@@ -100,11 +104,15 @@ final class WatchSessionManager: NSObject, ObservableObject {
         userDefaults: UserDefaults,
         notificationCenter: NotificationCenter,
         activateSession: Bool,
-        transport: WatchConnectivityTransport = WCSessionTransport()
+        transport: WatchConnectivityTransport = WCSessionTransport(),
+        deliveryLog: WatchDeliveryLog? = nil
     ) {
         self.userDefaults = userDefaults
         self.notificationCenter = notificationCenter
         self.transport = transport
+        // Defaults to a log on the same store, so a test suite with an isolated
+        // UserDefaults suite gets an isolated log without asking for one.
+        self.deliveryLog = deliveryLog ?? WatchDeliveryLog(userDefaults: userDefaults)
         super.init()
         encoder.dateEncodingStrategy = .iso8601
         decoder.dateDecodingStrategy = .iso8601
@@ -142,11 +150,19 @@ final class WatchSessionManager: NSObject, ObservableObject {
     // MARK: - Outbound messages to iPhone
 
     func sendKickUpdate(count: Int) {
-        guard transport.isReachable else { return }
+        // Live counts are cosmetic and deliberately not queued — but a Watch
+        // that is never reachable is the headline symptom, so say so.
+        guard transport.isReachable else {
+            deliveryLog.record(.unreachable)
+            return
+        }
+        deliveryLog.record(.sent)
         transport.sendMessage(
             [WatchMessage.kickUpdate: count],
             replyHandler: nil,
-            errorHandler: nil
+            errorHandler: { [deliveryLog] error in
+                deliveryLog.record(failure: error)
+            }
         )
     }
 
@@ -157,13 +173,16 @@ final class WatchSessionManager: NSObject, ObservableObject {
         guard let data = try? encoder.encode(summary) else { return }
         let payload: [String: Any] = [WatchMessage.kickSessionEnd: data]
         if transport.isReachable {
+            deliveryLog.record(.sent)
             transport.sendMessage(
                 payload,
                 replyHandler: nil,
-                errorHandler: { [transport] _ in
+                errorHandler: { [transport, deliveryLog] error in
                     // Reachability can flip mid-send (e.g. the phone is force-quit
                     // right after the check). Fall back to the durable OS queue so
                     // the session summary is delivered on the phone's next launch.
+                    deliveryLog.record(failure: error)
+                    deliveryLog.record(.queued)
                     transport.transferUserInfo(payload)
                 }
             )
@@ -171,6 +190,7 @@ final class WatchSessionManager: NSObject, ObservableObject {
             // Queue for ordered delivery when phone is reachable.
             // transferUserInfo guarantees every payload is delivered;
             // updateApplicationContext would silently discard all but the last.
+            deliveryLog.record(.queued)
             transport.transferUserInfo(payload)
         }
     }
@@ -184,6 +204,7 @@ final class WatchSessionManager: NSObject, ObservableObject {
         enqueuePendingContractionUpdate(record)
 
         if transport.isReachable {
+            deliveryLog.record(.sentAwaitingAck)
             transport.sendMessage(
                 [WatchMessage.contractionUpdate: data],
                 replyHandler: { [weak self] reply in
@@ -191,19 +212,29 @@ final class WatchSessionManager: NSObject, ObservableObject {
                     // An empty or mismatched reply means the phone did not durably
                     // persist the record — leave it in the queue for retry.
                     guard let ackId = reply[WatchMessage.contractionUpdateAck] as? String,
-                          ackId == record.id.uuidString else { return }
+                          ackId == record.id.uuidString else {
+                        // Indistinguishable from success on the phone's side, and
+                        // silent here until now: the phone answered, the record
+                        // stayed queued, and nobody was told.
+                        self?.deliveryLog.record(.unacknowledged)
+                        return
+                    }
+                    self?.deliveryLog.record(.acknowledged)
                     self?.dequeuePendingContractionUpdate(id: record.id)
                 },
-                errorHandler: { [transport] _ in
+                errorHandler: { [transport, deliveryLog] error in
                     // Real-time send failed; keep the record in the queue so the
                     // next reachability window can retry, and also fall back to
                     // transferUserInfo for guaranteed background delivery.
+                    deliveryLog.record(failure: error)
+                    deliveryLog.record(.queued)
                     transport.transferUserInfo([WatchMessage.contractionUpdate: data])
                 }
             )
         } else {
             // transferUserInfo guarantees ordered delivery when the phone becomes
             // reachable. The record stays in the retry queue until the phone acks.
+            deliveryLog.record(.queued)
             transport.transferUserInfo([WatchMessage.contractionUpdate: data])
         }
     }
@@ -217,12 +248,16 @@ final class WatchSessionManager: NSObject, ObservableObject {
 
         let payload: [String: Any] = [WatchMessage.contractionSessionEnd: count]
         if transport.isReachable {
-            transport.sendMessage(payload, replyHandler: nil, errorHandler: { [transport] _ in
+            deliveryLog.record(.sent)
+            transport.sendMessage(payload, replyHandler: nil, errorHandler: { [transport, deliveryLog] error in
                 // Reachability can flip mid-send (phone force-quit racing the
                 // check) — fall back to the durable OS queue.
+                deliveryLog.record(failure: error)
+                deliveryLog.record(.queued)
                 transport.transferUserInfo(payload)
             })
         } else {
+            deliveryLog.record(.queued)
             transport.transferUserInfo(payload)
         }
     }
@@ -234,10 +269,12 @@ extension WatchSessionManager: WCSessionDelegate {
     func session(_ session: WCSession, activationDidCompleteWith state: WCSessionActivationState, error: Error?) {
         if let error = error {
             print("[WatchSession] Activation failed — state: \(state.rawValue), error: \(error.localizedDescription)")
+            deliveryLog.recordActivation("failed (state \(state.rawValue)): \(error.localizedDescription)")
         } else {
             switch state {
             case .activated:
                 print("[WatchSession] Activated successfully.")
+                deliveryLog.recordActivation("activated")
                 // If we woke up with no cached tips (fresh install or cleared
                 // UserDefaults), ask the phone for a sync.  The phone replies
                 // with the current gestationalWeek + tips so the Tips tab fills
@@ -245,10 +282,13 @@ extension WatchSessionManager: WCSessionDelegate {
                 requestSyncIfNeeded()
             case .inactive:
                 print("[WatchSession] Activation completed in inactive state.")
+                deliveryLog.recordActivation("inactive")
             case .notActivated:
                 print("[WatchSession] Activation completed in notActivated state.")
+                deliveryLog.recordActivation("notActivated")
             @unknown default:
                 print("[WatchSession] Activation completed with unknown state: \(state.rawValue).")
+                deliveryLog.recordActivation("unknown (\(state.rawValue))")
             }
         }
     }
@@ -397,15 +437,22 @@ extension WatchSessionManager: WCSessionDelegate {
 
         for record in pending {
             guard let data = try? encoder.encode(record) else { continue }
+            deliveryLog.record(.sentAwaitingAck)
             transport.sendMessage(
                 [WatchMessage.contractionUpdate: data],
                 replyHandler: { [weak self] reply in
                     guard let ackId = reply[WatchMessage.contractionUpdateAck] as? String,
-                          ackId == record.id.uuidString else { return }
+                          ackId == record.id.uuidString else {
+                        self?.deliveryLog.record(.unacknowledged)
+                        return
+                    }
+                    self?.deliveryLog.record(.acknowledged)
                     self?.dequeuePendingContractionUpdate(id: record.id)
                 },
-                errorHandler: { [transport] _ in
+                errorHandler: { [transport, deliveryLog] error in
                     // Leave in queue; transferUserInfo ensures eventual delivery.
+                    deliveryLog.record(failure: error)
+                    deliveryLog.record(.queued)
                     transport.transferUserInfo([WatchMessage.contractionUpdate: data])
                 }
             )
@@ -476,6 +523,10 @@ extension WatchSessionManager: WCSessionDelegate {
         // kick counter, contraction timer) plus the pending retry queue — a
         // freshly signed-in user's session must never see the previous account's data.
         WatchSessionPersistence.removeAll(from: userDefaults)
+
+        // removeAll cleared the log's key; reset its in-memory copy too, or the
+        // next write would put the old counters straight back.
+        deliveryLog.reset()
 
         // Reset published state. The lastKickCount / lastContractionCount didSet
         // observers remove their own (already-removed) keys — harmless no-ops.

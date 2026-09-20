@@ -47,6 +47,8 @@ const WATCH_SWIFT_SOURCES = [
   "TipsView.swift",
   "WatchSessionManager.swift",
   "WatchSessionPersistence.swift",
+  "WatchDeliveryLog.swift",
+  "WatchDeliveryStatusView.swift",
   "Models.swift",
 ];
 
@@ -73,6 +75,7 @@ const WATCH_TEST_SOURCES = [
   "WatchKickCounterSignOutTests.swift",
   "WatchFreshInstallSyncTests.swift",
   "WatchTipDecodingTests.swift",
+  "WatchDeliveryLogTests.swift",
 ];
 
 // Production (non-UI) sources compiled INTO the test bundle so the tests can
@@ -81,6 +84,7 @@ const WATCH_TEST_SOURCES = [
 const WATCH_TEST_PRODUCTION_SOURCES = [
   "Models.swift",
   "WatchSessionPersistence.swift",
+  "WatchDeliveryLog.swift",
   "WatchSessionManager.swift",
   "KickSessionRestorePolicy.swift",
   "KickCounterSessionState.swift",

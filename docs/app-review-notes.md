@@ -132,10 +132,37 @@ that work touches WCSession, and the Watch holds records in its retry queue —
 meaning it is attempting delivery and being told it failed. The defect is
 present in 1.0.12, the approved and currently shipping version.
 
-Diagnosing it needs instrumentation readable without a Mac. The next step is to
-surface the Watch's own delivery state on the Watch itself — queued record
-count and last send error. The Watch knows it is failing; it has no way to say
-so.
+Diagnosing it needs instrumentation readable without a Mac. That instrumentation
+now exists: **Sync Status**, on the Watch home screen.
+
+Every `sendMessage` on the Watch took an error handler, and every one of them
+discarded its error and fell back to `transferUserInfo`, which reports nothing
+at all. A reply arriving without a matching ack UUID was dropped the same way —
+the record stayed queued and nobody was told. `WatchDeliveryLog` keeps all of
+it; `WatchDeliveryStatusView` reads it out.
+
+### Reading it
+
+Open the Watch app → **Sync Status**. The verdict line at the top is the answer:
+
+| What it says               | What it means                                                                                     |
+| -------------------------- | ------------------------------------------------------------------------------------------------- |
+| Records never acknowledged | The Watch is sending and the phone never confirms. The break is in delivery.                      |
+| Records acknowledged       | Delivery works. If records still do not appear, the break is downstream of the ack, on the phone. |
+| Nothing sent yet           | Record a contraction first; the counters only move for real sends.                                |
+
+Below it: whether the phone is reachable, how many records are queued, the last
+WCSession activation result, and the last send error with its domain and code —
+`localizedDescription` alone is usually "The operation couldn't be completed",
+which identifies nothing.
+
+**"Replied, no ack" is the row to watch.** It means the phone answered but not
+with a matching ack UUID, so the record stayed queued. It is indistinguishable
+from success on the phone's side, which is exactly how this defect has stayed
+invisible.
+
+Counters are cleared on sign-out along with every other persisted Watch key, so
+diagnose within one session.
 
 ---
 

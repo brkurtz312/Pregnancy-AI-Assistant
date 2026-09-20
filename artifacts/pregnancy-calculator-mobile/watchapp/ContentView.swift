@@ -49,6 +49,14 @@ struct ContentView: View {
                             label: "Weekly Tips",
                             color: .blue)
                 }
+
+                // Diagnostics for the Watch -> phone delivery defect. Reading
+                // it needs no Mac, which is the whole reason it exists.
+                NavigationLink(destination: WatchDeliveryStatusView()) {
+                    HomeRow(icon: "antenna.radiowaves.left.and.right",
+                            label: "Sync Status",
+                            color: .gray)
+                }
             }
             .navigationTitle("Pregnancy")
         }
