@@ -1,11 +1,9 @@
-import { useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { useAuth, Show } from "@clerk/react";
 import {
   Check,
   ArrowRight,
   Infinity as InfinityIcon,
-  Loader2,
   Crown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
