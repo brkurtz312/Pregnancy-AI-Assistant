@@ -36,9 +36,13 @@ question costs about **2 cents**.
 | Heavy buyer, 20/week × 35 weeks             | ~700                       | ~$12.60 |
 | Free user who never buys, 5/week × 40 weeks | ~200                       | ~$3.60  |
 
-At $9.99 the net is about $8.49 under Apple's 15% small-business rate, or $6.99
-at 30%. Typical buyers leave a comfortable margin; only genuine outliers lose
-money.
+At $9.99 the proceeds are **$7.00** — App Store Connect confirmed this on
+20 Sep 2026, which is the standard 30% commission. Apple's Small Business
+Program would make it about $8.49; **enrolling is worth roughly $1.49 on every
+sale** and has not been done.
+
+Typical buyers still leave a comfortable margin against a ~$2.70 AI cost; only
+genuine outliers lose money.
 
 But the cost math is not why $9.99 was chosen. **The app has almost no users,
 and the bottleneck is adoption and feedback rather than revenue per sale.** Ten
@@ -59,6 +63,31 @@ rise and much easier to explain.
 **The token estimates above are assumptions about the prompts, not
 measurements.** The real figure is the Anthropic bill divided by questions
 answered. Check it once there are a hundred or so.
+
+## Which Apple product the price belongs to
+
+There have been **two Apple product IDs** for this pass. The first was burned —
+Apple permanently reserves a product ID once used, and the original was created
+on an orphan listing — so a `_v2` replacement exists
+(`.agents/memory/apple-iap-product-id-burned.md`).
+
+The app never hardcodes a product string. It renders whatever product
+RevenueCat's `$rc_lifetime` package points at, which means **App Store Connect
+showing $9.99 does not prove the app will show $9.99** — only that _some_
+product costs $9.99. If the RevenueCat package is attached to the other one,
+the app shows the other price, and both are "the real App Store price".
+
+When the app and App Store Connect disagree, check in this order:
+
+1. App Store Connect → In-App Purchases. How many exist, which product IDs,
+   what price each.
+2. RevenueCat → the `pass` entitlement and `$rc_lifetime` package. Which
+   `store_identifier` is attached.
+
+A mismatch there is the whole answer, and fixing it needs **no app rebuild** —
+existing builds pick up a repointed package live. RevenueCat's
+`store_identifier` is immutable, so repointing means creating a new RC product
+and re-attaching it, not editing the old one.
 
 ## Changing the price
 
