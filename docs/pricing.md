@@ -2,6 +2,28 @@
 
 **$9.99, one-time, decided 20 Sep 2026.**
 
+## The app is free. The pass is the paid thing.
+
+**Until 20 Sep 2026 the app itself was a paid download at $9.99**, while its own
+account sheet offered a "Free plan — 5 of 5 free AI questions left this week".
+Anyone who found the listing had to pay before they could reach the free tier
+they were being offered, and then be asked for the pass on top. Set to $0.00 on
+20 Sep 2026.
+
+Two separate prices in App Store Connect, and confusing them is what made this
+hard to see:
+
+| Screen                                     | Controls                          | Correct value    |
+| ------------------------------------------ | --------------------------------- | ---------------- |
+| **Pricing and Availability**               | What it costs to download the app | **Free ($0.00)** |
+| **In-App Purchases → Full Pregnancy Pass** | What the pass costs               | **$9.99**        |
+
+Both screens are titled "Current Price" and both list every country, so a
+screenshot of one is indistinguishable from the other. Check the heading.
+
+The quickest check needs no App Store Connect at all: open the App Store
+listing. **"Get"** means the app is free; a price on the button means it is not.
+
 ## Where the price actually lives
 
 **App Store Connect is the price of record.** The IAP surfaces in the app read
