@@ -20,6 +20,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { useUser, useAuth } from "@clerk/react";
 import { usePass } from "@/hooks/use-pass";
 import { Scribe } from "@/components/tools/Scribe";
+import { APP_STORE_URL } from "@/lib/app-store";
 
 vi.mock("@clerk/react", () => ({
   useUser: vi.fn(),
@@ -42,8 +43,6 @@ function defaultPassValue(): ReturnType<typeof usePass> {
     freeLimit: 5,
     freeRemaining: 5,
     isLoading: false,
-    startCheckout: vi.fn(),
-    isStartingCheckout: false,
     redeemCode: vi.fn(),
     isRedeeming: false,
     refresh: vi.fn(),
@@ -226,10 +225,8 @@ describe("Scribe — SCRIBE_LIMIT_REACHED", () => {
     signedInUser();
     withSpeechRecognition();
 
-    const startCheckout = vi.fn();
     mockUsePass.mockReturnValue({
       ...defaultPassValue(),
-      startCheckout,
     });
 
     vi.stubGlobal(
@@ -274,10 +271,9 @@ describe("Scribe — SCRIBE_LIMIT_REACHED", () => {
 
     const ctaButton = screen.getByTestId("upgrade-to-pass-cta");
     expect(ctaButton).toBeTruthy();
-    expect(ctaButton.textContent).toContain("Upgrade to Full Pass");
-
-    fireEvent.click(ctaButton);
-    expect(startCheckout).toHaveBeenCalledTimes(1);
+    // The web app does not sell the pass; the CTA is a link to the App Store.
+    expect(ctaButton.textContent).toContain("Get the Pass in the App Store");
+    expect(ctaButton.getAttribute("href")).toBe(APP_STORE_URL);
   });
 
   it("shows generic 'try again' message and no upgrade CTA when service is unavailable (503)", async () => {

@@ -9,7 +9,6 @@ import {
 import { useAuth } from "@clerk/react";
 import {
   useGetPassStatus,
-  useCreateCheckout,
   useConfirmCheckout,
   useRedeemCode,
   getGetPassStatusQueryKey,
@@ -28,10 +27,6 @@ interface PassContextValue {
   freeRemaining: number;
   /** True while the initial pass status is loading. */
   isLoading: boolean;
-  /** Begin Stripe checkout for the pass and redirect. */
-  startCheckout: () => void;
-  /** True while a checkout session is being created. */
-  isStartingCheckout: boolean;
   /**
    * Redeem a developer access code to unlock the pass. Resolves on success and
    * rejects (with the request error) on an invalid code.
@@ -41,7 +36,8 @@ interface PassContextValue {
   isRedeeming: boolean;
   /** Re-fetch pass status and usage from the server. */
   refresh: () => void;
-  /** True immediately after a successful Stripe checkout return. */
+  /** True immediately after a successful Stripe checkout return. Only an
+   * in-flight purchase from before web selling was switched off can set it. */
   justPurchased: boolean;
   /** Clear the post-purchase celebration state. */
   dismissJustPurchased: () => void;
@@ -56,12 +52,16 @@ export function PassProvider({ children }: { children: ReactNode }) {
   const passQuery = useGetPassStatus({
     query: { enabled: signedIn, queryKey: getGetPassStatusQueryKey() },
   });
-  const checkout = useCreateCheckout();
   const confirm = useConfirmCheckout();
   const redeem = useRedeemCode();
 
   const [justPurchased, setJustPurchased] = useState(false);
 
+  // Kept only for a checkout that was already in flight when web selling was
+  // switched off. Nothing in this app sends anyone to Stripe any more, so once
+  // the server routes are deleted this whole block goes with them
+  // (docs/stripe-removal-plan.md, step 6).
+  //
   // After returning from Stripe checkout (?checkout=success), confirm the
   // session for instant entitlement, then strip the params from the URL.
   const handledReturn = useRef(false);
@@ -112,17 +112,6 @@ export function PassProvider({ children }: { children: ReactNode }) {
     freeLimit,
     freeRemaining: Math.max(0, freeLimit - freeUsed),
     isLoading: signedIn && passQuery.isLoading,
-    startCheckout: () => {
-      checkout.mutate(
-        { data: { returnUrl: window.location.href } },
-        {
-          onSuccess: (res) => {
-            window.location.href = res.url;
-          },
-        },
-      );
-    },
-    isStartingCheckout: checkout.isPending,
     redeemCode: async (code: string) => {
       await redeem.mutateAsync({ data: { code } });
       await passQuery.refetch();

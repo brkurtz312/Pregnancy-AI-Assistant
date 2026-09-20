@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useUser, useAuth } from "@clerk/react";
 import { usePass } from "@/hooks/use-pass";
+import { APP_STORE_URL, GET_PASS_LABEL } from "@/lib/app-store";
 import {
   Mic,
   MicOff,
@@ -100,7 +101,7 @@ const getSpeechRecognition = (): SpeechRecognitionConstructor | null => {
 export function Scribe() {
   const { isSignedIn } = useUser();
   const { getToken } = useAuth();
-  const { startCheckout, isStartingCheckout, hasPass } = usePass();
+  const { hasPass } = usePass();
   const [status, setStatus] = useState<Status>("idle");
   const [transcript, setTranscript] = useState("");
   const [summary, setSummary] = useState<PatientSummary | null>(null);
@@ -412,14 +413,15 @@ export function Scribe() {
                   <p className="text-xs text-red-700">{errorMsg}</p>
                   {isLimitError && !hasPass && (
                     <Button
+                      asChild
                       size="sm"
-                      onClick={startCheckout}
-                      disabled={isStartingCheckout}
                       className="gap-1.5 rounded-xl text-xs bg-primary hover:bg-primary/90"
                       data-testid="upgrade-to-pass-cta"
                     >
-                      <Crown className="w-3.5 h-3.5" />
-                      {isStartingCheckout ? "Opening…" : "Upgrade to Full Pass"}
+                      <a href={APP_STORE_URL} target="_blank" rel="noreferrer">
+                        <Crown className="w-3.5 h-3.5" />
+                        {GET_PASS_LABEL}
+                      </a>
                     </Button>
                   )}
                 </div>

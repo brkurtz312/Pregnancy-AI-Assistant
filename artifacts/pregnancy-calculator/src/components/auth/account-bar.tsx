@@ -5,15 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { usePass } from "@/hooks/use-pass";
 import { RedeemCodeDialog } from "@/components/auth/redeem-code-dialog";
+import { APP_STORE_URL } from "@/lib/app-store";
 
 export function AccountBar() {
-  const {
-    hasPass,
-    freeRemaining,
-    freeLimit,
-    startCheckout,
-    isStartingCheckout,
-  } = usePass();
+  const { hasPass, freeRemaining, freeLimit } = usePass();
 
   return (
     <div
@@ -53,14 +48,15 @@ export function AccountBar() {
               }
             />
             <Button
+              asChild
               size="sm"
-              onClick={startCheckout}
-              disabled={isStartingCheckout}
               className="gap-1.5 rounded-full"
               data-testid="button-unlock-pass"
             >
-              <Sparkles className="w-4 h-4" />
-              Unlock Pass
+              <a href={APP_STORE_URL} target="_blank" rel="noreferrer">
+                <Sparkles className="w-4 h-4" />
+                Get the Pass
+              </a>
             </Button>
           </>
         )}
