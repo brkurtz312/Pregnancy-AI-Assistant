@@ -188,7 +188,7 @@ export function Warm() {
               className="text-4xl font-bold mb-6"
               style={{ fontFamily: "'Playfair Display', serif" }}
             >
-              $14.99
+              $9.99
             </div>
             {[
               "Everything in free",
