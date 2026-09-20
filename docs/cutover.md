@@ -311,8 +311,11 @@ nothing to keep and it is the only copy of the pre-migration state.
 
 ## Step 8 — Disconnect Cloudflare Pages
 
-Two Pages projects in this Cloudflare account build from this repository and
-post a check on every pull request:
+Done 20 Sep 2026. `brk-services` is disconnected; `pregnancy-calculator` is
+deleted. Kept as a record because most of it was not obvious.
+
+Two Pages projects in this Cloudflare account built from this repository and
+posted a check on every pull request:
 
 - `pregnancy-calculator` — redundant since step 4. The API server serves the
   built web app itself now.
@@ -362,18 +365,35 @@ terminating TLS in front of Railway. The project's **Custom domains** tab was
 empty, which says the same thing independently. **The `pregnancy-calculator` Pages project
 serves nothing and can be deleted outright, not merely disconnected.**
 
-### Deleting the project is blocked by its deployment history
+### Deleting the project needs the API — done 20 Sep 2026
 
 The dashboard refuses: _"Your project has too many deployments to be deleted."_
-There is no button for this. The deployments have to be removed through the API
-first — `DELETE /accounts/{account}/pages/projects/{project}/deployments/{id}?force=true`
-in a loop, with a token carrying **Account → Cloudflare Pages → Edit**, and then
-the project deletes normally.
+There is no button for this. `pregnancy-calculator` had 267 deployments, and
+they have to go first, through the API, with a token carrying **Account →
+Cloudflare Pages → Edit** and no TTL.
 
-This is cosmetic. A disconnected project serves nothing, costs nothing and
-posts no checks, so leaving it in place is a legitimate end state. Deleting it
-also releases `pregnancy-calculator.pages.dev` back to the pool, where anyone
-can claim it — irrelevant unless something still links there.
+Three things that cost time, all of them non-obvious:
+
+- **`per_page=100` returns HTTP 400 on the deployments endpoint.** The cap is 25. PowerShell hides the response body, so the error says only "400 Bad
+  Request" until you read the stream yourself.
+- **`?force=true` is required** on each delete, or the aliased deployments
+  refuse.
+- **The live production deployment cannot be deleted at all**, force or not.
+  266 of 267 went; the last one is removed by deleting the project itself, so
+  it is not a blocker — just don't chase it.
+
+Then `DELETE /accounts/{account}/pages/projects/{project}` returns
+`success: true` and the project is gone, without touching the dashboard again.
+Revoke the token immediately afterwards.
+
+`brk-services` was disconnected only, and deliberately left in place: it is a
+different site that was pointed at this repository by mistake, and deleting it
+is not this migration's business.
+
+Had this proved harder still, stopping would have been fine. A disconnected
+project serves nothing, costs nothing and posts no checks. The one real
+consequence of deleting is that `pregnancy-calculator.pages.dev` returns to the
+pool, where anyone can claim it — checked first, nothing linked there.
 
 ### The apex is proxied, which is worth knowing separately
 
