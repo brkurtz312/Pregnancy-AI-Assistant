@@ -392,8 +392,23 @@ export function WatchBackgroundListener() {
       }
       const capturedGen = getWatchQueueGeneration(userId);
 
-      const token = await getToken();
-      if (getWatchQueueGeneration(userId) !== capturedGen) return;
+      // `await getToken()` was outside the try below, so a rejection threw
+      // straight out of this handler: no save, no toast, no error, and the
+      // native receipt never acknowledged — so it replays on every launch and
+      // fails the same silent way. That is indistinguishable from the Watch
+      // never having delivered anything.
+      let token: string | null;
+      try {
+        token = await getToken();
+      } catch (err) {
+        countWatchBridge({ tokenFailed: 1 });
+        recordWatchBridgeFailure("dispatch", err);
+        return;
+      }
+      if (getWatchQueueGeneration(userId) !== capturedGen) {
+        countWatchBridge({ droppedGeneration: 1 });
+        return;
+      }
 
       const frozenGetter = () => Promise.resolve(token);
 
@@ -639,7 +654,11 @@ export function WatchBackgroundListener() {
             // Pass the native receipt ID so acknowledgeContractionReceipt fires
             // after the API save succeeds.
             countWatchBridge({ dispatched: 1 });
-            handleContractionUpdate(record, { nativeReceiptId: raw.id });
+            // Never let a throw here become an unhandled rejection: that is
+            // how this failure stayed invisible.
+            handleContractionUpdate(record, { nativeReceiptId: raw.id }).catch(
+              (err: unknown) => recordWatchBridgeFailure("dispatch", err),
+            );
           }
         },
       )
@@ -659,7 +678,9 @@ export function WatchBackgroundListener() {
     onContractionUpdate: isSignedIn
       ? (record: ContractionRecord) => {
           countWatchBridge({ live: 1, dispatched: 1 });
-          return handleContractionUpdate(record);
+          return handleContractionUpdate(record).catch((err: unknown) =>
+            recordWatchBridgeFailure("dispatch", err),
+          );
         }
       : undefined,
     onKickUpdate: isSignedIn ? handleKickUpdate : undefined,

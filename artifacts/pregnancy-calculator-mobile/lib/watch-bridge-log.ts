@@ -135,8 +135,26 @@ export interface WatchBridgeCounts {
   queued: number;
   /** Dispatches that returned early because JS considered itself signed out. */
   droppedSignedOut: number;
-  /** True when attaching a native event listener threw — the live path is dead. */
+  /**
+   * Dispatches where fetching the Clerk token threw.
+   *
+   * `await getToken()` sat outside the try block, so a rejection threw out of
+   * the handler before anything could catch it: no save, no toast, no error,
+   * and the native receipt left unacknowledged so it replays forever.
+   */
+  tokenFailed: number;
+  /** Dispatches abandoned because the queue generation moved (account switch). */
+  droppedGeneration: number;
+  /** True when no event API worked at all — the live path is dead. */
   listenerFailed: boolean;
+  /**
+   * Which event API actually delivered the listener.
+   *
+   * "module" is the modern one, "emitter" the deprecated wrapper, "none" no
+   * working path. Worth reporting because function calls bridge fine under
+   * both, so this is invisible from every other symptom.
+   */
+  listenerStrategy: "module" | "emitter" | "none" | null;
 }
 
 const zeroCounts = (): WatchBridgeCounts => ({
@@ -149,7 +167,10 @@ const zeroCounts = (): WatchBridgeCounts => ({
   saved: 0,
   queued: 0,
   droppedSignedOut: 0,
+  tokenFailed: 0,
+  droppedGeneration: 0,
   listenerFailed: false,
+  listenerStrategy: null,
 });
 
 let counts: WatchBridgeCounts = zeroCounts();
@@ -163,6 +184,8 @@ export function countWatchBridge(change: Partial<WatchBridgeCounts>): void {
       next[key as "drains"] += value;
     } else if (typeof value === "boolean") {
       next[key as "listenerFailed"] = value;
+    } else if (key === "listenerStrategy") {
+      next.listenerStrategy = value as WatchBridgeCounts["listenerStrategy"];
     } else if (typeof value === "string" || value === null) {
       next[key as "lastSkipReason"] = value;
     }
@@ -192,7 +215,7 @@ export function subscribeWatchBridgeCounts(
  */
 export function watchBridgeSummary(c: WatchBridgeCounts): string | null {
   if (c.listenerFailed)
-    return "Watch live updates unavailable (listener failed)";
+    return "Watch live updates unavailable (no working event API)";
   if (c.returned === 0 && c.live === 0 && c.drains === 0) return null;
 
   const parts = [`${c.returned} found`, `${c.saved} saved`];
@@ -204,7 +227,16 @@ export function watchBridgeSummary(c: WatchBridgeCounts): string | null {
   }
   if (c.droppedSignedOut > 0)
     parts.push(`${c.droppedSignedOut} dropped, signed out`);
+  if (c.tokenFailed > 0)
+    parts.push(`${c.tokenFailed} failed, no sign-in token`);
+  if (c.droppedGeneration > 0)
+    parts.push(`${c.droppedGeneration} dropped, account changed`);
   if (c.live > 0) parts.push(`${c.live} live`);
+  // Which event API attached matters only while no live event has arrived —
+  // after that it has plainly worked.
+  if (c.live === 0 && c.listenerStrategy !== null) {
+    parts.push(`events via ${c.listenerStrategy}`);
+  }
   return `Watch records: ${parts.join(", ")}`;
 }
 
