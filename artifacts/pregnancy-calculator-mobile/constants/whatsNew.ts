@@ -27,6 +27,16 @@ export interface WhatsNewEntry {
  * the build before it reaches the App Store.
  */
 export const WHATS_NEW: Record<string, WhatsNewEntry> = {
+  "1.0.17": {
+    headline: "Watch connection status is live",
+    items: [
+      {
+        icon: "pulse-outline",
+        title: "The Watch Status Is Now Accurate",
+        body: "The connection line on the Tools screen only updated when you left the screen and came back, so it was often wrong. It now updates as the connection actually changes.",
+      },
+    ],
+  },
   "1.0.16": {
     headline: "Chasing the Watch sync problem",
     items: [

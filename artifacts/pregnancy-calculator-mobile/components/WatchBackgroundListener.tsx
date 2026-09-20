@@ -559,7 +559,11 @@ export function WatchBackgroundListener() {
       return;
     }
 
-    if (drainedForUserRef.current === userId) return; // already drained this session
+    if (drainedForUserRef.current === userId) {
+      countWatchBridge({ alreadyDrained: 1 });
+      return; // already drained this session
+    }
+    countWatchBridge({ effectRuns: 1 });
     drainedForUserRef.current = userId;
 
     // Stage 1: register the active user in the native bridge.
@@ -571,6 +575,9 @@ export function WatchBackgroundListener() {
     (mod.setActiveWatchUser(userId) ?? Promise.resolve())
       .then(() => {
         if (drainGenRef.current !== gen) return;
+        // The stage between "effect ran" and "drain ran". If this never
+        // increments, setActiveWatchUser is where the chain stalls.
+        countWatchBridge({ registered: 1 });
         clearWatchBridgeFailure();
       })
       .catch((err: unknown) => {

@@ -117,6 +117,12 @@ export function __resetWatchBridgeFailureForTests(): void {
 // says more than any error message.
 
 export interface WatchBridgeCounts {
+  /** Times the drain effect body ran past its guards. */
+  effectRuns: number;
+  /** Times setActiveWatchUser resolved — the stage before the drain. */
+  registered: number;
+  /** Effect runs abandoned because this user had already been drained. */
+  alreadyDrained: number;
   /** Drain attempts (getPendingContractionReceipts calls that resolved). */
   drains: number;
   /** Records the native store handed back across those drains. */
@@ -158,6 +164,9 @@ export interface WatchBridgeCounts {
 }
 
 const zeroCounts = (): WatchBridgeCounts => ({
+  effectRuns: 0,
+  registered: 0,
+  alreadyDrained: 0,
   drains: 0,
   returned: 0,
   skipped: 0,
@@ -216,7 +225,19 @@ export function subscribeWatchBridgeCounts(
 export function watchBridgeSummary(c: WatchBridgeCounts): string | null {
   if (c.listenerFailed)
     return "Watch live updates unavailable (no working event API)";
-  if (c.returned === 0 && c.live === 0 && c.drains === 0) return null;
+
+  // Never return null for "nothing has happened". That state — the drain
+  // never completing — was the most diagnostic one of all, and reporting it
+  // as silence made it indistinguishable from being on an older build.
+  if (c.drains === 0 && c.returned === 0 && c.live === 0) {
+    const stage: string[] = [];
+    stage.push(`effect ran ${c.effectRuns}`);
+    stage.push(`registered ${c.registered}`);
+    if (c.alreadyDrained > 0) stage.push(`skipped ${c.alreadyDrained}`);
+    if (c.listenerStrategy !== null)
+      stage.push(`events via ${c.listenerStrategy}`);
+    return `Watch records: no drain yet (${stage.join(", ")})`;
+  }
 
   const parts = [`${c.returned} found`, `${c.saved} saved`];
   if (c.queued > 0) parts.push(`${c.queued} queued offline`);
