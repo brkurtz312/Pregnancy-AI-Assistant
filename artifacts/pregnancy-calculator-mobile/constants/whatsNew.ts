@@ -27,6 +27,26 @@ export interface WhatsNewEntry {
  * the build before it reaches the App Store.
  */
 export const WHATS_NEW: Record<string, WhatsNewEntry> = {
+  "1.0.14": {
+    headline: "Fewer silent failures",
+    items: [
+      {
+        icon: "alert-circle-outline",
+        title: "Sign-In Tells You What Went Wrong",
+        body: "When a sign-in was refused \u2014 a wrong password, an account that needs a different method, a code that had expired \u2014 the screen sometimes just sat there with no explanation. The reason is now shown on the screen you are looking at.",
+      },
+      {
+        icon: "refresh-outline",
+        title: "Restore Purchases Reports Its Result",
+        body: "Restore Purchases gave no indication whether it had found anything. It now tells you either that your purchases were restored, or that no previous purchase was found for this Apple ID.",
+      },
+      {
+        icon: "watch-outline",
+        title: "Watch Problems Are Visible",
+        body: "If the link to the Apple Watch fails, contractions and kick sessions recorded on the Watch cannot reach your phone. That used to happen silently. The Tools screen now says so instead of leaving you to discover missing records later.",
+      },
+    ],
+  },
   "1.0.13": {
     headline: "Accuracy and sign-in fixes",
     items: [
