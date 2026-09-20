@@ -299,9 +299,9 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
                 <span className="font-medium text-foreground">
                   Full Pregnancy Pass
                 </span>{" "}
-                for unlimited questions — a one-time $14.99, tied to your
-                account and available on every device. Free questions reset each
-                Monday if you'd rather wait.
+                for unlimited questions — a one-time $9.99, tied to your account
+                and available on every device. Free questions reset each Monday
+                if you'd rather wait.
               </p>
               <Show when="signed-in">
                 <Button
@@ -311,7 +311,7 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
                   data-testid="button-unlock-pass-inline"
                 >
                   <Sparkles className="w-4 h-4" />
-                  Unlock Full Pass — $14.99
+                  Unlock Full Pass — $9.99
                 </Button>
               </Show>
               <Show when="signed-out">

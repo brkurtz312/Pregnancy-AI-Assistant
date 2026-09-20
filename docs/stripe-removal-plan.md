@@ -70,7 +70,7 @@ catches a payment the push path dropped.
 | `src/lib/stripe-init.ts`                    | 48    | runs `runMigrations`, creates `stripe.*` |
 | Webhook handler in `src/app.ts`             | 134   |                                          |
 | `scripts/src/stripeClient.ts`               | 78    |                                          |
-| `scripts/src/seed-products.ts`              | —     | creates the $19.99 Stripe product        |
+| `scripts/src/seed-products.ts`              | —     | creates the $9.99 Stripe product         |
 | `tests/stripe-checkout-integration.test.ts` | 777   |                                          |
 | `tests/stripe-webhook.test.ts`              | 82    |                                          |
 
@@ -117,7 +117,7 @@ Sequencing — this needs care, not just deletion.
 The order matters because there must never be a moment with no way to buy.
 
 1. **Set up Web Billing in RevenueCat.** Create the one-time non-consumable
-   product at $19.99, attached to the _same entitlement_ the iOS product uses.
+   product at $9.99, attached to the _same entitlement_ the iOS product uses.
    Same entitlement is the whole point: `has_pass` stays one flag, and a user
    who bought on the web is recognised on their phone.
 2. **Verify a real web purchase end to end** against the new product, in
