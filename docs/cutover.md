@@ -323,54 +323,58 @@ Both have failed on every recent pull request. In the check run,
 neither project deploys anything from here. The red check is pure noise, and
 noise on every PR is how a real failure gets waved through.
 
-**Disconnect, do not delete.** For each project: Cloudflare dashboard →
-Workers & Pages → the project → Settings → Builds → Git repository →
-Disconnect. That stops the checks immediately, deploys nothing, leaves every
-existing deployment and custom domain exactly as it is, and is reversible in
-one click.
+For each project: Cloudflare dashboard → Workers & Pages → the project →
+Settings → Builds → Git repository → Disconnect. That stops the checks
+immediately, deploys nothing, leaves every existing deployment and custom
+domain in place, and is reversible in one click.
 
-Deleting a project is a different act with a different blast radius, and there
-is an open question in the way of it.
+Disconnecting is enough to clear the checks. Deleting the projects is also
+safe — see below — but they are different acts, and disconnecting first costs
+nothing. `brk-services` should only ever be disconnected here: it is a
+different site of yours that was pointed at the wrong repository, and its
+deletion is not this migration's business.
 
-### Before deleting `pregnancy-calculator`, find out what the apex serves
+### What the apex is served by — checked 20 Sep 2026
 
-As of 19 Sep 2026 the two hostnames do not agree:
+Worth recording, because the two hostnames resolve differently and the
+difference looks alarming until you chase it down:
 
 | Hostname                      | Resolves to                          |
 | ----------------------------- | ------------------------------------ |
 | `www.pregnancy-assistant.com` | CNAME → `*.up.railway.app` (Railway) |
 | `pregnancy-assistant.com`     | `2606:4700:…` (a Cloudflare address) |
 
-`www` reaches Railway directly, grey cloud, as step 1 intended. The apex
-answers from Cloudflare, which means one of two things:
+A Cloudflare address on the apex could mean the apex was still attached to the
+`pregnancy-calculator` Pages project as a custom domain, in which case deleting
+that project would take the apex down. It is not. Asking the apex for something
+only the API server has:
 
-1. the apex record is proxied (orange cloud) with Railway behind it, or
-2. the apex is still attached to the `pregnancy-calculator` Pages project as a
-   custom domain.
+```powershell
+Invoke-RestMethod https://pregnancy-assistant.com/api/healthz
+# status: ok
+```
 
-The consequences differ completely. Under (2), deleting the project takes the
-apex down — and what visitors reach today is a stale Pages build rather than
-what Railway is running.
+Pages has no API server; a Pages-served apex would 404. So Railway is the
+origin and the apex record is simply proxied — orange cloud, with Cloudflare
+terminating TLS in front of Railway. **The `pregnancy-calculator` Pages project
+serves nothing and can be deleted outright, not merely disconnected.**
 
-Two ways to tell, either is decisive:
+### The apex is proxied, which is worth knowing separately
 
-- Cloudflare dashboard → Workers & Pages → `pregnancy-calculator` → Custom
-  domains. Whatever is listed there is served by Pages.
-- Ask the apex for something only the API server has:
+Step 1 of this document and `docs/replit-exit-plan.md` both call for grey
+cloud. The apex is orange. It works — so the zone is on Full or Full (strict),
+not Flexible, which would have been a redirect loop — and this is not urgent.
+Two consequences to keep in mind rather than act on today:
 
-  ```powershell
-  Invoke-RestMethod https://pregnancy-assistant.com/api/healthz
-  ```
-
-  `status: ok` means Railway is behind the apex and the Pages project holds
-  nothing that matters. A 404 means Pages is answering, and the apex has to be
-  repointed at Railway before the project can go.
-
-If it is case (1) — proxied — note that `docs/replit-exit-plan.md` and step 1
-of this document both call for grey cloud. Flexible SSL in front of an HTTPS
-origin is a redirect loop, and proxying broke certificate issuance for Clerk
-earlier in this migration. Worth fixing on its own merits, separately from the
-Pages question.
+- **Cloudflare drops an origin response that takes longer than 100 seconds**
+  (a 524) on the free plan. Railway has no such limit. The mobile app calls
+  `https://$EXPO_PUBLIC_DOMAIN`, so whichever hostname that variable holds
+  decides whether the limit applies. It bites the slow AI routes first —
+  `/api/scribe/transcribe` and `/api/scribe/generate-note` — which is latent
+  while the scribe feature is shelved, and would surface the day it is not.
+- Clerk's own records (`clerk`, `accounts`, `clkmail`, the DKIM pair) must stay
+  DNS-only regardless. Proxying those broke certificate issuance earlier in
+  this migration; that lesson is about those records, not the apex.
 
 ---
 

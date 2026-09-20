@@ -468,8 +468,9 @@ the last migration of its kind.
 - Disconnect the two Cloudflare Pages projects (`pregnancy-calculator`,
   `brk-services`) from this repository — `docs/cutover.md` step 8. Neither
   deploys anything from here; both post a failing check on every pull request.
-  Deleting `pregnancy-calculator` outright waits on establishing what the apex
-  domain is actually served by.
+  Verified 20 Sep 2026 that the apex is served by Railway through Cloudflare's
+  proxy, not by Pages, so `pregnancy-calculator` can be deleted rather than
+  just disconnected. Leave `brk-services` itself alone — disconnect only.
 
 ---
 
