@@ -115,17 +115,30 @@ What has been established, on a clean 1.0.13 install with a freshly installed
 Watch app:
 
 - **Phone → Watch works.** Gestational age and weekly tips reach the Watch.
-- **Watch → phone receives nothing.** Not records, and not the live
-  `onWatchStateChange` events either — the connectivity line only refreshes
-  when the phone app is re-entered, never when the state actually changes.
+- ~~**Watch → phone receives nothing.**~~ Half of this was the event listener,
+  fixed in 1.0.16 and confirmed on device 20 Sep 2026: the connectivity line
+  now changes on its own as reachability comes and goes, where before it only
+  refreshed when the app was re-entered. The app reached the module through
+  `NativeModulesProxy` and wrapped it in the deprecated `EventEmitter`; on
+  Expo SDK 54 the `addListener` that resolves is React Native's bridge stub,
+  which ignores the callback. Function calls bridged fine throughout, which is
+  why `setActiveWatchUser` succeeding was so misleading.
+- **Contraction records still do not appear**, and the Watch's own Sync Status
+  reports them acknowledged — which means they are durably stored on the
+  phone under the right user, since the ack is only sent after that write.
 - `setActiveWatchUser` succeeds, so the native bridge has an active user.
 - The session reports `activated`.
-- A force-quit drains no pending receipts, so the native receipt store is
-  empty — the records never reached the bridge at all.
+- ~~A force-quit drains no pending receipts, so the native receipt store is
+  empty — the records never reached the bridge at all.~~ **Wrong.** That was
+  inferred before there was any instrumentation. The Watch now reports records
+  acknowledged, and an ack is sent only when `persistContractionReceipt`
+  returns `true` — after the write, and only with an `activeUserId` set. The
+  records do reach the bridge and are stored.
 
-So the break is in Watch→phone delivery, at or below the native layer. It is
-not JavaScript, not Clerk, not authentication: the failing direction needs none
-of them.
+That conclusion — "the break is at or below the native layer" — was drawn from
+the same wrong premise and does not survive it. Delivery works; the record is
+on the phone. What is unproven is everything after: the drain that reads the
+native store has not been observed completing even once.
 
 **It is not a regression from the September 2026 Clerk migration.** Nothing in
 that work touches WCSession, and the Watch holds records in its retry queue —

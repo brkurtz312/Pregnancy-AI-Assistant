@@ -15,8 +15,32 @@ describe("watch bridge counters", () => {
     __resetWatchBridgeCountsForTests();
   });
 
-  it("says nothing before anything has happened", () => {
-    expect(watchBridgeSummary(getWatchBridgeCounts())).toBeNull();
+  it("reports the stage reached rather than going silent", () => {
+    // Returning null here was a real mistake: a build where the drain never
+    // ran looked identical to not being on the new build at all.
+    expect(watchBridgeSummary(getWatchBridgeCounts())).toBe(
+      "Watch records: no drain yet (effect ran 0, registered 0)",
+    );
+  });
+
+  it("shows where the chain stalled when the drain never completes", () => {
+    countWatchBridge({ effectRuns: 1, listenerStrategy: "module" });
+    // registered stays 0: setActiveWatchUser never resolved.
+    expect(watchBridgeSummary(getWatchBridgeCounts())).toBe(
+      "Watch records: no drain yet (effect ran 1, registered 0, events via module)",
+    );
+  });
+
+  it("distinguishes a stalled register from a drain that found nothing", () => {
+    countWatchBridge({ effectRuns: 1, registered: 1, drains: 1, returned: 0 });
+    expect(watchBridgeSummary(getWatchBridgeCounts())).toBe(
+      "Watch records: 0 found, 0 saved",
+    );
+  });
+
+  it("reports an effect that keeps being skipped as already drained", () => {
+    countWatchBridge({ effectRuns: 1, alreadyDrained: 3 });
+    expect(watchBridgeSummary(getWatchBridgeCounts())).toContain("skipped 3");
   });
 
   it("accumulates rather than replaces", () => {
