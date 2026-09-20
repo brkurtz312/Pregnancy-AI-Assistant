@@ -309,6 +309,91 @@ nothing to keep and it is the only copy of the pre-migration state.
 
 ---
 
+## Step 8 — Disconnect Cloudflare Pages
+
+Two Pages projects in this Cloudflare account build from this repository and
+post a check on every pull request:
+
+- `pregnancy-calculator` — redundant since step 4. The API server serves the
+  built web app itself now.
+- `brk-services` — a different site that was wired to this repository.
+
+Both have failed on every recent pull request. In the check run,
+`started_at` equals `completed_at`: the build fails before any step runs, so
+neither project deploys anything from here. The red check is pure noise, and
+noise on every PR is how a real failure gets waved through.
+
+For each project: Cloudflare dashboard → Compute → Workers & Pages → the
+project → Settings → Build → Git repository → Disconnect. (Pages lives under
+Compute in the current dashboard; older docs say "Workers & Pages" is a
+top-level item.) That stops the checks
+immediately, deploys nothing, leaves every existing deployment and custom
+domain in place, and is reversible in one click.
+
+Disconnecting is enough to clear the checks. Deleting the projects is also
+safe — see below — but they are different acts, and disconnecting first costs
+nothing. `brk-services` should only ever be disconnected here: it is a
+different site of yours that was pointed at the wrong repository, and its
+deletion is not this migration's business.
+
+### What the apex is served by — checked 20 Sep 2026
+
+Worth recording, because the two hostnames resolve differently and the
+difference looks alarming until you chase it down:
+
+| Hostname                      | Resolves to                          |
+| ----------------------------- | ------------------------------------ |
+| `www.pregnancy-assistant.com` | CNAME → `*.up.railway.app` (Railway) |
+| `pregnancy-assistant.com`     | `2606:4700:…` (a Cloudflare address) |
+
+A Cloudflare address on the apex could mean the apex was still attached to the
+`pregnancy-calculator` Pages project as a custom domain, in which case deleting
+that project would take the apex down. It is not. Asking the apex for something
+only the API server has:
+
+```powershell
+Invoke-RestMethod https://pregnancy-assistant.com/api/healthz
+# status: ok
+```
+
+Pages has no API server; a Pages-served apex would 404. So Railway is the
+origin and the apex record is simply proxied — orange cloud, with Cloudflare
+terminating TLS in front of Railway. The project's **Custom domains** tab was
+empty, which says the same thing independently. **The `pregnancy-calculator` Pages project
+serves nothing and can be deleted outright, not merely disconnected.**
+
+### Deleting the project is blocked by its deployment history
+
+The dashboard refuses: _"Your project has too many deployments to be deleted."_
+There is no button for this. The deployments have to be removed through the API
+first — `DELETE /accounts/{account}/pages/projects/{project}/deployments/{id}?force=true`
+in a loop, with a token carrying **Account → Cloudflare Pages → Edit**, and then
+the project deletes normally.
+
+This is cosmetic. A disconnected project serves nothing, costs nothing and
+posts no checks, so leaving it in place is a legitimate end state. Deleting it
+also releases `pregnancy-calculator.pages.dev` back to the pool, where anyone
+can claim it — irrelevant unless something still links there.
+
+### The apex is proxied, which is worth knowing separately
+
+Step 1 of this document and `docs/replit-exit-plan.md` both call for grey
+cloud. The apex is orange. It works — so the zone is on Full or Full (strict),
+not Flexible, which would have been a redirect loop — and this is not urgent.
+Two consequences to keep in mind rather than act on today:
+
+- **Cloudflare drops an origin response that takes longer than 100 seconds**
+  (a 524) on the free plan. Railway has no such limit. The mobile app calls
+  `https://$EXPO_PUBLIC_DOMAIN`, so whichever hostname that variable holds
+  decides whether the limit applies. It bites the slow AI routes first —
+  `/api/scribe/transcribe` and `/api/scribe/generate-note` — which is latent
+  while the scribe feature is shelved, and would surface the day it is not.
+- Clerk's own records (`clerk`, `accounts`, `clkmail`, the DKIM pair) must stay
+  DNS-only regardless. Proxying those broke certificate issuance earlier in
+  this migration; that lesson is about those records, not the apex.
+
+---
+
 ## Rolling back
 
 At any point before step 7:
@@ -332,7 +417,5 @@ until you no longer want this option.**
   `docs/stripe-removal-plan.md`.
 - **The OTA appearing to do nothing.** It applies on the launch _after_ the one
   that downloads it. Close the app fully and reopen.
-- **Cloudflare Pages checks failing on every PR.** A standing failure unrelated
-  to any of this; the project builds cleanly from this repository.
 - **Two servers in the logs at once.** Expected between steps 4 and 7. They
   share a database, so it does not matter which one answers.
