@@ -1,7 +1,7 @@
 import { getUncachableStripeClient } from "./stripeClient";
 
 /**
- * Creates the one-time "Full Pregnancy Pass" product and its $19.99 price in
+ * Creates the one-time "Full Pregnancy Pass" product and its $9.99 price in
  * Stripe. Idempotent: safe to run multiple times.
  *
  * Stripe prices are immutable, so changing PASS_PRICE_CENTS creates a new price
@@ -14,7 +14,7 @@ const PASS_KIND = "full_pregnancy_pass";
 const PASS_NAME = "Full Pregnancy Pass";
 const PASS_DESCRIPTION =
   "Unlimited AI pregnancy questions for your whole pregnancy, tied to your account and restorable across devices.";
-const PASS_PRICE_CENTS = 1999; // $19.99
+const PASS_PRICE_CENTS = 999; // $9.99, matching the App Store IAP
 const PASS_CURRENCY = "usd";
 
 function formatUsd(cents: number): string {

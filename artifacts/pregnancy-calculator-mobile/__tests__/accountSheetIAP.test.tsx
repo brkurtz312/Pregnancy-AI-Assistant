@@ -137,6 +137,9 @@ function makeSubscriptionMock(
     offerings: undefined,
     passPackage: {
       identifier: "$rc_lifetime",
+      // Deliberately NOT the real price. The IAP button must render whatever
+      // StoreKit reports, so a fixture that matched the live price would pass
+      // even if the component hardcoded it. Leave this mismatched.
       product: { priceString: "$19.99", identifier: "full_pregnancy_pass" },
     } as unknown as ReturnType<typeof useSubscription>["passPackage"],
     isSubscribed: false,

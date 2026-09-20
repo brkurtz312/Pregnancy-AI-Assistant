@@ -40,7 +40,7 @@ export default function Pricing() {
             letterSpacing: "-0.015em",
           }}
         >
-          Free to start, $19.99 to go unlimited
+          Free to start, $9.99 to go unlimited
         </h2>
 
         <div
@@ -109,7 +109,7 @@ export default function Pricing() {
                 marginTop: "1vh",
               }}
             >
-              $19.99
+              $9.99
             </div>
             <div
               style={{

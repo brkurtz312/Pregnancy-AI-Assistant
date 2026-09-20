@@ -93,7 +93,7 @@ describe("/ — Landing page", () => {
     // Free plan price
     expect(screen.getByText("$0")).toBeDefined();
     // Pass price
-    expect(screen.getByText("$14.99")).toBeDefined();
+    expect(screen.getByText("$9.99")).toBeDefined();
   });
 
   it("primary hero CTA links to /app", () => {

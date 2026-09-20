@@ -34,7 +34,11 @@ import {
 import { cancelAllAppointmentReminders } from "@/lib/appointment-reminders";
 import { clearSignedOutUserData } from "@/lib/session-cleanup";
 
-const PASS_PRICE = "$14.99";
+// The Stripe-checkout branch only. Every IAP path renders
+// `subscription.passPackage?.product.priceString` — the live App Store price —
+// and must keep doing so, or the app can advertise one number while StoreKit
+// charges another.
+const PASS_PRICE = "$9.99";
 
 /**
  * Keeps the one purchase failure the generic message would mislead about.

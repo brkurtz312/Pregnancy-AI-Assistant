@@ -57,8 +57,10 @@ const OFFERING_DISPLAY_NAME = "Default Offering";
 const PACKAGE_IDENTIFIER = "$rc_lifetime";
 const PACKAGE_DISPLAY_NAME = "Full Pregnancy Pass";
 
-// Pricing configuration (amount in micros = dollars * 1,000,000). $19.99.
-const PRODUCT_PRICES = [{ amount_micros: 19990000, currency: "USD" }];
+// Pricing configuration (amount in micros = dollars * 1,000,000). $9.99,
+// matching the App Store IAP. This seeds RevenueCat's test store only — the
+// real iOS price comes from App Store Connect.
+const PRODUCT_PRICES = [{ amount_micros: 9990000, currency: "USD" }];
 
 type TestStorePricesResponse = {
   object: string;
