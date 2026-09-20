@@ -1,6 +1,11 @@
 # What the Full Pregnancy Pass costs
 
-**$9.99, one-time, decided 20 Sep 2026.**
+**$9.99, one-time. Set in App Store Connect on 20 Sep 2026.**
+
+Both Apple prices are now correct: the app is a free download, the pass is
+$9.99. Expect a window where StoreKit still reports $19.99 and the app
+faithfully shows it — Apple propagates price changes on their own schedule, and
+an app rendering the stale price is behaving correctly, not regressing.
 
 ## The app is free. The pass is the paid thing.
 
@@ -34,6 +39,8 @@ Everything else is a hardcoded string that can, and has. On 20 Sep 2026 the
 repository contained four different prices at once: $9.99 on the App Store,
 $14.99 on the web and in the mobile Stripe branch, $19.99 in both seed scripts
 and the pitch deck. The web could have advertised $14.99 and charged $19.99.
+All of them now read $9.99; the only remaining `$19.99` in the tree is the test
+fixture below.
 
 So: **when the price changes, change it in App Store Connect first, then grep
 the repository.** `grep -rn '\$[0-9]\+\.[0-9][0-9]'` finds every literal.
