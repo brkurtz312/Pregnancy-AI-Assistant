@@ -36,6 +36,12 @@ enum WatchSessionPersistence {
     // MARK: Pending-acknowledgment retry queue
     static let pendingContractionUpdatesKey = "wk.pendingContractionUpdates"
 
+    // MARK: Delivery diagnostics
+    /// Counters written by `WatchDeliveryLog`. Cleared with everything else on
+    /// sign-out: this registry is every key the Watch writes, and a diagnosis
+    /// that outlived the account it was about would be misleading.
+    static let deliveryLogKey = "wk.deliveryLog"
+
     /// Every key that must be removed when a sign-out message arrives.
     static let allKeys: [String] = [
         tipsKey,
@@ -52,6 +58,7 @@ enum WatchSessionPersistence {
         contractionRecordsKey,
         contractionStaleSummaryKey,
         pendingContractionUpdatesKey,
+        deliveryLogKey,
     ]
 
     /// Removes every persisted Watch-session key from `defaults`.

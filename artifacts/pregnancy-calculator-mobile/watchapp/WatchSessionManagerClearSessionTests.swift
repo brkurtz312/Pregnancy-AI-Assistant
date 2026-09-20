@@ -71,11 +71,12 @@ final class WatchSessionManagerClearSessionTests: XCTestCase {
     // MARK: - Key registry sanity
 
     func testKeyRegistry_coversAllThreeSubsystemsPlusRetryQueue() {
-        // 11 wk.* subsystem keys + wk.pendingContractionUpdates + watchTips +
-        // watchGestationalWeek = 14 keys total. Guard against accidental removal.
-        XCTAssertEqual(WatchSessionPersistence.allKeys.count, 14)
-        XCTAssertEqual(Set(WatchSessionPersistence.allKeys).count, 14, "No duplicate keys")
-        XCTAssertEqual(WatchSessionPersistence.allKeys.filter { $0.hasPrefix("wk.") }.count, 12)
+        // 11 wk.* subsystem keys + wk.pendingContractionUpdates +
+        // wk.deliveryLog + watchTips + watchGestationalWeek = 15 keys total.
+        // Guard against accidental removal.
+        XCTAssertEqual(WatchSessionPersistence.allKeys.count, 15)
+        XCTAssertEqual(Set(WatchSessionPersistence.allKeys).count, 15, "No duplicate keys")
+        XCTAssertEqual(WatchSessionPersistence.allKeys.filter { $0.hasPrefix("wk.") }.count, 13)
         XCTAssertTrue(WatchSessionPersistence.allKeys.contains("watchTips"))
         XCTAssertTrue(WatchSessionPersistence.allKeys.contains("watchGestationalWeek"))
     }
