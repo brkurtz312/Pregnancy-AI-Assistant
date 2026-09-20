@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-  ActivityIndicator,
   Modal,
   Pressable,
   StyleSheet,
@@ -9,7 +8,7 @@ import {
   View,
 } from "react-native";
 import { useColors } from "@/hooks/useColors";
-import { usePass } from "@/hooks/usePass";
+import { PURCHASE_LOCATION_HINT } from "@/lib/app-store";
 
 interface PassGateProps {
   visible: boolean;
@@ -25,7 +24,6 @@ export function PassGate({
   description,
 }: PassGateProps) {
   const colors = useColors();
-  const { startCheckout, isStartingCheckout } = usePass();
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -50,30 +48,30 @@ export function PassGate({
             {description}
           </Text>
 
+          {/* This used to open a browser to Stripe checkout — an external
+              purchase for digital content, on iOS. The pass is bought with the
+              in-app purchase in the account sheet, which is the one place that
+              flow lives. See docs/stripe-removal-plan.md. */}
+          <Text
+            style={[styles.hint, { color: colors.mutedForeground }]}
+            accessibilityRole="text"
+          >
+            {PURCHASE_LOCATION_HINT}
+          </Text>
+
           <TouchableOpacity
             style={[styles.btn, { backgroundColor: colors.primary }]}
-            onPress={() => {
-              onClose();
-              startCheckout();
-            }}
-            disabled={isStartingCheckout}
+            onPress={onClose}
+            accessibilityLabel="Close"
           >
-            {isStartingCheckout ? (
-              <ActivityIndicator color={colors.primaryForeground} />
-            ) : (
-              <>
-                <Ionicons
-                  name="lock-open-outline"
-                  size={17}
-                  color={colors.primaryForeground}
-                />
-                <Text
-                  style={[styles.btnText, { color: colors.primaryForeground }]}
-                >
-                  Unlock Full Pregnancy Pass
-                </Text>
-              </>
-            )}
+            <Ionicons
+              name="lock-open-outline"
+              size={17}
+              color={colors.primaryForeground}
+            />
+            <Text style={[styles.btnText, { color: colors.primaryForeground }]}>
+              Got it
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={onClose} style={styles.cancelBtn}>
@@ -123,6 +121,14 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     textAlign: "center",
     marginBottom: 4,
+  },
+  hint: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 19,
+    textAlign: "center",
+    marginTop: 6,
+    marginBottom: 10,
   },
   btn: {
     flexDirection: "row",

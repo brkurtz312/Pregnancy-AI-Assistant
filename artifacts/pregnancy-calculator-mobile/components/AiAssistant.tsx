@@ -17,6 +17,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { useColors } from "@/hooks/useColors";
 import { useIsTablet } from "@/hooks/useIsTablet";
 import { usePass } from "@/hooks/usePass";
+import { PURCHASE_LOCATION_HINT } from "@/lib/app-store";
 
 interface AiAssistantProps {
   currentWeek: number;
@@ -266,25 +267,21 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
               style={[styles.upgradeBody, { color: colors.mutedForeground }]}
             >
               {pass.isSignedIn
-                ? "Unlock the Full Pregnancy Pass for unlimited AI questions on every device."
-                : "Sign in, then unlock the Full Pregnancy Pass for unlimited AI questions."}
+                ? `The Full Pregnancy Pass gives unlimited AI questions on every device. ${PURCHASE_LOCATION_HINT}`
+                : "Sign in, then get the Full Pregnancy Pass for unlimited AI questions."}
             </Text>
-            <TouchableOpacity
-              style={[styles.upgradeBtn, { backgroundColor: colors.primary }]}
-              onPress={() => {
-                if (pass.isSignedIn) pass.startCheckout();
-                else router.push("/sign-in");
-              }}
-              disabled={pass.isStartingCheckout}
-            >
-              {pass.isStartingCheckout ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.upgradeBtnText}>
-                  {pass.isSignedIn ? "Get the Pass — $9.99" : "Sign In"}
-                </Text>
-              )}
-            </TouchableOpacity>
+            {/* Signed in, there is nothing to press here any more: the pass
+                is bought with the in-app purchase in the account sheet. This
+                button used to open a browser to Stripe checkout, which is an
+                external purchase for digital content on iOS. */}
+            {!pass.isSignedIn && (
+              <TouchableOpacity
+                style={[styles.upgradeBtn, { backgroundColor: colors.primary }]}
+                onPress={() => router.push("/sign-in")}
+              >
+                <Text style={styles.upgradeBtnText}>Sign In</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
           <View style={styles.inputRow}>
