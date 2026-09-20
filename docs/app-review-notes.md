@@ -153,7 +153,28 @@ unsettled. `getSessionState` returns a value and resolved fine, which is why
 the connectivity badge worked while the drain did not — the same module, the
 same bridge, different return types.
 
-Fixed three ways in 1.0.18, because one was not enough to trust:
+**That diagnosis was wrong**, and 1.0.18 disproved it. The device then read
+`effect ran 1, registered 0, skipped 18, events via module` — with **no
+register timeout**. The timeout is a plain `setTimeout`; it cannot fail to
+fire. So the handler never ran at all, by either route.
+
+The real cause is the generation token. `const gen = ++drainGenRef.current`
+was claimed at the top of the effect, before the guard that decides whether
+the run does any work. That effect re-runs constantly — its dependencies
+include `handleContractionUpdate`, whose identity changes with Clerk's
+`getToken` on every render — and each do-nothing re-run bumped the token,
+invalidating the one chain that was actually draining. It then abandoned
+itself at its first generation check, which returned before any counter, so
+the failure looked exactly like a promise that never settled.
+
+Eighteen skipped runs, one real chain, killed by all of them, on every launch
+since the feature shipped.
+
+Fixed in 1.0.19 by claiming the token only when the run proceeds past the
+guards, and by counting abandoned generations so the silent return can never
+impersonate something else again.
+
+The 1.0.18 changes were kept — they are correct on their own terms:
 
 1. The module is reached with `requireNativeModule`, the supported route.
 2. `setActiveWatchUser` and `acknowledgeContractionReceipt` return a value

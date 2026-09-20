@@ -125,6 +125,15 @@ export interface WatchBridgeCounts {
   registerTimeouts: number;
   /** Effect runs abandoned because this user had already been drained. */
   alreadyDrained: number;
+  /**
+   * Stages abandoned because the generation token moved under them.
+   *
+   * Silent until now, and the reason the drain looked like a stalled promise:
+   * the token was claimed before the guard that decides whether a run does any
+   * work, so every do-nothing re-run invalidated the one chain that was
+   * draining.
+   */
+  generationAbandoned: number;
   /** Drain attempts (getPendingContractionReceipts calls that resolved). */
   drains: number;
   /** Records the native store handed back across those drains. */
@@ -170,6 +179,7 @@ const zeroCounts = (): WatchBridgeCounts => ({
   registered: 0,
   registerTimeouts: 0,
   alreadyDrained: 0,
+  generationAbandoned: 0,
   drains: 0,
   returned: 0,
   skipped: 0,
@@ -239,6 +249,8 @@ export function watchBridgeSummary(c: WatchBridgeCounts): string | null {
     if (c.registerTimeouts > 0)
       stage.push(`register timeouts ${c.registerTimeouts}`);
     if (c.alreadyDrained > 0) stage.push(`skipped ${c.alreadyDrained}`);
+    if (c.generationAbandoned > 0)
+      stage.push(`abandoned ${c.generationAbandoned}`);
     if (c.listenerStrategy !== null)
       stage.push(`events via ${c.listenerStrategy}`);
     return `Watch records: no drain yet (${stage.join(", ")})`;
