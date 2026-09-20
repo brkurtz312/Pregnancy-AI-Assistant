@@ -191,3 +191,37 @@ describe("the register stall that broke Watch sync", () => {
     );
   });
 });
+
+describe("the generation token that killed every drain", () => {
+  beforeEach(() => {
+    __resetWatchBridgeCountsForTests();
+  });
+
+  it("reports a chain abandoned by a generation bump", () => {
+    // The device reading on 1.0.18: effect ran once, 18 do-nothing re-runs
+    // each bumped the generation token, and the one real chain abandoned
+    // itself at its first check — before any counter, which made it look like
+    // the register promise had never settled.
+    countWatchBridge({ effectRuns: 1, alreadyDrained: 18 });
+    countWatchBridge({ generationAbandoned: 1 });
+    countWatchBridge({ listenerStrategy: "module" });
+    expect(watchBridgeSummary(getWatchBridgeCounts())).toBe(
+      "Watch records: no drain yet (effect ran 1, registered 0, skipped 18, abandoned 1, events via module)",
+    );
+  });
+
+  it("distinguishes an abandoned chain from a stalled register", () => {
+    // Both read as "registered 0". Only one of them is a promise problem.
+    countWatchBridge({ effectRuns: 1, generationAbandoned: 1 });
+    const abandoned = watchBridgeSummary(getWatchBridgeCounts());
+
+    __resetWatchBridgeCountsForTests();
+    countWatchBridge({ effectRuns: 1, registerTimeouts: 1 });
+    const stalled = watchBridgeSummary(getWatchBridgeCounts());
+
+    expect(abandoned).toContain("abandoned 1");
+    expect(abandoned).not.toContain("register timeouts");
+    expect(stalled).toContain("register timeouts 1");
+    expect(stalled).not.toContain("abandoned");
+  });
+});

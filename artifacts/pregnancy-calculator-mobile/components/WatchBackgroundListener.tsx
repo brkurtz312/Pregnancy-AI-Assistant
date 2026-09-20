@@ -552,10 +552,6 @@ export function WatchBackgroundListener() {
       return;
     }
 
-    // Claim a generation token for this effect run.  Any async work started by
-    // a previous run will observe gen !== drainGenRef.current and abort.
-    const gen = ++drainGenRef.current;
-
     if (!isSignedIn || !userId) {
       // Signed out: deregister active user so incoming Watch deliveries are dropped.
       // No generation check needed — deregistration is always safe.
@@ -571,6 +567,20 @@ export function WatchBackgroundListener() {
     }
     countWatchBridge({ effectRuns: 1 });
     drainedForUserRef.current = userId;
+
+    // Claim a generation token for this effect run.  Any async work started by
+    // a previous run will observe gen !== drainGenRef.current and abort.
+    //
+    // Claimed HERE, not at the top of the effect. This effect re-runs
+    // constantly — its deps include handleContractionUpdate, whose identity
+    // changes with Clerk's getToken on every render — and the runs that
+    // return at the already-drained guard above do no work at all. Bumping
+    // the token on those runs invalidated the one chain that was actually
+    // draining, milliseconds after it started, on every launch. The drain
+    // then abandoned itself at its first generation check, before any
+    // counter, which is why it looked like the register promise had never
+    // settled. 18 skipped runs, one real chain, killed by all of them.
+    const gen = ++drainGenRef.current;
 
     // Stage 1: register the active user in the native bridge.
     //
@@ -594,7 +604,10 @@ export function WatchBackgroundListener() {
       ),
     ])
       .then((outcome: unknown) => {
-        if (drainGenRef.current !== gen) return;
+        if (drainGenRef.current !== gen) {
+          countWatchBridge({ generationAbandoned: 1 });
+          return;
+        }
         // The stage between "effect ran" and "drain ran". If this never
         // increments, setActiveWatchUser is where the chain stalls.
         if (outcome === registerTimedOut) {
@@ -628,7 +641,10 @@ export function WatchBackgroundListener() {
             interval?: number;
           }>
         > => {
-          if (drainGenRef.current !== gen) return Promise.resolve([]);
+          if (drainGenRef.current !== gen) {
+            countWatchBridge({ generationAbandoned: 1 });
+            return Promise.resolve([]);
+          }
           return mod
             .getPendingContractionReceipts()
             .then(
@@ -662,7 +678,10 @@ export function WatchBackgroundListener() {
             interval?: number;
           }>,
         ) => {
-          if (drainGenRef.current !== gen) return;
+          if (drainGenRef.current !== gen) {
+            countWatchBridge({ generationAbandoned: 1 });
+            return;
+          }
           for (const raw of records) {
             if (!raw.startedAt || !raw.endedAt) {
               // Was a bare `continue`: a record missing either field vanished
