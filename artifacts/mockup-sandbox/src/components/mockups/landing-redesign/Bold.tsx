@@ -215,7 +215,7 @@ export function Bold() {
               style={{ fontFamily: "'Playfair Display', serif" }}
               className="text-4xl font-bold bg-gradient-to-r from-[#f06292] to-[#f48fb1] bg-clip-text text-transparent mb-6"
             >
-              $14.99
+              $9.99
             </div>
             {[
               "Everything in free",

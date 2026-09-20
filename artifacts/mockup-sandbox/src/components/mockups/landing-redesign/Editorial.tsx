@@ -209,7 +209,7 @@ export function Editorial() {
                   style={{ fontFamily: "'Cormorant Garamond', serif" }}
                   className="text-3xl font-light"
                 >
-                  $14.99
+                  $9.99
                 </div>
               </div>
               {[
