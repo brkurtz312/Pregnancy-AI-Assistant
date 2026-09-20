@@ -11,6 +11,8 @@
  * itself being absent (e.g. Android).
  */
 
+import { countWatchBridge } from "@/lib/watch-bridge-log";
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Listener = (...args: any[]) => void;
 type Subscription = { remove: () => void };
@@ -149,6 +151,9 @@ function buildModule(): WatchConnectivityInterface {
         try {
           return emitter.addListener(event, cb);
         } catch {
+          // A dead subscription is silent forever: the live path simply never
+          // fires and nothing anywhere says why. Record it so the phone can.
+          countWatchBridge({ listenerFailed: true });
           return { remove: () => {} };
         }
       },

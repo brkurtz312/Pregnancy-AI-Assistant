@@ -104,3 +104,112 @@ export function __resetWatchBridgeFailureForTests(): void {
   last = null;
   listeners.clear();
 }
+
+// ─── Counting what succeeded ────────────────────────────────────────────────
+//
+// Recording failures was not enough. A drain that runs, returns nothing, and
+// reports no error is indistinguishable from a drain that returns records and
+// drops every one of them — and that is exactly the state the Watch->phone
+// defect left the app in on 20 Sep 2026: the Watch showed records
+// acknowledged, the phone showed no error, and nothing arrived.
+//
+// So count the successes too. A number that should be non-zero and is not
+// says more than any error message.
+
+export interface WatchBridgeCounts {
+  /** Drain attempts (getPendingContractionReceipts calls that resolved). */
+  drains: number;
+  /** Records the native store handed back across those drains. */
+  returned: number;
+  /** Records dropped before dispatch because a required field was missing. */
+  skipped: number;
+  /** Why the last skip happened, for when `skipped` is the non-zero number. */
+  lastSkipReason: string | null;
+  /** Records handed to the save path, whether from a drain or a live event. */
+  dispatched: number;
+  /** Live onContractionUpdate events received from the native bridge. */
+  live: number;
+  /** Saves that reached the API. */
+  saved: number;
+  /** Saves that fell back to the offline queue. */
+  queued: number;
+  /** Dispatches that returned early because JS considered itself signed out. */
+  droppedSignedOut: number;
+  /** True when attaching a native event listener threw — the live path is dead. */
+  listenerFailed: boolean;
+}
+
+const zeroCounts = (): WatchBridgeCounts => ({
+  drains: 0,
+  returned: 0,
+  skipped: 0,
+  lastSkipReason: null,
+  dispatched: 0,
+  live: 0,
+  saved: 0,
+  queued: 0,
+  droppedSignedOut: 0,
+  listenerFailed: false,
+});
+
+let counts: WatchBridgeCounts = zeroCounts();
+const countListeners = new Set<(c: WatchBridgeCounts) => void>();
+
+/** Adds to the counters. Safe to call from any thread of control. */
+export function countWatchBridge(change: Partial<WatchBridgeCounts>): void {
+  const next = { ...counts };
+  for (const [key, value] of Object.entries(change)) {
+    if (typeof value === "number") {
+      next[key as "drains"] += value;
+    } else if (typeof value === "boolean") {
+      next[key as "listenerFailed"] = value;
+    } else if (typeof value === "string" || value === null) {
+      next[key as "lastSkipReason"] = value;
+    }
+  }
+  counts = next;
+  for (const l of countListeners) l(next);
+}
+
+export function getWatchBridgeCounts(): WatchBridgeCounts {
+  return counts;
+}
+
+export function subscribeWatchBridgeCounts(
+  listener: (c: WatchBridgeCounts) => void,
+): () => void {
+  countListeners.add(listener);
+  return () => {
+    countListeners.delete(listener);
+  };
+}
+
+/**
+ * One line a person can read on a phone, or null when there is nothing to say.
+ *
+ * Deliberately leads with the number that is wrong. "3 found, 0 saved" is the
+ * whole diagnosis; a paragraph around it is not.
+ */
+export function watchBridgeSummary(c: WatchBridgeCounts): string | null {
+  if (c.listenerFailed)
+    return "Watch live updates unavailable (listener failed)";
+  if (c.returned === 0 && c.live === 0 && c.drains === 0) return null;
+
+  const parts = [`${c.returned} found`, `${c.saved} saved`];
+  if (c.queued > 0) parts.push(`${c.queued} queued offline`);
+  if (c.skipped > 0) {
+    parts.push(
+      `${c.skipped} skipped${c.lastSkipReason ? ` (${c.lastSkipReason})` : ""}`,
+    );
+  }
+  if (c.droppedSignedOut > 0)
+    parts.push(`${c.droppedSignedOut} dropped, signed out`);
+  if (c.live > 0) parts.push(`${c.live} live`);
+  return `Watch records: ${parts.join(", ")}`;
+}
+
+/** Test seam — module state would otherwise leak between cases. */
+export function __resetWatchBridgeCountsForTests(): void {
+  counts = zeroCounts();
+  countListeners.clear();
+}

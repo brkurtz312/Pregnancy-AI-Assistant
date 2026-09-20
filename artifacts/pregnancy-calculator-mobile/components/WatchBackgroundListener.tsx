@@ -19,6 +19,7 @@ import { Animated, Platform, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   clearWatchBridgeFailure,
+  countWatchBridge,
   getWatchBridgeFailure,
   recordWatchBridgeFailure,
 } from "@/lib/watch-bridge-log";
@@ -383,7 +384,12 @@ export function WatchBackgroundListener() {
 
   const handleContractionUpdate = useCallback(
     async (record: ContractionRecord, opts?: { nativeReceiptId?: string }) => {
-      if (!isSignedIn || !userId) return;
+      if (!isSignedIn || !userId) {
+        // Silent until now, and a real possibility: the record arrives while
+        // JS considers itself signed out, so nothing is saved and nothing says so.
+        countWatchBridge({ droppedSignedOut: 1 });
+        return;
+      }
       const capturedGen = getWatchQueueGeneration(userId);
 
       const token = await getToken();
@@ -432,6 +438,7 @@ export function WatchBackgroundListener() {
         // – the all-dates view in session-history.tsx (limit:200, no sessionDate)
         // React Query treats the base key as a prefix and invalidates every
         // matching query, so both screens update without a manual pull-to-refresh.
+        countWatchBridge({ saved: 1 });
         queryClient.invalidateQueries({
           queryKey: getListContractionsQueryKey(),
         });
@@ -467,6 +474,7 @@ export function WatchBackgroundListener() {
               ?.acknowledgeContractionReceipt(nativeId)
               ?.catch(() => {});
           }
+          countWatchBridge({ queued: 1 });
           showToast("Contraction saved locally — will sync when online", true);
         } catch {
           showToast(
@@ -575,10 +583,27 @@ export function WatchBackgroundListener() {
           }>
         > => {
           if (drainGenRef.current !== gen) return Promise.resolve([]);
-          return mod.getPendingContractionReceipts().catch((err: unknown) => {
-            recordWatchBridgeFailure("drain", err);
-            throw err;
-          });
+          return mod
+            .getPendingContractionReceipts()
+            .then(
+              (
+                records: Array<{
+                  id?: string;
+                  startedAt?: string;
+                  endedAt?: string;
+                  interval?: number;
+                }>,
+              ) => {
+                // A drain that returns nothing and reports no error used to be
+                // invisible. It is the single most useful number here.
+                countWatchBridge({ drains: 1, returned: records.length });
+                return records;
+              },
+            )
+            .catch((err: unknown) => {
+              recordWatchBridgeFailure("drain", err);
+              throw err;
+            });
         },
       )
       // Stage 3: dispatch — only if generation is still current.
@@ -593,7 +618,18 @@ export function WatchBackgroundListener() {
         ) => {
           if (drainGenRef.current !== gen) return;
           for (const raw of records) {
-            if (!raw.startedAt || !raw.endedAt) continue;
+            if (!raw.startedAt || !raw.endedAt) {
+              // Was a bare `continue`: a record missing either field vanished
+              // with no log, no toast and no counter, which is indistinguishable
+              // from an empty drain.
+              countWatchBridge({
+                skipped: 1,
+                lastSkipReason: !raw.startedAt
+                  ? "no start time"
+                  : "no end time",
+              });
+              continue;
+            }
             const record: ContractionRecord = {
               id: raw.id,
               startedAt: raw.startedAt,
@@ -602,6 +638,7 @@ export function WatchBackgroundListener() {
             };
             // Pass the native receipt ID so acknowledgeContractionReceipt fires
             // after the API save succeeds.
+            countWatchBridge({ dispatched: 1 });
             handleContractionUpdate(record, { nativeReceiptId: raw.id });
           }
         },
@@ -619,7 +656,12 @@ export function WatchBackgroundListener() {
     gestationalWeek,
     tips: watchTips,
     onKickSessionEnd: isSignedIn ? handleKickSessionEnd : undefined,
-    onContractionUpdate: isSignedIn ? handleContractionUpdate : undefined,
+    onContractionUpdate: isSignedIn
+      ? (record: ContractionRecord) => {
+          countWatchBridge({ live: 1, dispatched: 1 });
+          return handleContractionUpdate(record);
+        }
+      : undefined,
     onKickUpdate: isSignedIn ? handleKickUpdate : undefined,
   });
 
