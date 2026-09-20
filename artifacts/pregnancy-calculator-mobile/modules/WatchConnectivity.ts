@@ -11,6 +11,8 @@
  * itself being absent (e.g. Android).
  */
 
+import { countWatchBridge } from "@/lib/watch-bridge-log";
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Listener = (...args: any[]) => void;
 type Subscription = { remove: () => void };
@@ -123,6 +125,55 @@ function guarded<Args extends unknown[], R>(
   };
 }
 
+/**
+ * Attaches an event listener, coping with both Expo module event APIs.
+ *
+ * SDK 52 made a module defined with `Module { Events(...) }` an event emitter
+ * in its own right: `nativeModule.addListener(name, cb)` returns a
+ * subscription. The older route — `new EventEmitter(nativeModuleFromProxy)` —
+ * is deprecated, and on a module reached through `NativeModulesProxy` the
+ * `addListener` that exists is React Native's bridge stub, which takes only an
+ * event name, ignores the callback and returns nothing.
+ *
+ * Both shapes are therefore possible and only one delivers events. Function
+ * calls bridge fine either way, which is how this app reached the state where
+ * `setActiveWatchUser` worked, contraction receipts were acknowledged, and not
+ * one `onContractionUpdate` or `onWatchStateChange` event ever arrived.
+ *
+ * So: try the module's own `addListener` and accept it only if it hands back a
+ * real subscription. Otherwise fall back to the legacy emitter.
+ */
+function attachListener(
+  native: { addListener?: (e: string, cb: Listener) => unknown },
+  legacy: { addListener: (e: string, cb: Listener) => Subscription } | null,
+  event: string,
+  cb: Listener,
+): { subscription: Subscription; strategy: "module" | "emitter" | "none" } {
+  if (typeof native?.addListener === "function") {
+    try {
+      const sub = native.addListener(event, cb) as Subscription | undefined;
+      if (sub && typeof sub.remove === "function") {
+        return { subscription: sub, strategy: "module" };
+      }
+      // A return value without `remove` is the bridge stub: it registered
+      // nothing. Fall through rather than trust it.
+    } catch {
+      // Fall through to the legacy emitter.
+    }
+  }
+  if (legacy) {
+    try {
+      return {
+        subscription: legacy.addListener(event, cb),
+        strategy: "emitter",
+      };
+    } catch {
+      // Fall through to the dead subscription below.
+    }
+  }
+  return { subscription: { remove: () => {} }, strategy: "none" };
+}
+
 function buildModule(): WatchConnectivityInterface {
   try {
     // These are always available at runtime in an Expo binary
@@ -130,7 +181,14 @@ function buildModule(): WatchConnectivityInterface {
     const native = NativeModulesProxy.WatchConnectivity;
     if (!native) return stub;
 
-    const emitter = new EventEmitter(native);
+    let emitter: {
+      addListener: (e: string, cb: Listener) => Subscription;
+    } | null = null;
+    try {
+      emitter = new EventEmitter(native);
+    } catch {
+      emitter = null;
+    }
     return {
       sendTips: guarded(native, "sendTips", stub.sendTips),
       sendGestationalWeek: guarded(
@@ -146,11 +204,19 @@ function buildModule(): WatchConnectivityInterface {
         stub.getActivationDiagnostic,
       ),
       addListener: (event: string, cb: Listener) => {
-        try {
-          return emitter.addListener(event, cb);
-        } catch {
-          return { remove: () => {} };
-        }
+        const { subscription, strategy } = attachListener(
+          native,
+          emitter,
+          event,
+          cb,
+        );
+        // A dead subscription is silent forever: the live path simply never
+        // fires and nothing anywhere says why. Record it so the phone can.
+        countWatchBridge({
+          listenerStrategy: strategy,
+          listenerFailed: strategy === "none",
+        });
+        return subscription;
       },
       signOut: guarded(native, "signOut", stub.signOut),
       getPendingContractionReceipts: guarded(

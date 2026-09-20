@@ -46,7 +46,11 @@ import {
   useWatchConnectivity,
   type WatchTip,
 } from "@/hooks/useWatchConnectivity";
-import { useWatchBridgeFailure } from "@/hooks/useWatchBridgeFailure";
+import {
+  useWatchBridgeCounts,
+  useWatchBridgeFailure,
+} from "@/hooks/useWatchBridgeFailure";
+import { watchBridgeSummary } from "@/lib/watch-bridge-log";
 import { calculateByDueDate } from "@/lib/pregnancy-math";
 import { getWeeklyTips } from "@/lib/watch-tips";
 import {
@@ -2041,6 +2045,7 @@ export default function ToolsScreen() {
   // end, contraction update) is done by WatchBackgroundListener in the root
   // layout so data is saved regardless of which tab is active.
   const watchBridgeFailure = useWatchBridgeFailure();
+  const watchBridgeCounts = useWatchBridgeCounts();
   const { watchStatus, watchDiagnostic } = useWatchConnectivity({
     gestationalWeek,
     tips: watchTips,
@@ -2227,6 +2232,22 @@ export default function ToolsScreen() {
                   }}
                 >
                   {watchBridgeFailure.message}
+                </Text>
+              )}
+              {/* The counts, not just the failures. A drain that returns
+                  records and saves none reports no error at all, which is the
+                  shape the Watch->phone defect actually had. */}
+              {watchBridgeSummary(watchBridgeCounts) !== null && (
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontFamily: "Inter_400Regular",
+                    color: colors.mutedForeground,
+                    marginTop: -2,
+                    marginBottom: 4,
+                  }}
+                >
+                  {watchBridgeSummary(watchBridgeCounts)}
                 </Text>
               )}
               {/* Show the raw session diagnostic whenever something is wrong,

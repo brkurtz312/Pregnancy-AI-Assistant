@@ -27,6 +27,16 @@ export interface WhatsNewEntry {
  * the build before it reaches the App Store.
  */
 export const WHATS_NEW: Record<string, WhatsNewEntry> = {
+  "1.0.16": {
+    headline: "Chasing the Watch sync problem",
+    items: [
+      {
+        icon: "search-outline",
+        title: "More Detail On Watch Records",
+        body: "The Tools screen now reports how many contraction records arrived from the Watch and how many were saved. If the two numbers disagree, it says why \u2014 which is the part that has been invisible while this problem has been chased.",
+      },
+    ],
+  },
   "1.0.15": {
     headline: "Buying the pass, and the Watch",
     items: [
