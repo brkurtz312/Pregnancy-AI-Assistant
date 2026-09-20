@@ -27,6 +27,16 @@ export interface WhatsNewEntry {
  * the build before it reaches the App Store.
  */
 export const WHATS_NEW: Record<string, WhatsNewEntry> = {
+  "1.0.18": {
+    headline: "Watch recordings reach your phone",
+    items: [
+      {
+        icon: "watch-outline",
+        title: "Contractions From the Watch Now Save",
+        body: "Contraction sessions recorded on the Apple Watch were reaching your phone and being stored, but the step that saved them to your log never ran \u2014 so they never appeared. They do now, including any the Watch has been holding.",
+      },
+    ],
+  },
   "1.0.17": {
     headline: "Watch connection status is live",
     items: [

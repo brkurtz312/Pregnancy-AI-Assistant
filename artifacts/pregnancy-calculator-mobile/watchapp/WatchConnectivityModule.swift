@@ -57,8 +57,15 @@ public class WatchConnectivityModule: Module {
         // Without the active user set, late Watch `transferUserInfo` deliveries that
         // arrive after sign-out are silently dropped instead of being attributed to the
         // next account (cross-account health-data isolation).
-        AsyncFunction("setActiveWatchUser") { (userId: String?) in
+        AsyncFunction("setActiveWatchUser") { (userId: String?) -> Bool in
             PhoneWatchBridge.shared.setActiveUserId(userId)
+            // Returns a value deliberately. A Void-returning AsyncFunction
+            // reached through the deprecated NativeModulesProxy leaves its JS
+            // promise unsettled: the native work happens — records are
+            // persisted and acknowledged — but `await` never returns, so the
+            // drain chained behind it never ran. That was the Watch sync
+            // defect. See docs/app-review-notes.md.
+            return true
         }
 
         // Called by JS at launch to drain contraction records that the phone persisted
@@ -72,8 +79,9 @@ public class WatchConnectivityModule: Module {
         // Called by JS once a contraction record has been durably saved (to the API or
         // an offline queue that guarantees eventual delivery) so the phone's native
         // pending store can be cleared and the record is not replayed on next launch.
-        AsyncFunction("acknowledgeContractionReceipt") { (id: String) in
+        AsyncFunction("acknowledgeContractionReceipt") { (id: String) -> Bool in
             PhoneWatchBridge.shared.acknowledgeContractionReceipt(id: id)
+            return true
         }
 
         Events("onKickSessionEnd", "onContractionUpdate", "onKickUpdate", "onWatchStateChange", "onSyncRequest")
