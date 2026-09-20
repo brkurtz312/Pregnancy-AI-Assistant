@@ -157,3 +157,37 @@ describe("which event API attached", () => {
     );
   });
 });
+
+describe("the register stall that broke Watch sync", () => {
+  beforeEach(() => {
+    __resetWatchBridgeCountsForTests();
+  });
+
+  it("reports a register that never resolved", () => {
+    // The real reading from a device on 20 Sep 2026: the effect ran once,
+    // setActiveWatchUser never settled, and all 28 later effect runs hit the
+    // already-drained guard. The drain never ran in any session.
+    countWatchBridge({ effectRuns: 1, alreadyDrained: 28 });
+    countWatchBridge({ listenerStrategy: "emitter" });
+    expect(watchBridgeSummary(getWatchBridgeCounts())).toBe(
+      "Watch records: no drain yet (effect ran 1, registered 0, skipped 28, events via emitter)",
+    );
+  });
+
+  it("reports when the timeout let the drain go ahead anyway", () => {
+    countWatchBridge({ effectRuns: 1, registerTimeouts: 1 });
+    expect(watchBridgeSummary(getWatchBridgeCounts())).toContain(
+      "register timeouts 1",
+    );
+  });
+
+  it("a timed-out register still reaches the drain", () => {
+    // The point of the timeout: the chain continues, so found/saved replaces
+    // "no drain yet" entirely.
+    countWatchBridge({ effectRuns: 1, registerTimeouts: 1 });
+    countWatchBridge({ drains: 1, returned: 2, dispatched: 2, saved: 2 });
+    expect(watchBridgeSummary(getWatchBridgeCounts())).toBe(
+      "Watch records: 2 found, 2 saved",
+    );
+  });
+});

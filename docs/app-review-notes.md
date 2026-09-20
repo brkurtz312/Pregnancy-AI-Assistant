@@ -135,10 +135,31 @@ Watch app:
   returns `true` — after the write, and only with an `activeUserId` set. The
   records do reach the bridge and are stored.
 
-That conclusion — "the break is at or below the native layer" — was drawn from
-the same wrong premise and does not survive it. Delivery works; the record is
-on the phone. What is unproven is everything after: the drain that reads the
-native store has not been observed completing even once.
+**Found, 20 Sep 2026.** The drain never ran. Not once, in any session.
+
+The device reported: `effect ran 1, registered 0, skipped 28`. The effect that
+reads the native receipt store ran once and stopped at its first step —
+`await setActiveWatchUser(userId)`, whose promise never settled. Every later
+effect run hit the already-drained guard and returned, 28 times.
+
+The native side was unaffected throughout: `setActiveUserId` is synchronous, so
+the active user was set, records were persisted and acknowledged, and the Watch
+was told everything had worked. Only the JavaScript `await` never returned, and
+the drain chained behind it never ran.
+
+The cause is the deprecated `NativeModulesProxy`. On Expo SDK 54 a
+`Void`-returning `AsyncFunction` reached through it leaves its JS promise
+unsettled. `getSessionState` returns a value and resolved fine, which is why
+the connectivity badge worked while the drain did not — the same module, the
+same bridge, different return types.
+
+Fixed three ways in 1.0.18, because one was not enough to trust:
+
+1. The module is reached with `requireNativeModule`, the supported route.
+2. `setActiveWatchUser` and `acknowledgeContractionReceipt` return a value
+   rather than `Void`.
+3. The register step is raced against a one-second timeout, so a promise that
+   does not settle can never block the drain again, whatever the reason.
 
 **It is not a regression from the September 2026 Clerk migration.** Nothing in
 that work touches WCSession, and the Watch holds records in its retry queue —

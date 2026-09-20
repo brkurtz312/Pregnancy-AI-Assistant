@@ -121,6 +121,8 @@ export interface WatchBridgeCounts {
   effectRuns: number;
   /** Times setActiveWatchUser resolved — the stage before the drain. */
   registered: number;
+  /** Times it did not resolve within the timeout and the drain went ahead. */
+  registerTimeouts: number;
   /** Effect runs abandoned because this user had already been drained. */
   alreadyDrained: number;
   /** Drain attempts (getPendingContractionReceipts calls that resolved). */
@@ -166,6 +168,7 @@ export interface WatchBridgeCounts {
 const zeroCounts = (): WatchBridgeCounts => ({
   effectRuns: 0,
   registered: 0,
+  registerTimeouts: 0,
   alreadyDrained: 0,
   drains: 0,
   returned: 0,
@@ -233,6 +236,8 @@ export function watchBridgeSummary(c: WatchBridgeCounts): string | null {
     const stage: string[] = [];
     stage.push(`effect ran ${c.effectRuns}`);
     stage.push(`registered ${c.registered}`);
+    if (c.registerTimeouts > 0)
+      stage.push(`register timeouts ${c.registerTimeouts}`);
     if (c.alreadyDrained > 0) stage.push(`skipped ${c.alreadyDrained}`);
     if (c.listenerStrategy !== null)
       stage.push(`events via ${c.listenerStrategy}`);

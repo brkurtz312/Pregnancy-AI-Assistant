@@ -177,8 +177,22 @@ function attachListener(
 function buildModule(): WatchConnectivityInterface {
   try {
     // These are always available at runtime in an Expo binary
-    const { NativeModulesProxy, EventEmitter } = require("expo-modules-core");
-    const native = NativeModulesProxy.WatchConnectivity;
+    const core = require("expo-modules-core");
+    const { NativeModulesProxy, EventEmitter, requireNativeModule } = core;
+
+    // Prefer requireNativeModule. NativeModulesProxy is deprecated, and on
+    // SDK 54 a Void-returning AsyncFunction reached through it leaves its JS
+    // promise unsettled — the native work runs, `await` never returns. That
+    // is what stopped the Watch contraction drain from running at all: it sat
+    // behind `await setActiveWatchUser(...)`. The Swift side now returns a
+    // value too, so either route works; this one is the supported one.
+    let native: unknown = null;
+    try {
+      native = requireNativeModule?.("WatchConnectivity") ?? null;
+    } catch {
+      native = null;
+    }
+    if (!native) native = NativeModulesProxy?.WatchConnectivity ?? null;
     if (!native) return stub;
 
     let emitter: {
@@ -189,15 +203,25 @@ function buildModule(): WatchConnectivityInterface {
     } catch {
       emitter = null;
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const nativeAny = native as any;
     return {
-      sendTips: guarded(native, "sendTips", stub.sendTips),
+      sendTips: guarded(nativeAny, "sendTips", stub.sendTips),
       sendGestationalWeek: guarded(
         native,
         "sendGestationalWeek",
         stub.sendGestationalWeek,
       ),
-      sendWeekAndTips: guarded(native, "sendWeekAndTips", stub.sendWeekAndTips),
-      getSessionState: guarded(native, "getSessionState", stub.getSessionState),
+      sendWeekAndTips: guarded(
+        nativeAny,
+        "sendWeekAndTips",
+        stub.sendWeekAndTips,
+      ),
+      getSessionState: guarded(
+        nativeAny,
+        "getSessionState",
+        stub.getSessionState,
+      ),
       getActivationDiagnostic: guarded(
         native,
         "getActivationDiagnostic",
@@ -205,7 +229,7 @@ function buildModule(): WatchConnectivityInterface {
       ),
       addListener: (event: string, cb: Listener) => {
         const { subscription, strategy } = attachListener(
-          native,
+          nativeAny,
           emitter,
           event,
           cb,
@@ -218,7 +242,7 @@ function buildModule(): WatchConnectivityInterface {
         });
         return subscription;
       },
-      signOut: guarded(native, "signOut", stub.signOut),
+      signOut: guarded(nativeAny, "signOut", stub.signOut),
       getPendingContractionReceipts: guarded(
         native,
         "getPendingContractionReceipts",

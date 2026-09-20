@@ -71,6 +71,12 @@ interface WatchToastState {
 }
 
 /** Height of the native bottom tab bar (pt). */
+/**
+ * How long to wait for setActiveWatchUser before draining anyway. The native
+ * body is synchronous; a promise still pending after this is not coming back.
+ */
+const REGISTER_TIMEOUT_MS = 1000;
+
 const TAB_BAR_HEIGHT = 49;
 /** Extra breathing room above the tab bar (pt). */
 const TOAST_MARGIN = 8;
@@ -568,17 +574,35 @@ export function WatchBackgroundListener() {
 
     // Stage 1: register the active user in the native bridge.
     //
+    // Raced against a timeout, because this promise not settling is exactly
+    // what broke Watch sync: the native side set the active user and went on
+    // acknowledging records, while `await` here never returned and the drain
+    // chained behind it never ran once in any session. The native work is
+    // synchronous, so a promise still pending after a second is not coming
+    // back, and proceeding beats stalling forever.
+    //
     // This stage failing is the quiet catastrophe: the bridge keeps
     // activeUserId == nil, persistContractionReceipt refuses every record and
     // withholds the ack, and the Watch retries forever while the phone log
     // stays empty. Surface it instead of continuing as if it had worked.
-    (mod.setActiveWatchUser(userId) ?? Promise.resolve())
-      .then(() => {
+    const registerTimedOut = Symbol("register-timeout");
+    const register = mod.setActiveWatchUser(userId) ?? Promise.resolve();
+    Promise.race([
+      register,
+      new Promise((resolve) =>
+        setTimeout(() => resolve(registerTimedOut), REGISTER_TIMEOUT_MS),
+      ),
+    ])
+      .then((outcome: unknown) => {
         if (drainGenRef.current !== gen) return;
         // The stage between "effect ran" and "drain ran". If this never
         // increments, setActiveWatchUser is where the chain stalls.
-        countWatchBridge({ registered: 1 });
-        clearWatchBridgeFailure();
+        if (outcome === registerTimedOut) {
+          countWatchBridge({ registerTimeouts: 1 });
+        } else {
+          countWatchBridge({ registered: 1 });
+          clearWatchBridgeFailure();
+        }
       })
       .catch((err: unknown) => {
         if (drainGenRef.current !== gen) return;
