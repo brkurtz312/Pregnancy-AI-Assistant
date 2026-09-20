@@ -1,15 +1,18 @@
-import { useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { useAuth, Show } from "@clerk/react";
 import {
   Check,
   ArrowRight,
   Infinity as InfinityIcon,
-  Loader2,
   Crown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePass } from "@/hooks/use-pass";
+import {
+  ALREADY_PURCHASED_HINT,
+  APP_STORE_URL,
+  GET_PASS_LABEL,
+} from "@/lib/app-store";
 
 const FREE_FEATURES = [
   "All four calculation methods (LMP, due date, conception, ultrasound)",
@@ -48,47 +51,9 @@ const HIGHLIGHTS = [
   },
 ];
 
-const START_CHECKOUT_PARAM = "start_checkout";
-
 export default function LandingPage() {
   const { isSignedIn } = useAuth();
-  const { startCheckout, isStartingCheckout, hasPass } = usePass();
-  const autoCheckoutFired = useRef(false);
-
-  useEffect(() => {
-    if (!isSignedIn || autoCheckoutFired.current) return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get(START_CHECKOUT_PARAM) !== "1") return;
-
-    autoCheckoutFired.current = true;
-
-    params.delete(START_CHECKOUT_PARAM);
-    const query = params.toString();
-    window.history.replaceState(
-      {},
-      "",
-      window.location.pathname +
-        (query ? `?${query}` : "") +
-        window.location.hash,
-    );
-
-    startCheckout();
-  }, [isSignedIn, startCheckout]);
-
-  function handleGetPass() {
-    if (isSignedIn) {
-      startCheckout();
-    } else {
-      const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-      const returnUrl =
-        window.location.pathname +
-        (window.location.search
-          ? `${window.location.search}&${START_CHECKOUT_PARAM}=1`
-          : `?${START_CHECKOUT_PARAM}=1`) +
-        window.location.hash;
-      window.location.href = `${basePath}/sign-in?redirect_url=${encodeURIComponent(returnUrl)}`;
-    }
-  }
+  const { hasPass } = usePass();
 
   return (
     <div className="min-h-screen bg-[#fdf6f0] text-[#2d1f1a] overflow-x-hidden selection:bg-[#c96b6b]/20">
@@ -350,25 +315,19 @@ export default function LandingPage() {
             ) : (
               <>
                 <Button
+                  asChild
                   size="lg"
-                  onClick={handleGetPass}
-                  disabled={isStartingCheckout}
-                  className="relative w-full rounded-2xl gap-2 bg-white text-[#c96b6b] hover:bg-[#fdf6f0] font-semibold shadow-sm border-0 disabled:opacity-70"
+                  className="relative w-full rounded-2xl gap-2 bg-white text-[#c96b6b] hover:bg-[#fdf6f0] font-semibold shadow-sm border-0"
                   data-testid="button-plan-pass"
                 >
-                  {isStartingCheckout ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Redirecting…
-                    </>
-                  ) : (
-                    <>Get the Full Pass →</>
-                  )}
+                  <a href={APP_STORE_URL} target="_blank" rel="noreferrer">
+                    {GET_PASS_LABEL} →
+                  </a>
                 </Button>
                 <p className="relative text-center text-xs text-white/60">
                   {isSignedIn
-                    ? "One-time payment — your pass follows your account across every device."
-                    : "Sign in to unlock — your pass follows your account across every device."}
+                    ? "One-time payment in the App Store — your pass follows your account across every device."
+                    : ALREADY_PURCHASED_HINT}
                 </p>
               </>
             )}

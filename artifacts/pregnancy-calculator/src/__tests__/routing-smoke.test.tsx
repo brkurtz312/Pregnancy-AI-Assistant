@@ -36,8 +36,6 @@ vi.mock("@/hooks/use-pass", () => ({
     hasPass: false,
     freeRemaining: 5,
     freeLimit: 5,
-    startCheckout: vi.fn(),
-    isStartingCheckout: false,
   })),
   PassProvider: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>

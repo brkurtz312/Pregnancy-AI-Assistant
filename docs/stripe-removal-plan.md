@@ -1,39 +1,60 @@
-# Removing the Stripe integration
+# Removing web purchasing
 
-A decision document, not a commitment. It describes what leaving Stripe for
-RevenueCat Web Billing would involve, what it would delete, and what it would
-cost — so the choice can be made on the actual shape of the work.
+**Decided 20 Sep 2026: the web app stops selling the pass. It is not moving to
+another processor.** Purchases happen in the App Store, through Apple's in-app
+purchase, and later through Google Play when an Android build ships. The web
+app keeps every free feature, keeps sign-in, and recognises a pass bought on a
+phone.
 
-**Nothing here has been done.** Read the last section before the first.
-
----
-
-## Why this is worth considering now
-
-Stripe has no live payments. Checked 19 Sep 2026: the only charges are Bryan's
-own tests, and the Replit Stripe connection is still on a sandbox. So there is
-nothing to migrate and no customer to disrupt — a window that closes the day
-the first real web payment lands.
-
-Meanwhile the Stripe integration is the most Replit-entangled part of the
-codebase. `stripe-replit-sync` is a Replit-authored package that **owns a
-Postgres schema**: it creates the `stripe.*` tables, writes to them from the
-webhook, and stores the webhook signing secret in
-`stripe._managed_webhooks`. Phase 0 of the exit plan called it "the real work
-item". Removing the Stripe integration removes it, and with it:
-
-- the `stripe.*` schema question hanging over the database migration
-- the signing secret that lives in a database row and does not travel with a
-  `--schema=public` dump
-- a Replit dependency in a project whose current purpose is leaving Replit
-
-RevenueCat already handles every purchase that carries money — all of them are
-App Store purchases. Web Billing supports one-time non-consumable products, so
-the Full Pregnancy Pass fits its model without redesign.
+This document was written as an open question — Stripe, or RevenueCat Web
+Billing? The answer turned out to be neither.
 
 ---
 
-## What Stripe does today
+## Why removal beat migration
+
+The original plan compared Stripe against RevenueCat Web Billing. Both keep a
+web purchase path, and both carry a cost:
+
+- **Keeping Stripe** keeps `stripe-replit-sync`, a Replit-authored package that
+  **owns a Postgres schema**. It creates the `stripe.*` tables, writes to them
+  from the webhook, and stores the webhook signing secret in
+  `stripe._managed_webhooks` — a secret that lives in a database row and does
+  not travel with a `--schema=public` dump. Phase 0 of the exit plan called it
+  "the real work item".
+- **Moving to RevenueCat Web Billing** means a new vendor dependency for every
+  payment path, a web rewrite, a mobile release, an adoption wait, and two
+  questions nobody had answered: Apple's rules on external purchase links, and
+  whether their Web SDK fits this app's architecture.
+
+Removing web purchasing costs neither. It answers the Apple question by
+deleting the external purchase link rather than defending it, and it removes
+the Replit entanglement outright instead of trading it for something else.
+
+The timing was the deciding factor. Checked 19 Sep 2026: Stripe has no live
+payments — the only charges are Bryan's own tests, and the Replit Stripe
+connection is still on a sandbox. So there is no customer to disrupt and
+nothing to migrate. That window closes the day the first real web payment
+lands, which is an argument for acting, not for waiting.
+
+## What it costs
+
+**Someone without an iPhone cannot buy the pass.** A visitor on Android or a
+desktop gets the free tier and a pointer to the App Store, until an Android
+build ships. That is the whole cost, and it was accepted deliberately: the web
+app is not expected to carry meaningful traffic, and the product's attention
+belongs on the store apps.
+
+Everything else survives:
+
+- A pass bought on a phone is **active on the web**. Entitlement lives in
+  `users.has_pass`, against the account, not the device.
+- The **redeem-code** path is untouched. It is what App Review and support use.
+- Free features, sign-in, and cross-device sync are unaffected.
+
+---
+
+## What Stripe did
 
 Two purchase paths, one entitlement:
 
@@ -42,11 +63,11 @@ Two purchase paths, one entitlement:
 | iOS  | Apple IAP → RevenueCat | `/billing/revenuecat/reconcile` (a pull)            |
 | Web  | Stripe Checkout        | `/api/stripe/webhook` (a push) + `/billing/confirm` |
 
-The mobile app offers both: a native in-app purchase when RevenueCat offerings
+The mobile app offered both: a native in-app purchase when RevenueCat offerings
 load, and **web Stripe checkout as the fallback when they do not**
-(`AccountSheet.tsx`, `PassGate.tsx`). That fallback is the one piece of user
--facing behaviour this change would remove, and it is dealt with under
-Sequencing.
+(`AccountSheet.tsx`, `PassGate.tsx`). That fallback is the one piece of
+user-facing behaviour this removes, and it is why the sequencing below is not
+simply "delete it".
 
 Entitlement lives in `users.has_pass`, with a fallback in `entitlement.ts`:
 
@@ -55,14 +76,44 @@ SELECT 1 FROM stripe.payment_intents
 WHERE customer = $1 AND status = 'succeeded'
 ```
 
-That fallback exists because a webhook can be missed. It is the safety net that
-catches a payment the push path dropped.
+That fallback existed because a webhook can be missed. Its replacement already
+exists: `/billing/revenuecat/reconcile` asks RevenueCat directly whether a user
+holds the entitlement. It is a pull rather than a push, which is the more
+robust of the two — it cannot be missed, only delayed until the next call.
 
 ---
 
-## What would change
+## Sequencing
 
-### Server — deletions
+The order matters because there must never be a moment where a paying user is
+stranded, or a shipped build has a button pointing at a route that no longer
+exists.
+
+1. **Web app stops selling.** ✅ Done 20 Sep 2026. `startCheckout` is gone from
+   `use-pass.tsx`; the four CTAs (landing, account bar, AI assistant, Scribe)
+   link to the App Store. The `?checkout=success` return handler stays for now,
+   so a checkout already in flight across the deploy still completes.
+   Reversible, and no server change.
+2. **Ship a mobile build** whose fallback no longer points at
+   `/billing/checkout`. This is a build and a release, so it is the long pole.
+   It can ride the same build as the Watch delivery instrumentation.
+3. **Wait for adoption** of that build. Older installs still call
+   `/billing/checkout`; deleting the route before then strands them with a
+   button that fails.
+4. **Delete the server code, routes, dependencies and tests.**
+5. **Drop the `stripe.*` schema** once nothing queries it.
+
+Steps 1–2 are reversible. Step 4 is the commitment.
+
+While doing step 4, make the reconcile endpoint callable on demand rather than
+only immediately after a purchase, so a user whose grant was missed can recover
+without support.
+
+---
+
+## What step 4 deletes
+
+### Server
 
 | File                                        | Lines | Note                                     |
 | ------------------------------------------- | ----- | ---------------------------------------- |
@@ -70,7 +121,7 @@ catches a payment the push path dropped.
 | `src/lib/stripe-init.ts`                    | 48    | runs `runMigrations`, creates `stripe.*` |
 | Webhook handler in `src/app.ts`             | 134   |                                          |
 | `scripts/src/stripeClient.ts`               | 78    |                                          |
-| `scripts/src/seed-products.ts`              | —     | creates the $9.99 Stripe product         |
+| `scripts/src/seed-products.ts`              | —     | created the $9.99 Stripe product         |
 | `tests/stripe-checkout-integration.test.ts` | 777   |                                          |
 | `tests/stripe-webhook.test.ts`              | 82    |                                          |
 
@@ -79,90 +130,33 @@ generated client hooks (`useCreateCheckout`, `useConfirmCheckout`).
 
 Dependencies dropped: `stripe`, `stripe-replit-sync`.
 
-### Server — the part that is not deletion
-
 `entitlement.ts` loses its `stripe.payment_intents` fallback, so `has_pass`
-becomes the sole record of ownership. The replacement safety net already
-exists: `/billing/revenuecat/reconcile` asks RevenueCat directly whether a user
-holds the entitlement, and grants the pass when it does. It is a pull rather
-than a push, which is the more robust of the two — it cannot be missed, only
-delayed until the next call.
-
-Worth making explicit while doing this: the reconcile endpoint should be
-callable on demand, not only immediately after a purchase, so a user whose
-grant was missed can recover without support.
+becomes the sole record of ownership, backed by reconcile.
 
 ### Web app
 
-`use-pass.tsx` currently redirects to Stripe Checkout and handles the
-`?checkout=success` return. That becomes a RevenueCat Web SDK purchase or a Web
-Purchase Link. The `?checkout=success` return handling can go.
+The `?checkout=success` handling in `use-pass.tsx`, along with `justPurchased`
+and `dismissJustPurchased` if nothing else uses them by then.
 
 ### Mobile app
 
-`usePass.ts`'s `startCheckout` and its two call sites lose their target. See
-Sequencing — this needs care, not just deletion.
+`usePass.ts`'s `startCheckout` and its two call sites. Step 2, not step 4.
 
 ### Database
 
 - `stripe.*` schema: no longer created. Existing tables can be dropped once
   nothing reads them.
-- `users.stripe_customer_id`: unused. Leave the column in place initially;
-  dropping it is a separate migration with nothing to gain by rushing.
+- `users.stripe_customer_id`: unused. Leave the column initially; dropping it
+  is a separate migration with nothing to gain by rushing.
 
 ---
 
-## Sequencing
+## Android
 
-The order matters because there must never be a moment with no way to buy.
+An Android build is under discussion. It changes nothing here: Play Store
+purchases go through RevenueCat exactly as Apple's do, and the
+`EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY` plumbing already exists. Two store
+purchase paths, one entitlement, still no web payments.
 
-1. **Set up Web Billing in RevenueCat.** Create the one-time non-consumable
-   product at $9.99, attached to the _same entitlement_ the iOS product uses.
-   Same entitlement is the whole point: `has_pass` stays one flag, and a user
-   who bought on the web is recognised on their phone.
-2. **Verify a real web purchase end to end** against the new product, in
-   RevenueCat's test mode, confirming the entitlement appears and
-   `/billing/revenuecat/reconcile` grants the pass.
-3. **Switch the web app** to the RevenueCat purchase flow. Stripe checkout is
-   still live at this point; nothing has been deleted.
-4. **Ship a mobile build** whose fallback path points at the new web flow
-   rather than Stripe checkout. This is a build and a release, so it is the
-   long pole.
-5. **Wait for adoption** of that build before deleting anything. Older installs
-   still call `/billing/checkout`; deleting the route strands them with a
-   button that fails.
-6. **Delete the server code, routes, dependencies and tests.**
-7. **Drop the `stripe.*` schema** once nothing queries it.
-
-Steps 1–3 are reversible. Step 6 is the commitment.
-
----
-
-## What this does not resolve, and what I do not know
-
-- **Apple's rules on external purchase links.** The mobile app currently sends
-  users to a web checkout. That was historically forbidden and the position has
-  changed recently in the US; the app is approved as it stands. Whether the
-  replacement flow is equally acceptable is a compliance question I have not
-  verified, and it should be answered before step 4 rather than discovered in
-  review.
-- **RevenueCat's web fees**, on top of Stripe's, which remains the processor
-  underneath. Small in absolute terms at current volume, but real. Check their
-  pricing rather than taking a number from here.
-- **Whether the RevenueCat Web SDK fits the web app's architecture.** I have
-  not read its integration requirements.
-
----
-
-## The case for not doing this
-
-- Stripe Checkout works and is well understood. RevenueCat Web Billing is
-  newer, and moving means depending on one vendor for every payment path.
-- It is a real amount of work — a mobile release, a web change, and a waiting
-  period — for a payment path that currently earns nothing.
-- Keeping Stripe means keeping `stripe-replit-sync`, but that package can be
-  replaced with direct Stripe SDK calls later without touching the purchase
-  flow. The Replit entanglement is removable without removing Stripe.
-
-The strongest argument for acting now is timing rather than urgency: no live
-payments means no risk, and that is not a permanent condition.
+If anything, it shortens the cost above: the visitor who cannot buy today is
+largely the Android visitor.

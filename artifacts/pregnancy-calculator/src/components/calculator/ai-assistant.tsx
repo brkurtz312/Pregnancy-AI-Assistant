@@ -11,6 +11,7 @@ import {
 import { Show } from "@clerk/react";
 import { Link } from "wouter";
 import { usePass } from "@/hooks/use-pass";
+import { APP_STORE_URL, GET_PASS_LABEL } from "@/lib/app-store";
 import {
   Sparkles,
   MessageCircle,
@@ -50,8 +51,6 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
     freeRemaining,
     freeLimit,
     freeUsed,
-    startCheckout,
-    isStartingCheckout,
     refresh,
     justPurchased,
     dismissJustPurchased,
@@ -299,19 +298,20 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
                 <span className="font-medium text-foreground">
                   Full Pregnancy Pass
                 </span>{" "}
-                for unlimited questions — a one-time $9.99, tied to your account
-                and available on every device. Free questions reset each Monday
-                if you'd rather wait.
+                for unlimited questions — a one-time $9.99 in the App Store,
+                tied to your account and available on every device. Free
+                questions reset each Monday if you'd rather wait.
               </p>
               <Show when="signed-in">
                 <Button
-                  onClick={startCheckout}
-                  disabled={isStartingCheckout}
+                  asChild
                   className="gap-1.5 rounded-full w-full sm:w-auto"
                   data-testid="button-unlock-pass-inline"
                 >
-                  <Sparkles className="w-4 h-4" />
-                  Unlock Full Pass — $9.99
+                  <a href={APP_STORE_URL} target="_blank" rel="noreferrer">
+                    <Sparkles className="w-4 h-4" />
+                    {GET_PASS_LABEL} — $9.99
+                  </a>
                 </Button>
               </Show>
               <Show when="signed-out">
@@ -323,7 +323,8 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
                   >
                     Sign in
                   </Link>{" "}
-                  to unlock the pass and keep your access across devices.
+                  to keep your access across devices. The pass is bought in the
+                  App Store and follows your account.
                 </p>
               </Show>
             </div>

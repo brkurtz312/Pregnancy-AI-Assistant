@@ -87,8 +87,6 @@ vi.mock("@/hooks/use-pass", () => ({
     hasPass: false,
     freeRemaining: 3,
     freeLimit: 5,
-    startCheckout: vi.fn(),
-    isStartingCheckout: false,
   })),
 }));
 
