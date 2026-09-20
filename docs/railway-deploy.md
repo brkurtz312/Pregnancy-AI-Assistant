@@ -85,8 +85,11 @@ and there is nothing left for the deploy log to tell you.
 
 Node 24 is pinned by `engines.node` in the root `package.json`, matching CI.
 Deliberately not `.nvmrc`: Cloudflare Pages reads that file too, and the two
-Pages projects in this repository build from the same root. A version pin meant
-for Railway should not quietly change what Cloudflare builds with.
+Pages projects wired to this repository built from the same root. A version pin
+meant for Railway should not quietly change what another builder builds with.
+Those Pages projects are being disconnected (`docs/cutover.md` step 8), but the
+reasoning outlives them — `.nvmrc` is read by nvm, fnm, Volta, Netlify and
+Cloudflare alike, and `engines.node` says the same thing to one consumer.
 
 ---
 

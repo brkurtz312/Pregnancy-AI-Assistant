@@ -309,6 +309,71 @@ nothing to keep and it is the only copy of the pre-migration state.
 
 ---
 
+## Step 8 — Disconnect Cloudflare Pages
+
+Two Pages projects in this Cloudflare account build from this repository and
+post a check on every pull request:
+
+- `pregnancy-calculator` — redundant since step 4. The API server serves the
+  built web app itself now.
+- `brk-services` — a different site that was wired to this repository.
+
+Both have failed on every recent pull request. In the check run,
+`started_at` equals `completed_at`: the build fails before any step runs, so
+neither project deploys anything from here. The red check is pure noise, and
+noise on every PR is how a real failure gets waved through.
+
+**Disconnect, do not delete.** For each project: Cloudflare dashboard →
+Workers & Pages → the project → Settings → Builds → Git repository →
+Disconnect. That stops the checks immediately, deploys nothing, leaves every
+existing deployment and custom domain exactly as it is, and is reversible in
+one click.
+
+Deleting a project is a different act with a different blast radius, and there
+is an open question in the way of it.
+
+### Before deleting `pregnancy-calculator`, find out what the apex serves
+
+As of 19 Sep 2026 the two hostnames do not agree:
+
+| Hostname                      | Resolves to                          |
+| ----------------------------- | ------------------------------------ |
+| `www.pregnancy-assistant.com` | CNAME → `*.up.railway.app` (Railway) |
+| `pregnancy-assistant.com`     | `2606:4700:…` (a Cloudflare address) |
+
+`www` reaches Railway directly, grey cloud, as step 1 intended. The apex
+answers from Cloudflare, which means one of two things:
+
+1. the apex record is proxied (orange cloud) with Railway behind it, or
+2. the apex is still attached to the `pregnancy-calculator` Pages project as a
+   custom domain.
+
+The consequences differ completely. Under (2), deleting the project takes the
+apex down — and what visitors reach today is a stale Pages build rather than
+what Railway is running.
+
+Two ways to tell, either is decisive:
+
+- Cloudflare dashboard → Workers & Pages → `pregnancy-calculator` → Custom
+  domains. Whatever is listed there is served by Pages.
+- Ask the apex for something only the API server has:
+
+  ```powershell
+  Invoke-RestMethod https://pregnancy-assistant.com/api/healthz
+  ```
+
+  `status: ok` means Railway is behind the apex and the Pages project holds
+  nothing that matters. A 404 means Pages is answering, and the apex has to be
+  repointed at Railway before the project can go.
+
+If it is case (1) — proxied — note that `docs/replit-exit-plan.md` and step 1
+of this document both call for grey cloud. Flexible SSL in front of an HTTPS
+origin is a redirect loop, and proxying broke certificate issuance for Clerk
+earlier in this migration. Worth fixing on its own merits, separately from the
+Pages question.
+
+---
+
 ## Rolling back
 
 At any point before step 7:
@@ -332,7 +397,5 @@ until you no longer want this option.**
   `docs/stripe-removal-plan.md`.
 - **The OTA appearing to do nothing.** It applies on the launch _after_ the one
   that downloads it. Close the app fully and reopen.
-- **Cloudflare Pages checks failing on every PR.** A standing failure unrelated
-  to any of this; the project builds cleanly from this repository.
 - **Two servers in the logs at once.** Expected between steps 4 and 7. They
   share a database, so it does not matter which one answers.
