@@ -27,6 +27,21 @@ export interface WhatsNewEntry {
  * the build before it reaches the App Store.
  */
 export const WHATS_NEW: Record<string, WhatsNewEntry> = {
+  "1.0.15": {
+    headline: "Buying the pass, and the Watch",
+    items: [
+      {
+        icon: "bag-check-outline",
+        title: "The Pass Is Bought In the App",
+        body: "Getting the Full Pregnancy Pass used to open a web browser to pay. It is now an ordinary App Store purchase, made from the account icon at the top of the Home or Ask tab \u2014 faster, and it uses the payment method your Apple ID already has.",
+      },
+      {
+        icon: "watch-outline",
+        title: "Watch Sync Status",
+        body: "A new Sync Status screen on the Watch shows whether contractions and kick sessions recorded there are reaching your phone, and says what went wrong when they are not.",
+      },
+    ],
+  },
   "1.0.14": {
     headline: "Fewer silent failures",
     items: [

@@ -8,6 +8,7 @@ import React from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -33,11 +34,12 @@ import {
 } from "@/lib/revenuecat";
 import { cancelAllAppointmentReminders } from "@/lib/appointment-reminders";
 import { clearSignedOutUserData } from "@/lib/session-cleanup";
+import { APP_STORE_URL } from "@/lib/app-store";
 
-// The Stripe-checkout branch only. Every IAP path renders
-// `subscription.passPackage?.product.priceString` — the live App Store price —
-// and must keep doing so, or the app can advertise one number while StoreKit
-// charges another.
+// The Expo web build only, which has no in-app purchase. Every native path
+// renders `subscription.passPackage?.product.priceString` — the live store
+// price — and must keep doing so, or the app can advertise one number while
+// StoreKit charges another.
 const PASS_PRICE = "$9.99";
 
 /**
@@ -118,9 +120,11 @@ export function AccountSheet({
     string | null
   >(null);
 
-  // iOS/Android must use the in-app purchase (App Store/Play rules); web keeps
-  // the existing Stripe checkout. Price is read from the live RevenueCat
-  // offering, never hardcoded, so store-localized pricing is always correct.
+  // iOS/Android must use the in-app purchase (App Store/Play rules). The Expo
+  // web build has neither an in-app purchase nor, since
+  // docs/stripe-removal-plan.md, a web checkout — it points at the App Store.
+  // Price is read from the live RevenueCat offering on native, never
+  // hardcoded, so store-localized pricing is always correct.
   const isNative = Platform.OS !== "web";
   const nativePrice = subscription.passPackage?.product.priceString ?? null;
   const isPurchaseBusy = subscription.isPurchasing || pass.isReconciling;
@@ -537,16 +541,11 @@ export function AccountSheet({
                             styles.primaryBtn,
                             { backgroundColor: colors.primary },
                           ]}
-                          onPress={pass.startCheckout}
-                          disabled={pass.isStartingCheckout}
+                          onPress={() => Linking.openURL(APP_STORE_URL)}
                         >
-                          {pass.isStartingCheckout ? (
-                            <ActivityIndicator color="#fff" />
-                          ) : (
-                            <Text style={styles.primaryBtnText}>
-                              Get the Pass — {PASS_PRICE}
-                            </Text>
-                          )}
+                          <Text style={styles.primaryBtnText}>
+                            Get the Pass in the App Store — {PASS_PRICE}
+                          </Text>
                         </TouchableOpacity>
                       )}
 

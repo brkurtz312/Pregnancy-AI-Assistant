@@ -28,7 +28,6 @@ jest.mock("@tanstack/react-query", () => ({
 
 jest.mock("@workspace/api-client-react", () => ({
   useGetPassStatus: jest.fn(),
-  useCreateCheckout: jest.fn(() => ({ mutate: jest.fn(), isPending: false })),
   useReconcileRevenuecat: jest.fn(() => ({
     mutateAsync: jest.fn(),
     isPending: false,
@@ -40,7 +39,6 @@ jest.mock("@workspace/api-client-react", () => ({
 import { useAuth } from "@clerk/expo";
 import {
   useGetPassStatus,
-  useCreateCheckout,
   useReconcileRevenuecat,
   useRedeemCode,
 } from "@workspace/api-client-react";
@@ -89,10 +87,6 @@ beforeEach(() => {
   capturedState = null;
   jest.clearAllMocks();
   (useAuth as jest.Mock).mockReturnValue({ isSignedIn: true });
-  (useCreateCheckout as jest.Mock).mockReturnValue({
-    mutate: jest.fn(),
-    isPending: false,
-  });
   (useReconcileRevenuecat as jest.Mock).mockReturnValue({
     mutateAsync: jest.fn(),
     isPending: false,

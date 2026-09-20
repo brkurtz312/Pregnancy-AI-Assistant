@@ -94,9 +94,22 @@ exists.
    link to the App Store. The `?checkout=success` return handler stays for now,
    so a checkout already in flight across the deploy still completes.
    Reversible, and no server change.
-2. **Ship a mobile build** whose fallback no longer points at
-   `/billing/checkout`. This is a build and a release, so it is the long pole.
-   It can ride the same build as the Watch delivery instrumentation.
+2. **Ship a mobile build** whose purchase surfaces no longer point at
+   `/billing/checkout`. ✅ Merged 20 Sep 2026 in 1.0.15, alongside the Watch
+   delivery instrumentation. `startCheckout` is gone from the mobile app.
+
+   Worth recording what this found: `PassGate.tsx` and `AiAssistant.tsx`
+   called `startCheckout()` with **no platform gate at all**. On iOS, hitting
+   the free-question limit or tapping a gated feature opened a browser to
+   Stripe checkout — an external purchase for digital content. The
+   `AccountSheet` branch was platform-gated (`isNative ? IAP : Stripe`), so
+   only that one was web-only. Removing them closes a compliance exposure as
+   well as a dead route.
+
+   The pass is now bought in one place, the account sheet, with the in-app
+   purchase. `PassGate` and the AI assistant banner point at it instead of
+   duplicating a purchase flow.
+
 3. **Wait for adoption** of that build. Older installs still call
    `/billing/checkout`; deleting the route before then strands them with a
    button that fails.

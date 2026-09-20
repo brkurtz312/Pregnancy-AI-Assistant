@@ -2,22 +2,18 @@ import { useAppAuth as useAuth } from "@/hooks/useAppAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetPassStatusQueryKey,
-  useCreateCheckout,
   useGetPassStatus,
   useReconcileRevenuecat,
   useRedeemCode,
 } from "@workspace/api-client-react";
-import * as WebBrowser from "expo-web-browser";
-
-const webAppDomain = process.env.EXPO_PUBLIC_DOMAIN;
 
 /**
  * Pass entitlement + free-usage state for the signed-in Clerk account.
  *
  * Pass status is keyed to the backend `users` row (by Clerk user id), so a
- * pass purchased anywhere — web Stripe checkout or a future mobile in-app
- * purchase — shows up here once the server records it. Anonymous (signed-out)
- * users are metered by IP server-side and have no pass status to read.
+ * pass bought through the App Store shows up here once the server records it,
+ * on every device the account signs in on. Anonymous (signed-out) users are
+ * metered by IP server-side and have no pass status to read.
  */
 export function usePass() {
   const { isSignedIn } = useAuth();
@@ -27,7 +23,6 @@ export function usePass() {
   const passQuery = useGetPassStatus({
     query: { enabled: signedIn, queryKey: getGetPassStatusQueryKey() },
   });
-  const checkout = useCreateCheckout();
   const redeem = useRedeemCode();
   const reconcile = useReconcileRevenuecat();
 
@@ -40,25 +35,6 @@ export function usePass() {
 
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: getGetPassStatusQueryKey() });
-
-  /**
-   * Begin a Stripe checkout. The session is tied to this Clerk user
-   * server-side, so completing payment in the browser grants the pass to the
-   * same account the mobile app is signed in as. We re-check entitlement when
-   * the browser is dismissed.
-   */
-  const startCheckout = () => {
-    if (!webAppDomain || checkout.isPending) return;
-    checkout.mutate(
-      { data: { returnUrl: `https://${webAppDomain}/` } },
-      {
-        onSuccess: async (res) => {
-          await WebBrowser.openBrowserAsync(res.url);
-          refresh();
-        },
-      },
-    );
-  };
 
   /**
    * Redeem a developer access code to unlock the pass for the signed-in
@@ -88,8 +64,6 @@ export function usePass() {
     freeLimit,
     freeRemaining: Math.max(0, freeLimit - freeUsed),
     isLoading: signedIn && passQuery.isLoading,
-    startCheckout,
-    isStartingCheckout: checkout.isPending,
     redeemCode,
     isRedeeming: redeem.isPending,
     reconcileRevenueCat,

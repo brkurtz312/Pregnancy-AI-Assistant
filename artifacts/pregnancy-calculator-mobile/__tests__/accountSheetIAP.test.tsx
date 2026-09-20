@@ -50,7 +50,6 @@ jest.mock("@/hooks/useColors", () => ({
 }));
 
 const mockReconcileRevenueCat = jest.fn().mockResolvedValue(undefined);
-const mockStartCheckout = jest.fn();
 const mockRedeemCode = jest.fn();
 const mockRefresh = jest.fn();
 
@@ -117,8 +116,6 @@ function makePassMock(overrides: Partial<ReturnType<typeof usePass>> = {}) {
     freeLimit: 5,
     freeRemaining: 3,
     isLoading: false,
-    startCheckout: mockStartCheckout,
-    isStartingCheckout: false,
     redeemCode: mockRedeemCode,
     isRedeeming: false,
     reconcileRevenueCat: mockReconcileRevenueCat,

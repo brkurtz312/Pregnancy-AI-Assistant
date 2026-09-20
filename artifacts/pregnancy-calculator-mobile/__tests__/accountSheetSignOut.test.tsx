@@ -120,8 +120,6 @@ function makePassMock(overrides: Partial<ReturnType<typeof usePass>> = {}) {
     freeLimit: 5,
     freeRemaining: 5,
     isLoading: false,
-    startCheckout: jest.fn(),
-    isStartingCheckout: false,
     redeemCode: jest.fn(),
     isRedeeming: false,
     reconcileRevenueCat: jest.fn().mockResolvedValue(undefined),

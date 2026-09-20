@@ -5,7 +5,7 @@
  * the note-generation step, the mobile Scribe screen:
  *   1. Shows the PassGate upgrade modal (not a cryptic error).
  *   2. Surfaces the "Free Session Used" title and upgrade description.
- *   3. Displays an "Unlock Full Pregnancy Pass" CTA button.
+ *   3. Points at the in-app purchase, not an external checkout.
  *   4. Does NOT surface a generic error box for this specific 403 code.
  *   5. Returns to "transcribed" phase so the transcript remains visible.
  */
@@ -90,10 +90,7 @@ jest.mock("@/lib/scribe-note", () => ({
 // ─── usePass (consumed by PassGate) ───────────────────────────────────────────
 
 jest.mock("@/hooks/usePass", () => ({
-  usePass: jest.fn(() => ({
-    startCheckout: jest.fn(),
-    isStartingCheckout: false,
-  })),
+  usePass: jest.fn(() => ({})),
 }));
 
 // ─── Subject ──────────────────────────────────────────────────────────────────
@@ -228,11 +225,16 @@ describe("ScribeScreen — SCRIBE_LIMIT_REACHED at transcribe step (mobile)", ()
     expect(json).toContain("Start Recording");
   });
 
-  it("shows the Unlock Full Pregnancy Pass CTA in the PassGate", async () => {
+  it("points at the in-app purchase rather than an external checkout", async () => {
     await driveToTranscribeLimitReached();
 
     const json = JSON.stringify(renderer.toJSON());
-    expect(json).toContain("Unlock Full Pregnancy Pass");
+    expect(json).toContain(
+      "Tap the account icon at the top of the Home or Ask tab",
+    );
+    // The old CTA opened a browser to Stripe checkout — an external purchase
+    // for digital content, on iOS. docs/stripe-removal-plan.md.
+    expect(json).not.toContain("Unlock Full Pregnancy Pass");
   });
 });
 
@@ -343,11 +345,14 @@ describe("ScribeScreen — SCRIBE_LIMIT_REACHED handling (mobile)", () => {
     expect(json).toContain("Upgrade to the Full Pregnancy Pass");
   });
 
-  it("shows the 'Unlock Full Pregnancy Pass' CTA button", async () => {
+  it("points at the in-app purchase rather than an external checkout", async () => {
     await driveToLimitReached();
 
     const json = JSON.stringify(renderer.toJSON());
-    expect(json).toContain("Unlock Full Pregnancy Pass");
+    expect(json).toContain(
+      "Tap the account icon at the top of the Home or Ask tab",
+    );
+    expect(json).not.toContain("Unlock Full Pregnancy Pass");
   });
 
   it("does NOT surface a generic error message for SCRIBE_LIMIT_REACHED", async () => {
@@ -381,8 +386,6 @@ describe("ScribeScreen — SCRIBE_LIMIT_REACHED handling (mobile)", () => {
     };
     usePass.mockReturnValue({
       hasPass: true,
-      startCheckout: jest.fn(),
-      isStartingCheckout: false,
     });
 
     // Re-render so the useEffect in scribe.tsx observes the updated hasPass value
@@ -451,7 +454,9 @@ describe("ScribeScreen — network failure mid-recording (mobile)", () => {
     expect(json).toContain("Network request failed");
 
     expect(json).not.toContain("Free Session Used");
-    expect(json).not.toContain("Unlock Full Pregnancy Pass");
+    expect(json).not.toContain(
+      "Tap the account icon at the top of the Home or Ask tab",
+    );
   });
 
   it("shows generic error box and no upgrade CTA when generate-note fetch rejects (network drop)", async () => {
@@ -511,7 +516,9 @@ describe("ScribeScreen — network failure mid-recording (mobile)", () => {
     expect(json).toContain("Network request failed");
 
     expect(json).not.toContain("Free Session Used");
-    expect(json).not.toContain("Unlock Full Pregnancy Pass");
+    expect(json).not.toContain(
+      "Tap the account icon at the top of the Home or Ask tab",
+    );
   });
 });
 
@@ -773,7 +780,9 @@ describe("ScribeScreen — 503 service unavailable (mobile)", () => {
 
     // No upgrade prompt — PassGate title must not appear
     expect(json).not.toContain("Free Session Used");
-    expect(json).not.toContain("Unlock Full Pregnancy Pass");
+    expect(json).not.toContain(
+      "Tap the account icon at the top of the Home or Ask tab",
+    );
   });
 
   it("shows generic error message and no upgrade CTA when generate-note returns 503", async () => {
@@ -847,7 +856,9 @@ describe("ScribeScreen — 503 service unavailable (mobile)", () => {
 
     // No upgrade prompt — PassGate title must not appear
     expect(json).not.toContain("Free Session Used");
-    expect(json).not.toContain("Unlock Full Pregnancy Pass");
+    expect(json).not.toContain(
+      "Tap the account icon at the top of the Home or Ask tab",
+    );
   });
 });
 
