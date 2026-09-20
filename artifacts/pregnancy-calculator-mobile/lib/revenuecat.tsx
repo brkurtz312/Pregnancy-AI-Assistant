@@ -52,7 +52,8 @@ let configured = false;
 
 /**
  * Configure the RevenueCat SDK. Idempotent and safe to call on every mount.
- * No-ops on web, where purchases go through the existing Stripe web checkout.
+ * No-ops on web, which has no in-app purchase and, since
+ * docs/stripe-removal-plan.md, no web checkout either — it links to the store.
  */
 export function initializeRevenueCat(): void {
   if (configured || Platform.OS === "web") return;
