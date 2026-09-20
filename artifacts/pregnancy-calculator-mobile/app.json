@@ -39,7 +39,7 @@
       }
     },
     "android": {
-      "package": "app.replit.pregnancycalculator"
+      "package": "com.pregnancyassistant.app"
     },
     "web": {
       "favicon": "./assets/images/icon.png"

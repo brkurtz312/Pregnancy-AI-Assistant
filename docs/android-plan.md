@@ -42,24 +42,33 @@ Verified in the code, not assumed:
 
 ## Decide before the first publish
 
-### The package name is permanent
-
-`app.json` declares:
+### The package name — decided 20 Sep 2026
 
 ```json
-"android": { "package": "app.replit.pregnancycalculator" }
+"android": { "package": "com.pregnancyassistant.app" }
 ```
 
 **A Play Store package name cannot be changed after the first publish.** A
 different one means a different listing, with no path for existing installs.
+So this was settled before any build exists.
 
-It currently carries `replit` — in a project whose stated purpose is leaving
-Replit. Changing it costs nothing today and is impossible later. The iOS
-bundle identifier has the same problem and is already shipped, so it cannot be
-fixed; Android is the one chance not to repeat it.
+It was `app.replit.pregnancycalculator`, matching the iOS bundle identifier.
+The iOS one is shipped and therefore permanent, `replit` and all; Android had
+not shipped, so it was the one chance not to carry a departed vendor's name
+forever. It was taken.
 
-Decide deliberately either way. Matching iOS has some value; so does not
-naming a vendor you have left.
+**The two identifiers are now deliberately unequal.** Play and the App Store
+are separate namespaces, so nothing breaks. Every remaining
+`app.replit.pregnancycalculator` in the repository is iOS — the Watch bundle
+id, the app group, `withWatchExtension`'s `MAIN_BUNDLE_ID`,
+`validate-eas-provisioning`'s fallback, `seedRevenueCat`'s
+`APP_STORE_BUNDLE_ID` — and none of them may move. `CLAUDE.md` records this so
+the mismatch does not get "corrected" later.
+
+Note `com.pregnancyassistant.app` also exists in EAS credentials as an
+abandoned iOS identifier. That is an Apple-side artefact and does not conflict
+with an Android package, but expect to see the string in credential listings
+for a reason unrelated to Android.
 
 ### The upload keystore is unrecoverable
 
@@ -171,7 +180,8 @@ them deliberately:
 
 ## Suggested order
 
-1. Decide the package name. It is the only irreversible item.
+1. ~~Decide the package name.~~ Done 20 Sep 2026 —
+   `com.pregnancyassistant.app`.
 2. Play Console account and verification — start it first, it is the longest
    pole and nothing else depends on the outcome.
 3. Add the Android build profile, permissions and icons; produce an internal
