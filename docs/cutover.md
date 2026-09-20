@@ -362,6 +362,19 @@ terminating TLS in front of Railway. The project's **Custom domains** tab was
 empty, which says the same thing independently. **The `pregnancy-calculator` Pages project
 serves nothing and can be deleted outright, not merely disconnected.**
 
+### Deleting the project is blocked by its deployment history
+
+The dashboard refuses: _"Your project has too many deployments to be deleted."_
+There is no button for this. The deployments have to be removed through the API
+first — `DELETE /accounts/{account}/pages/projects/{project}/deployments/{id}?force=true`
+in a loop, with a token carrying **Account → Cloudflare Pages → Edit**, and then
+the project deletes normally.
+
+This is cosmetic. A disconnected project serves nothing, costs nothing and
+posts no checks, so leaving it in place is a legitimate end state. Deleting it
+also releases `pregnancy-calculator.pages.dev` back to the pool, where anyone
+can claim it — irrelevant unless something still links there.
+
 ### The apex is proxied, which is worth knowing separately
 
 Step 1 of this document and `docs/replit-exit-plan.md` both call for grey
