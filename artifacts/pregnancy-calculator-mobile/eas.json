@@ -19,6 +19,16 @@
       "autoIncrement": true,
       "ios": {
         "credentialsSource": "remote"
+      },
+      "android": {
+        "credentialsSource": "remote",
+        "buildType": "app-bundle"
+      }
+    },
+    "production-apk": {
+      "extends": "production",
+      "android": {
+        "buildType": "apk"
       }
     }
   },

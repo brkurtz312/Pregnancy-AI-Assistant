@@ -39,7 +39,16 @@
       }
     },
     "android": {
-      "package": "com.pregnancyassistant.app"
+      "package": "com.pregnancyassistant.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      },
+      "permissions": ["RECORD_AUDIO", "POST_NOTIFICATIONS"],
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "favicon": "./assets/images/icon.png"
@@ -53,7 +62,13 @@
       ],
       "expo-updates",
       "expo-font",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#C46E6E"
+        }
+      ],
       "expo-web-browser",
       [
         "expo-build-properties",

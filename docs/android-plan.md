@@ -79,20 +79,71 @@ and enrol in Play App Signing so Google holds the app signing key.
 
 ---
 
-## Build configuration gaps
+## Build configuration — closed 21 Sep 2026
 
-None of these are hard; all of them are missing.
+| Was missing           | Now                                                             |
+| --------------------- | --------------------------------------------------------------- |
+| Android build profile | `build.production.android`, `buildType: "app-bundle"`           |
+| Adaptive icon         | `assets/images/adaptive-icon.png`, white background             |
+| Notification icon     | `assets/images/notification-icon.png`                           |
+| `android.permissions` | `RECORD_AUDIO`, `POST_NOTIFICATIONS`, plus `blockedPermissions` |
 
-| Gap                      | Where                                                                           |
-| ------------------------ | ------------------------------------------------------------------------------- |
-| No Android build profile | `eas.json` — `build.production` has `ios` only                                  |
-| No Android submit config | `eas.json` — `submit.production` has only `ascAppId`                            |
-| No adaptive icon         | `assets/images/` has no Android icon set                                        |
-| No notification icon     | `expo-notifications` renders a white square without one                         |
-| No `android.permissions` | `RECORD_AUDIO` for the scribe (`expo-av`), `POST_NOTIFICATIONS` for Android 13+ |
+`appVersionSource: "remote"` and `autoIncrement` handle `versionCode`.
 
-`appVersionSource: "remote"` and `autoIncrement` already handle `versionCode`
-once the profile exists.
+A `production-apk` profile extends `production` with `buildType: "apk"`. Play
+takes the app bundle; the APK is for sideloading onto a test device, which is
+the only way to exercise the untested surface below before a Play track exists.
+
+**There is still no Android `submit` config**, deliberately. `eas submit
+--platform android` needs a Play service account JSON key, which does not
+exist until the Play Console account does. Adding a placeholder would fail at
+submit time instead of at edit time.
+
+### The icons are derived, not designed
+
+`adaptive-icon.png` is the iOS icon scaled to 62% on white, because Android
+masks the outer edge of an adaptive icon and only guarantees the centre 66% is
+visible. The white canvas matches `backgroundColor`, so the square edge of the
+source art never shows under any mask shape.
+
+`notification-icon.png` is **not** derived from the app icon. Android renders a
+notification icon as a flat white silhouette at about 24dp, and the watercolour
+heart does not survive that — its strokes break up and the fetus becomes a
+blob. It is a purpose-drawn solid heart instead. If the brand art ever changes,
+that file needs redrawing, not re-exporting.
+
+## Permissions — what the manifest actually asks for
+
+The resolved Android manifest, which is what a user sees at install and what
+Play reviews:
+
+| Permission               | Comes from        | Why                      |
+| ------------------------ | ----------------- | ------------------------ |
+| `RECORD_AUDIO`           | declared          | the visit scribe         |
+| `POST_NOTIFICATIONS`     | declared          | appointment reminders    |
+| `MODIFY_AUDIO_SETTINGS`  | audio library     | playback                 |
+| `INTERNET`               | expo-file-system  | —                        |
+| `ACCESS_COARSE_LOCATION` | **expo-location** | In-Office Mode proximity |
+| `ACCESS_FINE_LOCATION`   | **expo-location** | In-Office Mode proximity |
+
+`READ_EXTERNAL_STORAGE` and `WRITE_EXTERNAL_STORAGE` arrive from
+`expo-file-system` and are blocked. The app only ever touches
+`FileSystem.cacheDirectory` and `FileSystem.documentDirectory`, both
+app-scoped, and Play flags `WRITE_EXTERNAL_STORAGE` on apps targeting API 33+.
+
+**The location permissions are the ones to think about before submitting.**
+They are legitimate — `LocationModeGate` in `app/_layout.tsx` uses proximity to
+the provider's address to offer In-Office Mode — but on Play they mean a
+prominent-disclosure requirement and a Data Safety entry, on a health app,
+where scrutiny is already higher. On iOS this passed without comment. Decide
+deliberately whether In-Office Mode ships on Android at launch or waits; the
+feature degrades to a manual toggle without it.
+
+Note also that **`expo-location` is not in `package.json`.** It is imported by
+`components/LocationModePrompt.tsx` and resolves only because something else
+pulls it in. That works until a dependency bump drops it, at which point the
+app breaks at runtime rather than at build. Worth declaring regardless of the
+Android decision.
 
 ---
 
@@ -184,8 +235,9 @@ them deliberately:
    `com.pregnancyassistant.app`.
 2. Play Console account and verification — start it first, it is the longest
    pole and nothing else depends on the outcome.
-3. Add the Android build profile, permissions and icons; produce an internal
-   build.
+3. ~~Add the Android build profile, permissions and icons.~~ Done 21 Sep 2026.
+   Produce a build: `eas build --platform android --profile production-apk`
+   for a device, `--profile production` for the bundle Play wants.
 4. Device session against the untested surface above.
 5. Google sign-in SHA-1 and the Clerk redirect.
 6. Play product, RevenueCat wiring, verified test purchase.
