@@ -139,11 +139,25 @@ where scrutiny is already higher. On iOS this passed without comment. Decide
 deliberately whether In-Office Mode ships on Android at launch or waits; the
 feature degrades to a manual toggle without it.
 
-Note also that **`expo-location` is not in `package.json`.** It is imported by
-`components/LocationModePrompt.tsx` and resolves only because something else
-pulls it in. That works until a dependency bump drops it, at which point the
-app breaks at runtime rather than at build. Worth declaring regardless of the
-Android decision.
+### The dependency split is inverted
+
+`expo-location` is declared — in `devDependencies`. So are most of the app's
+runtime packages. `dependencies` has 20 entries; `devDependencies` has 54, and
+among them are **`expo-router`, `expo-av`, `react-native-reanimated`,
+`react-native-screens`, `react-native-gesture-handler`,
+`@tanstack/react-query`, `@expo/vector-icons`, `expo-constants`, `expo-font`,
+`expo-secure-store`, `expo-splash-screen` and `zod`**. The app does not start
+without several of those.
+
+Nothing is broken today: EAS Build and a plain `pnpm install` both install dev
+dependencies, which is why this has never surfaced. It breaks the first time
+anything does a production-only install — `pnpm install --prod`, a Docker
+build that prunes, a tool that trusts the manifest — and it breaks by failing
+to resolve `expo-router`, not by a clear message about classification.
+
+Not urgent, and not worth doing on the way to an Android build: it is a
+40-package reshuffle plus a lockfile regeneration, and it should be its own
+change with its own test run.
 
 ---
 
