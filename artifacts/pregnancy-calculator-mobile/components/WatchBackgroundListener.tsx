@@ -19,6 +19,7 @@ import { Animated, Platform, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   clearWatchBridgeFailure,
+  countWatchBridge,
   getWatchBridgeFailure,
   recordWatchBridgeFailure,
 } from "@/lib/watch-bridge-log";
@@ -70,6 +71,12 @@ interface WatchToastState {
 }
 
 /** Height of the native bottom tab bar (pt). */
+/**
+ * How long to wait for setActiveWatchUser before draining anyway. The native
+ * body is synchronous; a promise still pending after this is not coming back.
+ */
+const REGISTER_TIMEOUT_MS = 1000;
+
 const TAB_BAR_HEIGHT = 49;
 /** Extra breathing room above the tab bar (pt). */
 const TOAST_MARGIN = 8;
@@ -383,11 +390,31 @@ export function WatchBackgroundListener() {
 
   const handleContractionUpdate = useCallback(
     async (record: ContractionRecord, opts?: { nativeReceiptId?: string }) => {
-      if (!isSignedIn || !userId) return;
+      if (!isSignedIn || !userId) {
+        // Silent until now, and a real possibility: the record arrives while
+        // JS considers itself signed out, so nothing is saved and nothing says so.
+        countWatchBridge({ droppedSignedOut: 1 });
+        return;
+      }
       const capturedGen = getWatchQueueGeneration(userId);
 
-      const token = await getToken();
-      if (getWatchQueueGeneration(userId) !== capturedGen) return;
+      // `await getToken()` was outside the try below, so a rejection threw
+      // straight out of this handler: no save, no toast, no error, and the
+      // native receipt never acknowledged — so it replays on every launch and
+      // fails the same silent way. That is indistinguishable from the Watch
+      // never having delivered anything.
+      let token: string | null;
+      try {
+        token = await getToken();
+      } catch (err) {
+        countWatchBridge({ tokenFailed: 1 });
+        recordWatchBridgeFailure("dispatch", err);
+        return;
+      }
+      if (getWatchQueueGeneration(userId) !== capturedGen) {
+        countWatchBridge({ droppedGeneration: 1 });
+        return;
+      }
 
       const frozenGetter = () => Promise.resolve(token);
 
@@ -432,6 +459,7 @@ export function WatchBackgroundListener() {
         // – the all-dates view in session-history.tsx (limit:200, no sessionDate)
         // React Query treats the base key as a prefix and invalidates every
         // matching query, so both screens update without a manual pull-to-refresh.
+        countWatchBridge({ saved: 1 });
         queryClient.invalidateQueries({
           queryKey: getListContractionsQueryKey(),
         });
@@ -467,6 +495,7 @@ export function WatchBackgroundListener() {
               ?.acknowledgeContractionReceipt(nativeId)
               ?.catch(() => {});
           }
+          countWatchBridge({ queued: 1 });
           showToast("Contraction saved locally — will sync when online", true);
         } catch {
           showToast(
@@ -523,10 +552,6 @@ export function WatchBackgroundListener() {
       return;
     }
 
-    // Claim a generation token for this effect run.  Any async work started by
-    // a previous run will observe gen !== drainGenRef.current and abort.
-    const gen = ++drainGenRef.current;
-
     if (!isSignedIn || !userId) {
       // Signed out: deregister active user so incoming Watch deliveries are dropped.
       // No generation check needed — deregistration is always safe.
@@ -536,19 +561,61 @@ export function WatchBackgroundListener() {
       return;
     }
 
-    if (drainedForUserRef.current === userId) return; // already drained this session
+    if (drainedForUserRef.current === userId) {
+      countWatchBridge({ alreadyDrained: 1 });
+      return; // already drained this session
+    }
+    countWatchBridge({ effectRuns: 1 });
     drainedForUserRef.current = userId;
 
+    // Claim a generation token for this effect run.  Any async work started by
+    // a previous run will observe gen !== drainGenRef.current and abort.
+    //
+    // Claimed HERE, not at the top of the effect. This effect re-runs
+    // constantly — its deps include handleContractionUpdate, whose identity
+    // changes with Clerk's getToken on every render — and the runs that
+    // return at the already-drained guard above do no work at all. Bumping
+    // the token on those runs invalidated the one chain that was actually
+    // draining, milliseconds after it started, on every launch. The drain
+    // then abandoned itself at its first generation check, before any
+    // counter, which is why it looked like the register promise had never
+    // settled. 18 skipped runs, one real chain, killed by all of them.
+    const gen = ++drainGenRef.current;
+
     // Stage 1: register the active user in the native bridge.
+    //
+    // Raced against a timeout, because this promise not settling is exactly
+    // what broke Watch sync: the native side set the active user and went on
+    // acknowledging records, while `await` here never returned and the drain
+    // chained behind it never ran once in any session. The native work is
+    // synchronous, so a promise still pending after a second is not coming
+    // back, and proceeding beats stalling forever.
     //
     // This stage failing is the quiet catastrophe: the bridge keeps
     // activeUserId == nil, persistContractionReceipt refuses every record and
     // withholds the ack, and the Watch retries forever while the phone log
     // stays empty. Surface it instead of continuing as if it had worked.
-    (mod.setActiveWatchUser(userId) ?? Promise.resolve())
-      .then(() => {
-        if (drainGenRef.current !== gen) return;
-        clearWatchBridgeFailure();
+    const registerTimedOut = Symbol("register-timeout");
+    const register = mod.setActiveWatchUser(userId) ?? Promise.resolve();
+    Promise.race([
+      register,
+      new Promise((resolve) =>
+        setTimeout(() => resolve(registerTimedOut), REGISTER_TIMEOUT_MS),
+      ),
+    ])
+      .then((outcome: unknown) => {
+        if (drainGenRef.current !== gen) {
+          countWatchBridge({ generationAbandoned: 1 });
+          return;
+        }
+        // The stage between "effect ran" and "drain ran". If this never
+        // increments, setActiveWatchUser is where the chain stalls.
+        if (outcome === registerTimedOut) {
+          countWatchBridge({ registerTimeouts: 1 });
+        } else {
+          countWatchBridge({ registered: 1 });
+          clearWatchBridgeFailure();
+        }
       })
       .catch((err: unknown) => {
         if (drainGenRef.current !== gen) return;
@@ -574,11 +641,31 @@ export function WatchBackgroundListener() {
             interval?: number;
           }>
         > => {
-          if (drainGenRef.current !== gen) return Promise.resolve([]);
-          return mod.getPendingContractionReceipts().catch((err: unknown) => {
-            recordWatchBridgeFailure("drain", err);
-            throw err;
-          });
+          if (drainGenRef.current !== gen) {
+            countWatchBridge({ generationAbandoned: 1 });
+            return Promise.resolve([]);
+          }
+          return mod
+            .getPendingContractionReceipts()
+            .then(
+              (
+                records: Array<{
+                  id?: string;
+                  startedAt?: string;
+                  endedAt?: string;
+                  interval?: number;
+                }>,
+              ) => {
+                // A drain that returns nothing and reports no error used to be
+                // invisible. It is the single most useful number here.
+                countWatchBridge({ drains: 1, returned: records.length });
+                return records;
+              },
+            )
+            .catch((err: unknown) => {
+              recordWatchBridgeFailure("drain", err);
+              throw err;
+            });
         },
       )
       // Stage 3: dispatch — only if generation is still current.
@@ -591,9 +678,23 @@ export function WatchBackgroundListener() {
             interval?: number;
           }>,
         ) => {
-          if (drainGenRef.current !== gen) return;
+          if (drainGenRef.current !== gen) {
+            countWatchBridge({ generationAbandoned: 1 });
+            return;
+          }
           for (const raw of records) {
-            if (!raw.startedAt || !raw.endedAt) continue;
+            if (!raw.startedAt || !raw.endedAt) {
+              // Was a bare `continue`: a record missing either field vanished
+              // with no log, no toast and no counter, which is indistinguishable
+              // from an empty drain.
+              countWatchBridge({
+                skipped: 1,
+                lastSkipReason: !raw.startedAt
+                  ? "no start time"
+                  : "no end time",
+              });
+              continue;
+            }
             const record: ContractionRecord = {
               id: raw.id,
               startedAt: raw.startedAt,
@@ -602,7 +703,12 @@ export function WatchBackgroundListener() {
             };
             // Pass the native receipt ID so acknowledgeContractionReceipt fires
             // after the API save succeeds.
-            handleContractionUpdate(record, { nativeReceiptId: raw.id });
+            countWatchBridge({ dispatched: 1 });
+            // Never let a throw here become an unhandled rejection: that is
+            // how this failure stayed invisible.
+            handleContractionUpdate(record, { nativeReceiptId: raw.id }).catch(
+              (err: unknown) => recordWatchBridgeFailure("dispatch", err),
+            );
           }
         },
       )
@@ -619,7 +725,14 @@ export function WatchBackgroundListener() {
     gestationalWeek,
     tips: watchTips,
     onKickSessionEnd: isSignedIn ? handleKickSessionEnd : undefined,
-    onContractionUpdate: isSignedIn ? handleContractionUpdate : undefined,
+    onContractionUpdate: isSignedIn
+      ? (record: ContractionRecord) => {
+          countWatchBridge({ live: 1, dispatched: 1 });
+          return handleContractionUpdate(record).catch((err: unknown) =>
+            recordWatchBridgeFailure("dispatch", err),
+          );
+        }
+      : undefined,
     onKickUpdate: isSignedIn ? handleKickUpdate : undefined,
   });
 

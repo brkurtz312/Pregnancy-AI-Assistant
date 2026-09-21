@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import {
+  getWatchBridgeCounts,
   getWatchBridgeFailure,
+  subscribeWatchBridgeCounts,
   subscribeWatchBridgeFailure,
+  type WatchBridgeCounts,
   type WatchBridgeFailure,
 } from "@/lib/watch-bridge-log";
 
@@ -18,4 +21,18 @@ export function useWatchBridgeFailure(): WatchBridgeFailure | null {
   );
   useEffect(() => subscribeWatchBridgeFailure(setFailure), []);
   return failure;
+}
+
+/**
+ * The Watch bridge counters, for rendering a one-line summary.
+ *
+ * Separate from the failure hook because the useful state is usually the one
+ * with no failure in it: records found and not saved.
+ */
+export function useWatchBridgeCounts(): WatchBridgeCounts {
+  const [counts, setCounts] = useState<WatchBridgeCounts>(() =>
+    getWatchBridgeCounts(),
+  );
+  useEffect(() => subscribeWatchBridgeCounts(setCounts), []);
+  return counts;
 }

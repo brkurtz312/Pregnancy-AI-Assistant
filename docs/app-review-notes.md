@@ -98,71 +98,65 @@ of these. Every one has broken reviewer sign-in at least once.
 4. **Continue with Google** completes. It depends on the redirect allowlist in
    Clerk and the authorized redirect URI in Google Cloud; see the runbook.
 5. Sign out, reinstall, sign in again. The pass survives without a purchase.
-6. **The Watch app opens and runs.** Contraction Timer, Kick Counter and the
-   weekly tip. Do not check for Watch sessions in the iPhone log — that path
-   is broken (see "The Apple Watch sync defect") and the notes no longer
-   claim it works.
+6. **The Watch app opens and runs**, and a contraction recorded on it reaches
+   the iPhone log. Contraction Timer, Kick Counter and the weekly tip. This
+   path was broken until 1.0.19 and the notes did not claim it worked; it does
+   now, so check it. The line under the Watch badge on the Tools screen reports
+   what arrived and what was saved.
 
 ---
 
-## The Apple Watch sync defect
+## The Apple Watch sync defect — fixed 20 Sep 2026
 
-Contraction and kick sessions recorded on the Watch do not appear in the
-iPhone log. The Watch keeps them in its own retry queue, so nothing is lost on
-the Watch — they simply never arrive.
+Contraction sessions recorded on the Watch never appeared in the iPhone log.
+Resolved in **1.0.19**, and confirmed on device: eleven held records were read
+out of the phone's native store on launch and seven appeared in the session
+history immediately, without recording anything new. The remaining four went
+to the offline queue, which is the designed fallback when the API save fails.
 
-What has been established, on a clean 1.0.13 install with a freshly installed
-Watch app:
+### The cause
 
-- **Phone → Watch works.** Gestational age and weekly tips reach the Watch.
-- **Watch → phone receives nothing.** Not records, and not the live
-  `onWatchStateChange` events either — the connectivity line only refreshes
-  when the phone app is re-entered, never when the state actually changes.
-- `setActiveWatchUser` succeeds, so the native bridge has an active user.
-- The session reports `activated`.
-- A force-quit drains no pending receipts, so the native receipt store is
-  empty — the records never reached the bridge at all.
+`const gen = ++drainGenRef.current` in `WatchBackgroundListener` was claimed at
+the top of the effect, **above the guard that decides whether the run does any
+work at all**.
 
-So the break is in Watch→phone delivery, at or below the native layer. It is
-not JavaScript, not Clerk, not authentication: the failing direction needs none
-of them.
+That effect re-runs constantly — its dependencies include
+`handleContractionUpdate`, whose identity changes with Clerk's `getToken` on
+every render. Each do-nothing re-run bumped the generation token and
+invalidated the one chain that was actually draining. That chain then
+abandoned itself at its first generation check, which returned **before any
+counter or log**, on every launch since the feature shipped.
 
-**It is not a regression from the September 2026 Clerk migration.** Nothing in
-that work touches WCSession, and the Watch holds records in its retry queue —
-meaning it is attempting delivery and being told it failed. The defect is
-present in 1.0.12, the approved and currently shipping version.
+The fix is to claim the token only after the guards, so that only a run which
+proceeds can invalidate an earlier one — which is what the mechanism was for.
 
-Diagnosing it needs instrumentation readable without a Mac. That instrumentation
-now exists: **Sync Status**, on the Watch home screen.
+### Why it took four builds
 
-Every `sendMessage` on the Watch took an error handler, and every one of them
-discarded its error and fell back to `transferUserInfo`, which reports nothing
-at all. A reply arriving without a matching ack UUID was dropped the same way —
-the record stayed queued and nobody was told. `WatchDeliveryLog` keeps all of
-it; `WatchDeliveryStatusView` reads it out.
+Every symptom pointed somewhere else, and each wrong turn was reasonable on
+the evidence available at the time:
 
-### Reading it
+| Believed                                                      | Why it was wrong                                                                                                                                                                         |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Records never reached the phone                               | The Watch reported them acknowledged, and an ack is only sent after `persistContractionReceipt` writes the record. They were on the phone the whole time.                                |
+| The break is at or below the native layer                     | Same premise. Delivery worked.                                                                                                                                                           |
+| The event listener was dead                                   | It was — `NativeModulesProxy` plus the deprecated `EventEmitter` on SDK 54 attaches React Native's bridge stub, which ignores the callback. Real, fixed in 1.0.16, and **not** this bug. |
+| A `Void`-returning `AsyncFunction` left its promise unsettled | Plausible, and it explained `registered 0`. Disproved by 1.0.18: the register timeout never fired either, and a `setTimeout` cannot fail.                                                |
 
-Open the Watch app → **Sync Status**. The verdict line at the top is the answer:
+### The lesson worth keeping
 
-| What it says               | What it means                                                                                     |
-| -------------------------- | ------------------------------------------------------------------------------------------------- |
-| Records never acknowledged | The Watch is sending and the phone never confirms. The break is in delivery.                      |
-| Records acknowledged       | Delivery works. If records still do not appear, the break is downstream of the ack, on the phone. |
-| Nothing sent yet           | Record a contraction first; the counters only move for real sends.                                |
+Every single one of these failures was a **silent early return**. The
+generation check. The `continue` for a record missing a field. `await
+getToken()` outside its `try`. The `addListener` catch returning a dead
+subscription. Four separate paths that did nothing and said nothing.
 
-Below it: whether the phone is reachable, how many records are queued, the last
-WCSession activation result, and the last send error with its domain and code —
-`localizedDescription` alone is usually "The operation couldn't be completed",
-which identifies nothing.
+The bug was found the moment silence became impossible — when the phone
+started counting what succeeded rather than only what failed, and when
+`watchBridgeSummary` stopped returning `null` for "nothing happened". That
+null was itself an instance of the same mistake, written into the instrument
+built to catch it.
 
-**"Replied, no ack" is the row to watch.** It means the phone answered but not
-with a matching ack UUID, so the record stayed queued. It is indistinguishable
-from success on the phone's side, which is exactly how this defect has stayed
-invisible.
-
-Counters are cleared on sign-out along with every other persisted Watch key, so
-diagnose within one session.
+If Watch sync regresses, read the line under the Watch badge on the Tools
+screen first. It names the stage reached and never says nothing.
 
 ---
 

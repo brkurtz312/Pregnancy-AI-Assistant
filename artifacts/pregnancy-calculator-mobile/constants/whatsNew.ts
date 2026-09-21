@@ -27,6 +27,46 @@ export interface WhatsNewEntry {
  * the build before it reaches the App Store.
  */
 export const WHATS_NEW: Record<string, WhatsNewEntry> = {
+  "1.0.19": {
+    headline: "Watch contractions reach your log",
+    items: [
+      {
+        icon: "watch-outline",
+        title: "Contractions From the Watch Now Save",
+        body: "Contraction sessions recorded on the Apple Watch reached your phone and were stored there, but the step that saved them into your log cancelled itself every time. Your phone now reads them, including any it has been holding.",
+      },
+    ],
+  },
+  "1.0.18": {
+    headline: "Watch recordings reach your phone",
+    items: [
+      {
+        icon: "watch-outline",
+        title: "Contractions From the Watch Now Save",
+        body: "Contraction sessions recorded on the Apple Watch were reaching your phone and being stored, but the step that saved them to your log never ran \u2014 so they never appeared. They do now, including any the Watch has been holding.",
+      },
+    ],
+  },
+  "1.0.17": {
+    headline: "Watch connection status is live",
+    items: [
+      {
+        icon: "pulse-outline",
+        title: "The Watch Status Is Now Accurate",
+        body: "The connection line on the Tools screen only updated when you left the screen and came back, so it was often wrong. It now updates as the connection actually changes.",
+      },
+    ],
+  },
+  "1.0.16": {
+    headline: "Chasing the Watch sync problem",
+    items: [
+      {
+        icon: "search-outline",
+        title: "More Detail On Watch Records",
+        body: "The Tools screen now reports how many contraction records arrived from the Watch and how many were saved. If the two numbers disagree, it says why \u2014 which is the part that has been invisible while this problem has been chased.",
+      },
+    ],
+  },
   "1.0.15": {
     headline: "Buying the pass, and the Watch",
     items: [
