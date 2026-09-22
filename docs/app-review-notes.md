@@ -4,6 +4,12 @@ Paste the "Notes" section below into App Store Connect → App Review Informatio
 and **fill in the demo-account username and password fields** with the
 credentials in "Reviewer credentials".
 
+**Re-read the notes against the build you are submitting.** The paragraph about
+Watch sync claimed the feature was broken for four builds while it was; it was
+still claiming that after 1.0.19 fixed it. A note that understates the app is
+not a safe default — it invites a reviewer to treat a working feature as a
+defect.
+
 This replaces the account-free demo-session flow used for the September 2026
 submission. The app now has its own Clerk production instance, so a reviewer
 can sign in the same way a real user does — which is what Apple prefers, and
@@ -39,10 +45,11 @@ The companion Watch app runs on its own: Contraction Timer, Kick Counter
 and the weekly tip for the current pregnancy week. Install it from the
 iPhone's Watch app if it is not already on the Watch.
 
-Sessions recorded on the Watch are not currently reflected in the iPhone
-log. That is a known defect, present in the shipping version, and is
-being worked on separately. Nothing in the review flow depends on it —
-record on the iPhone to see entries appear in the log.
+Contractions recorded on the Watch appear in the iPhone's session
+history. This did not work in earlier versions and is the main fix in
+this build. To check it: record a short contraction session on the
+Watch, then open the Tools tab on the iPhone. The line under the Watch
+badge reports how many records arrived and how many were saved.
 
 IF THE PASS DOES NOT APPEAR
 
