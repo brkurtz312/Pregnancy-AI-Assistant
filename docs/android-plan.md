@@ -1,0 +1,263 @@
+# Shipping an Android build
+
+A map, not a commitment. Written 20 Sep 2026, after 1.0.15 went to App Store
+Connect. Everything under "What already works" was verified against the
+repository; everything under "What needs checking outside the repo" was not,
+and is marked as such.
+
+The short version: the app is more Android-ready than it looks, the billing
+model needs no redesign, and the real work is account setup, store assets and
+a device you have never tested on.
+
+---
+
+## What already works
+
+Verified in the code, not assumed:
+
+- **`Platform.OS === "android"` branches already exist** in the sign-in and
+  sign-up screens, `office-visit.tsx`, `scribe.tsx` and the date pickers. The
+  app was written platform-aware rather than iOS-only.
+- **RevenueCat already selects the Android key.** `getRevenueCatApiKey()`
+  returns `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY` when
+  `Platform.OS === "android"`. It also _throws unless all three keys are
+  present_, so that variable is already set in the EAS production
+  environment — an iOS build would fail without it.
+- **The Watch native module has an Android no-op stub.**
+  `modules/WatchConnectivity.ts` exports a stub when the native module is
+  absent, so nothing throws at runtime.
+- **The Watch UI is already hidden off-iOS.** `app/(tabs)/tools.tsx` gates the
+  Watch card with `Platform.OS === "ios"`, and the status row returns `null`
+  on any other platform.
+- **Kick Counter and Contraction Timer are full sections of the phone app**,
+  not Watch-only features. Android loses the companion, not the function.
+- **The iOS-only config plugins are platform-scoped.** `withWatchExtension`,
+  `withAppleSignIn` and `withValidateIOSIconCatalog` operate through
+  iOS-scoped mods, so an Android build does not run them.
+- **One entitlement covers both stores.** `users.has_pass` is per account, and
+  `/billing/revenuecat/reconcile` grants it from whichever store the purchase
+  came from. Nothing about the server changes for Android.
+
+---
+
+## Decide before the first publish
+
+### The package name — decided 20 Sep 2026
+
+```json
+"android": { "package": "com.pregnancyassistant.app" }
+```
+
+**A Play Store package name cannot be changed after the first publish.** A
+different one means a different listing, with no path for existing installs.
+So this was settled before any build exists.
+
+It was `app.replit.pregnancycalculator`, matching the iOS bundle identifier.
+The iOS one is shipped and therefore permanent, `replit` and all; Android had
+not shipped, so it was the one chance not to carry a departed vendor's name
+forever. It was taken.
+
+**The two identifiers are now deliberately unequal.** Play and the App Store
+are separate namespaces, so nothing breaks. Every remaining
+`app.replit.pregnancycalculator` in the repository is iOS — the Watch bundle
+id, the app group, `withWatchExtension`'s `MAIN_BUNDLE_ID`,
+`validate-eas-provisioning`'s fallback, `seedRevenueCat`'s
+`APP_STORE_BUNDLE_ID` — and none of them may move. `CLAUDE.md` records this so
+the mismatch does not get "corrected" later.
+
+Note `com.pregnancyassistant.app` also exists in EAS credentials as an
+abandoned iOS identifier. That is an Apple-side artefact and does not conflict
+with an Android package, but expect to see the string in credential listings
+for a reason unrelated to Android.
+
+### The upload keystore is unrecoverable
+
+EAS can generate and hold it. **If it is lost and Play App Signing is not
+enrolled, the app can never be updated again** — only republished under a new
+package name. Back it up (`eas credentials`) somewhere that is not only EAS,
+and enrol in Play App Signing so Google holds the app signing key.
+
+---
+
+## Build configuration — closed 21 Sep 2026
+
+| Was missing           | Now                                                             |
+| --------------------- | --------------------------------------------------------------- |
+| Android build profile | `build.production.android`, `buildType: "app-bundle"`           |
+| Adaptive icon         | `assets/images/adaptive-icon.png`, white background             |
+| Notification icon     | `assets/images/notification-icon.png`                           |
+| `android.permissions` | `RECORD_AUDIO`, `POST_NOTIFICATIONS`, plus `blockedPermissions` |
+
+`appVersionSource: "remote"` and `autoIncrement` handle `versionCode`.
+
+A `production-apk` profile extends `production` with `buildType: "apk"`. Play
+takes the app bundle; the APK is for sideloading onto a test device, which is
+the only way to exercise the untested surface below before a Play track exists.
+
+**There is still no Android `submit` config**, deliberately. `eas submit
+--platform android` needs a Play service account JSON key, which does not
+exist until the Play Console account does. Adding a placeholder would fail at
+submit time instead of at edit time.
+
+### The icons are derived, not designed
+
+`adaptive-icon.png` is the iOS icon scaled to 62% on white, because Android
+masks the outer edge of an adaptive icon and only guarantees the centre 66% is
+visible. The white canvas matches `backgroundColor`, so the square edge of the
+source art never shows under any mask shape.
+
+`notification-icon.png` is **not** derived from the app icon. Android renders a
+notification icon as a flat white silhouette at about 24dp, and the watercolour
+heart does not survive that — its strokes break up and the fetus becomes a
+blob. It is a purpose-drawn solid heart instead. If the brand art ever changes,
+that file needs redrawing, not re-exporting.
+
+## Permissions — what the manifest actually asks for
+
+The resolved Android manifest, which is what a user sees at install and what
+Play reviews:
+
+| Permission               | Comes from        | Why                      |
+| ------------------------ | ----------------- | ------------------------ |
+| `RECORD_AUDIO`           | declared          | the visit scribe         |
+| `POST_NOTIFICATIONS`     | declared          | appointment reminders    |
+| `MODIFY_AUDIO_SETTINGS`  | audio library     | playback                 |
+| `INTERNET`               | expo-file-system  | —                        |
+| `ACCESS_COARSE_LOCATION` | **expo-location** | In-Office Mode proximity |
+| `ACCESS_FINE_LOCATION`   | **expo-location** | In-Office Mode proximity |
+
+`READ_EXTERNAL_STORAGE` and `WRITE_EXTERNAL_STORAGE` arrive from
+`expo-file-system` and are blocked. The app only ever touches
+`FileSystem.cacheDirectory` and `FileSystem.documentDirectory`, both
+app-scoped, and Play flags `WRITE_EXTERNAL_STORAGE` on apps targeting API 33+.
+
+**The location permissions are the ones to think about before submitting.**
+They are legitimate — `LocationModeGate` in `app/_layout.tsx` uses proximity to
+the provider's address to offer In-Office Mode — but on Play they mean a
+prominent-disclosure requirement and a Data Safety entry, on a health app,
+where scrutiny is already higher. On iOS this passed without comment. Decide
+deliberately whether In-Office Mode ships on Android at launch or waits; the
+feature degrades to a manual toggle without it.
+
+### The dependency split is inverted
+
+`expo-location` is declared — in `devDependencies`. So are most of the app's
+runtime packages. `dependencies` has 20 entries; `devDependencies` has 54, and
+among them are **`expo-router`, `expo-av`, `react-native-reanimated`,
+`react-native-screens`, `react-native-gesture-handler`,
+`@tanstack/react-query`, `@expo/vector-icons`, `expo-constants`, `expo-font`,
+`expo-secure-store`, `expo-splash-screen` and `zod`**. The app does not start
+without several of those.
+
+Nothing is broken today: EAS Build and a plain `pnpm install` both install dev
+dependencies, which is why this has never surfaced. It breaks the first time
+anything does a production-only install — `pnpm install --prod`, a Docker
+build that prunes, a tool that trusts the manifest — and it breaks by failing
+to resolve `expo-router`, not by a clear message about classification.
+
+Not urgent, and not worth doing on the way to an Android build: it is a
+40-package reshuffle plus a lockfile regeneration, and it should be its own
+change with its own test run.
+
+---
+
+## Auth
+
+- **Google sign-in needs the signing certificate's SHA-1** registered against
+  the Android OAuth client in Google Cloud. With an EAS-managed keystore, read
+  it from `eas credentials`. This is the single most common reason Google
+  sign-in works on iOS and fails on Android.
+- **Sign in with Apple is currently gated to iOS** (`Platform.OS === "ios"` in
+  the auth screens). Clerk can offer it on Android through a web flow. Apple's
+  rule requiring it applies to iOS apps offering other social logins, so this
+  is a product choice, not a requirement.
+- Clerk's redirect allowlist needs the Android scheme added.
+
+---
+
+## Billing
+
+The model needs no redesign — the pass is a one-time non-consumable on both
+stores, attached to the same `pass` entitlement.
+
+The order is fixed by Google's tooling:
+
+1. Create the app in Play Console and **upload a signed build first** — the
+   in-app products page is not available until a build exists.
+2. Create the one-time product at $9.99, matching the App Store price and
+   `docs/stripe-removal-plan.md`.
+3. Add the Play Store app in RevenueCat, upload the Play service account
+   credentials, and attach the product to the **existing `pass` entitlement**.
+   Same entitlement is the whole point: `has_pass` stays one flag.
+4. Verify a test purchase reconciles through
+   `/billing/revenuecat/reconcile` and grants the pass on the account.
+
+Note `scripts/src/seedRevenueCat.ts` seeds the RevenueCat _test store_ only.
+Real Play products are created in Play Console.
+
+---
+
+## The Watch
+
+There is no Android counterpart and none is planned here. The Tools tab
+already hides the Watch card off-iOS, so nothing needs writing — but the
+marketing copy, the store listing and `docs/app-review-notes.md` all describe
+a Watch app, and the Play listing must not.
+
+---
+
+## What needs checking outside the repo
+
+Stated as questions because I could not verify them from here, and the answers
+change:
+
+- **Play Console developer account.** A one-time fee, plus identity
+  verification that can take days. Register as the same entity as the Apple
+  account, or knowingly not.
+- **Closed-testing requirement.** Google has required new personal developer
+  accounts to run a closed test with a minimum number of testers for a
+  minimum period before production access. Whether it applies depends on
+  account type and registration date — check the current policy before
+  planning a date, because it is measured in weeks, not days.
+- **Health and medical app declarations.** A pregnancy app giving AI-assisted
+  guidance may attract extra policy review. The Data Safety form, content
+  rating questionnaire and privacy policy URL are all required regardless.
+
+---
+
+## Untested surface
+
+No part of this app has ever run on an Android device. The following are
+unverified rather than known-broken, and a first device session should walk
+them deliberately:
+
+- Fonts (`Inter_*` loaded via `expo-font`)
+- Date and time pickers — the code already branches on platform, so the
+  Android path exists but has not been seen
+- The audio recorder in the scribe, including the permission prompt
+- Notifications, including the Android 13+ runtime permission
+- Deep links and the OAuth redirect round trip
+- Keyboard avoidance — several screens use
+  `behavior={Platform.OS === "ios" ? "padding" : undefined}`, which is the
+  usual source of Android keyboard problems
+
+---
+
+## Suggested order
+
+1. ~~Decide the package name.~~ Done 20 Sep 2026 —
+   `com.pregnancyassistant.app`.
+2. Play Console account and verification — start it first, it is the longest
+   pole and nothing else depends on the outcome.
+3. ~~Add the Android build profile, permissions and icons.~~ Done 21 Sep 2026.
+   Produce a build: `eas build --platform android --profile production-apk`
+   for a device, `--profile production` for the bundle Play wants.
+4. Device session against the untested surface above.
+5. Google sign-in SHA-1 and the Clerk redirect.
+6. Play product, RevenueCat wiring, verified test purchase.
+7. Store listing, Data Safety, content rating.
+8. Closed test, then production.
+
+Steps 1–4 are repository work and can start immediately. Steps 2 and 6 are
+account work with external waiting periods, so start them early even though
+they appear late in the dependency order.

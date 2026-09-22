@@ -105,6 +105,16 @@ you add one.
 - **Schema mismatch behind that:** the script's `CREATE TABLE` creates
   `created_at`/`updated_at`, but `lib/db/src/schema/account-deletion.ts`
   declares `requested_at`. Any fresh database hits the same prompt.
-- **Bundle id is `app.replit.pregnancycalculator` and the app has shipped.** It
-  is permanent now. A `com.pregnancyassistant.app` identifier exists in EAS
-  credentials from an abandoned migration; it can't be used for this app.
+- **The iOS bundle id is `app.replit.pregnancycalculator` and the app has
+  shipped.** It is permanent now, `replit` and all. A
+  `com.pregnancyassistant.app` identifier exists in EAS credentials from an
+  abandoned migration; it can't be used for the iOS app.
+- **`android.package` is deliberately different: `com.pregnancyassistant.app`.**
+  Play and the App Store are separate namespaces, and Android had not shipped
+  yet, so it was the one chance not to carry a departed vendor's name forever
+  (decided 20 Sep 2026, `docs/android-plan.md`). The two identifiers being
+  unequal is intentional — do not "fix" it. Every other
+  `app.replit.pregnancycalculator` reference is iOS: the Watch bundle id, the
+  app group, `withWatchExtension`'s `MAIN_BUNDLE_ID`,
+  `validate-eas-provisioning`'s fallback, and `seedRevenueCat`'s
+  `APP_STORE_BUNDLE_ID`. Those must not move.

@@ -8,6 +8,13 @@ name: EAS Build (App Store)
 # only holds a GitHub runner open for the twenty-odd minutes it takes. Watch
 # progress at https://expo.dev instead, or tick "wait" to have the Action
 # succeed or fail with the build.
+#
+# Android: production builds an app bundle for Play, production-apk builds an
+# APK to sideload onto a test device. This runs --non-interactive, which cannot
+# generate signing credentials, so the Android keystore has to exist in EAS
+# before the first run here — `eas credentials` once from a laptop. Back it up
+# while you are there: an EAS-held keystore that is lost, with Play App Signing
+# not enrolled, means the app can never be updated again.
 
 on:
   workflow_dispatch:
@@ -19,6 +26,7 @@ on:
         type: choice
         options:
           - ios
+          - android
       profile:
         description: "EAS build profile"
         required: true
@@ -26,6 +34,7 @@ on:
         type: choice
         options:
           - production
+          - production-apk
           - preview
       wait:
         description: "Hold the runner open until the build finishes"
