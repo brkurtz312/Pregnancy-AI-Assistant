@@ -63,22 +63,23 @@ jest.mock("expo-clipboard", () => ({
   setStringAsync: jest.fn().mockResolvedValue(undefined),
 }));
 
-// ─── expo-av (Audio) ──────────────────────────────────────────────────────────
+// ─── expo-audio ───────────────────────────────────────────────────────────────
 
-jest.mock("expo-av", () => ({
-  Audio: {
-    requestPermissionsAsync: jest.fn().mockResolvedValue({ granted: true }),
-    setAudioModeAsync: jest.fn().mockResolvedValue(undefined),
-    Recording: {
-      createAsync: jest.fn().mockResolvedValue({
-        recording: {
-          stopAndUnloadAsync: jest.fn().mockResolvedValue(undefined),
-          getURI: jest.fn().mockReturnValue("file:///mock-encounter.m4a"),
-        },
-      }),
-    },
-    RecordingOptionsPresets: { HIGH_QUALITY: {} },
-  },
+// One stable recorder object so the screen's useCallback deps don't churn.
+const mockRecorder = {
+  prepareToRecordAsync: jest.fn().mockResolvedValue(undefined),
+  record: jest.fn(),
+  stop: jest.fn().mockResolvedValue(undefined),
+  uri: "file:///mock-encounter.m4a",
+};
+
+jest.mock("expo-audio", () => ({
+  requestRecordingPermissionsAsync: jest
+    .fn()
+    .mockResolvedValue({ granted: true }),
+  setAudioModeAsync: jest.fn().mockResolvedValue(undefined),
+  useAudioRecorder: () => mockRecorder,
+  RecordingPresets: { HIGH_QUALITY: {} },
 }));
 
 // ─── scribe-note ──────────────────────────────────────────────────────────────
@@ -96,7 +97,7 @@ jest.mock("@/hooks/usePass", () => ({
 // ─── Subject ──────────────────────────────────────────────────────────────────
 
 import ScribeScreen from "../app/scribe";
-import { Audio } from "expo-av";
+import { requestRecordingPermissionsAsync } from "expo-audio";
 
 // ─── Helpers (same pattern used across this test suite) ───────────────────────
 
@@ -886,7 +887,7 @@ describe("ScribeScreen — audio permission denied mid-session (mobile)", () => 
 
     // First attempt: permissions granted (first session works end-to-end)
     // Second attempt: permissions denied (mid-session revocation)
-    (Audio.requestPermissionsAsync as jest.Mock)
+    (requestRecordingPermissionsAsync as jest.Mock)
       .mockResolvedValueOnce({ granted: true })
       .mockResolvedValueOnce({ granted: false });
 

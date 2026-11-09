@@ -61,8 +61,23 @@ describe("useIsTablet — hook rendered with mocked useWindowDimensions", () => 
     expect(renderDetector()).toContain("tablet");
   });
 
-  it("returns false at 767 pt — one point below the tablet threshold", () => {
-    mockWidth.value = 767;
+  it("returns true at exactly 600 pt — the tablet threshold", () => {
+    mockWidth.value = 600;
+    expect(renderDetector()).toContain("tablet");
+  });
+
+  it("returns false at 599 pt — one point below the tablet threshold", () => {
+    mockWidth.value = 599;
+    expect(renderDetector()).toContain("phone");
+  });
+
+  it("returns true for iPhone Duo unfolded inner screen (~669 pt)", () => {
+    mockWidth.value = 669;
+    expect(renderDetector()).toContain("tablet");
+  });
+
+  it("returns false for iPhone Duo folded outer screen (~466 pt)", () => {
+    mockWidth.value = 466;
     expect(renderDetector()).toContain("phone");
   });
 
@@ -81,8 +96,8 @@ describe("useIsTablet — hook rendered with mocked useWindowDimensions", () => 
     expect(renderDetector()).toContain("phone");
   });
 
-  it("re-evaluates correctly when width changes (simulated rotation)", () => {
-    mockWidth.value = 600;
+  it("re-evaluates correctly when width changes (simulated rotation or unfolding)", () => {
+    mockWidth.value = 466;
     expect(renderDetector()).toContain("phone");
 
     mockWidth.value = 1024;

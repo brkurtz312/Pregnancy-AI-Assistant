@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Video, ResizeMode } from "expo-av";
 import { Image } from "expo-image";
-import React, { useCallback, useRef } from "react";
+import { useVideoPlayer, VideoView } from "expo-video";
+import React, { useCallback } from "react";
 import {
   Modal,
   ScrollView,
@@ -27,11 +27,9 @@ export function MediaViewerModal({
 }: MediaViewerModalProps) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  // Keep a ref to the Video so we can pause on close.
-  const videoRef = useRef<Video>(null);
-
+  // The video player lives in <JournalVideo>, which only mounts while the
+  // modal is visible; unmounting it releases the player and stops playback.
   const handleClose = useCallback(() => {
-    videoRef.current?.pauseAsync().catch(() => {});
     onClose();
   }, [onClose]);
 
@@ -63,16 +61,9 @@ export function MediaViewerModal({
             />
           </ScrollView>
         )}
-        {media?.type === "video" && (
+        {visible && media?.type === "video" && (
           <View style={styles.videoContainer}>
-            <Video
-              ref={videoRef}
-              source={{ uri: media.uri }}
-              style={{ width, height }}
-              resizeMode={ResizeMode.CONTAIN}
-              useNativeControls
-              shouldPlay
-            />
+            <JournalVideo uri={media.uri} width={width} height={height} />
           </View>
         )}
 
@@ -120,3 +111,29 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 });
+
+/**
+ * expo-video replaces expo-av's <Video> (expo-av was removed in Expo SDK 55).
+ * useVideoPlayer must run unconditionally, so it lives in its own component.
+ */
+function JournalVideo({
+  uri,
+  width,
+  height,
+}: {
+  uri: string;
+  width: number;
+  height: number;
+}) {
+  const player = useVideoPlayer({ uri }, (p) => {
+    p.play();
+  });
+  return (
+    <VideoView
+      player={player}
+      style={{ width, height }}
+      contentFit="contain"
+      nativeControls
+    />
+  );
+}

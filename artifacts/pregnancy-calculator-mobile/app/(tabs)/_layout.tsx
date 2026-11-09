@@ -60,7 +60,7 @@ export default function TabLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+            <Ionicons name="home-outline" size={size} color={color as string} />
           ),
         }}
       />
@@ -69,7 +69,11 @@ export default function TabLayout() {
         options={{
           title: "Tools",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="heart-outline" size={size} color={color} />
+            <Ionicons
+              name="heart-outline"
+              size={size}
+              color={color as string}
+            />
           ),
         }}
       />
@@ -87,7 +91,7 @@ export default function TabLayout() {
         options={{
           title: "Learn",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="book-outline" size={size} color={color} />
+            <Ionicons name="book-outline" size={size} color={color as string} />
           ),
         }}
       />
@@ -96,7 +100,11 @@ export default function TabLayout() {
         options={{
           title: "Get Ready",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="checkmark-done-outline" size={size} color={color} />
+            <Ionicons
+              name="checkmark-done-outline"
+              size={size}
+              color={color as string}
+            />
           ),
         }}
       />
@@ -105,7 +113,11 @@ export default function TabLayout() {
         options={{
           title: "My Info",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+            <Ionicons
+              name="person-outline"
+              size={size}
+              color={color as string}
+            />
           ),
         }}
       />

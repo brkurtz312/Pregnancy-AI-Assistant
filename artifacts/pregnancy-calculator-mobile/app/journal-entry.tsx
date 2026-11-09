@@ -5,7 +5,6 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
-  Dimensions,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -14,6 +13,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  type ScrollViewInstance,
+  useWindowDimensions,
 } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -24,6 +25,7 @@ import {
 import { useAppAuth as useAuth } from "@/hooks/useAppAuth";
 import { useColors } from "@/hooks/useColors";
 import { ResponsiveContainer } from "@/components/ResponsiveContainer";
+import { useIsTablet } from "@/hooks/useIsTablet";
 import { MediaViewerModal } from "@/components/MediaViewerModal";
 import { usePass } from "@/hooks/usePass";
 import { PassGate } from "@/components/PassGate";
@@ -48,9 +50,6 @@ import {
 import { apiUpsertJournalEntry, apiDeleteJournalEntry } from "@/lib/sync-api";
 import { markPendingSync } from "@/lib/sync-queue";
 import { parseApiDate } from "@/lib/dates";
-
-const SCREEN_WIDTH = Dimensions.get("window").width;
-const MEDIA_CELL = (SCREEN_WIDTH - 32 - 8) / 3;
 
 function uuid(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -91,7 +90,15 @@ export default function JournalEntryScreen() {
   const [showPhotoGate, setShowPhotoGate] = useState(false);
   const [viewerMedia, setViewerMedia] = useState<JournalMedia | null>(null);
   const { hasPass } = usePass();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  // Thumbnail size follows the current window (not the width at import), so
+  // the grid reflows when an iPhone Duo is folded or unfolded. On tablet-width
+  // windows ResponsiveContainer caps content at 680 pt, so size to that.
+  const { width: windowWidth } = useWindowDimensions();
+  const isTablet = useIsTablet();
+  const contentWidth = isTablet ? Math.min(windowWidth, 680) : windowWidth;
+  const mediaCell = (contentWidth - 32 - 8) / 3;
+  const mediaCellSize = { width: mediaCell, height: mediaCell };
 
   useEffect(() => {
     if (entryId) {
@@ -507,7 +514,7 @@ export default function JournalEntryScreen() {
             {entry.media.length > 0 && (
               <View style={styles.mediaGrid}>
                 {entry.media.map((m) => (
-                  <View key={m.id} style={styles.mediaItem}>
+                  <View key={m.id} style={[styles.mediaItem, mediaCellSize]}>
                     <TouchableOpacity
                       onPress={() => setViewerMedia(m)}
                       activeOpacity={0.85}
@@ -516,13 +523,13 @@ export default function JournalEntryScreen() {
                       {m.type === "photo" ? (
                         <Image
                           source={{ uri: m.uri }}
-                          style={styles.mediaThumb}
+                          style={mediaCellSize}
                           contentFit="cover"
                         />
                       ) : (
                         <View
                           style={[
-                            styles.mediaThumb,
+                            mediaCellSize,
                             {
                               backgroundColor: colors.muted,
                               alignItems: "center",
@@ -762,14 +769,8 @@ const styles = StyleSheet.create({
   },
   mediaItem: {
     position: "relative",
-    width: MEDIA_CELL,
-    height: MEDIA_CELL,
     borderRadius: 10,
     overflow: "hidden",
-  },
-  mediaThumb: {
-    width: MEDIA_CELL,
-    height: MEDIA_CELL,
   },
   mediaCategoryBadge: {
     position: "absolute",

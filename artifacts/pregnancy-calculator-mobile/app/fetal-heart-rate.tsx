@@ -1,5 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Audio } from "expo-av";
+import {
+  createAudioPlayer,
+  getRecordingPermissionsAsync,
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  useAudioRecorder,
+  type AudioPlayer,
+} from "expo-audio";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
@@ -64,6 +72,17 @@ function formatDate(iso: string) {
   );
 }
 
+/** Stops and frees a player made with createAudioPlayer (not auto-released). */
+function releasePlayer(player: AudioPlayer | null) {
+  if (!player) return;
+  try {
+    player.pause();
+    player.release();
+  } catch {
+    // Already released.
+  }
+}
+
 export default function FetalHeartRateScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -76,8 +95,11 @@ export default function FetalHeartRateScreen() {
   const [countdown, setCountdown] = useState(MAX_SECONDS);
   const [playingId, setPlayingId] = useState<string | null>(null);
 
-  const recordingRef = useRef<Audio.Recording | null>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
+  // expo-audio replaces expo-av (removed in Expo SDK 55). The recorder is
+  // owned by the hook; `recordingActiveRef` says whether one is running.
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recordingActiveRef = useRef(false);
+  const soundRef = useRef<AudioPlayer | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stoppingRef = useRef(false);
   const pendingIdRef = useRef<string | null>(null);
@@ -91,7 +113,7 @@ export default function FetalHeartRateScreen() {
   }));
 
   useEffect(() => {
-    Audio.getPermissionsAsync().then(({ status }) => {
+    getRecordingPermissionsAsync().then(({ status }) => {
       setPermission(
         status === "granted"
           ? "granted"
@@ -124,13 +146,21 @@ export default function FetalHeartRateScreen() {
   useLayoutEffect(() => {
     return () => {
       if (countdownRef.current) clearInterval(countdownRef.current);
-      recordingRef.current?.stopAndUnloadAsync().catch(() => {});
-      soundRef.current?.unloadAsync().catch(() => {});
+      if (recordingActiveRef.current) {
+        recordingActiveRef.current = false;
+        try {
+          recorder.stop().catch(() => {});
+        } catch {
+          // The hook may already have released the recorder on unmount.
+        }
+      }
+      releasePlayer(soundRef.current);
+      soundRef.current = null;
     };
-  }, []);
+  }, [recorder]);
 
   const requestPermission = useCallback(async () => {
-    const { status } = await Audio.requestPermissionsAsync();
+    const { status } = await requestRecordingPermissionsAsync();
     setPermission(status === "granted" ? "granted" : "denied");
   }, []);
 
@@ -143,20 +173,19 @@ export default function FetalHeartRateScreen() {
       countdownRef.current = null;
     }
 
-    const rec = recordingRef.current;
+    const wasRecording = recordingActiveRef.current;
     const id = pendingIdRef.current;
-    recordingRef.current = null;
+    recordingActiveRef.current = false;
     pendingIdRef.current = null;
 
     setIsRecording(false);
     setCountdown(MAX_SECONDS);
 
-    if (rec && id) {
+    if (wasRecording && id) {
       try {
-        const status = await rec.getStatusAsync();
-        const durationMs = status.durationMillis ?? 0;
-        await rec.stopAndUnloadAsync();
-        const tempUri = rec.getURI();
+        const durationMs = recorder.getStatus().durationMillis ?? 0;
+        await recorder.stop();
+        const tempUri = recorder.uri;
 
         if (tempUri) {
           await ensureFhrDir();
@@ -178,30 +207,25 @@ export default function FetalHeartRateScreen() {
       }
     }
 
-    await Audio.setAudioModeAsync({ allowsRecordingIOS: false }).catch(
-      () => {},
-    );
+    await setAudioModeAsync({ allowsRecording: false }).catch(() => {});
     stoppingRef.current = false;
-  }, []);
+  }, [recorder]);
 
   const startRecording = useCallback(async () => {
     if (isRecording || stoppingRef.current) return;
 
     try {
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
       });
 
       const id = `fhr-${Date.now()}`;
       pendingIdRef.current = id;
 
-      const rec = new Audio.Recording();
-      await rec.prepareToRecordAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY,
-      );
-      await rec.startAsync();
-      recordingRef.current = rec;
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+      recordingActiveRef.current = true;
       setIsRecording(true);
       setCountdown(MAX_SECONDS);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -221,14 +245,11 @@ export default function FetalHeartRateScreen() {
         "Could not access the microphone. Please try again.",
       );
     }
-  }, [isRecording, stopRecording]);
+  }, [isRecording, recorder, stopRecording]);
 
   const stopPlayback = useCallback(async () => {
-    if (soundRef.current) {
-      await soundRef.current.stopAsync().catch(() => {});
-      await soundRef.current.unloadAsync().catch(() => {});
-      soundRef.current = null;
-    }
+    releasePlayer(soundRef.current);
+    soundRef.current = null;
     setPlayingId(null);
   }, []);
 
@@ -240,18 +261,17 @@ export default function FetalHeartRateScreen() {
       }
       await stopPlayback();
       try {
-        const { sound } = await Audio.Sound.createAsync(
-          { uri: rec.uri },
-          { shouldPlay: true },
-        );
-        soundRef.current = sound;
+        const player = createAudioPlayer({ uri: rec.uri });
+        soundRef.current = player;
         setPlayingId(rec.id);
-        sound.setOnPlaybackStatusUpdate((status) => {
-          if (!status.isLoaded || status.didJustFinish) {
+        player.addListener("playbackStatusUpdate", (status) => {
+          if (status.didJustFinish) {
             setPlayingId(null);
-            soundRef.current = null;
+            if (soundRef.current === player) soundRef.current = null;
+            releasePlayer(player);
           }
         });
+        player.play();
       } catch {
         Alert.alert("Playback Error", "Could not play this recording.");
       }

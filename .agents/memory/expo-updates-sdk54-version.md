@@ -3,6 +3,8 @@ name: expo-updates SDK 54 correct version
 description: The correct expo-updates version for Expo SDK 54, and why the wrong version silently breaks OTA.
 ---
 
+> **Superseded 9 Nov 2026:** the app is on Expo SDK 58 now — see expo-sdk58-iphone-duo-upgrade.md. Version numbers below are SDK 54-specific.
+
 ## Rule
 
 For Expo SDK 54, use `expo-updates@~29.0.19`. The version `^57.0.7` (which npm/pnpm may resolve by default) is the SDK 57 package and is incompatible — OTA publishes successfully (EAS reports the update as live) but the device binary silently ignores it and never applies the bundle.

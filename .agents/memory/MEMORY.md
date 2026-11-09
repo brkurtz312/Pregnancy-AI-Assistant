@@ -37,3 +37,4 @@
 - [EAS submit blocked non-interactively](eas-submit-and-ipa-verification.md) — no ASC API key; verify builds by downloading the .ipa and inspecting the embedded Watch app instead; ios/ is gitignored so EAS always prebuilds.
 - [expo-notifications test mocking](expo-notifications-test-mocking.md) — real module IS installed; package-level manual mock prevents random full-suite failures from real-module leaks.
 - [Sign-in email-code fallback](sign-in-email-code-fallback.md) — incomplete Clerk password sign-ins need code verification, finalization, and root-route replacement instead of a dead-end error.
+- [Expo SDK 58 / iPhone Duo upgrade](expo-sdk58-iphone-duo-upgrade.md) — SDK 54→58 for iOS 27 scenes + Duo; expo-av→expo-audio/expo-video; pnpm-safe jest resolver for reanimated/worklets; tab bar navigateToTab; useIsTablet 600 pt.

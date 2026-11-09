@@ -1,6 +1,6 @@
 # Pregnancy AI Assistant — working notes
 
-Monorepo: pnpm workspaces, TypeScript. Web (React/Vite), mobile (Expo SDK 54 +
+Monorepo: pnpm workspaces, TypeScript. Web (React/Vite), mobile (Expo SDK 58 +
 watchOS), API (Express 5), Postgres + Drizzle.
 
 **Status:** live on the App Store as of 11 Sep 2026, version 1.0.12 (build
