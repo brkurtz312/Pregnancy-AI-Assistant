@@ -14,6 +14,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 
+const SHOW_ERROR_DETAILS = true;
+
 export type ErrorFallbackProps = {
   error: Error;
   resetError: () => void;
@@ -50,7 +52,10 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {__DEV__ ? (
+      {/* Shown in release builds too: without it a startup crash on a
+          TestFlight/App Store build is a blank "Something went wrong" with no
+          way to see why. The icon is small and only opens on tap. */}
+      {SHOW_ERROR_DETAILS ? (
         <Pressable
           onPress={() => setIsModalVisible(true)}
           accessibilityLabel="View error details"
@@ -96,7 +101,7 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
         </Pressable>
       </View>
 
-      {__DEV__ ? (
+      {SHOW_ERROR_DETAILS ? (
         <Modal
           visible={isModalVisible}
           animationType="slide"
