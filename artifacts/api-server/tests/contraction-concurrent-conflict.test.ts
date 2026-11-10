@@ -411,3 +411,42 @@ describe("POST /api/tools/contractions — concurrent-conflict SELECT fallback",
     },
   );
 });
+
+describe("POST /api/tools/contractions — fractional seconds from the Watch", () => {
+  beforeEach(() => {
+    resetStore();
+    setAuthedUserId("user_A");
+  });
+
+  it("rounds a fractional interval and duration instead of failing the insert", async () => {
+    // The Watch measures the interval as a Double; this is the exact payload
+    // that 500'd in production (Postgres: invalid input syntax for type
+    // integer: "33.33318901062012").
+    const res = await request(app).post("/api/tools/contractions").send({
+      startedAt: "2026-11-10T00:53:36.000Z",
+      endedAt: "2026-11-10T00:53:55.000Z",
+      durationSeconds: 19.4,
+      intervalSeconds: 33.33318901062012,
+      sessionDate: "2026-11-09",
+      watchRecordId: "077E1BA1-7C1D-4FB4-9558-CB18E2DF063C",
+    });
+
+    expect(res.status).toBe(201);
+    const saved = getStore().find(
+      (r) => r.watchRecordId === "077E1BA1-7C1D-4FB4-9558-CB18E2DF063C",
+    );
+    expect(saved?.intervalSeconds).toBe(33);
+    expect(saved?.durationSeconds).toBe(19);
+  });
+
+  it("keeps absent seconds as null", async () => {
+    const res = await request(app).post("/api/tools/contractions").send({
+      startedAt: "2026-11-10T00:53:36.000Z",
+      sessionDate: "2026-11-09",
+    });
+
+    expect(res.status).toBe(201);
+    expect(getStore()[0]?.intervalSeconds).toBeNull();
+    expect(getStore()[0]?.durationSeconds).toBeNull();
+  });
+});

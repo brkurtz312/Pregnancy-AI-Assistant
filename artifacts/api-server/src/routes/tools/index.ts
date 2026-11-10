@@ -369,6 +369,11 @@ router.get(
   },
 );
 
+/** Rounds a seconds value for an integer column; null/undefined stay null. */
+function wholeSeconds(value: number | null | undefined): number | null {
+  return value == null ? null : Math.round(value);
+}
+
 router.post(
   "/tools/contractions",
   requireAuth,
@@ -408,8 +413,13 @@ router.post(
         userId,
         startedAt: new Date(startedAt),
         endedAt: endedAt ? new Date(endedAt) : null,
-        durationSeconds: durationSeconds ?? null,
-        intervalSeconds: intervalSeconds ?? null,
+        // Both columns are integers, but the Watch measures intervals as a
+        // Double and the phone forwards it unrounded (e.g. 33.333189). Postgres
+        // rejects the fraction with "invalid input syntax for type integer",
+        // the POST 500s, and the Watch's contraction never saves — so round
+        // here, where every client's value passes through.
+        durationSeconds: wholeSeconds(durationSeconds),
+        intervalSeconds: wholeSeconds(intervalSeconds),
         sessionDate,
         watchRecordId: watchRecordId ?? null,
       })
