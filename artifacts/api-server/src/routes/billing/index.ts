@@ -203,6 +203,12 @@ router.post(
           path: { project_id: projectId },
         });
       if (entitlementsError) {
+        // Log what RevenueCat said. A bare "failed" hid for weeks that the
+        // configured key was a v1 secret key, which the v2 API rejects.
+        req.log.error(
+          { revenueCatError: entitlementsError },
+          "RevenueCat rejected listEntitlements",
+        );
         throw new Error("Failed to list project entitlements");
       }
       const passEntitlementId = entitlements?.items?.find(
@@ -219,6 +225,10 @@ router.post(
         path: { project_id: projectId, customer_id: userId },
       });
       if (error) {
+        req.log.error(
+          { revenueCatError: error },
+          "RevenueCat rejected listCustomerActiveEntitlements",
+        );
         throw new Error("Failed to fetch active entitlements");
       }
       const hasActiveEntitlement =
