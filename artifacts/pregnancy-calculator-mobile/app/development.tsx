@@ -8,8 +8,8 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  Dimensions,
   Animated,
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FETAL_STAGES } from "@/constants/fetalStages";
@@ -20,12 +20,14 @@ import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 
 const ACCENT = "#4ecdc4";
 const BG = "#07090f";
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const IMG_SIZE = Math.min(SCREEN_WIDTH * 0.55, 220);
 
 type ViewMode = "fetal" | "maternal";
 
 export default function DevelopmentScreen() {
+  // Read the width on every render (not once at import) so the image resizes
+  // when an iPhone Duo is folded or unfolded, or an iPad window is resized.
+  const { width: windowWidth } = useWindowDimensions();
+  const IMG_SIZE = Math.min(windowWidth * 0.55, 220);
   const [view, setView] = useState<ViewMode>("fetal");
   const [current, setCurrent] = useState(0);
   const [playing, setPlaying] = useState(false);

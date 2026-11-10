@@ -1,7 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useAppAuth as useAuth } from "@/hooks/useAppAuth";
 import { router } from "expo-router";
-import { Audio } from "expo-av";
+import {
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  useAudioRecorder,
+} from "expo-audio";
 import * as Clipboard from "expo-clipboard";
 import { useState, useRef, useCallback, useEffect } from "react";
 import {
@@ -50,14 +55,18 @@ export default function ScribeScreen() {
     }
   }, [hasPass, showPassGate]);
 
-  const recordingRef = useRef<Audio.Recording | null>(null);
+  // expo-audio replaces expo-av (removed in Expo SDK 55). The recorder is
+  // owned by the hook; `isRecordingRef` tracks whether we started one so a
+  // stray stop tap is a no-op, as it was with expo-av's recording ref.
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const isRecordingRef = useRef(false);
 
   const startRecording = useCallback(async () => {
     setError(null);
     setTranscript("");
     setNote(null);
     try {
-      const { granted } = await Audio.requestPermissionsAsync();
+      const { granted } = await requestRecordingPermissionsAsync();
       if (!granted) {
         Alert.alert(
           "Microphone access needed",
@@ -65,29 +74,27 @@ export default function ScribeScreen() {
         );
         return;
       }
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
       });
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY,
-      );
-      recordingRef.current = recording;
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+      isRecordingRef.current = true;
       setPhase("recording");
     } catch {
       setError("Could not start recording. Please try again.");
     }
-  }, []);
+  }, [recorder]);
 
   const stopRecording = useCallback(async () => {
-    const recording = recordingRef.current;
-    if (!recording) return;
+    if (!isRecordingRef.current) return;
     setPhase("transcribing");
     try {
-      await recording.stopAndUnloadAsync();
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
-      const uri = recording.getURI();
-      recordingRef.current = null;
+      isRecordingRef.current = false;
+      await recorder.stop();
+      await setAudioModeAsync({ allowsRecording: false });
+      const uri = recorder.uri;
       if (!uri) throw new Error("No recording URI");
 
       const token = await getToken();
@@ -118,7 +125,7 @@ export default function ScribeScreen() {
       setError(msg);
       setPhase("idle");
     }
-  }, [getToken]);
+  }, [getToken, recorder]);
 
   const generateSummary = useCallback(async () => {
     setNote(null);

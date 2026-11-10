@@ -3,6 +3,8 @@ name: expo-notifications crash on iOS 26 — full resolution
 description: expo-notifications version mismatch (SDK 57 vs SDK 54 binary) crashes the Office Visits screen on iOS 26 via TurboModule lazy init; OTA alone cannot fix native crashes when expo-updates itself is also misversioned. Requires a new native build.
 ---
 
+> **Superseded 9 Nov 2026:** the app is on Expo SDK 58 now — see expo-sdk58-iphone-duo-upgrade.md. Version numbers below are SDK 54-specific.
+
 ## Rule
 
 When a native package version mismatches the Expo SDK binary AND the app uses `newArchEnabled: true` (TurboModules), that module is lazily initialized the first time JS calls `require()`. On iOS 26 this lazy init crashes the process. **OTA updates cannot fix native crashes** — they only replace JS, not the compiled native modules.

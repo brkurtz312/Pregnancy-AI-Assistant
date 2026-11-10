@@ -2,11 +2,17 @@
 /// Expo Module that bridges PhoneWatchBridge to JavaScript.
 /// Place in ios/<AppName>/WatchConnectivityModule.swift
 
-import ExpoModulesCore
+// `internal import` (not a bare `import`): from Expo SDK 58 the generated
+// ExpoModulesProvider.swift and SceneDelegate.swift in this same app target
+// import Expo modules as `internal`, and Xcode 27 rejects a bare import of
+// the same module elsewhere ("ambiguous implicit access level for import of
+// 'ExpoModulesCore'"). The class is internal to match; ExpoModulesProvider
+// lives in this target, so it can still see it.
+internal import ExpoModulesCore
 import WatchConnectivity
 
-public class WatchConnectivityModule: Module {
-    public func definition() -> ModuleDefinition {
+class WatchConnectivityModule: Module {
+    func definition() -> ModuleDefinition {
         Name("WatchConnectivity")
 
         OnCreate {

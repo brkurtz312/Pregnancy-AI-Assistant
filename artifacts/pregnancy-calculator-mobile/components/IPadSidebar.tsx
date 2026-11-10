@@ -9,10 +9,12 @@ interface SidebarRoute {
   name: string;
 }
 
+// Matches expo-router's BottomTabBarProps (SDK 58), which hands custom tab
+// bars `navigateToTab(routeKey)` instead of the old `navigation` object.
 interface SidebarProps {
   state: { routes: SidebarRoute[]; index: number };
-  navigation: { navigate: (name: string) => void };
-  descriptors?: Record<string, unknown>;
+  navigateToTab: (routeKey: string) => void;
+  descriptors?: unknown;
 }
 
 const SIDEBAR_WIDTH = 220;
@@ -41,7 +43,7 @@ const TAB_ICONS: Record<
   profile: { icon: "person-outline", activeIcon: "person", label: "My Info" },
 };
 
-export function IPadSidebar({ state, navigation }: SidebarProps) {
+export function IPadSidebar({ state, navigateToTab }: SidebarProps) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
 
@@ -84,7 +86,7 @@ export function IPadSidebar({ state, navigation }: SidebarProps) {
               ]}
               onPress={() => {
                 if (!isFocused) {
-                  navigation.navigate(route.name);
+                  navigateToTab(route.key);
                 }
               }}
             >

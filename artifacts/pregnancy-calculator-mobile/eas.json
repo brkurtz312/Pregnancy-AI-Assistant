@@ -11,14 +11,16 @@
     "preview": {
       "distribution": "internal",
       "ios": {
-        "simulator": false
+        "simulator": false,
+        "image": "macos-tahoe-26.6-xcode-27.1"
       }
     },
     "production": {
       "channel": "production",
       "autoIncrement": true,
       "ios": {
-        "credentialsSource": "remote"
+        "credentialsSource": "remote",
+        "image": "macos-tahoe-26.6-xcode-27.1"
       },
       "android": {
         "credentialsSource": "remote",

@@ -35,7 +35,8 @@ const mockDims = (
 
 const IPAD = { width: 1024, height: 768, scale: 2, fontScale: 1 };
 const IPHONE = { width: 390, height: 844, scale: 3, fontScale: 1 };
-const SPLIT_VIEW_NARROW = { width: 678, height: 768, scale: 2, fontScale: 1 };
+// Below the 600 pt tablet threshold (useIsTablet).
+const SPLIT_VIEW_NARROW = { width: 507, height: 768, scale: 2, fontScale: 1 };
 
 // ─── RN + Expo infrastructure mocks ─────────────────────────────────────────
 
@@ -179,7 +180,7 @@ describe("ResponsiveContainer with real useIsTablet", () => {
     expect(json).toContain("content");
   });
 
-  it("iPad Split View narrow pane (<768 pt) falls back to phone layout", () => {
+  it("iPad Split View narrow pane (<600 pt) falls back to phone layout", () => {
     mockDims.mockReturnValue(SPLIT_VIEW_NARROW);
     const json = renderTree(
       <ResponsiveContainer>

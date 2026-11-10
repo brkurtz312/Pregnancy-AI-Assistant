@@ -79,7 +79,7 @@ function makeSidebarProps(focusedIndex = 0) {
       ],
       index: focusedIndex,
     },
-    navigation: { navigate: jest.fn() },
+    navigateToTab: jest.fn(),
   };
 }
 
@@ -139,9 +139,9 @@ describe("TabLayout — iPad landscape branch (useIsTablet = true)", () => {
     // Must render IPadSidebar specifically — not a generic View or null
     expect(element.type).toBe(IPadSidebar);
     // Navigation state and dispatch must be forwarded to the sidebar
-    const props = element.props as { state: unknown; navigation: unknown };
+    const props = element.props as { state: unknown; navigateToTab: unknown };
     expect(props.state).toBe(navProps.state);
-    expect(props.navigation).toBe(navProps.navigation);
+    expect(props.navigateToTab).toBe(navProps.navigateToTab);
   });
 
   it("renders all six Tabs.Screen entries — one per tab", () => {
@@ -278,14 +278,14 @@ describe("IPadSidebar — navigation behaviour", () => {
     jest.clearAllMocks();
   });
 
-  it("calls navigation.navigate with the correct route for non-focused tabs", () => {
+  it("calls navigateToTab with the correct route key for non-focused tabs", () => {
     const navigate = jest.fn();
     let renderer!: ReturnType<typeof create>;
     act(() => {
       renderer = create(
         React.createElement(IPadSidebar, {
           ...makeSidebarProps(0),
-          navigation: { navigate },
+          navigateToTab: navigate,
         }),
       );
     });
@@ -295,17 +295,17 @@ describe("IPadSidebar — navigation behaviour", () => {
     act(() => {
       pressables[1].props.onPress(); // Tools
     });
-    expect(navigate).toHaveBeenCalledWith("tools");
+    expect(navigate).toHaveBeenCalledWith("tools-key");
 
     act(() => {
       pressables[3].props.onPress(); // Learn
     });
-    expect(navigate).toHaveBeenCalledWith("learn");
+    expect(navigate).toHaveBeenCalledWith("learn-key");
 
     act(() => {
       pressables[5].props.onPress(); // My Info
     });
-    expect(navigate).toHaveBeenCalledWith("profile");
+    expect(navigate).toHaveBeenCalledWith("profile-key");
   });
 
   it("does not call navigate when the already-focused tab is pressed", () => {
@@ -315,7 +315,7 @@ describe("IPadSidebar — navigation behaviour", () => {
       renderer = create(
         React.createElement(IPadSidebar, {
           ...makeSidebarProps(0),
-          navigation: { navigate },
+          navigateToTab: navigate,
         }),
       );
     });
@@ -341,7 +341,7 @@ describe("IPadSidebar — navigation behaviour", () => {
       renderer = create(
         React.createElement(IPadSidebar, {
           state: { routes, index: 99 },
-          navigation: { navigate },
+          navigateToTab: navigate,
         }),
       );
     });
@@ -352,7 +352,7 @@ describe("IPadSidebar — navigation behaviour", () => {
       act(() => {
         p.props.onPress();
       });
-      expect(navigate).toHaveBeenNthCalledWith(i + 1, routes[i].name);
+      expect(navigate).toHaveBeenNthCalledWith(i + 1, routes[i].key);
     });
   });
 });

@@ -457,7 +457,9 @@ function KickHistoryTab({ onShareReady }: KickHistoryTabProps) {
         refreshControl={
           <RefreshControl
             refreshing={isFetching}
-            onRefresh={refetch}
+            onRefresh={() => {
+              void refetch();
+            }}
             testID="kick-history-refresh-control"
           />
         }
@@ -626,7 +628,9 @@ function ContractionHistoryTab({ onShareReady }: ContractionHistoryTabProps) {
       refreshControl={
         <RefreshControl
           refreshing={isFetching}
-          onRefresh={refetch}
+          onRefresh={() => {
+            void refetch();
+          }}
           testID="contraction-history-refresh-control"
         />
       }

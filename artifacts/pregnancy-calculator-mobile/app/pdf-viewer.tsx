@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
   },
