@@ -27,6 +27,21 @@ export interface WhatsNewEntry {
  * the build before it reaches the App Store.
  */
 export const WHATS_NEW: Record<string, WhatsNewEntry> = {
+  "1.1.0": {
+    headline: "Ready for iOS 27 and iPhone Duo",
+    items: [
+      {
+        icon: "phone-portrait-outline",
+        title: "Made for iPhone Duo",
+        body: "Unfold your iPhone Duo and the app uses the bigger screen, with the sidebar layout from iPad. Fold it again and everything resizes to fit.",
+      },
+      {
+        icon: "sparkles-outline",
+        title: "Updated for iOS 27",
+        body: "The app has been rebuilt on Apple's latest tools for iOS 27, with improvements to audio and video playback along the way.",
+      },
+    ],
+  },
   "1.0.19": {
     headline: "Watch contractions reach your log",
     items: [
