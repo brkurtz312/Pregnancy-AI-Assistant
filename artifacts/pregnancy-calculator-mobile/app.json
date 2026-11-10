@@ -73,7 +73,9 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "Pregnancy AI Assistant uses the microphone to record your prenatal visits for transcription and to record your baby's heartbeat."
+          "microphonePermission": "Pregnancy AI Assistant uses the microphone to record your baby's heartbeat on the Doppler during an office visit, so you can save and replay it.",
+          "enableBackgroundPlayback": false,
+          "enableBackgroundRecording": false
         }
       ],
       [
