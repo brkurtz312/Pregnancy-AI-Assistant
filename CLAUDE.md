@@ -36,6 +36,9 @@ watchOS), API (Express 5), Postgres + Drizzle.
   a dependency's own files.
 - `git-lfs` is not installed; LFS files stay as pointers.
 - EAS builds from GitHub `main`, not the laptop. `appVersionSource: remote`.
+- Railway's build/start commands and health check live in the service's
+  Settings, not in the repo — Railway deprecated `railway.json`. The values are
+  recorded in `docs/railway-deploy.md`; keep that table in step with the UI.
 
 ## Auth architecture — read this first
 

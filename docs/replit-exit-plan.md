@@ -431,9 +431,10 @@ the last migration of its kind.
 - **Deploying the API to Railway** has its own runbook:
   `docs/railway-deploy.md`, and pointing users at it has another,
   `docs/cutover.md` — including the one question that has to be answered
-  first: what serves the web app once Replit is gone. `railway.json` in the repository root already
-  carries the build command, start command and `/api/healthz` health check, so
-  the service needs no build configuration in the Railway UI — only variables.
+  first: what serves the web app once Replit is gone. The build command, start
+  command and `/api/healthz` health check are set in the Railway service's
+  settings, recorded in `docs/railway-deploy.md` (Railway no longer reads
+  `railway.json` for this service).
 
 - Run `migrate-deletion-integrity` deliberately against the new database, with
   someone watching, after fixing the `created_at`/`requested_at` mismatch.

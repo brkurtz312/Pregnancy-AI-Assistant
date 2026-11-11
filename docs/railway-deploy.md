@@ -71,17 +71,40 @@ and there is nothing left for the deploy log to tell you.
 
 ---
 
-## What is already in the repository
+## Build settings live in the Railway UI
 
-`railway.json` at the root, which Railway reads on every deploy:
+There is deliberately **no `railway.json`**. Railway deprecated Config as Code:
+files already in use stop working on 2026-12-01, and since 2026-08-28 a service
+that never set a config file path cannot opt in. This service has no path set.
+On 2026-11-11 a deploy of the same commit that had built fine half an hour
+earlier — triggered by a variable change — came up with **Railpack**, Railway's
+default builder, and none of the file's commands, and failed with "No start
+command detected": Railpack cannot guess how to start a pnpm monorepo. Exactly
+why that deploy stopped honouring the file was not pinned down, but with the
+deprecation the file could not be relied on either way. The settings were
+entered in the service's own fields, and the file was removed so it cannot
+mislead anyone again.
 
-- **Build:** `pnpm --filter @workspace/api-server run build` — esbuild bundles
-  `src/index.ts` and every workspace package it imports into
-  `artifacts/api-server/dist/index.mjs`. No separate library build step is
-  needed; the workspace packages export TypeScript source directly.
-- **Start:** `pnpm --filter @workspace/api-server run start`
-- **Health check:** `/api/healthz`
-- **Restart:** on failure, up to 10 times
+Service → **Settings**:
+
+| Section | Field                | Value                                                                                    |
+| ------- | -------------------- | ---------------------------------------------------------------------------------------- |
+| Build   | Builder              | Railpack (default)                                                                       |
+| Build   | Custom Build Command | `pnpm --filter @workspace/api-server --filter @workspace/pregnancy-calculator run build` |
+| Deploy  | Custom Start Command | `pnpm --filter @workspace/api-server run start`                                          |
+| Deploy  | Healthcheck Path     | `/api/healthz`                                                                           |
+| Deploy  | Restart Policy       | On Failure, 10 retries                                                                   |
+
+- **Build** produces both artifacts. esbuild bundles the API's `src/index.ts`
+  and every workspace package it imports into
+  `artifacts/api-server/dist/index.mjs` (no separate library build step; the
+  workspace packages export TypeScript source directly), and Vite builds the
+  web app, which the API server also serves — see `docs/cutover.md`.
+- **Health check** means a broken build never takes traffic: Railway keeps the
+  previous deployment serving until the new one answers `/api/healthz`.
+
+If you change one of these, change this table in the same sitting. It is the
+only written record of them.
 
 Node 24 is pinned by `engines.node` in the root `package.json`, matching CI.
 Deliberately not `.nvmrc`: Cloudflare Pages reads that file too, and the two
@@ -103,8 +126,10 @@ reach it over Railway's private network, which only works inside one project.
 **New** → **GitHub Repo** → `brkurtz312/Pregnancy-AI-Assistant` → branch
 `main`.
 
-Railway reads `railway.json`, so leave the build and start commands in the UI
-empty. If it has already guessed some, clear them.
+Then, in the service's **Settings**, enter the build command, start command
+and health check path from the table under "Build settings live in the Railway
+UI" above. Do not use **Config-as-code → Add File Path**; Railway no longer
+lets a new service opt in.
 
 ### 2. Set the variables
 
