@@ -48,7 +48,8 @@ deploy would have said so.
   hashes — and unhashed files beside it (`opengraph.jpg`, icons) left alone,
   since their names survive deploys and a year-long cache could not be undone.
 
-`railway.json` builds both artifacts. When the build is missing the server
+The Railway build command builds both artifacts (it is set in the service's
+settings; see `docs/railway-deploy.md`). When the build is missing the server
 still starts and logs a warning naming the directory it looked in, because an
 API-only deploy is a valid thing to run and a silent 404 on the site is not.
 

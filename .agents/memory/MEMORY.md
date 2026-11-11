@@ -39,3 +39,4 @@
 - [Sign-in email-code fallback](sign-in-email-code-fallback.md) — incomplete Clerk password sign-ins need code verification, finalization, and root-route replacement instead of a dead-end error.
 - [Expo SDK 58 / iPhone Duo upgrade](expo-sdk58-iphone-duo-upgrade.md) — SDK 54→58 for iOS 27 scenes + Duo; expo-av→expo-audio/expo-video; pnpm-safe jest resolver for reanimated/worklets; tab bar navigateToTab; useIsTablet 600 pt.
 - [RevenueCat reconcile needs a v2 secret key](revenuecat-v2-secret-key.md) — a v1 REVENUECAT_SECRET_API_KEY fails every reconcile (buyers charged, pass not unlocked); also Watch contraction intervals must be rounded for the integer column.
+- [Railway build settings live in the UI](railway-config-as-code-deprecated.md) — railway.json deprecated/ignored (Railpack "No start command detected"); commands + healthcheck set in service Settings, recorded in docs/railway-deploy.md; check a build succeeds before rotating DB password.
