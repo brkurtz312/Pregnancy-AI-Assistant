@@ -14,6 +14,7 @@ import Purchases, {
   type PurchasesOfferings,
   type PurchasesPackage,
 } from "react-native-purchases";
+import { toErrorCode, track } from "@/lib/analytics";
 
 const REVENUECAT_TEST_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY;
 const REVENUECAT_IOS_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY;
@@ -207,6 +208,30 @@ function useSubscriptionContext() {
     enabled: ready,
     staleTime: 300 * 1000,
   });
+
+  // Funnel: an offering that fails to load, or loads with no package in it,
+  // leaves "Get the Pass" disabled — a silent dead end worth counting. Keyed
+  // on the update timestamps so each failed fetch counts once, not per render.
+  const signedIn = !!userId;
+  useEffect(() => {
+    if (offeringsQuery.errorUpdatedAt === 0) return;
+    track("offerings_load_failed", {
+      signedIn,
+      errorCode: toErrorCode(offeringsQuery.error),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per failure
+  }, [offeringsQuery.errorUpdatedAt]);
+  useEffect(() => {
+    if (offeringsQuery.dataUpdatedAt === 0) return;
+    if (offeringsQuery.data?.current?.availablePackages?.[0]) return;
+    track("offerings_load_failed", {
+      signedIn,
+      errorCode: offeringsQuery.data?.current
+        ? "no_package"
+        : "no_current_offering",
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per load
+  }, [offeringsQuery.dataUpdatedAt]);
 
   /**
    * Re-attempts identification immediately before money moves.

@@ -8,6 +8,7 @@ import adminRouter from "./admin";
 import scribeRouter from "./scribe";
 import accountRouter from "./account";
 import demoRouter from "./demo";
+import eventsRouter from "./events";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(adminRouter);
 router.use(scribeRouter);
 router.use(accountRouter);
 router.use(demoRouter);
+router.use(eventsRouter);
 
 export default router;

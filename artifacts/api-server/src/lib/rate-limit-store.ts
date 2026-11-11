@@ -14,6 +14,7 @@ export const RATE_LIMIT_PREFIXES = {
   aiDaily: "ai-daily",
   redeemCode: "redeem-code",
   demoSession: "demo-session",
+  funnelEvents: "funnel-events",
 } as const;
 
 export type RateLimitPrefix =

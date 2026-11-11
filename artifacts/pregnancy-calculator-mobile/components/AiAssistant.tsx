@@ -18,6 +18,7 @@ import { useColors } from "@/hooks/useColors";
 import { useIsTablet } from "@/hooks/useIsTablet";
 import { usePass } from "@/hooks/usePass";
 import { PURCHASE_LOCATION_HINT } from "@/lib/app-store";
+import { track } from "@/lib/analytics";
 
 interface AiAssistantProps {
   currentWeek: number;
@@ -53,6 +54,17 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
   const [disclaimer, setDisclaimer] = useState<string | null>(null);
   const [limitReached, setLimitReached] = useState(false);
 
+  // Funnel: count the limit once per time it is hit, not per render. Signed
+  // out, the banner also tells them to sign in before they can buy.
+  const reachLimit = () => {
+    if (limitReached) return;
+    setLimitReached(true);
+    track("ai_limit_reached", { signedIn: pass.isSignedIn });
+    if (!pass.isSignedIn) {
+      track("signin_required_for_purchase", { signedIn: false });
+    }
+  };
+
   // Re-enable the input whenever entitlement changes so a freshly purchased
   // pass, a new weekly free quota, or an account switch lifts the limit gate
   // immediately instead of leaving the user stuck on the upgrade banner.
@@ -70,7 +82,7 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
     // spend a request just to get a 403 back. Anonymous users are metered by
     // IP, so we let the server be the source of truth and handle 403 below.
     if (pass.isSignedIn && !pass.hasPass && pass.freeRemaining <= 0) {
-      setLimitReached(true);
+      reachLimit();
       return;
     }
 
@@ -94,7 +106,7 @@ export function AiAssistant({ currentWeek }: AiAssistantProps) {
         onError: (err) => {
           // Server-enforced free limit: show the upgrade path, not an error.
           if (err instanceof ApiError && err.status === 403) {
-            setLimitReached(true);
+            reachLimit();
             pass.refresh();
             return;
           }

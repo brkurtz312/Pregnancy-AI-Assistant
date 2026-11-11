@@ -35,6 +35,7 @@ import {
 import { cancelAllAppointmentReminders } from "@/lib/appointment-reminders";
 import { clearSignedOutUserData } from "@/lib/session-cleanup";
 import { APP_STORE_URL } from "@/lib/app-store";
+import { toErrorCode, track, type FunnelSource } from "@/lib/analytics";
 
 // The Expo web build only, which has no in-app purchase. Every native path
 // renders `subscription.passPackage?.product.priceString` — the live store
@@ -86,9 +87,12 @@ function redeemErrorMessage(err: unknown): string {
 export function AccountSheet({
   visible,
   onClose,
+  source = "other",
 }: {
   visible: boolean;
   onClose: () => void;
+  /** Where the sheet was opened from, for funnel counting. */
+  source?: FunnelSource;
 }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -129,23 +133,56 @@ export function AccountSheet({
   const nativePrice = subscription.passPackage?.product.priceString ?? null;
   const isPurchaseBusy = subscription.isPurchasing || pass.isReconciling;
 
+  // Funnel: count each opening of the sheet once, after pass status has
+  // loaded, and only for someone who could still buy — a pass holder opening
+  // their account is not a paywall view.
+  const signedIn = !!isSignedIn;
+  const viewTrackedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!visible) {
+      viewTrackedRef.current = false;
+      return;
+    }
+    if (viewTrackedRef.current || pass.isLoading) return;
+    viewTrackedRef.current = true;
+    if (signedIn && pass.hasPass) return;
+    track("paywall_viewed", { signedIn, source });
+    if (!signedIn) track("signin_required_for_purchase", { signedIn });
+  }, [visible, pass.isLoading, pass.hasPass, signedIn, source]);
+
   const handleNativePurchase = async () => {
     const pkg = subscription.passPackage;
     if (!pkg) {
+      track("purchase_failed", { signedIn, errorCode: "no_package" });
       setPurchaseError("The pass isn't available right now. Please try again.");
       return;
     }
     setPurchaseError(null);
+    track("purchase_started", { signedIn });
+    let charged = false;
     try {
       await subscription.purchase(pkg);
+      // The store has taken the payment. Count it here, before reconcile, so
+      // a reconcile failure shows up as its own failure and not as a lost sale.
+      charged = true;
+      track("purchase_completed", { signedIn });
       await pass.reconcileRevenueCat();
       setConfirmPurchase(false);
       setPurchaseSuccess(true);
     } catch (err) {
       if (isUserCancelledError(err)) {
+        track("purchase_cancelled", { signedIn });
         setConfirmPurchase(false);
         return;
       }
+      track("purchase_failed", {
+        signedIn,
+        errorCode: charged
+          ? "reconcile_failed"
+          : err instanceof Error && err.message === PURCHASE_IDENTITY_ERROR
+            ? "identity_failed"
+            : toErrorCode(err),
+      });
       logBillingFailure("Purchase", err);
       setPurchaseError(
         purchaseErrorMessage(
@@ -157,6 +194,7 @@ export function AccountSheet({
   };
 
   const handleRestore = async () => {
+    track("restore_tapped", { signedIn });
     setPurchaseError(null);
     setRestoreNotice(null);
     try {
@@ -516,6 +554,7 @@ export function AccountSheet({
                               { backgroundColor: colors.primary },
                             ]}
                             onPress={() => {
+                              track("pass_cta_tapped", { signedIn, source });
                               setPurchaseError(null);
                               setConfirmPurchase(true);
                             }}
@@ -541,7 +580,10 @@ export function AccountSheet({
                             styles.primaryBtn,
                             { backgroundColor: colors.primary },
                           ]}
-                          onPress={() => Linking.openURL(APP_STORE_URL)}
+                          onPress={() => {
+                            track("pass_cta_tapped", { signedIn, source });
+                            void Linking.openURL(APP_STORE_URL);
+                          }}
                         >
                           <Text style={styles.primaryBtnText}>
                             Get the Pass in the App Store — {PASS_PRICE}

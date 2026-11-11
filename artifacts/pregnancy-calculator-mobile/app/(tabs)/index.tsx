@@ -734,7 +734,7 @@ export default function CalculatorScreen() {
           ]}
         >
           <View style={[styles.headerAccount, { top: topPad + 12 }]}>
-            <AccountButton />
+            <AccountButton source="home" />
           </View>
           <View style={styles.headerIcon}>
             <Ionicons name="heart" size={28} color={colors.primary} />
