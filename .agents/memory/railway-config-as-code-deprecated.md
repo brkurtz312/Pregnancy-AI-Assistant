@@ -19,10 +19,10 @@ never set a config file path (ours had none) cannot opt in after 2026-08-28.
   deployment serving — but it does block anything that needs a fresh deploy,
   such as a database password change. Check a build succeeds *before* rotating
   credentials the running app depends on.
-- Rotating the Postgres password on Railway has no button: run
-  `ALTER USER postgres WITH PASSWORD '…'` in Database → Data, set
-  `POSTGRES_PASSWORD` to the same value (the variable alone changes nothing),
-  then redeploy the app. Letters and digits only.
+- Rotating the Postgres password, and the outage it caused, is in
+  [[railway-postgres-password-rotation]].
+- A green deploy proves only that `/api/healthz` answered, and that route never
+  touches the database.
 - Public database access (Settings → Networking → TCP Proxy) is off by default
   now; enable it only to run the push or `funnel-report` from a laptop, then
   remove it.
