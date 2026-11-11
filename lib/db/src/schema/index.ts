@@ -13,3 +13,4 @@ export * from "./hospital-bag-state";
 export * from "./birth-plan-answers";
 export * from "./scribe-idempotency";
 export * from "./account-deletion";
+export * from "./funnel-events";

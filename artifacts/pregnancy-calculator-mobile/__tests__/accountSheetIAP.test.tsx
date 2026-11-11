@@ -93,7 +93,13 @@ jest.mock("@/lib/revenuecat", () => ({
   }),
 }));
 
+jest.mock("@/lib/analytics", () => ({
+  ...jest.requireActual("@/lib/analytics"),
+  track: jest.fn(),
+}));
+
 import { useAuth, useUser } from "@clerk/expo";
+import { track } from "@/lib/analytics";
 import { useRouter } from "expo-router";
 import { useDeleteAccount } from "@workspace/api-client-react";
 import { usePass } from "@/hooks/usePass";
@@ -484,5 +490,176 @@ describe("AccountSheet — restore reports its outcome", () => {
     );
     expect(textShown(renderer, "Couldn't restore purchases")).toBe(true);
     errorSpy.mockRestore();
+  });
+});
+
+describe("AccountSheet — funnel events", () => {
+  const mockTrack = track as jest.Mock;
+  const originalOS = Platform.OS;
+
+  beforeAll(() => {
+    Object.defineProperty(Platform, "OS", { value: "ios", writable: true });
+  });
+
+  afterAll(() => {
+    Object.defineProperty(Platform, "OS", {
+      value: originalOS,
+      writable: true,
+    });
+  });
+
+  beforeEach(() => {
+    // The previous describe block does not clear mocks between tests.
+    jest.clearAllMocks();
+    mockUseAuth.mockReturnValue({ isSignedIn: true, signOut: jest.fn() });
+    mockUseUser.mockReturnValue({
+      user: { primaryEmailAddress: { emailAddress: "test@example.com" } },
+    });
+    mockUseRouter.mockReturnValue({ push: jest.fn() });
+    mockUseDeleteAccount.mockReturnValue({
+      mutateAsync: jest.fn(),
+      isPending: false,
+    });
+    mockUsePass.mockReturnValue(makePassMock());
+    mockUseSubscription.mockReturnValue(makeSubscriptionMock());
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  function renderWithSource(source: "home" | "other") {
+    const queryClient = new QueryClient();
+    let renderer!: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(
+        React.createElement(
+          QueryClientProvider,
+          { client: queryClient },
+          React.createElement(AccountSheet, {
+            visible: true,
+            onClose: mockOnClose,
+            source,
+          }),
+        ),
+      );
+    });
+    return renderer;
+  }
+
+  async function tapGetPassThenConfirm(
+    renderer: ReturnType<typeof renderWithSource>,
+  ) {
+    await act(async () => {
+      findBtn(renderer.root, "Get the Pass")!.props.onPress();
+    });
+    await act(async () => {
+      await findBtn(renderer.root, "Confirm")!.props.onPress();
+    });
+  }
+
+  const eventsFired = () => mockTrack.mock.calls.map((c) => c[0]);
+
+  it("counts one paywall view, with its source, when the sheet opens", async () => {
+    renderWithSource("home");
+    await act(async () => {});
+    expect(mockTrack).toHaveBeenCalledWith("paywall_viewed", {
+      signedIn: true,
+      source: "home",
+    });
+    expect(eventsFired().filter((e) => e === "paywall_viewed")).toHaveLength(1);
+    expect(eventsFired()).not.toContain("signin_required_for_purchase");
+  });
+
+  it("does not count a paywall view for a pass holder", async () => {
+    mockUsePass.mockReturnValue(makePassMock({ hasPass: true }));
+    renderWithSource("home");
+    await act(async () => {});
+    expect(eventsFired()).not.toContain("paywall_viewed");
+  });
+
+  it("signed out: counts the view and that sign-in is required to buy", async () => {
+    mockUseAuth.mockReturnValue({ isSignedIn: false, signOut: jest.fn() });
+    mockUsePass.mockReturnValue(makePassMock({ isSignedIn: false }));
+    renderWithSource("other");
+    await act(async () => {});
+    expect(mockTrack).toHaveBeenCalledWith("paywall_viewed", {
+      signedIn: false,
+      source: "other",
+    });
+    expect(mockTrack).toHaveBeenCalledWith("signin_required_for_purchase", {
+      signedIn: false,
+    });
+  });
+
+  it("counts the Get the Pass tap, purchase start and completion", async () => {
+    mockPurchase.mockResolvedValue({});
+    const renderer = renderWithSource("home");
+    await act(async () => {});
+    await tapGetPassThenConfirm(renderer);
+    expect(mockTrack).toHaveBeenCalledWith("pass_cta_tapped", {
+      signedIn: true,
+      source: "home",
+    });
+    expect(eventsFired()).toEqual([
+      "paywall_viewed",
+      "pass_cta_tapped",
+      "purchase_started",
+      "purchase_completed",
+    ]);
+  });
+
+  it("counts a cancelled purchase", async () => {
+    mockPurchase.mockRejectedValue({ userCancelled: true });
+    const renderer = renderWithSource("home");
+    await act(async () => {});
+    await tapGetPassThenConfirm(renderer);
+    expect(eventsFired()).toContain("purchase_cancelled");
+    expect(eventsFired()).not.toContain("purchase_failed");
+  });
+
+  it("counts a failed purchase with RevenueCat's readable error code", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockPurchase.mockRejectedValue({
+      code: "2",
+      message: "There was a problem with the store.",
+      userInfo: { readableErrorCode: "STORE_PROBLEM_ERROR" },
+      userCancelled: false,
+    });
+    const renderer = renderWithSource("home");
+    await act(async () => {});
+    await tapGetPassThenConfirm(renderer);
+    expect(mockTrack).toHaveBeenCalledWith("purchase_failed", {
+      signedIn: true,
+      errorCode: "STORE_PROBLEM_ERROR",
+    });
+    errorSpy.mockRestore();
+  });
+
+  it("separates a charged-but-not-reconciled purchase from a store failure", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockPurchase.mockResolvedValue({});
+    mockReconcileRevenueCat.mockRejectedValueOnce(new Error("500"));
+    const renderer = renderWithSource("home");
+    await act(async () => {});
+    await tapGetPassThenConfirm(renderer);
+    expect(eventsFired()).toContain("purchase_completed");
+    expect(mockTrack).toHaveBeenCalledWith("purchase_failed", {
+      signedIn: true,
+      errorCode: "reconcile_failed",
+    });
+    errorSpy.mockRestore();
+  });
+
+  it("counts a Restore Purchases tap", async () => {
+    mockRestore.mockResolvedValue({ entitlements: { active: {} } });
+    const renderer = renderWithSource("home");
+    await act(async () => {});
+    await act(async () => {
+      await findBtn(renderer.root, "Restore purchases")!.props.onPress();
+    });
+    expect(mockTrack).toHaveBeenCalledWith("restore_tapped", {
+      signedIn: true,
+    });
   });
 });

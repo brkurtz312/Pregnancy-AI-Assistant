@@ -101,6 +101,22 @@ export const redeemCodeLimiter: RequestHandler = makeLimiter(
   "Redeem-code",
 );
 
+// Funnel analytics. A real session fires a handful of events, so this is far
+// above genuine use; it exists only so the table cannot be flooded. Apply it
+// to the one POST /events route and nowhere else — mounting a limiter both on
+// a router and on a route inside it counts each request twice
+// (ERR_ERL_DOUBLE_COUNT).
+export const FUNNEL_EVENTS_WINDOW_MS = 10 * 60 * 1000;
+export const FUNNEL_EVENTS_LIMIT = 120;
+
+export const funnelEventsLimiter: RequestHandler = makeLimiter(
+  FUNNEL_EVENTS_WINDOW_MS,
+  FUNNEL_EVENTS_LIMIT,
+  "Too many events.",
+  RATE_LIMIT_PREFIXES.funnelEvents,
+  "Funnel events",
+);
+
 export const demoSessionLimiter: RequestHandler = makeLimiter(
   DEMO_SESSION_WINDOW_MS,
   DEMO_SESSION_LIMIT,

@@ -81,8 +81,9 @@ CI runs lint, format, typecheck and tests on every pull request and every push
 to `main` (`.github/workflows/ci.yml`), covering every package including the
 mobile app.
 
-Six api-server suites need `DATABASE_URL` and skip without it:
-`account-deletion-schema`, `kick-sessions-watch-id-schema`,
+Seven api-server suites need `DATABASE_URL` and skip without it:
+`account-deletion-schema`, `funnel-events-table-schema`,
+`kick-sessions-watch-id-schema`,
 `postgres-rate-limit-store`, `rate-limits-table-schema`,
 `scribe-concurrent-limit` and `scribe-idempotency-db-persist`. They are real
 integration tests — set `DATABASE_URL` and re-run to exercise them, and do run

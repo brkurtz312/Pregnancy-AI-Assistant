@@ -5,13 +5,19 @@ import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { AccountSheet } from "@/components/AccountSheet";
 import { usePass } from "@/hooks/usePass";
+import type { FunnelSource } from "@/lib/analytics";
 
 /**
  * Header entry point for account + pass management. Renders a person icon that
  * opens the account sheet, with a small badge when the Full Pregnancy Pass is
  * active. Placed in the home header; safe to render signed-out.
  */
-export function AccountButton() {
+export function AccountButton({
+  source = "other",
+}: {
+  /** Where this button lives, for funnel counting. */
+  source?: FunnelSource;
+} = {}) {
   const [open, setOpen] = useState(false);
   const { isSignedIn } = useAuth();
   const pass = usePass();
@@ -31,7 +37,11 @@ export function AccountButton() {
         />
         {isSignedIn && pass.hasPass && <View style={styles.badge} />}
       </TouchableOpacity>
-      <AccountSheet visible={open} onClose={() => setOpen(false)} />
+      <AccountSheet
+        visible={open}
+        onClose={() => setOpen(false)}
+        source={source}
+      />
     </>
   );
 }

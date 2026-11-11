@@ -21,7 +21,8 @@
     "audit-dates": "tsx ./src/audit-dates.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "compare-databases": "tsx ./src/compare-databases.ts"
+    "compare-databases": "tsx ./src/compare-databases.ts",
+    "funnel-report": "tsx ./src/funnel-report.ts"
   },
   "dependencies": {
     "@replit/revenuecat-sdk": "^4.2.0",
