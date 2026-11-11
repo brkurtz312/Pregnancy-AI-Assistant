@@ -27,6 +27,16 @@ export interface WhatsNewEntry {
  * the build before it reaches the App Store.
  */
 export const WHATS_NEW: Record<string, WhatsNewEntry> = {
+  "1.1.1": {
+    headline: "Helping us improve the Pass",
+    items: [
+      {
+        icon: "analytics-outline",
+        title: "Anonymous Usage Counts",
+        body: "The app now counts a few steps anonymously, such as opening the Full Pregnancy Pass screen, so we can see where getting the Pass goes wrong and fix it. Nothing that identifies you or your device is sent.",
+      },
+    ],
+  },
   "1.1.0": {
     headline: "Ready for iOS 27 and iPhone Duo",
     items: [
