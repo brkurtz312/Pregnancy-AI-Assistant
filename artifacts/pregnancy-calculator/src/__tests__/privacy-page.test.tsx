@@ -8,7 +8,11 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { Router } from "wouter";
-import PrivacyPage, { EFFECTIVE_DATE, PRIVACY_EMAIL } from "@/pages/privacy";
+import PrivacyPage, {
+  COMPANY_NAME,
+  EFFECTIVE_DATE,
+  PRIVACY_EMAIL,
+} from "@/pages/privacy";
 
 afterEach(cleanup);
 
@@ -51,6 +55,14 @@ describe("/privacy", () => {
     ]) {
       expect(text, name).toContain(name);
     }
+  });
+
+  it("names the company by its legal name, BRK Services LLC", () => {
+    renderPage();
+    const text = document.body.textContent ?? "";
+    expect(COMPANY_NAME).toBe("BRK Services LLC");
+    expect(text).toContain("provided by BRK Services LLC");
+    expect(text).not.toContain("PLLC");
   });
 
   it("tells users how to delete their data", () => {
