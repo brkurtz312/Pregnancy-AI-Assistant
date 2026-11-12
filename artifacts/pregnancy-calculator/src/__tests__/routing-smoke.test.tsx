@@ -124,6 +124,12 @@ describe("/ — Landing page", () => {
       expect(anchor?.getAttribute("href")).toBe("/app");
     }
   });
+
+  it("footer links to the privacy policy", () => {
+    renderLanding();
+    const privacy = screen.getByRole("link", { name: "Privacy" });
+    expect(privacy.getAttribute("href")).toBe("/privacy");
+  });
 });
 
 describe("/app — Calculator page", () => {

@@ -53,6 +53,10 @@ third-party analytics SDK, and nothing is combined with other companies' data.
 - **Crash Data / Diagnostics.** No crash-reporting SDK.
 - **Device ID.** Nothing in our code reads one. **Check RevenueCat's own App
   Privacy guidance** for whether its SDK requires it; that was not verified.
+- **IP addresses.** Not one of Apple's data types. Signed-out users' IPs are
+  stored in `ai_usage` (identifier `ip:<address>`) to apply the free weekly
+  question limit, briefly in `rate_limits`, and in server logs. They are not
+  used to work out location. The privacy policy says all of this.
 
 ## Judgment calls
 
@@ -67,7 +71,18 @@ can.
 
 ## The privacy policy must match
 
-It should mention: health information the user enters, the account email,
-purchase status, AI questions processed by Anthropic, and anonymous usage
-counts. If it says the app collects nothing, it has to change before the next
-submission.
+The policy is the web app's `/privacy` page,
+`artifacts/pregnancy-calculator/src/pages/privacy.tsx`, served at
+**https://pregnancy-assistant.com/privacy**. That is the URL to enter in App
+Store Connect → App Information → Privacy Policy URL.
+
+It replaced the page at brk-services.com/privacy-policy-pregnancy-assistant
+(effective 30 May 2026), which said the app collected nothing, stored
+everything on the device and used no third-party services. App Store Connect
+pointed at `privacy.brk-services.com`, which did not exist at all.
+
+When this file changes, change the page in the same pull request and update
+its `EFFECTIVE_DATE`. `src/__tests__/privacy-page.test.tsx` checks that the
+page names every outside service that handles user data (Clerk, Railway,
+Cloudflare, Anthropic, RevenueCat, Apple, OpenStreetMap); add a new one there
+too.
