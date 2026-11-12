@@ -11,6 +11,8 @@ import { Link } from "wouter";
 
 export const EFFECTIVE_DATE = "November 11, 2026";
 export const PRIVACY_EMAIL = "privacy@brk-services.com";
+/** The legal entity, as registered with Apple. Not PLLC. */
+export const COMPANY_NAME = "BRK Services LLC";
 
 function Section({
   title,
@@ -56,7 +58,7 @@ export default function PrivacyPage() {
       <main className="max-w-3xl mx-auto px-4 md:px-8 py-10">
         <h1 className="font-serif text-4xl font-bold">Privacy Policy</h1>
         <p className="mt-2 text-sm text-[#8a6055]">
-          Pregnancy AI Assistant by BRK Services · Effective {EFFECTIVE_DATE}
+          Pregnancy AI Assistant by {COMPANY_NAME} · Effective {EFFECTIVE_DATE}
         </p>
 
         <div className="mt-8 rounded-2xl border border-[#e8d5c8] bg-white p-5 text-[#4a3530] leading-relaxed">
@@ -85,7 +87,7 @@ export default function PrivacyPage() {
           <p>
             This policy covers the Pregnancy AI Assistant app for iPhone and
             Apple Watch and the website at pregnancy-assistant.com (together,
-            "the app"), provided by BRK Services ("we", "us"). Questions and
+            "the app"), provided by {COMPANY_NAME} ("we", "us"). Questions and
             requests about your data go to{" "}
             <a
               href={`mailto:${PRIVACY_EMAIL}`}
@@ -267,7 +269,7 @@ export default function PrivacyPage() {
 
         <Section title="Contact">
           <p>
-            BRK Services ·{" "}
+            {COMPANY_NAME} ·{" "}
             <a
               href={`mailto:${PRIVACY_EMAIL}`}
               className="text-[#c96b6b] underline"
