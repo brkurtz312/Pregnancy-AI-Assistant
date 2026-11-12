@@ -66,6 +66,10 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
+      # --platform is required in non-interactive mode; without it every run
+      # failed in a second. --latest submits the newest iOS build on EAS, so
+      # start this only after that build shows Finished on expo.dev. The App
+      # Store Connect API key ("Expo EAS") is already stored on EAS servers.
       - name: EAS Submit
         working-directory: artifacts/pregnancy-calculator-mobile
-        run: eas submit --profile ${{ github.event.inputs.profile }} --non-interactive
+        run: eas submit --platform ios --latest --profile ${{ github.event.inputs.profile }} --non-interactive
