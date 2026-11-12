@@ -10,6 +10,7 @@ import { SessionWatcher } from "@/components/session-watcher";
 import NotFound from "@/pages/not-found";
 import CalculatorPage from "@/pages/calculator";
 import LandingPage from "@/pages/landing";
+import PrivacyPage from "@/pages/privacy";
 
 const queryClient = new QueryClient();
 
@@ -78,6 +79,7 @@ function Router() {
     <Switch>
       <Route path="/" component={LandingPage} />
       <Route path="/app" component={CalculatorPage} />
+      <Route path="/privacy" component={PrivacyPage} />
       <Route path="/sign-in/*?">{() => <AuthPage mode="sign-in" />}</Route>
       <Route path="/sign-up/*?">{() => <AuthPage mode="sign-up" />}</Route>
       <Route component={NotFound} />

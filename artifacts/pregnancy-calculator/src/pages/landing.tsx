@@ -389,6 +389,12 @@ export default function LandingPage() {
             >
               Pricing
             </a>
+            <Link
+              href="/privacy"
+              className="hover:text-[#2d1f1a] transition-colors"
+            >
+              Privacy
+            </Link>
           </div>
         </div>
       </footer>
