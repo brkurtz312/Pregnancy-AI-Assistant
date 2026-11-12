@@ -12,7 +12,8 @@ export default defineConfig({
         "../../lib/learn-content-ids/src/index.ts",
       ),
     },
-    dedupe: ["react", "react-dom"],
+    // Must match vite.config.ts; see src/__tests__/single-react-query.test.tsx.
+    dedupe: ["react", "react-dom", "@tanstack/react-query"],
   },
   test: {
     environment: "happy-dom",

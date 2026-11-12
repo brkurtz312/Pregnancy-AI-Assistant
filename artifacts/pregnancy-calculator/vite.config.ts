@@ -72,7 +72,9 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
           "attached_assets",
         ),
       },
-      dedupe: ["react", "react-dom"],
+      // One copy each, or the API client's hooks miss the app's providers and the
+      // whole site renders blank. See src/__tests__/single-react-query.test.tsx.
+      dedupe: ["react", "react-dom", "@tanstack/react-query"],
     },
     root: path.resolve(import.meta.dirname),
     build: {
