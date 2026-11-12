@@ -68,8 +68,13 @@ subject is always `demo:`-prefixed. Bounded three ways: unsetting
 `DEMO_SESSION_SECRET` disables it entirely, subjects can't leave the demo
 namespace, tokens expire with no refresh. 46 tests cover it.
 
-**Now that the app is approved, `DEMO_SESSION_SECRET` can be unset on production
-to close this path.** Do that deliberately, not as a side effect.
+**Off on production.** Checked 2026-11-11: `GET /api/demo/available` returns
+`{"available":false}` and `POST /api/demo/session` returns 503 before any code
+is checked, so `DEMO_SESSION_SECRET` is unset there (or under 32 characters,
+which counts as unset). It was likely never carried over to Railway. App Review
+no longer uses this path; reviewers sign in with the real `appreview` account
+(`docs/app-review-notes.md`). Set the secret again only if a future review
+needs the account-free flow, and unset it afterwards.
 
 ## Testing
 
