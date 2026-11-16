@@ -327,8 +327,7 @@ export function getWhatsNew(
   if (!entry) return null;
   const items = entry.items.filter(
     (item) =>
-      !item.platforms ||
-      item.platforms.includes(platform as WhatsNewPlatform),
+      !item.platforms || item.platforms.includes(platform as WhatsNewPlatform),
   );
   if (items.length === 0) return null;
   return { ...entry, items };
