@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect } from "react";
 import {
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -10,7 +11,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { WHATS_NEW } from "@/constants/whatsNew";
+import { getWhatsNew } from "@/constants/whatsNew";
 import { useColors } from "@/hooks/useColors";
 
 export function WhatsNewModal({
@@ -25,10 +26,16 @@ export function WhatsNewModal({
   const colors = useColors();
   const insets = useSafeAreaInsets();
 
-  const content = WHATS_NEW[version];
+  // Items for other platforms (e.g. Apple Watch or iPhone Duo notes on
+  // Android) are filtered out; if none are left the sheet is skipped.
+  const content = React.useMemo(
+    () => getWhatsNew(version, Platform.OS),
+    [version],
+  );
 
-  // When the modal is triggered for a version that has no copy, silently mark
-  // it as seen so the check doesn't fire again on the next launch.
+  // When the modal is triggered for a version that has no copy for this
+  // platform, silently mark it as seen so the check doesn't fire again on the
+  // next launch.
   useEffect(() => {
     if (visible && !content) {
       onDismiss();
