@@ -210,7 +210,9 @@ export function AccountSheet({
       setRestoreNotice(
         restored
           ? "Purchases restored."
-          : "No previous purchase found for this Apple ID on this account.",
+          : Platform.OS === "android"
+            ? "No previous Google Play purchase found for this account."
+            : "No previous purchase found for this Apple ID on this account.",
       );
     } catch (err) {
       logBillingFailure("Restore purchases", err);

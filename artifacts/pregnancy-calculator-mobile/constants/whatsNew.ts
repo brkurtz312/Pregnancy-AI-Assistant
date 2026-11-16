@@ -1,9 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
 
+export type WhatsNewPlatform = "ios" | "android";
+
 export interface WhatsNewItem {
   icon: React.ComponentProps<typeof Ionicons>["name"];
   title: string;
   body: string;
+  /**
+   * Platforms this item applies to. Omit for items that apply everywhere.
+   * Use it for anything that names Apple or Google hardware or stores
+   * (Apple Watch, iPhone Duo, App Store), so Android users never see it.
+   */
+  platforms?: WhatsNewPlatform[];
 }
 
 export interface WhatsNewEntry {
@@ -43,11 +51,13 @@ export const WHATS_NEW: Record<string, WhatsNewEntry> = {
       {
         icon: "phone-portrait-outline",
         title: "Made for iPhone Duo",
+        platforms: ["ios"],
         body: "Unfold your iPhone Duo and the app uses the bigger screen, with the sidebar layout from iPad. Fold it again and everything resizes to fit.",
       },
       {
         icon: "sparkles-outline",
         title: "Updated for iOS 27",
+        platforms: ["ios"],
         body: "The app has been rebuilt on Apple's latest tools for iOS 27, with improvements to audio and video playback along the way.",
       },
     ],
@@ -303,3 +313,22 @@ export const WHATS_NEW: Record<string, WhatsNewEntry> = {
     ],
   },
 };
+
+/**
+ * The What's New entry for `version` as it should appear on `platform`, with
+ * items for other platforms removed. Returns null when nothing is left, so the
+ * sheet is skipped (and marked seen) rather than shown empty.
+ */
+export function getWhatsNew(
+  version: string,
+  platform: string,
+): WhatsNewEntry | null {
+  const entry = WHATS_NEW[version];
+  if (!entry) return null;
+  const items = entry.items.filter(
+    (item) =>
+      !item.platforms || item.platforms.includes(platform as WhatsNewPlatform),
+  );
+  if (items.length === 0) return null;
+  return { ...entry, items };
+}
