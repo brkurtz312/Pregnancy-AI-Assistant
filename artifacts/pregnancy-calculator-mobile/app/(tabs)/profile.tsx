@@ -4,7 +4,6 @@ import { useRouter } from "expo-router";
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Alert,
-  KeyboardAvoidingView,
   Linking,
   Modal,
   Platform,
@@ -62,6 +61,7 @@ import {
   getMilestoneDate,
 } from "@/lib/milestone-notifications";
 import { parseApiDate, localDateString } from "@/lib/dates";
+import { KeyboardAvoidingViewCompat } from "@/components/KeyboardAvoidingViewCompat";
 
 function CallButton({ phone }: { phone: string }) {
   const colors = useColors();
@@ -412,9 +412,8 @@ export default function ProfileScreen() {
   ]);
 
   return (
-    <KeyboardAvoidingView
+    <KeyboardAvoidingViewCompat
       style={[styles.root, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
         contentContainerStyle={{ paddingBottom: bottomPad + 24 }}
@@ -1778,7 +1777,7 @@ export default function ProfileScreen() {
           </View>
         </ResponsiveContainer>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAvoidingViewCompat>
   );
 }
 

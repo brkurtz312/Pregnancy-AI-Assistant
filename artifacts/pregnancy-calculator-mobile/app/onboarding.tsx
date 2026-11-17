@@ -3,7 +3,6 @@ import { useAppAuth as useAuth } from "@/hooks/useAppAuth";
 import { type Href, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
@@ -19,6 +18,7 @@ import {
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { formatPhone } from "@/lib/phone";
+import { KeyboardAvoidingViewCompat } from "@/components/KeyboardAvoidingViewCompat";
 
 type DeliveryCenterType = "hospital" | "birthing_center";
 
@@ -182,9 +182,8 @@ export default function OnboardingScreen() {
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom + 16;
 
   return (
-    <KeyboardAvoidingView
+    <KeyboardAvoidingViewCompat
       style={[styles.root, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
         contentContainerStyle={{
@@ -551,7 +550,7 @@ export default function OnboardingScreen() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAvoidingViewCompat>
   );
 }
 

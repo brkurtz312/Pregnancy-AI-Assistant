@@ -4,8 +4,6 @@ import { type Href, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -21,6 +19,7 @@ import {
   globalClerkErrorText,
   logClerkFailure,
 } from "@/lib/clerk-errors";
+import { KeyboardAvoidingViewCompat } from "@/components/KeyboardAvoidingViewCompat";
 
 type ResetStep = "email" | "code" | "password";
 
@@ -198,10 +197,7 @@ export default function ForgotPasswordScreen() {
 
   return (
     <View style={[styles.fill, { backgroundColor: colors.background }]}>
-      <KeyboardAvoidingView
-        style={styles.fill}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
+      <KeyboardAvoidingViewCompat style={styles.fill}>
         <ScrollView
           contentContainerStyle={[
             styles.content,
@@ -359,7 +355,7 @@ export default function ForgotPasswordScreen() {
             </Text>
           </TouchableOpacity>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAvoidingViewCompat>
     </View>
   );
 }
