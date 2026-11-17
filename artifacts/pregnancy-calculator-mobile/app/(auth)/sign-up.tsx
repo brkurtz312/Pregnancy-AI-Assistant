@@ -8,7 +8,6 @@ import * as WebBrowser from "expo-web-browser";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
@@ -26,6 +25,7 @@ import {
   globalClerkErrorText,
   logClerkFailure,
 } from "@/lib/clerk-errors";
+import { KeyboardAvoidingViewCompat } from "@/components/KeyboardAvoidingViewCompat";
 
 // Handles the OAuth callback redirect on Android. This must be called at
 // module level so it runs before the component tree mounts.
@@ -198,10 +198,7 @@ export default function SignUpScreen() {
 
   return (
     <View style={[styles.fill, { backgroundColor: colors.background }]}>
-      <KeyboardAvoidingView
-        style={styles.fill}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
+      <KeyboardAvoidingViewCompat style={styles.fill}>
         <ScrollView
           contentContainerStyle={[
             styles.content,
@@ -486,7 +483,7 @@ export default function SignUpScreen() {
             </>
           )}
         </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAvoidingViewCompat>
     </View>
   );
 }

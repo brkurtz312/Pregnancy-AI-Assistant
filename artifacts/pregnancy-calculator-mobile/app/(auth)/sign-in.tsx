@@ -8,7 +8,6 @@ import * as WebBrowser from "expo-web-browser";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
@@ -26,6 +25,7 @@ import {
   globalClerkErrorText,
   logClerkFailure,
 } from "@/lib/clerk-errors";
+import { KeyboardAvoidingViewCompat } from "@/components/KeyboardAvoidingViewCompat";
 
 const apiBase = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
@@ -344,10 +344,7 @@ export default function SignInScreen() {
 
   return (
     <View style={[styles.fill, { backgroundColor: colors.background }]}>
-      <KeyboardAvoidingView
-        style={styles.fill}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
+      <KeyboardAvoidingViewCompat style={styles.fill}>
         <ScrollView
           contentContainerStyle={[styles.content, containerPad]}
           keyboardShouldPersistTaps="handled"
@@ -603,7 +600,7 @@ export default function SignInScreen() {
             </TouchableOpacity>
           ) : null}
         </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAvoidingViewCompat>
     </View>
   );
 }

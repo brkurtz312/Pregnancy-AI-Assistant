@@ -5,8 +5,6 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -50,6 +48,7 @@ import {
 import { apiUpsertJournalEntry, apiDeleteJournalEntry } from "@/lib/sync-api";
 import { markPendingSync } from "@/lib/sync-queue";
 import { parseApiDate } from "@/lib/dates";
+import { KeyboardAvoidingViewCompat } from "@/components/KeyboardAvoidingViewCompat";
 
 function uuid(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -309,9 +308,8 @@ export default function JournalEntryScreen() {
   const ACCENT = colors.primary ?? "#e86cad";
 
   return (
-    <KeyboardAvoidingView
+    <KeyboardAvoidingViewCompat
       style={[styles.screen, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={0}
     >
       <View
@@ -611,7 +609,7 @@ export default function JournalEntryScreen() {
         media={viewerMedia}
         onClose={() => setViewerMedia(null)}
       />
-    </KeyboardAvoidingView>
+    </KeyboardAvoidingViewCompat>
   );
 }
 
