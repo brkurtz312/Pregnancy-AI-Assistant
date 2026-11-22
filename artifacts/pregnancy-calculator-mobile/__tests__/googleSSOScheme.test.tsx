@@ -180,7 +180,7 @@ describe("Google SSO — scheme matches app.json", () => {
     });
 
     expect(mockMakeRedirectUri).toHaveBeenCalledWith(
-      expect.objectContaining({ scheme: appScheme }),
+      expect.objectContaining({ scheme: appScheme, path: "sso-callback" }),
     );
 
     const call = mockStartSSOFlow.mock.calls[0][0] as { redirectUrl: string };
@@ -200,7 +200,7 @@ describe("Google SSO — scheme matches app.json", () => {
     });
 
     expect(mockMakeRedirectUri).toHaveBeenCalledWith(
-      expect.objectContaining({ scheme: appScheme }),
+      expect.objectContaining({ scheme: appScheme, path: "sso-callback" }),
     );
 
     const call = mockStartSSOFlow.mock.calls[0][0] as { redirectUrl: string };
