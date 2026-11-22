@@ -3,18 +3,19 @@ import { Link } from "wouter";
 /**
  * Privacy policy for the app and this website.
  *
- * App Store Connect's Privacy Policy URL points here
- * (https://pregnancy-assistant.com/privacy). It must agree with the App Privacy
+ * App Store Connect's Privacy Policy URL and Google Play's privacy policy
+ * URL point here (https://pregnancy-assistant.com/privacy). Play's Data
+ * safety account deletion URL points to /delete-account. It must agree with the App Privacy
  * answers recorded in docs/app-privacy.md and with what the code actually
  * stores and sends. Change all three together, and update EFFECTIVE_DATE.
  */
 
-export const EFFECTIVE_DATE = "November 11, 2026";
+export const EFFECTIVE_DATE = "November 22, 2026";
 export const PRIVACY_EMAIL = "privacy@brk-services.com";
 /** The legal entity, as registered with Apple. Not PLLC. */
 export const COMPANY_NAME = "BRK Services LLC";
 
-function Section({
+export function Section({
   title,
   children,
 }: {
@@ -31,7 +32,7 @@ function Section({
   );
 }
 
-function List({ children }: { children: React.ReactNode }) {
+export function List({ children }: { children: React.ReactNode }) {
   return <ul className="list-disc pl-6 space-y-2">{children}</ul>;
 }
 
@@ -85,10 +86,10 @@ export default function PrivacyPage() {
 
         <Section title="Who we are">
           <p>
-            This policy covers the Pregnancy AI Assistant app for iPhone and
-            Apple Watch and the website at pregnancy-assistant.com (together,
-            "the app"), provided by {COMPANY_NAME} ("we", "us"). Questions and
-            requests about your data go to{" "}
+            This policy covers the Pregnancy AI Assistant app for iPhone, Apple
+            Watch and Android, and the website at pregnancy-assistant.com
+            (together, "the app"), provided by {COMPANY_NAME} ("we", "us").
+            Questions and requests about your data go to{" "}
             <a
               href={`mailto:${PRIVACY_EMAIL}`}
               className="text-[#c96b6b] underline"
@@ -133,7 +134,8 @@ export default function PrivacyPage() {
           <p>
             <strong>Your purchase.</strong> Whether you have bought the Full
             Pregnancy Pass, and when, so we can unlock it on every device.
-            Payment itself is handled by Apple; we never see your card details.
+            Payment itself is handled by Apple or Google Play; we never see your
+            card details.
           </p>
           <p>
             <strong>Anonymous usage counts.</strong> We count a few steps, such
@@ -194,8 +196,9 @@ export default function PrivacyPage() {
               from the questions you send.
             </li>
             <li>
-              <strong>RevenueCat</strong> and <strong>Apple</strong> — process
-              and verify in-app purchases.
+              <strong>RevenueCat</strong>, <strong>Apple</strong> and{" "}
+              <strong>Google Play</strong> — process and verify in-app
+              purchases.
             </li>
             <li>
               <strong>OpenStreetMap</strong> — turns your provider's and
@@ -217,9 +220,17 @@ export default function PrivacyPage() {
             question counts from our server, and removes your sign-in account.
           </p>
           <p>
-            Records of a purchase are kept by Apple and RevenueCat as part of
-            the transaction, under their policies. Anonymous usage counts are
-            not linked to you, so they are unaffected.
+            No longer have the app? See{" "}
+            <Link href="/delete-account" className="text-[#c96b6b] underline">
+              how to delete your account without the app
+            </Link>
+            .
+          </p>
+          <p>
+            Records of a purchase are kept by Apple or Google Play, and by
+            RevenueCat, as part of the transaction, under their policies.
+            Anonymous usage counts are not linked to you, so they are
+            unaffected.
           </p>
           <p>
             You can see and change what you have entered at any time in the app.

@@ -11,6 +11,7 @@ import NotFound from "@/pages/not-found";
 import CalculatorPage from "@/pages/calculator";
 import LandingPage from "@/pages/landing";
 import PrivacyPage from "@/pages/privacy";
+import DeleteAccountPage from "@/pages/delete-account";
 
 const queryClient = new QueryClient();
 
@@ -80,6 +81,7 @@ function Router() {
       <Route path="/" component={LandingPage} />
       <Route path="/app" component={CalculatorPage} />
       <Route path="/privacy" component={PrivacyPage} />
+      <Route path="/delete-account" component={DeleteAccountPage} />
       <Route path="/sign-in/*?">{() => <AuthPage mode="sign-in" />}</Route>
       <Route path="/sign-up/*?">{() => <AuthPage mode="sign-up" />}</Route>
       <Route component={NotFound} />
