@@ -191,7 +191,7 @@ async function main(): Promise<void> {
     findUserIdsByEmail,
     deleteAccount,
     deleteRevenueCatCustomer,
-    log: (line) => console.log(line),
+    log: (line) => process.stdout.write(`${line}\n`),
   });
 }
 
@@ -203,7 +203,8 @@ if (isEntryPoint) {
   main().then(
     () => process.exit(0),
     (error: unknown) => {
-      console.error(error instanceof Error ? error.message : error);
+      const message = error instanceof Error ? error.message : String(error);
+      process.stderr.write(`${message}\n`);
       process.exit(1);
     },
   );
