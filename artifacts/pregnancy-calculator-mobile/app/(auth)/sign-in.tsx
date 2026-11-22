@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { isCancelError, logAuthFailure } from "@/lib/auth-cancel";
+import { SSO_CALLBACK_PATH, startGoogleSSO } from "@/lib/sso-redirect";
 import {
   clerkErrorMessage,
   globalClerkErrorText,
@@ -267,13 +268,21 @@ export default function SignInScreen() {
           "Google sign-in: expo.scheme is not set in app.json — OAuth redirect URI will be incorrect.",
         );
       }
-      const { createdSessionId, setActive } = await startSSOFlow({
-        strategy: "oauth_google",
-        // Read the scheme from app.json via Constants so a rename stays in sync.
-        redirectUrl: AuthSession.makeRedirectUri({
-          scheme: typeof appScheme === "string" ? appScheme : appScheme?.[0],
-        }),
-      });
+      // startGoogleSSO recovers the Android case where Chrome's hand-back is
+      // reported as a dismissal; see lib/sso-redirect.ts.
+      const { createdSessionId, setActive } = await startGoogleSSO(
+        startSSOFlow,
+        {
+          strategy: "oauth_google",
+          // Read the scheme from app.json via Constants so a rename stays in
+          // sync. The path keeps Expo Router from treating the redirect as a
+          // link to Home (app/+native-intent.tsx ignores it).
+          redirectUrl: AuthSession.makeRedirectUri({
+            scheme: typeof appScheme === "string" ? appScheme : appScheme?.[0],
+            path: SSO_CALLBACK_PATH,
+          }),
+        },
+      );
 
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
