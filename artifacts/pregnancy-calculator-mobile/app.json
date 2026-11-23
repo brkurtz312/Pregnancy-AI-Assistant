@@ -120,7 +120,8 @@
       ],
       "./plugins/withWatchExtension",
       "./plugins/withAppleSignIn",
-      "./plugins/withValidateIOSIconCatalog"
+      "./plugins/withValidateIOSIconCatalog",
+      "./plugins/withOptionalHardwareFeatures"
     ],
     "experiments": {
       "typedRoutes": true,
