@@ -339,6 +339,6 @@ export function buildBirthPlanHtml(answers: BirthPlanAnswers): string {
 <h1>My Birth Plan</h1>
 <p class="sub">Based on the ACOG "Sample Birth Plan" patient education document. Review this with your ob-gyn well before your due date — unexpected things can happen, and your safest possible delivery is the shared goal.</p>
 ${sectionsHtml}
-<p class="footer">Generated in the Pregnancy Assistant app. Not medical advice; discuss all preferences with your care team.</p>
+<p class="footer">Generated in the Pregnancy AI Assistant app. Not medical advice; discuss all preferences with your care team.</p>
 </body></html>`;
 }

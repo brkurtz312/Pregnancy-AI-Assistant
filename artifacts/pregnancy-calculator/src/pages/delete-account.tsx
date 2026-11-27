@@ -33,7 +33,7 @@ export default function DeleteAccountPage() {
               <span className="text-lg leading-none">🌸</span>
             </div>
             <span className="font-serif text-lg font-bold tracking-tight">
-              Pregnancy Assistant
+              Pregnancy AI Assistant
             </span>
           </Link>
         </div>

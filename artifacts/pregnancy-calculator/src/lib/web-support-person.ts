@@ -97,6 +97,6 @@ export function buildSupportPersonHtml(vol: SupportPersonVolume): string {
 <p class="summary">${escapeHtml(vol.summary)}</p>
 <h2>What You'll Learn</h2>
 ${highlightRows}
-<p class="footer">From the Pregnancy Assistant app. Printed for personal use. Not medical advice — always follow guidance from the care team.</p>
+<p class="footer">From the Pregnancy AI Assistant app. Printed for personal use. Not medical advice — always follow guidance from the care team.</p>
 </body></html>`;
 }

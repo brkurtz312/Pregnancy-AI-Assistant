@@ -10,8 +10,11 @@ import { Button } from "@/components/ui/button";
 import { usePass } from "@/hooks/use-pass";
 import {
   ALREADY_PURCHASED_HINT,
+  APP_NAME,
   APP_STORE_URL,
+  APP_VERSION,
   GET_PASS_LABEL,
+  GOOGLE_PLAY_URL,
 } from "@/lib/app-store";
 
 const FREE_FEATURES = [
@@ -49,7 +52,87 @@ const HIGHLIGHTS = [
     title: "AI companion",
     body: "Ask anything about your pregnancy and get caring, clear answers any time.",
   },
+  {
+    emoji: "⏱️",
+    color: "#fdf0dc",
+    title: "Kicks & contractions",
+    body: "Count your baby's kicks and time contractions on your phone, or right from your Apple Watch.",
+  },
+  {
+    emoji: "📓",
+    color: "#f3e8f6",
+    title: "Pregnancy journal",
+    body: "Keep notes, photos and videos from every week in one private journal.",
+  },
+  {
+    emoji: "🔔",
+    color: "#e6f2f4",
+    title: "Appointment reminders",
+    body: "Schedule prenatal visits and get a reminder the morning before, with what your provider may cover.",
+  },
 ];
+
+/**
+ * Official App Store and Google Play badges, each a link to the app's listing.
+ * The badge artwork is Apple's and Google's own (public/images/badges); its
+ * proportions must not be changed, so only the height is set.
+ */
+function StoreBadges({
+  className = "",
+  testIdPrefix,
+}: {
+  className?: string;
+  testIdPrefix: string;
+}) {
+  return (
+    <div
+      className={`flex flex-wrap items-center justify-center gap-3 ${className}`}
+    >
+      <a
+        href={APP_STORE_URL}
+        target="_blank"
+        rel="noreferrer"
+        aria-label={`Download ${APP_NAME} on the App Store`}
+        data-testid={`${testIdPrefix}-app-store`}
+        className="rounded-[10px] transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c96b6b] focus-visible:ring-offset-2"
+      >
+        <img
+          src="/images/badges/app-store.svg"
+          alt="Download on the App Store"
+          className="h-12 w-auto"
+          width={144}
+          height={48}
+        />
+      </a>
+      <a
+        href={GOOGLE_PLAY_URL}
+        target="_blank"
+        rel="noreferrer"
+        aria-label={`Get ${APP_NAME} on Google Play`}
+        data-testid={`${testIdPrefix}-google-play`}
+        className="rounded-[10px] transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c96b6b] focus-visible:ring-offset-2"
+      >
+        <img
+          src="/images/badges/google-play.png"
+          alt="Get it on Google Play"
+          className="h-12 w-auto"
+          width={162}
+          height={48}
+        />
+      </a>
+    </div>
+  );
+}
+
+const GROWTH_WEEKS = [
+  { week: 12, size: "w-28 h-28 md:w-40 md:h-40" },
+  { week: 20, size: "w-32 h-32 md:w-48 md:h-48" },
+  { week: 28, size: "w-36 h-36 md:w-56 md:h-56" },
+];
+
+/** The promo video, exported from the ad. Lives in public/videos. */
+const PROMO_VIDEO = "/videos/pregnancy-ai-assistant-promo.mp4";
+const PROMO_POSTER = "/videos/pregnancy-ai-assistant-promo-poster.jpg";
 
 export default function LandingPage() {
   const { isSignedIn } = useAuth();
@@ -69,7 +152,7 @@ export default function LandingPage() {
               <span className="text-lg leading-none">🌸</span>
             </div>
             <span className="font-serif text-lg font-bold tracking-tight">
-              Pregnancy Assistant
+              {APP_NAME}
             </span>
           </Link>
           <div className="flex items-center gap-2">
@@ -132,8 +215,10 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-lg text-[#8a6055] max-w-xl mx-auto mb-10 leading-relaxed">
-            Calculate your due date, follow your baby's growth week by week, and
-            ask an AI companion anything — free to start.
+            {APP_NAME} is now on iPhone, Apple Watch and Android. Calculate your
+            due date, follow your baby's growth week by week, count kicks, time
+            contractions, keep a journal, and ask an AI companion anything —
+            free to start.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -158,6 +243,17 @@ export default function LandingPage() {
           <p className="text-sm text-[#b49080] mt-5">
             No subscription · One-time optional pass
           </p>
+
+          <div className="mt-10 flex flex-col items-center gap-3">
+            <p className="text-sm font-medium text-[#8a6055]">Get the app</p>
+            <StoreBadges testIdPrefix="hero-badge" />
+            <p
+              className="text-xs text-[#8a6055]"
+              data-testid="text-app-version"
+            >
+              Version {APP_VERSION} · iPhone, Apple Watch &amp; Android
+            </p>
+          </div>
         </div>
       </section>
 
@@ -179,6 +275,131 @@ export default function LandingPage() {
               <p className="text-[#6b5050] leading-relaxed text-sm">{body}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Ask anything */}
+      <section
+        className="max-w-6xl mx-auto px-4 md:px-8 py-14 md:py-20"
+        aria-labelledby="ask-heading"
+      >
+        <div className="grid gap-10 md:grid-cols-2 md:items-center">
+          <div className="space-y-4 text-center md:text-left">
+            <h2
+              id="ask-heading"
+              className="text-3xl md:text-5xl font-bold font-serif tracking-tight leading-[1.1]"
+            >
+              That 3 a.m. pregnancy question?
+            </h2>
+            <p className="text-lg text-[#8a6055] leading-relaxed">
+              Ask anything and get a clear answer, day or night, with 5 free
+              questions every week.
+            </p>
+            <p className="text-sm text-[#8a6055]">
+              General information, not medical advice.
+            </p>
+          </div>
+          <div
+            className="relative rounded-[2rem] bg-[#f4e3dc] p-5 md:p-8"
+            data-testid="ask-example"
+          >
+            <div className="flex flex-col items-end gap-1.5 mb-5">
+              <p className="max-w-[85%] rounded-3xl rounded-br-md bg-[#b65e5e] px-5 py-3.5 text-white font-medium leading-snug">
+                Is it normal to feel baby hiccups?
+              </p>
+              <span className="text-xs text-[#8a6055]">3:04 a.m.</span>
+            </div>
+            <div className="rounded-3xl bg-white p-5 md:p-6 shadow-md shadow-[#2d1f1a]/5">
+              <div className="flex items-center gap-3 mb-3">
+                <img
+                  src="/images/app-icon.webp"
+                  alt=""
+                  className="w-9 h-9 rounded-[10px] ring-1 ring-[#e8d5c8]"
+                  width={36}
+                  height={36}
+                />
+                <span className="text-sm font-semibold text-[#8a6055]">
+                  {APP_NAME}
+                </span>
+              </div>
+              <p className="text-[#2d1f1a] leading-relaxed">
+                Yes, it is very common. Many people feel small, rhythmic jumps
+                from the second trimester on, and they are usually harmless. If
+                anything feels different, check with your provider.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Week by week */}
+      <section
+        className="bg-[#2a1c18] text-[#fcf6f3]"
+        aria-labelledby="weeks-heading"
+      >
+        <div className="max-w-6xl mx-auto px-4 md:px-8 py-16 md:py-24 text-center">
+          <h2
+            id="weeks-heading"
+            className="text-3xl md:text-5xl font-bold font-serif tracking-tight leading-[1.1] mb-4"
+          >
+            See how baby grows, week by week.
+          </h2>
+          <p className="text-lg text-[#e9d5cc] max-w-xl mx-auto mb-12">
+            Development, milestones and size for every stage of pregnancy.
+          </p>
+          <ul className="flex items-end justify-center gap-4 md:gap-10">
+            {GROWTH_WEEKS.map(({ week, size }) => (
+              <li key={week} className="flex flex-col items-center gap-3">
+                <img
+                  src={`/images/weeks/week-${week}.webp`}
+                  alt={`Illustration of a baby at week ${week}`}
+                  className={`${size} object-cover [mask-image:radial-gradient(closest-side,#000_72%,transparent)]`}
+                  loading="lazy"
+                  width={224}
+                  height={224}
+                />
+                <span className="text-sm md:text-base font-semibold text-[#e7a57a]">
+                  Week {week}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* Promo video */}
+      <section
+        className="max-w-6xl mx-auto px-4 md:px-8 py-14 md:py-20"
+        aria-labelledby="video-heading"
+      >
+        <div className="grid gap-10 md:grid-cols-[1fr_auto] md:items-center">
+          <div className="space-y-4 text-center md:text-left">
+            <h2
+              id="video-heading"
+              className="text-3xl md:text-5xl font-bold font-serif tracking-tight leading-[1.1]"
+            >
+              See it in 15 seconds
+            </h2>
+            <p className="text-lg text-[#8a6055] leading-relaxed max-w-md mx-auto md:mx-0">
+              Ask a question, count kicks, time contractions and follow your
+              baby week by week, all in one app.
+            </p>
+            <StoreBadges
+              className="md:justify-start pt-2"
+              testIdPrefix="video-badge"
+            />
+          </div>
+          <video
+            className="mx-auto w-full max-w-[300px] aspect-[9/16] rounded-[2rem] bg-[#2a1c18] shadow-xl shadow-[#2d1f1a]/15"
+            src={PROMO_VIDEO}
+            poster={PROMO_POSTER}
+            controls
+            muted
+            playsInline
+            preload="none"
+            aria-label={`${APP_NAME} promo video`}
+            data-testid="promo-video"
+          />
         </div>
       </section>
 
@@ -364,6 +585,10 @@ export default function LandingPage() {
               <ArrowRight className="w-4 h-4" />
             </Link>
           </Button>
+          <p className="relative text-sm text-[#8a6055] mt-8 mb-3">
+            Or take {APP_NAME} with you
+          </p>
+          <StoreBadges className="relative" testIdPrefix="cta-badge" />
         </div>
       </section>
 
@@ -372,11 +597,9 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-4 md:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-[#8a6055]">
           <div className="flex items-center gap-2">
             <span className="text-base">🌸</span>
-            <span className="font-medium text-[#2d1f1a]">
-              Pregnancy Assistant
-            </span>
+            <span className="font-medium text-[#2d1f1a]">{APP_NAME}</span>
           </div>
-          <div className="flex items-center gap-5">
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
             <Link
               href="/app"
               className="hover:text-[#2d1f1a] transition-colors"
@@ -388,6 +611,22 @@ export default function LandingPage() {
               className="hover:text-[#2d1f1a] transition-colors"
             >
               Pricing
+            </a>
+            <a
+              href={APP_STORE_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-[#2d1f1a] transition-colors"
+            >
+              App Store
+            </a>
+            <a
+              href={GOOGLE_PLAY_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-[#2d1f1a] transition-colors"
+            >
+              Google Play
             </a>
             <Link
               href="/privacy"

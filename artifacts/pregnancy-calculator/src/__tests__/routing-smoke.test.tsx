@@ -130,15 +130,57 @@ describe("/ — Landing page", () => {
     const privacy = screen.getByRole("link", { name: "Privacy" });
     expect(privacy.getAttribute("href")).toBe("/privacy");
   });
+
+  it("shows the app's store name", () => {
+    renderLanding();
+    expect(
+      screen.getAllByText("Pregnancy AI Assistant").length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("links the store badges to the App Store and Google Play", () => {
+    renderLanding();
+    for (const prefix of ["hero-badge", "cta-badge"]) {
+      const apple = screen.getByTestId(`${prefix}-app-store`);
+      const google = screen.getByTestId(`${prefix}-google-play`);
+      expect(apple.getAttribute("href")).toBe(
+        "https://apps.apple.com/app/id6774959007",
+      );
+      expect(google.getAttribute("href")).toBe(
+        "https://play.google.com/store/apps/details?id=com.pregnancyassistant.app",
+      );
+      for (const link of [apple, google]) {
+        expect(link.getAttribute("target")).toBe("_blank");
+        expect(link.getAttribute("rel")).toContain("noreferrer");
+      }
+    }
+  });
+
+  it("embeds the promo video, muted and inline", () => {
+    renderLanding();
+    const video = screen.getByTestId("promo-video");
+    expect(video.getAttribute("src")).toBe(
+      "/videos/pregnancy-ai-assistant-promo.mp4",
+    );
+    expect((video as HTMLVideoElement).muted).toBe(true);
+    expect(video.hasAttribute("playsinline")).toBe(true);
+  });
+
+  it("shows the current app version", () => {
+    renderLanding();
+    expect(screen.getByTestId("text-app-version").textContent).toContain(
+      "1.1.1",
+    );
+  });
 });
 
 describe("/app — Calculator page", () => {
-  it("renders the Pregnancy Assistant heading", () => {
+  it("renders the Pregnancy AI Assistant heading", () => {
     renderCalculator();
     // The h1 on the calculator page contains this text
-    expect(screen.getAllByText("Pregnancy Assistant").length).toBeGreaterThan(
-      0,
-    );
+    expect(
+      screen.getAllByText("Pregnancy AI Assistant").length,
+    ).toBeGreaterThan(0);
   });
 
   it("renders the LMP calculator tab", () => {

@@ -227,6 +227,6 @@ export function buildHospitalBagHtml(
 <h1>Hospital Bag Checklist</h1>
 <p class="sub">${checked} of ${total} items packed. Pack around 36 weeks so you're ready whenever labor starts.</p>
 ${sectionsHtml}
-<p class="footer">Generated in the Pregnancy Assistant app. Not medical advice — check with your hospital or birth center for any specific requirements.</p>
+<p class="footer">Generated in the Pregnancy AI Assistant app. Not medical advice — check with your hospital or birth center for any specific requirements.</p>
 </body></html>`;
 }
